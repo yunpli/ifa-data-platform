@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ifa-data-platform"
 version = "0.1.0"
-description = "Clean Python data platform for IFA/FIT processing"
+description = "IFA 2.0 data and evidence substrate"
 requires-python = ">=3.11"
 dependencies = [
     "sqlalchemy>=2.0.0",
