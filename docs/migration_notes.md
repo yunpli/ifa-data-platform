@@ -2,91 +2,87 @@
 
 ## 1. Migration principle
 
-This repository is the new main branch for the IFA data substrate. Migration means **reusing object boundaries and operational lessons**, not inheriting historical execution-chain pollution.
+This repository is the new engineering mainline for the backend substrate behind **iFA 2.0**.
 
-The goal is to carry forward:
-- useful object ideas
-- stable identifiers and field concepts
-- proven domain boundaries
-- operational lessons learned
+Migration does **not** mean copying the old IFA / ICD execution chain into a new repo. It means preserving what is useful while breaking the old coupling that made the previous chain hard to evolve.
 
-and leave behind:
-- coupled manual/archive/runs execution patterns
-- report-chain-first structure
-- ad-hoc script glue as the primary architecture
-- historical one-off fixes embedded as system design
+Carry forward:
+- useful object boundaries
+- evidence/fact field ideas
+- market/report operational lessons
+- source knowledge and historical pain points
 
-## 2. Why old manual/archive/runs should not remain the backbone
+Leave behind:
+- tightly coupled fetch -> interpret -> assemble -> deliver chains
+- report-time-only state
+- archive/manual/runs as architecture anchors
+- one-off repair logic as core system design
 
-The old chains were optimized around getting reports out, not around maintaining a durable evidence and fact substrate.
+## 2. What changed in the current understanding
 
-That created several problems:
-- repeated re-fetching and re-interpretation
-- weak separation between data collection and report generation
-- operational state tied to execution chains instead of durable facts
-- poor replayability
-- higher debugging cost when a run failed late in the chain
+The corrected product context is:
+- iFA 2.0 is primarily a **report product** built around market-clock delivery
+- 2.0 output is briefing + general market long reports
+- 2.1 / 2.2 / 3.x add later layers of personalization and strategy capability
 
-The new repo exists specifically to break that pattern.
+Therefore this repo should not be described as an isolated end-state data product detached from the report system.
 
-## 3. What is reasonable to reference from old assets
+The correct framing is:
+- this repo is the backend substrate **serving iFA 2.0 report production**
+- it must still be independently operable enough to provide stable schema/runtime contracts
+- but its architecture should remain subordinate to the product delivery path, not abstracted away from it
 
-### Reusable ideas
-- practical object boundaries from existing `ifa_*` scripts and tables
-- useful market/fact/source naming patterns
-- lessons from ingestion pain points and slot-query expectations
-- existing `ifa_db.py` connectivity assumptions for `ifa_db`
+## 3. What is reasonable to reuse from old assets
 
-### Reusable fields or concepts
-- source registry style concepts
-- market bar identity patterns
-- filing/fact relationships
-- slot-oriented serving expectations
-- run tracking as an explicit object
+### Reusable references
+- practical object ideas from `ifa_*` scripts/tables
+- naming and identity patterns for market/fact/source entities
+- old operational lessons about timing, failure points, and report production pain
+- existing DB connectivity assumptions around `ifa_db`
 
-### Historical assets that are reference-only
-- old archive directories
-- report outputs
+### Reference-only materials
+- old archive folders
+- historical report outputs
+- manual scripts
 - run artifacts
-- manual scripts for specific domains
-- one-off recovery notes / backups / rollout docs
+- recovery notes and ad-hoc fixes
 
-## 4. What should not be carried over directly
+These can inform design, but they should not define the new runtime backbone.
 
-- old report-generation-first script chains
-- manual/archive/runs directories as primary design anchors
-- OpenClaw-specific business execution logic inside the new core
-- domain-specific repair code as generalized platform abstractions
-- schema shapes that only make sense for a single report flow
+## 4. What should not be transplanted directly
+
+- old manual/archive/runs as core structure
+- report-generation-first chains as the permanent backend model
+- OpenClaw-specific orchestration details inside the repo core
+- domain-specific patch logic generalized as architecture
+- assumptions that every report run must rebuild evidence from scratch
 
 ## 5. Current migration stance
 
 ### New mainline
-- `ifa-data-platform` repo
-- PostgreSQL schema `ifa2`
-- Alembic-managed migrations
-- scheduler/worker/adapter/client contracts
+- repo: `ifa-data-platform`
+- database host: `ifa_db`
+- isolated schema: `ifa2`
+- migration system: Alembic
+- runtime baseline: minimal scheduler/worker/job-state loop
 
-### Old system role going forward
-- reference
+### Current role of the old system
+- historical reference
 - source of lessons
-- source of candidate field ideas
-- source of operational examples
-- not the primary backbone
+- source of candidate field/object boundaries
+- not the future mainline
 
-## 6. Current concrete environment findings
+## 6. Migration method from here
 
-Current environment already indicates:
-- existing PostgreSQL database `ifa_db`
-- local connection path via `/tmp:5432`
-- existing helper logic in `/Users/neoclaw/.openclaw/workspace/scripts/ifa_db.py`
-- prior `ifa_*` implementation material that can inform boundaries but should not be transplanted wholesale
+1. keep the new repo as the engineering main branch
+2. preserve the already-landed real schema/runtime closure
+3. refine naming/contracts so they better serve iFA 2.0 report production
+4. selectively absorb old object knowledge without reviving old coupling
+5. gradually introduce richer report-material inputs, then adapter/source onboarding
 
-## 7. Next migration method
+## 7. Practical rule
 
-Migration should proceed as:
-1. establish independent schema + migrations
-2. stabilize runtime and object contracts
-3. selectively reference old field/object ideas
-4. onboard first real sources through new adapters
-5. let upper layers consume slot-query outputs from the new system
+When deciding whether to carry something over from old IFA/ICD, use this test:
+
+- If it improves evidence continuity, replayability, provenance, or reusable report inputs, it is a candidate.
+- If it mainly preserves old chain coupling, late-stage patching, or report-time-only glue, it should stay behind.

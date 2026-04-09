@@ -1,128 +1,175 @@
 # IFA Data Platform
 
-IFA Data Platform is the independent **data and evidence substrate** for **IFA 2.0** and future **IFA 2.x / 3.x** systems.
+IFA Data Platform is the backend data/runtime foundation for **iFA 2.0**.
 
-Its job is **not** to render reports directly. Its job is to build a durable, queryable, replayable foundation that separates:
+It exists to support the **iFA 2.0 report system**: a market-clock-driven, AI-native market-intelligence product for A-share and US equity workflows. In 2.0, the product focus is **briefing + general market long reports**, delivered in a stable rhythm under the **one-main three-support** structure, not personalized watchlist/holdings intelligence yet.
 
-- source acquisition
-- raw evidence accumulation
-- normalization
-- fact derivation
-- provenance / audit
-- slot-oriented serving
+This repository should therefore be understood as a **supporting engineering backbone** for iFA 2.0 report production — not as a detached generic Python skeleton, and not yet as the full end-state of iFA 3.x.
 
-from downstream report generation, chat, strategy, and delivery layers.
+## What this repo is for
+
+The purpose of this repo is to make iFA 2.0 report generation:
+
+- evidence-backed
+- replayable
+- auditable
+- deadline-aware
+- operationally stable
+
+That means building the minimum durable backend contracts behind report delivery:
+
+- source ingestion
+- raw evidence retention
+- normalized market/release/filing objects
+- typed facts and derived signals
+- section/block materialization inputs
+- job state, health checks, and operational traces
+
+The immediate product it serves is **iFA 2.0 briefing + long-report delivery**, not standalone data monetization.
+
+## Product position in iFA evolution
+
+### iFA 2.0
+Current target:
+- general market intelligence only
+- briefing + long report
+- one-main three-support agent/report structure
+- market-clock delivery (pre-market / intraday / post-market)
+- continuity validation across time windows
+- no personalized watchlist / holdings decisions
+
+This repo supports that by providing the backend substrate for:
+- evidence capture
+- fact/signal preparation
+- report block inputs
+- run-state / deadline / retry foundations
+
+### iFA 2.1
+Planned extension direction:
+- watchlist intelligence
+- trigger tracking
+- multi-horizon monitoring inputs
+
+### iFA 2.2
+Planned extension direction:
+- holdings intelligence
+- exposure/risk views
+- more personalized strategy-facing inputs
+
+### iFA 3.x
+Longer-term direction:
+- strategy intelligence
+- stock-selection intelligence
+- stronger judgment/outcome loops
+- model evolution on top of accumulated facts/signals/judgments/results
 
 ## Why this repo exists
 
-The old IFA / ICD chains mixed together data fetching, one-off interpretation, archive handling, and report generation. That made the system harder to audit, replay, debug, and evolve. IFA 2.0 requires a stronger substrate:
+The old IFA / ICD execution chain is useful as historical reference, but it is not a strong enough backbone for iFA 2.0.
 
-- evidence should accumulate over time rather than being re-fetched for every report
-- facts should be queryable over months/years, not trapped inside one run
-- every fact should be traceable back to raw payloads, normalized records, adapter runs, and source policy
-- source policy, freshness, cadence, and retry behavior should be centrally enforced
-- upper layers should consume deterministic slot bundles, not rebuild evidence from scratch every time
+Old patterns mixed together:
+- fetching
+- one-off interpretation
+- report assembly
+- archive handling
+- delivery-time logic
 
-This repository is the engineering starting point for that substrate.
+That creates several problems:
+- repeated re-fetching instead of durable accumulation
+- weak evidence continuity across pre/intra/post windows
+- hard-to-debug late-stage failures
+- unclear provenance for final report statements
+- poor support for replay, validation, and future model improvement
 
-## Product position in IFA 2.0 -> 2.x -> 3.x
-
-### IFA 2.0
-This repo provides the **data layer / evidence foundation** for a market-intelligence system serving A-share and US equity workflows around market-clock delivery.
-
-### IFA 2.x
-This repo is intended to support:
-- watchlist intelligence
-- holdings intelligence
-- reusable fact bundles
-- slot-oriented market state retrieval
-- evidence-backed downstream decisions
-
-### IFA 3.x
-This repo is intended to remain the durable base for:
-- strategy intelligence
-- longitudinal fact history
-- replay and drift analysis
-- learned systems built on persistent evidence instead of transient prompts
+For iFA 2.0, report delivery is the product surface — but stable delivery requires a stronger backend substrate underneath it.
 
 ## Current phase
 
-Current phase is **preparation + architecture + skeleton implementation**.
+Current phase is:
+
+**preparation + architecture + skeleton + minimum runnable closure**
+
+This is intentional.
+
+At this stage, the goal is **not** to fully build the complete iFA 2.0 production system in one shot. The goal is to establish the minimum correct backbone so later report workflows are built on durable contracts instead of another coupled script chain.
 
 ### In scope now
 - independent repo and Python project skeleton
-- PostgreSQL schema `ifa2`
-- migration framework
-- source adapter abstractions
-- raw -> normalized -> fact -> serving data model boundaries
-- scheduler / worker / job lifecycle skeleton
-- health / audit / provenance contracts
-- provider-agnostic client and ingestion framework
-- minimal runnable demo for long-running service architecture
+- real PostgreSQL schema `ifa2` inside existing `ifa_db`
+- Alembic migration flow
+- minimal runtime/job state loop
+- health checks and runnable demo
+- core data-layer boundaries for raw -> normalized -> facts
+- architecture docs aligned to iFA 2.0 product delivery
 
 ### Not in scope now
-- full provider onboarding
-- fixing the old IFA / ICD report chain
-- making report rendering the primary focus
-- trying to finalize every vendor selection before the platform exists
-- putting OpenClaw in charge of core ingestion loops
-- one-shot building of every future IFA capability
+- full iFA 2.0 product completion
+- all report templates and rendering paths
+- full FastAPI/Celery/Redis production rollout
+- all source adapters and all markets onboarded
+- 2.1 watchlist intelligence
+- 2.2 holdings intelligence
+- 3.x strategy/stock-selection intelligence
+
+## Architecture stance
+
+The correct architectural stance is:
+
+**iFA 2.0 is not just "scheduled prompts + pushes".**
+
+It must be implemented as a market-intelligence system with:
+- a durable data/fact/signal substrate
+- report-block-oriented materialization
+- run state + deadline + retry/degrade controls
+- evidence traceability
+- continuity checks across report windows
+
+This repo currently covers the **backend substrate side** of that architecture.
+
+Canonical backend flow at this stage:
+
+`raw evidence -> normalized objects -> typed facts/signals -> report material inputs / slot-oriented bundles`
 
 ## OpenClaw boundary
 
-OpenClaw is **not** the primary ingestion/data-processing skeleton for this system.
+OpenClaw is not the core data-processing runtime of this repository.
 
-OpenClaw should act as:
+OpenClaw should remain:
+- orchestration/operator surface
+- watchdog/observer
 - upper-layer consumer
-- watchdog / health observer
-- operator entrypoint
-- orchestration layer for surrounding workflows
+- surrounding workflow coordinator
 
-The data platform itself should remain independently operable as a service/library with its own runtime, schema, migrations, and operational contracts.
+The core repo should stay independently operable with its own:
+- schema
+- migrations
+- runtime loop
+- job state
+- health checks
+- future API / worker contracts
 
-## Core architecture direction
+## Storage and runtime direction
 
-Canonical flow:
+Current implemented direction:
+- PostgreSQL as operational store
+- `ifa_db` as current host database
+- `ifa2` as isolated schema
+- Python runtime skeleton
+- migration-managed schema evolution
+- minimal job lifecycle persistence in `ifa2.job_runs`
 
-`raw evidence -> normalized objects -> typed facts -> slot query bundle`
+Near-term compatible direction:
+- Redis for coordination/cache
+- richer fact/signal materialization
+- block-oriented report inputs
+- deadline/retry/degrade control plane semantics
+- future report-generation and delivery integration
 
-The long-term contract to upper layers is a slot query surface that returns a deterministic bundle of facts, evidence coverage, freshness, and gaps.
+## Current status
 
-## Storage direction
-
-Current engineering direction for this repository:
-- PostgreSQL as the primary operational store
-- `ifa_db` as the current host database
-- `ifa2` as the new isolated schema
-- Redis reserved as runtime/cache coordination layer
-- object storage compatibility reserved for raw payload expansion
-- provider-agnostic adapter-first ingestion model
-
-The uploaded design materials also point toward a broader long-term stack (time-series optimization, vector/RAG support, object-store raw archive, local/offline replay). This repository is being shaped so those directions can be added without redoing the backbone.
-
-## Repository layout
-
-```text
-README.md
-docs/
-  architecture.md
-  runbook.md
-  migration_notes.md
-src/ifa_data_platform/
-  api/
-  adapters/
-  clients/
-  config/
-  contracts/
-  db/
-  models/
-  runtime/
-  services/
-tests/
-alembic/
-config/
-scripts/
-```
+- Checkpoint 1: repo skeleton established
+- Checkpoint 2: real `ifa2` schema migration landed in `ifa_db`
+- Workstream 3: minimal runtime/job loop runnable and verified
 
 ## Local development quick start
 
@@ -135,24 +182,6 @@ alembic upgrade head
 pytest
 python scripts/demo_runtime.py
 ```
-
-## Progress status
-
-- Checkpoint 1: repo skeleton established
-- Checkpoint 2: schema + migration in progress / being closed against real `ifa_db`
-- Workstream 3: runtime skeleton and demo being added
-
-## Implementation phases
-
-1. Skeleton and architecture backbone
-2. Real schema + migration closure in `ifa2`
-3. Scheduler/worker/job state/health minimal loop
-4. First provider-agnostic adapter and client demo
-5. Controlled first real source onboarding
-
-## Design rule
-
-This repo reuses **object boundaries and lessons** from old assets when helpful, but it does **not** inherit old execution-chain pollution as the new system backbone.
 
 ## Documentation
 

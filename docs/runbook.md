@@ -2,9 +2,9 @@
 
 ## 1. Purpose
 
-This runbook covers the current minimum-operational workflow for the IFA Data Platform skeleton.
+This runbook covers the current minimum-operational workflow for the backend skeleton supporting **iFA 2.0**.
 
-At this stage the system is still early, but the repository should already be:
+At the current phase, the repository is not the complete product system. It is the minimum runnable backend foundation that should already be:
 - startable
 - inspectable
 - migratable
@@ -29,7 +29,7 @@ cp .env.example .env
 
 ## 4. Database setup
 
-Current intended DB target is the existing `ifa_db` database with a new `ifa2` schema.
+Current DB target is the existing `ifa_db` database with a new `ifa2` schema.
 
 ### Run migrations
 ```bash
@@ -38,12 +38,22 @@ alembic upgrade head
 
 ### Check whether schema exists
 ```bash
-psql -h /tmp -p 5432 -U neoclaw -d ifa_db -c "select schema_name from information_schema.schemata where schema_name='ifa2';"
+python - <<'PY'
+from sqlalchemy import create_engine, text
+engine = create_engine('postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp', future=True)
+with engine.begin() as conn:
+    print(conn.execute(text("select schema_name from information_schema.schemata where schema_name='ifa2'" )).fetchall())
+PY
 ```
 
 ### Check whether core tables exist
 ```bash
-psql -h /tmp -p 5432 -U neoclaw -d ifa_db -c "select table_name from information_schema.tables where table_schema='ifa2' order by table_name;"
+python - <<'PY'
+from sqlalchemy import create_engine, text
+engine = create_engine('postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp', future=True)
+with engine.begin() as conn:
+    print(conn.execute(text("select table_name from information_schema.tables where table_schema='ifa2' order by table_name")).fetchall())
+PY
 ```
 
 ## 5. Runtime demo
@@ -70,21 +80,23 @@ Expected behavior:
 pytest
 ```
 
-## 7. Health checks
+## 7. What this proves at current stage
 
-At the current stage, health means:
+A successful run currently proves only the minimum closure needed for the backbone stage:
 - database reachable
 - migrations applied
-- worker/scheduler demo runnable
-- recent `job_runs` rows are writable/readable
+- runtime/job loop can write/read state
+- schema and code path are aligned
 
-## 8. When a job fails
+It does **not** yet prove complete iFA 2.0 production readiness.
+
+## 8. When a run fails
 
 Check in this order:
 1. virtualenv and dependency install
 2. database connectivity
 3. schema migration status
-4. recent `job_runs` rows
+4. recent `job_runs` write/read path
 5. stack trace / stderr from demo or worker entrypoint
 
 ## 9. Common current-stage issues
@@ -96,6 +108,13 @@ Symptoms:
 
 Likely cause:
 - local DSN or socket path not aligned with actual `ifa_db`
+
+### Migration/runtime race
+Symptoms:
+- migration succeeds or is still running, but demo immediately errors on missing tables
+
+Likely cause:
+- demo started before migration finished when run in parallel
 
 ### Migration mismatch
 Symptoms:
@@ -116,6 +135,6 @@ Likely cause:
 
 - provider integrations are not complete
 - Redis integration is reserved but not yet mandatory
-- slot query is contract-first, not yet full production serving
-- object store/raw payload archive is future-facing, not fully implemented
-- the runtime demo proves architecture direction, not final production throughput
+- slot/material input serving is still minimal
+- report generation and delivery are not yet implemented here
+- the runtime demo proves backbone direction, not final production throughput

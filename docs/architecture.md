@@ -1,140 +1,192 @@
 # Architecture
 
-## 1. Product-driven architecture rationale
+## 1. Product anchor
 
-IFA 2.0 is a market-intelligence system, not just a report generator. Its long-term value comes from maintaining a structured, queryable, reviewable flow of evidence and facts over time. That product goal directly determines the architecture:
+The correct anchor for this repository is **iFA 2.0 product delivery**.
 
-- evidence must be preserved outside a single report run
-- normalization must be separated from downstream interpretation
-- facts must remain queryable over time
-- upper layers must consume a deterministic contract rather than scrape and reinterpret sources repeatedly
-- provenance, freshness, source policy, and auditability must be first-class system concerns
+The product is not "a generic AI report bot". It is a market-clock-driven market-intelligence system for A-share and US equity workflows. In version 2.0, the deliverable is:
 
-The IFA Data Platform exists to make those properties operational.
+- briefing
+- general market long reports
+- one-main three-support structure
+- pre-market / intraday / post-market continuity
+- evidence-backed professional output
 
-## 2. System boundary
+Therefore the architecture cannot be reduced to "a few agents generate text on schedule". The backend must provide a stable substrate for evidence, facts, signals, run control, and continuity validation.
 
-The data platform is an independent service/library layer.
+## 2. Architectural conclusion
 
-### It owns
-- source registry and source policy
-- ingestion jobs and adapter lifecycle
-- raw evidence archive pointers and metadata
-- normalized internal objects
-- typed facts and fact provenance
-- slot materialization and serving contracts
-- job state, audit, observability, health
+iFA 2.0 should be implemented as a **Market-Intelligence Operating System** shape, not merely a timed generation chain.
 
-### It does not own
-- report rendering as a primary concern
-- subscription/delivery logic as a core design anchor
-- old manual/archive/runs chain semantics
-- OpenClaw runtime logic as its core execution model
+At repo scope, this repository currently covers the **data/runtime substrate** portion of that operating model.
 
-### OpenClaw relation
-OpenClaw should sit above this system as:
-- consumer
-- watchdog
-- operator surface
-- orchestration layer for adjacent workflows
+That means the repo should evolve toward supporting:
+- source ingestion and normalization
+- fact/signal accumulation
+- evidence provenance
+- block/material input assembly
+- run-state / deadline / retry / degrade control hooks
+- report-generation inputs that are deterministic enough to debug
 
-It should not be the primary ingestion skeleton for the data layer.
+## 3. Scope boundary of this repository
 
-## 3. Canonical layers
+### This repo owns
+- raw evidence capture and persistence boundaries
+- normalized internal market/release/filing objects
+- typed facts and future derived signals
+- runtime job state and health checks
+- migration-managed schema in `ifa2`
+- minimal materialization inputs for report production
 
-### 3.1 Raw layer
+### This repo does not own yet
+- full report rendering system
+- full delivery system
+- full subscription and commercialization logic
+- complete control-plane implementation
+- full multi-agent product orchestration
+- 2.1/2.2 personalization features
+
+### Why this boundary is correct
+Because iFA 2.0 still needs a real backend spine, but this repo should not pretend to already be the entire product system. It is the engineering backbone for the product, not the entire surface area.
+
+## 4. Product-to-technical mapping
+
+### Product requirement: market-clock continuity
+Technical implication:
+- pre / intra / post windows must share durable state and comparable evidence
+- report generation cannot rely on purely transient prompts
+
+### Product requirement: evidence-backed professional output
+Technical implication:
+- conclusions must trace to source records, normalized objects, and fact-bearing inputs
+- provenance and timestamping are first-class
+
+### Product requirement: one-main three-support structure
+Technical implication:
+- backend inputs should be reusable across multiple report types/agents
+- materialization should support section/block reuse, not one giant opaque prompt
+
+### Product requirement: continuity validation
+Technical implication:
+- later runs should be able to compare against earlier hypotheses
+- the substrate must preserve enough state to mark validation / partial validation / invalidation later
+
+### Product requirement: future 2.1 / 2.2 / 3.x extensibility
+Technical implication:
+- current schema/runtime should not dead-end at static report generation
+- fact/signal/judgment-oriented evolution path must stay open
+
+## 5. Current canonical backend flow
+
+At the current stage, the working backend flow is:
+
+`raw evidence -> normalized objects -> typed facts/signals -> report material inputs`
+
+A slightly more complete target form is:
+
+`raw -> refined -> facts/signals -> section/material bundle -> generation -> rendering/delivery`
+
+This repo is currently focused on the left/middle portion of that chain.
+
+## 6. Layer model
+
+### 6.1 Source & ingestion layer
 Purpose:
-- preserve source payload identity, hashes, timestamps, source/run linkage, and replayability
-- provide evidence retention independent of report jobs
+- fetch from official/public/market sources
+- track source identity and runtime execution
+- preserve replayability
 
-Representative objects:
+Representative concerns:
+- source policy
+- job lifecycle
+- fetch timestamps
+- retries / cadence / audit hooks
+
+### 6.2 Raw evidence layer
+Purpose:
+- preserve what was acquired
+- retain hashes, payload linkage, timestamps, and source/run relations
+
+Current representative object:
 - `raw_records`
-- future object-store payload pointers
 
-### 3.2 Normalized object layer
+### 6.3 Normalization layer
 Purpose:
-- land heterogeneous sources into stable internal object boundaries before any fact semantics
-- isolate parsing from downstream business interpretation
+- turn heterogeneous inputs into stable internal shapes before generation-time interpretation
 
-Representative objects:
+Current representative objects:
 - `items`
 - `official_events`
 - `market_bars`
 - `filings`
 
-### 3.3 Fact layer
+### 6.4 Fact/signal layer
 Purpose:
-- derive typed, reusable, evidence-backed facts
-- support revisions, confidence, and later evidence graph expansion
+- produce reusable typed information from normalized records
+- support future continuity checks and richer report blocks
 
-Representative objects:
+Current representative objects:
 - `facts`
 - `fact_sources`
 
-### 3.4 Serving / slot layer
+### 6.5 Materialization/input assembly layer
 Purpose:
-- expose a stable contract to upper layers
-- materialize domain/date/slot views instead of forcing re-fetch + re-parse loops
+- bridge durable backend assets into report-ready bundles
+- support reusable sections/blocks instead of full opaque prompt assembly
 
-Representative objects:
+Current representative object:
 - `slot_materializations`
 
-Long-term serving contract:
-- input: `(domain, date, slot, policy)`
-- output: facts bundle + evidence coverage + freshness + gaps
+This table/object is still only a minimal placeholder. The architectural meaning is more important than the present implementation depth.
 
-## 4. Provider-agnostic first
+## 7. Runtime/control implications
 
-At the current stage, upstream vendor choice should not block foundational engineering. Therefore the platform starts adapter-first and provider-agnostic:
+Even in 2.0, report production is a timed system. Therefore the backend must be designed with eventual support for:
+- run states
+- deadlines
+- retries
+- degradation rules
+- notification hooks
+- replay/backfill
 
-- source capability is described explicitly
-- normalization contracts remain internal and stable
-- provenance policy remains consistent even when providers change
-- the scheduler/worker/job framework can be completed before every market data source is finalized
+Current implementation only covers a minimal subset:
+- job state persistence through `job_runs`
+- scheduler/worker demo loop
+- health checks
 
-This is a deliberate anti-lock-in and anti-blocking choice.
+That is enough for the current skeleton stage, but not the final operating model.
 
-## 5. Operational model
+## 8. OpenClaw boundary
 
-The intended runtime loop is:
+OpenClaw should remain above this repository as:
+- operator surface
+- workflow orchestrator
+- consumer of outputs
+- watchdog/observer
 
-1. scheduler decides what should run
-2. worker executes fetch / normalize / upsert / derive
-3. job lifecycle is written into `job_runs`
-4. health checks validate freshness and service liveness
-5. upper layers consume slot-oriented materialization instead of raw script chains
+It should not replace the internal runtime/data contracts of the repo.
 
-## 6. Current storage direction vs long-term direction
+## 9. Why old IFA/ICD chains are reference only
 
-### Current fixed direction for this phase
-- Python implementation
-- PostgreSQL operational database
-- `ifa_db` host database
-- isolated `ifa2` schema
-- Redis reserved in interface/runtime contracts
+Old chains contain valuable lessons and object ideas, but they were optimized around shipping reports, not around maintaining a durable, auditable, replayable operating substrate.
 
-### Long-term design direction absorbed from uploaded specifications
-The uploaded design specs reinforce several future-compatible directions that this repo should stay open to:
-- raw payloads may expand into object storage pointers
-- time-series workloads may deserve dedicated optimization paths
-- vector/RAG support may become part of evidence retrieval
-- slot query should become the only supported upper-layer interface
+That old coupling mixed:
+- fetch
+- interpret
+- assemble
+- archive
+- deliver
 
-This repository does **not** have to implement every one of those now, but its contracts should not block them later.
+The new repo should extract lessons, not inherit that coupling as the new core.
 
-## 7. Why old IFA/manual/archive/runs are not the new backbone
+## 10. Current implemented reality
 
-Old assets are useful as:
-- examples of domain object boundaries
-- field naming references
-- evidence of real operational pain points
-- migration/reference material
+As of the current checkpoint, this repo has:
+- migration-managed `ifa2` schema
+- core placeholder tables for source/raw/item/event/bar/filing/fact/materialization objects
+- a runnable minimal runtime/job loop
+- health check coverage for schema + job state path
 
-They are not suitable as the primary backbone because they tightly coupled:
-- acquisition
-- interpretation
-- archive handling
-- report delivery
-- one-off execution logic
+So the correct description is:
 
-That coupling is precisely what the new platform is meant to undo.
+**not complete iFA 2.0**, but **a now-real backend skeleton aligned to iFA 2.0 architecture instead of a generic toy scaffold**.
