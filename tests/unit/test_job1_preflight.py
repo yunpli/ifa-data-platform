@@ -61,6 +61,28 @@ class TestTushareClient:
         client = get_tushare_client(token="factory_test_token")
         assert client._token == "factory_test_token"
 
+    def test_query_maps_fields_to_dicts(self):
+        """Test that query() converts Tushare field/item payloads to row dicts."""
+        from ifa_data_platform.tushare.client import TushareClient
+
+        client = TushareClient(token="test_token")
+        with patch.object(
+            client,
+            "_request",
+            return_value={
+                "code": 0,
+                "data": {
+                    "fields": ["ts_code", "symbol"],
+                    "items": [["000001.SZ", "000001"], ["600000.SH", "600000"]],
+                },
+            },
+        ):
+            result = client.query("stock_basic", {"list_status": "L"})
+        assert result == [
+            {"ts_code": "000001.SZ", "symbol": "000001"},
+            {"ts_code": "600000.SH", "symbol": "600000"},
+        ]
+
     @pytest.mark.integration
     def test_tushare_smoke_call(self):
         """Test actual Tushare API call with real token.

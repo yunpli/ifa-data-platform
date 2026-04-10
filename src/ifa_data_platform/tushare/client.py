@@ -94,10 +94,13 @@ class TushareClient:
             params: Optional parameters for the API call.
 
         Returns:
-            List of records returned by the API.
+            List of row dicts returned by the API.
         """
-        data = self._request(api_name, params)
-        return data.get("data", [])
+        payload = self._request(api_name, params)
+        data = payload.get("data") or {}
+        fields = data.get("fields") or []
+        items = data.get("items") or []
+        return [dict(zip(fields, row)) for row in items]
 
     def test_connection(self) -> bool:
         """Test the Tushare API connection and token validity.
