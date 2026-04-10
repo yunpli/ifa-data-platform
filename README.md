@@ -249,3 +249,24 @@ python -m ifm ifa_data_platform.lowfreq.runner --dataset stock_basic
 # Register standard datasets
 python scripts/register_datasets.py
 ```
+
+### Low-Frequency Daemon (Job 6)
+
+```bash
+# Run daemon once
+python -m ifa_data_platform.lowfreq.daemon --once
+
+# Run daemon in loop mode
+python -m ifa_data_platform.lowfreq.daemon --loop
+
+# Show daemon health/status
+python -m ifa_data_platform.lowfreq.daemon --health
+
+# Run with custom config
+python -m ifa_data_platform.lowfreq.daemon --config /path/to/config.yaml --once
+
+# Run daemon validation script
+python scripts/validate_daemon.py --show-config
+python scripts/validate_daemon.py --once
+python scripts/validate_daemon.py --health
+```

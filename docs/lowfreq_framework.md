@@ -447,3 +447,172 @@ python -m ifa_data_platform.lowfreq.runner --dataset stock_basic
 6. **Current Stability**: Canonical current reflects promoted version data
 7. **Old-Version Query**: `get_version_at()` returns correct historical version
 8. **Rerun Stability**: Multiple reruns create stable sequence of versions
+
+## Job 6: Configurable Low-Frequency Daemon and Runtime Orchestration
+
+### Overview
+
+Job 6 adds a configurable daemon for iFA China-market / A-share that orchestrates dataset groups on schedule. The daemon supports:
+- **--once mode**: Single execution run
+- **Loop mode**: Continuous daemon loop with configurable interval
+- **Configuration-driven scheduling**: No hardcoded schedules
+- **Group orchestration**: Run multiple datasets as a group
+- **Health/status/freshness**: Query daemon and dataset state
+- **Retry/fallback**: Limited retries with degraded marking
+
+### Architecture
+
+#### Core Components
+
+1. **Daemon** (`src/ifa_data_platform/lowfreq/daemon.py`)
+   - Main entrypoint supporting `--once`, `--loop`, `--health`, `--verbose`
+   - Handles signal shutdown (SIGINT/SIGTERM)
+   - Matches schedule windows and orchestrates group execution
+
+2. **Daemon Config** (`src/ifa_data_platform/lowfreq/daemon_config.py`)
+   - Configuration-driven scheduling via YAML file or defaults
+   - Default schedule windows with override capability
+   - Group definitions linking datasets to groups
+
+3. **Daemon Orchestrator** (`src/ifa_data_platform/lowfreq/daemon_orchestrator.py`)
+   - Runs datasets within a group sequentially
+   - Generates execution summary with success/failure counts
+   - Does not crash daemon on individual dataset failure
+
+4. **Schedule Memory** (`src/ifa_data_platform/lowfreq/schedule_memory.py`)
+   - In-memory tracking for deduplication
+   - Tracks: daily succeeded, weekly succeeded, retry count, degraded status
+   - Persists state to file (JSON) for daemon restarts
+
+5. **Daemon Health** (`src/ifa_data_platform/lowfreq/daemon_health.py`)
+   - Daemon health status (ok/stale/no_runs)
+   - Group status (last success/failure)
+   - Dataset freshness (fresh/recent/stale/very stale)
+
+### Schedule Configuration
+
+#### Default Schedule
+
+| Window | Group | Time | Day | Max Retries |
+|--------|-------|------|-----|-------------|
+| daily_light | daily_light | 22:45 | any | 3 |
+| daily_light_fallback | daily_light | 01:30 | any | 2 |
+| weekly_deep | weekly_deep | 10:00 | Saturday (5) | 2 |
+
+#### Configuration Override
+
+Create a YAML config file:
+
+```yaml
+timezone: "Asia/Shanghai"
+loop_interval_sec: 60
+schedule_windows:
+  - window_type: daily_light
+    group_name: daily_light
+    time_str: "22:45"
+    max_retries: 3
+  - window_type: daily_light_fallback
+    group_name: daily_light
+    time_str: "01:30"
+    max_retries: 2
+  - window_type: weekly_deep
+    group_name: weekly_deep
+    time_str: "10:00"
+    day_of_week: 5
+    max_retries: 2
+groups:
+  - group_name: daily_light
+    datasets: ["trade_cal", "stock_basic"]
+    description: "Daily light ingestion"
+  - group_name: weekly_deep
+    datasets: ["trade_cal", "stock_basic"]
+    description: "Weekly deep ingestion"
+```
+
+Load via:
+- CLI: `python -m ifa_data_platform.lowfreq.daemon --config /path/to/config.yaml`
+- Env: `LOWFREQ_DAEMON_CONFIG=/path/to/config.yaml`
+
+### Groups
+
+| Group | Datasets | Description |
+|-------|----------|-------------|
+| daily_light | trade_cal, stock_basic | Daily light ingestion |
+| weekly_deep | trade_cal, stock_basic | Weekly deep ingestion |
+
+### Usage
+
+#### Daemon Commands
+
+```bash
+# Run once (single iteration)
+python -m ifa_data_platform.lowfreq.daemon --once
+
+# Run in loop mode (continuous)
+python -m ifa_data_platform.lowfreq.daemon --loop
+
+# Run with custom config
+python -m ifa_data_platform.lowfreq.daemon --config /path/to/config.yaml
+
+# Show health/status
+python -m ifa_data_platform.lowfreq.daemon --health
+
+# Verbose logging
+python -m ifa_data_platform.lowfreq.daemon --once --verbose
+```
+
+#### Health/Status
+
+```bash
+python -m ifa_data_platform.lowfreq.daemon --health
+```
+
+Output includes:
+- Daemon status (ok/stale/no_runs)
+- Last loop time
+- Group status (last success/failure per group)
+- Dataset freshness (fresh/recent/stale/very stale)
+
+### Retry/Fallback Semantics
+
+1. **Limited Retries**: Each window has max_retries (default: 3 for daily_light, 2 for others)
+2. **Retry Increment**: Failed runs increment retry count, reset success flag
+3. **Degraded Marking**: Exhausted retries mark window as degraded (skip future runs until reset)
+4. **Fallback Window**: Separate window type (daily_light_fallback) can retry after daily_light fails
+5. **No Infinite Loops**: max_retries prevents endless retry cycles
+
+### Validation Script
+
+```bash
+# Show current daemon configuration
+python scripts/validate_daemon.py --show-config
+
+# Run daemon in --once mode
+python scripts/validate_daemon.py --once
+
+# Simulate a specific time window
+python scripts/validate_daemon.py --once --simulate-time "2024-01-15T22:45:00+08:00"
+
+# Show health/status
+python scripts/validate_daemon.py --health
+```
+
+### Tests
+
+```bash
+# Run daemon integration tests
+pytest tests/integration/test_lowfreq_daemon.py -v
+
+# Test specific functionality
+pytest tests/integration/test_lowfreq_daemon.py::TestConfigDefaults -v
+pytest tests/integration/test_lowfreq_daemon.py::TestScheduleMemory -v
+pytest tests/integration/test_lowfreq_daemon.py::TestRetryFallback -v
+```
+
+### Boundaries
+
+- **Daemon-focused**: Uses daemon as primary driver, not cron
+- **Configuration-driven**: Schedule is externalized, not hardcoded
+- **Minimal scope**: Focuses on orchestration/state/health only
+- **No expansion**: Does not add new datasets or report generation
+- **Reuse existing**: Leverages existing LowFreqRunner, Registry, RunState
