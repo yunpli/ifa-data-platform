@@ -1,15 +1,20 @@
-"""Daemon health, status, and freshness reporting."""
+"""Daemon health, status, and freshness reporting.
+
+Now DB-backed as primary source of truth.
+"""
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
-from ifa_data_platform.config.settings import get_settings
 from ifa_data_platform.lowfreq.daemon_config import DaemonConfig
+from ifa_data_platform.lowfreq.daemon_state import (
+    DaemonStateStore,
+    GroupStateStore,
+    now_utc,
+)
 from ifa_data_platform.lowfreq.run_state import RunStateManager
 
 
@@ -34,66 +39,27 @@ class DaemonHealth:
     dataset_freshness: dict[str, str]
 
 
-def _get_memory_last_loop() -> Optional[datetime]:
-    """Get last loop time from memory file."""
-    memory_path = os.environ.get("LOWFREQ_DAEMON_MEMORY", "/tmp/ifa_daemon_memory.json")
-    path = Path(memory_path)
-    if not path.exists():
-        return None
-
-    try:
-        import json
-
-        with open(path) as f:
-            data = json.load(f)
-        loop_times = []
-        for state in data.values():
-            if state.get("last_success_time"):
-                loop_times.append(datetime.fromisoformat(state["last_success_time"]))
-        if loop_times:
-            return max(loop_times)
-    except Exception:
-        pass
-
-    return None
-
-
 def get_group_status(config: DaemonConfig) -> dict[str, GroupStatus]:
-    """Get status for each group based on run history."""
+    """Get status for each group from DB (primary source)."""
+    group_store = GroupStateStore()
     run_manager = RunStateManager()
     statuses: dict[str, GroupStatus] = {}
 
     for group in config.groups:
-        group_datasets = group.datasets
-        latest_success = None
-        latest_failure = None
+        group_name = group.group_name
+        db_state = group_store.get_group_state(group_name)
 
-        for ds in group_datasets:
-            latest = run_manager.get_latest_for_dataset(ds)
-            if latest:
-                if latest.status == "succeeded":
-                    if latest.completed_at and (
-                        latest_success is None or latest.completed_at > latest_success
-                    ):
-                        latest_success = latest.completed_at
-                elif latest.status == "failed":
-                    if latest.completed_at and (
-                        latest_failure is None or latest.completed_at > latest_failure
-                    ):
-                        latest_failure = latest.completed_at
+        last_success = db_state.get("last_success_at_utc")
+        last_failure = None
+        if db_state.get("last_status") == "failed":
+            last_failure = db_state.get("last_run_at_utc")
 
-        last_status = "unknown"
-        if latest_success and latest_failure:
-            last_status = "succeeded" if latest_success > latest_failure else "failed"
-        elif latest_success:
-            last_status = "succeeded"
-        elif latest_failure:
-            last_status = "failed"
+        last_status = db_state.get("last_status", "unknown")
 
-        statuses[group.group_name] = GroupStatus(
-            group_name=group.group_name,
-            last_success_time=latest_success,
-            last_failure_time=latest_failure,
+        statuses[group_name] = GroupStatus(
+            group_name=group_name,
+            last_success_time=last_success,
+            last_failure_time=last_failure,
             last_status=last_status,
         )
 
@@ -112,7 +78,7 @@ def _get_dataset_freshness(config: DaemonConfig) -> dict[str, str]:
     for ds in all_datasets:
         latest = run_manager.get_latest_for_dataset(ds)
         if latest and latest.completed_at:
-            now = datetime.now(timezone.utc)
+            now = now_utc()
             completed_at = latest.completed_at
             if completed_at.tzinfo is None:
                 completed_at = completed_at.replace(tzinfo=timezone.utc)
@@ -139,17 +105,40 @@ def _get_dataset_freshness(config: DaemonConfig) -> dict[str, str]:
 
 
 def get_daemon_health(config: DaemonConfig) -> DaemonHealth:
-    """Get overall daemon health."""
-    last_loop = _get_memory_last_loop()
+    """Get overall daemon health from DB (primary source)."""
+    daemon_store = DaemonStateStore()
+    try:
+        daemon_state = daemon_store.get_state()
+        last_loop = daemon_state.get("last_loop_at_utc")
+    except Exception:
+        daemon_state = {}
+        last_loop = None
 
     group_statuses = get_group_status(config)
     dataset_freshness = _get_dataset_freshness(config)
 
+    any_group_activity = any(
+        s.last_success_time is not None or s.last_failure_time is not None or s.last_status not in (None, "unknown")
+        for s in group_statuses.values()
+    )
+
+    if last_loop is None and any_group_activity:
+        candidate_times = [
+            ts
+            for s in group_statuses.values()
+            for ts in (s.last_success_time, s.last_failure_time)
+            if ts is not None
+        ]
+        if candidate_times:
+            last_loop = max(candidate_times)
+
     status = "ok"
     if last_loop:
-        now = datetime.now(timezone.utc)
+        now = now_utc()
         if (now - last_loop).total_seconds() > 3600:
             status = "stale"
+    elif daemon_state.get("last_success_at_utc"):
+        status = "stale"
     else:
         status = "no_runs"
 

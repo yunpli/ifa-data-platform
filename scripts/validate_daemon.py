@@ -76,23 +76,12 @@ def run_with_simulated_time(simulated_time_str: str):
         print(f"MATCHED WINDOW: {window.window_type} (group: {window.group_name})")
         print()
 
-        with patch("ifa_data_platform.lowfreq.daemon.datetime") as mock_datetime:
-            mock_now = datetime(
-                simulated_time.year,
-                simulated_time.month,
-                simulated_time.day,
-                simulated_time.hour,
-                simulated_time.minute,
-                tzinfo=timezone.utc,
-            )
-            mock_datetime.now.return_value = mock_now
-            mock_datetime.timezone = timezone
+        from ifa_data_platform.lowfreq import daemon
 
-            from ifa_data_platform.lowfreq import daemon
-
-            result = daemon.run_once(config)
-            print(f"Result: {result}")
-            return 0 if result.all_succeeded else 1
+        simulated_utc = simulated_time.astimezone(timezone.utc)
+        result = daemon.run_once(config, current_time_override=simulated_utc)
+        print(f"Result: {result}")
+        return 0 if result.all_succeeded else 1
     else:
         print("No matching window for simulated time.")
         print("Try: --simulate-time '2024-01-15T22:45:00+08:00' (daily_light)")

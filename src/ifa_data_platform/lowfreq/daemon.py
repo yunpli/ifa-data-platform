@@ -57,12 +57,14 @@ def _signal_handler(signum, frame):
     sys.exit(0)
 
 
-def run_once(config: DaemonConfig) -> GroupExecutionSummary:
+def run_once(
+    config: DaemonConfig, current_time_override: Optional[datetime] = None
+) -> GroupExecutionSummary:
     """Execute one iteration of the daemon (--once mode)."""
     orchestrator = DaemonOrchestrator(config)
     schedule_memory = ScheduleMemory()
 
-    now = datetime.now(timezone.utc)
+    now = current_time_override or datetime.now(timezone.utc)
     current_time = now.astimezone(config.timezone)
 
     logger.info(f"Running daemon in --once mode at {current_time.isoformat()}")
@@ -122,6 +124,10 @@ def run_once(config: DaemonConfig) -> GroupExecutionSummary:
 
     summary = orchestrator.run_group(window.group_name)
 
+    schedule_memory.update_daemon_loop(
+        window.group_name, "succeeded" if summary.all_succeeded else "failed"
+    )
+
     if summary.all_succeeded:
         schedule_memory.mark_window_succeeded(window.window_type, window.group_name)
     else:
@@ -167,6 +173,11 @@ def run_loop(config: DaemonConfig) -> None:
                 schedule_memory.mark_window_degraded(window.window_type)
             else:
                 summary = orchestrator.run_group(window.group_name)
+
+                schedule_memory.update_daemon_loop(
+                    window.group_name,
+                    "succeeded" if summary.all_succeeded else "failed",
+                )
 
                 if summary.all_succeeded:
                     schedule_memory.mark_window_succeeded(

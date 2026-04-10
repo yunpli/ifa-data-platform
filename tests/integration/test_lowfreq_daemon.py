@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import text
 
 from ifa_data_platform.lowfreq.daemon import run_once
 from ifa_data_platform.lowfreq.daemon_config import (
@@ -158,7 +159,14 @@ class TestScheduleMemory:
     """Test schedule memory for deduplication."""
 
     def test_get_window_state_empty(self):
-        """Test getting window state when empty."""
+        """Test getting window state when DB is empty."""
+        from ifa_data_platform.lowfreq.daemon_state import GroupStateStore
+
+        store = GroupStateStore()
+        with store.engine.begin() as conn:
+            conn.execute(text("DELETE FROM ifa2.lowfreq_group_state"))
+            conn.execute(text("DELETE FROM ifa2.lowfreq_daemon_state"))
+
         with tempfile.TemporaryDirectory() as tmpdir:
             memory = ScheduleMemory(storage_path=f"{tmpdir}/memory.json")
             state = memory.get_window_state("daily_light")
@@ -166,6 +174,16 @@ class TestScheduleMemory:
 
     def test_mark_window_succeeded(self):
         """Test marking window as succeeded."""
+        from ifa_data_platform.lowfreq.daemon_state import GroupStateStore
+
+        store = GroupStateStore()
+        with store.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM ifa2.lowfreq_group_state WHERE group_name = 'daily_light'"
+                )
+            )
+
         with tempfile.TemporaryDirectory() as tmpdir:
             memory = ScheduleMemory(storage_path=f"{tmpdir}/memory.json")
             memory.mark_window_succeeded("daily_light", "daily_light")
@@ -177,6 +195,16 @@ class TestScheduleMemory:
 
     def test_dedupe_within_day(self):
         """Test deduplication within a day."""
+        from ifa_data_platform.lowfreq.daemon_state import GroupStateStore
+
+        store = GroupStateStore()
+        with store.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM ifa2.lowfreq_group_state WHERE group_name = 'daily_light'"
+                )
+            )
+
         with tempfile.TemporaryDirectory() as tmpdir:
             memory = ScheduleMemory(storage_path=f"{tmpdir}/memory.json")
             memory.mark_window_succeeded("daily_light", "daily_light")
@@ -187,6 +215,16 @@ class TestScheduleMemory:
 
     def test_increment_retry(self):
         """Test retry increment."""
+        from ifa_data_platform.lowfreq.daemon_state import GroupStateStore
+
+        store = GroupStateStore()
+        with store.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM ifa2.lowfreq_group_state WHERE group_name = 'daily_light'"
+                )
+            )
+
         with tempfile.TemporaryDirectory() as tmpdir:
             memory = ScheduleMemory(storage_path=f"{tmpdir}/memory.json")
             memory.increment_retry("daily_light")
@@ -197,6 +235,16 @@ class TestScheduleMemory:
 
     def test_retry_resets_success_flag(self):
         """Test that retry resets success flag."""
+        from ifa_data_platform.lowfreq.daemon_state import GroupStateStore
+
+        store = GroupStateStore()
+        with store.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM ifa2.lowfreq_group_state WHERE group_name = 'daily_light'"
+                )
+            )
+
         with tempfile.TemporaryDirectory() as tmpdir:
             memory = ScheduleMemory(storage_path=f"{tmpdir}/memory.json")
             memory.mark_window_succeeded("daily_light", "daily_light")
