@@ -12,6 +12,12 @@ from ifa_data_platform.lowfreq.adaptor_factory import get_adaptor
 from ifa_data_platform.lowfreq.models import DatasetConfig, JobStatus, RunnerType
 from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.run_state import RunStateManager
+from ifa_data_platform.lowfreq.version_persistence import (
+    DatasetVersionRegistry,
+    StockBasicHistory,
+    TradeCalHistory,
+    VersionStatus,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,17 +39,22 @@ class LowFreqRunner:
     - Dry-run and real-run modes
     - Run state tracking
     - Watermark management
+    - Version lifecycle (candidate -> promote -> active)
     """
 
     def __init__(self) -> None:
         self.registry = DatasetRegistry()
         self.run_state_manager = RunStateManager()
+        self._version_registry = DatasetVersionRegistry()
+        self._trade_cal_history = TradeCalHistory()
+        self._stock_basic_history = StockBasicHistory()
 
     def run(
         self,
         dataset_name: str,
         dry_run: bool = False,
         run_type: str = "manual",
+        skip_promote: bool = False,
     ) -> RunState:
         """Execute a dataset job.
 
@@ -51,6 +62,7 @@ class LowFreqRunner:
             dataset_name: Name of the dataset to run.
             dry_run: If True, simulate execution without writing data.
             run_type: Type of run (manual, scheduled, etc.).
+            skip_promote: If True, skip promotion (create candidate only).
 
         Returns:
             RunState with final status.
@@ -74,6 +86,8 @@ class LowFreqRunner:
 
         self.run_state_manager.update_status(run_state.run_id, "running")
 
+        version_id = None
+
         try:
             if dry_run:
                 logger.info(f"[DRY RUN] Would execute dataset: {dataset_name}")
@@ -89,18 +103,38 @@ class LowFreqRunner:
                 latest_run = self.run_state_manager.get_latest_for_dataset(dataset_name)
                 watermark = latest_run.watermark if latest_run else None
 
+                version_id = self._version_registry.create_version(
+                    dataset_name=dataset_name,
+                    source_name=config.source_name,
+                    run_id=run_state.run_id,
+                    watermark=watermark,
+                )
+
+                logger.info(
+                    f"Created candidate version {version_id} for dataset {dataset_name}"
+                )
+
                 result = adaptor.fetch(
                     dataset_name=dataset_name,
                     watermark=watermark,
                     limit=config.budget_records_max,
                     run_id=run_state.run_id,
                     source_name=config.source_name,
+                    version_id=version_id,
                 )
 
                 logger.info(
                     f"Fetched {len(result.records)} records for dataset {dataset_name}, "
                     f"watermark={result.watermark}"
                 )
+
+                self._store_version_history(dataset_name, version_id, result.records)
+
+                if not skip_promote:
+                    self._version_registry.promote(dataset_name, version_id)
+                    logger.info(
+                        f"Promoted version {version_id} to active for dataset {dataset_name}"
+                    )
 
                 self.run_state_manager.update_status(
                     run_state.run_id,
@@ -123,6 +157,53 @@ class LowFreqRunner:
             f"Run {run_state.run_id} completed with status: {final_state.status}"
         )
         return final_state
+
+    def _store_version_history(
+        self,
+        dataset_name: str,
+        version_id: str,
+        records: list[dict],
+    ) -> None:
+        """Store records to version history tables.
+
+        Args:
+            dataset_name: Name of the dataset.
+            version_id: Version ID.
+            records: Records to store.
+        """
+        if dataset_name == "trade_cal":
+            self._trade_cal_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} trade_cal records to history")
+        elif dataset_name == "stock_basic":
+            self._stock_basic_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} stock_basic records to history")
+
+    def promote(
+        self,
+        dataset_name: str,
+        version_id: str,
+    ) -> bool:
+        """Promote a candidate version to active.
+
+        Args:
+            dataset_name: Name of the dataset.
+            version_id: ID of the version to promote.
+
+        Returns:
+            True if successful.
+        """
+        return self._version_registry.promote(dataset_name, version_id)
+
+    def get_active_version(self, dataset_name: str) -> Optional[dict]:
+        """Get the active version for a dataset.
+
+        Args:
+            dataset_name: Name of the dataset.
+
+        Returns:
+            Version dict if found, None otherwise.
+        """
+        return self._version_registry.get_active_version(dataset_name)
 
     def run_all(self, dry_run: bool = False) -> list[RunState]:
         """Execute all enabled datasets.

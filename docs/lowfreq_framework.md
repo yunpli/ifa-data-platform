@@ -183,7 +183,117 @@ Job 3 integration tests cover:
 - Error status handling
 - End-to-end registry-to-runner chain
 
-## Design Principles
+## Job 4: Current/History/Version (Low-Frequency)
+
+### Overview
+
+Job 4 adds minimal current/history/version mechanics for iFA China-market / A-share datasets. The system maintains:
+- **Current tables**: Fast query path for latest data
+- **History tables**: Versioned snapshots for audit/replay
+- **Version registry**: Track dataset versions with promote/active semantics
+
+### Architecture
+
+#### Version Lifecycle
+
+1. **Ingest creates candidate**: New data creates a candidate version (status: `candidate`)
+2. **Promote to active**: Candidate is promoted to active current (status: `active`)
+3. **Supersedes previous**: Old active version becomes superseded (status: `superseded`)
+4. **History retained**: All versions remain queryable via history tables
+
+#### Database Schema Changes
+
+New tables in `ifa2` schema (migration `004_lowfreq_version_history.py`):
+
+- **`dataset_versions`**: Version registry tracking
+  - `id`: Version UUID
+  - `dataset_name`: Dataset name
+  - `source_name`: Source name
+  - `run_id`: Run that created this version
+  - `created_at_utc`: Version creation time
+  - `promoted_at_utc`: Promotion time (null for candidate)
+  - `status`: candidate/active/superseded/archived
+  - `is_active`: Boolean for fast lookup
+  - `supersedes_version_id`: Previous active version ID
+  - `watermark`: Watermark value
+  - `metadata`: Optional metadata
+
+- **`trade_cal_history`**: Historical trade calendar records
+- **`stock_basic_history`**: Historical stock basic records
+
+- **`version_id` column**: Added to `trade_cal_current` and `stock_basic_current`
+
+#### Query Paths
+
+##### Fast Current Query (Default)
+
+```python
+from ifa_data_platform.lowfreq.query import CurrentQuery
+
+query = CurrentQuery()
+trade_cal = query.get_trade_cal(date(2024, 1, 15), "SSE")
+stocks = query.list_stock_basic(limit=100)
+```
+
+##### Version-Aware Query
+
+```python
+from ifa_data_platform.lowfreq.query import VersionQuery
+
+vquery = VersionQuery()
+
+# Get active version
+active = vquery.get_active_version("trade_cal")
+
+# Get version by ID
+version = vquery.get_version_by_id("version-uuid")
+
+# Get version at a specific time (as-of)
+version = vquery.get_version_at("trade_cal", datetime(2024, 1, 15, 12, 0, 0))
+
+# Query historical data
+records = vquery.query_trade_cal_at_version(version_id, start_date, end_date)
+records = vquery.query_stock_basic_at_version(version_id, limit=100)
+```
+
+##### As-of Query
+
+```python
+# Get data as-of a specific time
+records = vquery.query_trade_cal_as_of(
+    datetime(2024, 1, 15, 12, 0, 0),
+    start_date=date(2024, 1, 1),
+    end_date=date(2024, 1, 31),
+)
+records = vquery.query_stock_basic_as_of(
+    datetime(2024, 1, 15, 12, 0, 0),
+    limit=100,
+)
+```
+
+#### Runner Integration
+
+The runner automatically manages version lifecycle:
+
+```python
+from ifa_data_platform.lowfreq.runner import LowFreqRunner
+
+runner = LowFreqRunner()
+
+# Normal run: ingest -> promote to active
+result = runner.run("trade_cal")
+
+# Create candidate only (skip promotion)
+result = runner.run("trade_cal", skip_promote=True)
+
+# Explicit promotion
+runner.promote("trade_cal", version_id)
+
+# Get active version
+version = runner.get_active_version("trade_cal")
+```
+
+#### Design Principles
 
 1. **Provider-agnostic**: The adaptor interface ensures the framework is not tied to any specific data source.
 2. **Minimal schema changes**: Uses existing patterns and adds minimal new tables via Alembic.
@@ -191,3 +301,6 @@ Job 3 integration tests cover:
 4. **Idempotent operations**: Canonical current tables use UPSERT to handle repeat runs.
 5. **Clear boundaries**: Raw/source mirror and canonical current are clearly separated.
 6. **Audit capability**: Raw persistence stores full request/response for replay and debugging.
+7. **Version tracking**: Explicit candidate -> promote -> active lifecycle.
+8. **History retention**: All versions remain queryable via history tables.
+9. **As-of support**: Query data at any point in time.

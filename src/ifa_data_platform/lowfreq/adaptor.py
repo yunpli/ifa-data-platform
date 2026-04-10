@@ -27,6 +27,7 @@ class BaseAdaptor(ABC):
         limit: Optional[int] = None,
         run_id: Optional[str] = None,
         source_name: str = "generic",
+        version_id: Optional[str] = None,
     ) -> FetchResult:
         """Fetch data from the source.
 
@@ -36,6 +37,7 @@ class BaseAdaptor(ABC):
             limit: Optional record limit.
             run_id: Optional run ID for raw persistence linkage.
             source_name: Source name for raw persistence.
+            version_id: Optional version ID for version tracking.
 
         Returns:
             FetchResult with records, watermark, and fetch timestamp.

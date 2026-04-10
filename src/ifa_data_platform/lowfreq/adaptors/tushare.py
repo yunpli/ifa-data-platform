@@ -50,6 +50,7 @@ class TushareAdaptor(BaseAdaptor):
         limit: Optional[int] = None,
         run_id: Optional[str] = None,
         source_name: str = "tushare",
+        version_id: Optional[str] = None,
     ) -> FetchResult:
         """Fetch data from Tushare for a specific dataset.
 
@@ -59,11 +60,14 @@ class TushareAdaptor(BaseAdaptor):
             limit: Optional record limit.
             run_id: Optional run_id for raw persistence linkage.
             source_name: Source name for raw persistence.
+            version_id: Optional version ID for version tracking.
 
         Returns:
             FetchResult with records, watermark, and fetch timestamp.
         """
-        logger.info(f"Fetching {dataset_name} from Tushare (watermark={watermark})")
+        logger.info(
+            f"Fetching {dataset_name} from Tushare (watermark={watermark}, version_id={version_id})"
+        )
 
         request_params: dict = {}
         raw_records: list[dict] = []
@@ -116,7 +120,7 @@ class TushareAdaptor(BaseAdaptor):
                 status="success",
             )
 
-            self._persist_canonical(dataset_name, raw_records)
+            self._persist_canonical(dataset_name, raw_records, version_id=version_id)
 
         if limit:
             raw_records = raw_records[:limit]
@@ -219,12 +223,18 @@ class TushareAdaptor(BaseAdaptor):
 
         return parsed_records, "full_snapshot"
 
-    def _persist_canonical(self, dataset_name: str, records: list[dict]) -> None:
+    def _persist_canonical(
+        self,
+        dataset_name: str,
+        records: list[dict],
+        version_id: Optional[str] = None,
+    ) -> None:
         """Persist records to canonical current tables.
 
         Args:
             dataset_name: Name of the dataset.
             records: Raw records to persist.
+            version_id: Optional version ID for version tracking.
         """
         if dataset_name == "trade_cal":
             trade_cal_records = [
@@ -236,7 +246,7 @@ class TushareAdaptor(BaseAdaptor):
                 }
                 for rec in records
             ]
-            self._trade_cal.bulk_upsert(trade_cal_records)
+            self._trade_cal.bulk_upsert(trade_cal_records, version_id=version_id)
             logger.info(
                 f"Persisted {len(trade_cal_records)} trade_cal records to canonical"
             )
@@ -257,7 +267,7 @@ class TushareAdaptor(BaseAdaptor):
                 }
                 for rec in records
             ]
-            self._stock_basic.bulk_upsert(stock_basic_records)
+            self._stock_basic.bulk_upsert(stock_basic_records, version_id=version_id)
             logger.info(
                 f"Persisted {len(stock_basic_records)} stock_basic records to canonical"
             )

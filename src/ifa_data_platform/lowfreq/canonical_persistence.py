@@ -15,6 +15,9 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+CURRENT_VERSION_ID_SENTINEL = "__current__"
+
+
 class TradeCalCurrent:
     """Canonical current table for China-market trading calendar."""
 
@@ -27,6 +30,7 @@ class TradeCalCurrent:
         exchange: str,
         is_open: bool,
         pretrade_date: Optional[date] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
     ) -> str:
         """Upsert a trading calendar record.
 
@@ -35,11 +39,15 @@ class TradeCalCurrent:
             exchange: Exchange code (e.g., 'SSE', 'SZSE').
             is_open: Whether the market is open on this date.
             pretrade_date: Previous trading day.
+            version_id: Version ID (None or sentinel for current).
 
         Returns:
             ID of the upserted record.
         """
         record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
 
         with self.engine.begin() as conn:
             conn.execute(
@@ -47,15 +55,16 @@ class TradeCalCurrent:
                     """
                     INSERT INTO ifa2.trade_cal_current (
                         id, cal_date, exchange, is_open, pretrade_date,
-                        created_at, updated_at
+                        version_id, created_at, updated_at
                     )
                     VALUES (
                         :id, :cal_date, :exchange, :is_open, :pretrade_date,
-                        now(), now()
+                        :version_id, now(), now()
                     )
                     ON CONFLICT (exchange, cal_date) DO UPDATE SET
                         is_open = EXCLUDED.is_open,
                         pretrade_date = EXCLUDED.pretrade_date,
+                        version_id = EXCLUDED.version_id,
                         updated_at = now()
                     RETURNING id
                     """
@@ -66,6 +75,7 @@ class TradeCalCurrent:
                     "exchange": exchange,
                     "is_open": 1 if is_open else 0,
                     "pretrade_date": pretrade_date,
+                    "version_id": version_id_value,
                 },
             )
 
@@ -74,11 +84,13 @@ class TradeCalCurrent:
     def bulk_upsert(
         self,
         records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
     ) -> int:
         """Bulk upsert trading calendar records.
 
         Args:
             records: List of records with keys: cal_date, exchange, is_open, pretrade_date.
+            version_id: Version ID (None or sentinel for current).
 
         Returns:
             Number of records processed.
@@ -93,6 +105,7 @@ class TradeCalCurrent:
                 exchange=rec["exchange"],
                 is_open=rec["is_open"],
                 pretrade_date=rec.get("pretrade_date"),
+                version_id=version_id,
             )
             count += 1
 
@@ -215,6 +228,7 @@ class StockBasicCurrent:
         list_date: Optional[date] = None,
         delist_date: Optional[date] = None,
         is_hs: Optional[bool] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
     ) -> str:
         """Upsert a stock basic record.
 
@@ -229,11 +243,15 @@ class StockBasicCurrent:
             list_date: Listing date.
             delist_date: Delisting date.
             is_hs: Whether in HS (0, 1, 2).
+            version_id: Version ID (None or sentinel for current).
 
         Returns:
             ID of the upserted record.
         """
         record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
 
         with self.engine.begin() as conn:
             conn.execute(
@@ -242,12 +260,12 @@ class StockBasicCurrent:
                     INSERT INTO ifa2.stock_basic_current (
                         id, ts_code, symbol, name, area, industry, market,
                         list_status, list_date, delist_date, is_hs,
-                        created_at, updated_at
+                        version_id, created_at, updated_at
                     )
                     VALUES (
                         :id, :ts_code, :symbol, :name, :area, :industry, :market,
                         :list_status, :list_date, :delist_date, :is_hs,
-                        now(), now()
+                        :version_id, now(), now()
                     )
                     ON CONFLICT (ts_code) DO UPDATE SET
                         symbol = EXCLUDED.symbol,
@@ -259,6 +277,7 @@ class StockBasicCurrent:
                         list_date = EXCLUDED.list_date,
                         delist_date = EXCLUDED.delist_date,
                         is_hs = EXCLUDED.is_hs,
+                        version_id = EXCLUDED.version_id,
                         updated_at = now()
                     RETURNING id
                     """
@@ -275,16 +294,22 @@ class StockBasicCurrent:
                     "list_date": list_date,
                     "delist_date": delist_date,
                     "is_hs": 1 if is_hs else (0 if is_hs is not None else None),
+                    "version_id": version_id_value,
                 },
             )
 
         return record_id
 
-    def bulk_upsert(self, records: list[dict]) -> int:
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
         """Bulk upsert stock basic records.
 
         Args:
             records: List of records with ts_code and optional other fields.
+            version_id: Version ID (None or sentinel for current).
 
         Returns:
             Number of records processed.
@@ -305,6 +330,7 @@ class StockBasicCurrent:
                 list_date=rec.get("list_date"),
                 delist_date=rec.get("delist_date"),
                 is_hs=rec.get("is_hs"),
+                version_id=version_id,
             )
             count += 1
 
