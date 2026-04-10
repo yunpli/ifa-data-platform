@@ -200,3 +200,44 @@ Obtain token from https://tushare.pro. See [Runbook](docs/runbook.md) for verifi
 - [Architecture](docs/architecture.md)
 - [Runbook](docs/runbook.md)
 - [Migration Notes](docs/migration_notes.md)
+- [Low-Frequency Framework](docs/lowfreq_framework.md)
+
+## Low-Frequency Ingestion Framework
+
+The low-frequency ingestion framework provides a unified way to register, execute, and track low-frequency dataset jobs for iFA China-market / A-share direction.
+
+### Core Components
+
+- **Models** (`src/ifa_data_platform/lowfreq/models.py`): Dataset/job abstractions including `DatasetConfig`, `RunState`, and enums for `Market`, `JobType`, `RunnerType`, `WatermarkStrategy`, etc.
+- **Registry** (`src/ifa_data_platform/lowfreq/registry.py`): Database-backed dataset registry for managing dataset configurations.
+- **Run State** (`src/ifa_data_platform/lowfreq/run_state.py`): Manages run-level state including status, records processed, watermark, and error messages.
+- **Adaptor Interface** (`src/ifa_data_platform/lowfreq/adaptor.py`): Provider-agnostic interface for data source adaptors.
+- **Runner** (`src/ifa_data_platform/lowfreq/runner.py`): Unified runner supporting dry-run and real-run modes.
+
+### Usage
+
+```bash
+# Register a dataset
+python -c "
+from ifa_data_platform.lowfreq.models import DatasetConfig, Market, JobType, RunnerType
+from ifa_data_platform.lowfreq.registry import DatasetRegistry
+config = DatasetConfig(dataset_name='test', market=Market.CHINA_A_SHARE, source_name='tushare', job_type=JobType.INCREMENTAL, runner_type=RunnerType.DUMMY)
+registry = DatasetRegistry()
+registry.register(config)
+"
+
+# Run a dataset (dry-run)
+python -m ifa_data_platform.lowfreq.runner --dataset test --dry-run
+
+# Run a dataset (real-run)
+python -m ifa_data_platform.lowfreq.runner --dataset test
+
+# List all datasets
+python -m ifa_data_platform.lowfreq.runner --list
+```
+
+### Tests
+
+```bash
+pytest tests/unit/test_lowfreq.py
+```
