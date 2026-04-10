@@ -304,3 +304,146 @@ version = runner.get_active_version("trade_cal")
 7. **Version tracking**: Explicit candidate -> promote -> active lifecycle.
 8. **History retention**: All versions remain queryable via history tables.
 9. **As-of support**: Query data at any point in time.
+
+## Job 5: Multi-Round Versioned Ingestion Real-World Validation
+
+### Overview
+
+Job 5 validates versioned ingestion with multi-run tests for Tushare real datasets:
+- trade_cal: China-market trading calendar
+- stock_basic: A-share instrument master data
+
+### Running Multi-Round Ingest
+
+```bash
+# Run specific dataset multiple times via runner
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal
+python -m ifa_data_platform.lowfreq.runner --dataset stock_basic
+
+# Run all enabled datasets
+python -m ifa_data_platform.lowfreq.runner
+```
+
+### Inspecting Dataset State
+
+```python
+from ifa_data_platform.lowfreq.version_persistence import DatasetVersionRegistry
+
+registry = DatasetVersionRegistry()
+
+# Get all versions
+versions = registry.list_versions("trade_cal", limit=100)
+print(f"Version count: {len(versions)}")
+
+# Get active version
+active = registry.get_active_version("trade_cal")
+print(f"Active version: {active['id']}")
+print(f"Status: {active['status']}")
+print(f"Promoted at: {active['promoted_at_utc']}")
+
+# Get superseded versions
+for v in versions:
+    if v["status"] == "superseded":
+        print(f"Superseded: {v['id']}")
+```
+
+### Ingest Semantics
+
+#### trade_cal: Incremental / Date-Watermark
+
+- **Job Type**: `JobType.INCREMENTAL`
+- **Watermark Strategy**: `WatermarkStrategy.DATE_BASED`
+- **Behavior**: Each run fetches data from start_date to current date
+- **Watermark**: Returns current date (YYYYMMDD) as watermark
+- **Rerun**: Fetches all records from watermark point (replaces overlapping data)
+- **Version**: New version each ingest, replaces previous active
+
+#### stock_basic: Full Snapshot
+
+- **Job Type**: `JobType.SNAPSHOT`
+- **Watermark Strategy**: `WatermarkStrategy.NONE`
+- **Behavior**: Each run fetches all active instruments (list_status=L)
+- **Watermark**: Returns "full_snapshot" (real) or timestamp (DummyAdaptor)
+- **Rerun**: Full refresh replaces canonical current
+- **Version**: New version each ingest, replaces previous active
+
+### Querying Historical Data
+
+```python
+from ifa_data_platform.lowfreq.query import VersionQuery, CurrentQuery
+from datetime import datetime, timezone
+
+# Current (latest) - fast path
+current = CurrentQuery()
+trade_cal_record = current.get_trade_cal(date(2024, 1, 15), "SSE")
+stocks = current.list_stock_basic(limit=100)
+
+# Version-aware query
+vquery = VersionQuery()
+
+# Get active version
+active = vquery.get_active_version("trade_cal")
+
+# Query historical by version ID
+records = vquery.query_trade_cal_at_version(version_id, start_date, end_date)
+records = vquery.query_stock_basic_at_version(version_id, limit=100)
+
+# As-of query (version at point in time)
+as_of = datetime.now(timezone.utc)
+version_at = vquery.get_version_at("trade_cal", as_of)
+```
+
+### Tests
+
+Run Job 5 integration tests:
+
+```bash
+# All Job 5 tests
+pytest tests/integration/test_lowfreq_job5.py -v
+
+# Test specific behavior
+pytest tests/integration/test_lowfreq_job5.py::TestMultiRoundVersionGrowth -v
+pytest tests/integration/test_lowfreq_job5.py::TestSupersededVersions -v
+pytest tests/integration/test_lowfreq_job5.py::TestIngestSemantics -v
+```
+
+### Real Validation with Tushare
+
+**Prerequisite**: Export Tushare token in environment:
+```bash
+export TUSHARE_TOKEN="your_tushare_token"
+```
+
+**Run validation script:**
+```bash
+python scripts/validate_job5.py
+```
+
+**Or via inline token:**
+```bash
+TUSHARE_TOKEN="your_token" .venv/bin/python scripts/validate_job5.py
+```
+
+**Manual real ingestion:**
+```bash
+# Run trade_cal multiple times
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal
+
+# Run stock_basic multiple times
+python -m ifa_data_platform.lowfreq.runner --dataset stock_basic
+python -m ifa_data_platform.lowfreq.runner --dataset stock_basic
+python -m ifa_data_platform.lowfreq.runner --dataset stock_basic
+```
+
+### Key Validations
+
+1. **Version Growth**: `dataset_versions` grows with each run
+2. **Active Switch**: New version becomes active, previous becomes superseded
+3. **Superseded Retention**: Old active versions marked superseded (not deleted)
+4. **Promoted At**: `promoted_at_utc` set on promotion (monotonic increase)
+5. **History Accumulation**: All versions stored in history tables (for trade_cal/stock_basic)
+6. **Current Stability**: Canonical current reflects promoted version data
+7. **Old-Version Query**: `get_version_at()` returns correct historical version
+8. **Rerun Stability**: Multiple reruns create stable sequence of versions
