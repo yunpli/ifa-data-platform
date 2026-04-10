@@ -201,6 +201,7 @@ Obtain token from https://tushare.pro. See [Runbook](docs/runbook.md) for verifi
 - [Runbook](docs/runbook.md)
 - [Migration Notes](docs/migration_notes.md)
 - [Low-Frequency Framework](docs/lowfreq_framework.md)
+- [Job 7 Lowfreq Gap & Expansion Plan](job7_lowfreq_gap_and_expansion_plan.md)
 
 ## Low-Frequency Ingestion Framework
 
