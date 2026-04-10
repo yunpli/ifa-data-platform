@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import datetime
+from unittest.mock import patch, MagicMock
 
 from ifa_data_platform.lowfreq.models import (
     DatasetConfig,
@@ -229,8 +230,13 @@ class TestAdaptorFactory:
         result = adaptor.fetch("test_dataset")
         assert len(result.records) > 0
 
-    def test_get_tushare_adaptor(self):
+    @patch("ifa_data_platform.lowfreq.adaptors.tushare.get_tushare_client")
+    def test_get_tushare_adaptor(self, mock_get_client):
         from ifa_data_platform.lowfreq.adaptor_factory import get_adaptor
+
+        mock_client = MagicMock()
+        mock_client.test_connection.return_value = True
+        mock_get_client.return_value = mock_client
 
         adaptor = get_adaptor(RunnerType.TUSHARE)
         assert adaptor.test_connection() is True

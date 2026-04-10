@@ -93,6 +93,8 @@ class LowFreqRunner:
                     dataset_name=dataset_name,
                     watermark=watermark,
                     limit=config.budget_records_max,
+                    run_id=run_state.run_id,
+                    source_name=config.source_name,
                 )
 
                 logger.info(

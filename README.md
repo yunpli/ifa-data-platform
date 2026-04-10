@@ -239,5 +239,13 @@ python -m ifa_data_platform.lowfreq.runner --list
 ### Tests
 
 ```bash
-pytest tests/unit/test_lowfreq.py
+# Run all low-frequency tests
+pytest tests/unit/test_lowfreq.py tests/integration/test_lowfreq_job3.py
+
+# Run specific dataset
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal
+python -m ifm ifa_data_platform.lowfreq.runner --dataset stock_basic
+
+# Register standard datasets
+python scripts/register_datasets.py
 ```

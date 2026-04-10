@@ -25,6 +25,8 @@ class BaseAdaptor(ABC):
         dataset_name: str,
         watermark: Optional[str] = None,
         limit: Optional[int] = None,
+        run_id: Optional[str] = None,
+        source_name: str = "generic",
     ) -> FetchResult:
         """Fetch data from the source.
 
@@ -32,6 +34,8 @@ class BaseAdaptor(ABC):
             dataset_name: Name of the dataset to fetch.
             watermark: Optional watermark from previous run.
             limit: Optional record limit.
+            run_id: Optional run ID for raw persistence linkage.
+            source_name: Source name for raw persistence.
 
         Returns:
             FetchResult with records, watermark, and fetch timestamp.

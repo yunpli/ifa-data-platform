@@ -30,6 +30,8 @@ class DummyAdaptor(BaseAdaptor):
         dataset_name: str,
         watermark: Optional[str] = None,
         limit: Optional[int] = None,
+        run_id: Optional[str] = None,
+        source_name: str = "generic",
     ) -> FetchResult:
         records = self._mock_records.copy()
         if limit:

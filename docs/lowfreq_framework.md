@@ -29,14 +29,24 @@ The low-frequency ingestion framework provides a unified way to register, execut
    - Unified runner supporting dry-run and real-run modes.
    - CLI entrypoint with arguments for dataset selection, dry-run, listing, etc.
 
+6. **Raw Persistence** (`src/ifa_data_platform/lowfreq/raw_persistence.py`)
+   - Persists raw fetch results for audit and replay.
+   - Stores: source_name, dataset_name, fetched_at_utc, request_params, raw_payload, run_id linkage
+
+7. **Canonical Persistence** (`src/ifa_data_platform/lowfreq/canonical_persistence.py`)
+   - Manages canonical current tables for datasets.
+   - `TradeCalCurrent`: China-market trading calendar.
+   - `StockBasicCurrent`: A-share instrument master data.
+
 ### Database Schema
 
-Two new tables in the `ifa2` schema:
+Four new tables in the `ifa2` schema:
 
-- **`lowfreq_datasets`**: Stores dataset configurations
-- **`lowfreq_runs`**: Stores run-level state
-
-See migration `002_lowfreq.py` for details.
+- **`lowfreq_datasets`**: Stores dataset configurations (migration `002_lowfreq.py`)
+- **`lowfreq_runs`**: Stores run-level state (migration `002_lowfreq.py`)
+- **`lowfreq_raw_fetch`**: Raw source mirror for audit/replay (migration `003_lowfreq_raw_canonical.py`)
+- **`trade_cal_current`**: Canonical trading calendar (migration `003_lowfreq_raw_canonical.py`)
+- **`stock_basic_current`**: Canonical A-share instruments (migration `003_lowfreq_raw_canonical.py`)
 
 ## Usage
 
@@ -54,18 +64,18 @@ from ifa_data_platform.lowfreq.models import (
 from ifa_data_platform.lowfreq.registry import DatasetRegistry
 
 config = DatasetConfig(
-    dataset_name="china_a_share_daily",
+    dataset_name="trade_cal",
     market=Market.CHINA_A_SHARE,
     source_name="tushare",
     job_type=JobType.INCREMENTAL,
     enabled=True,
     timezone_semantics=TimezoneSemantics.CHINA_SHANGHAI,
-    runner_type=RunnerType.DUMMY,
+    runner_type=RunnerType.TUSHARE,
     watermark_strategy=WatermarkStrategy.DATE_BASED,
-    budget_records_max=5000,
+    budget_records_max=10000,
     budget_seconds_max=300,
-    metadata={"api_name": "daily"},
-    description="China A-share daily market data",
+    metadata={"api_name": "trade_cal", "exchange": "SSE"},
+    description="China A-share trading calendar from Tushare",
 )
 
 registry = DatasetRegistry()
@@ -76,10 +86,10 @@ dataset_id = registry.register(config)
 
 ```bash
 # Dry-run (simulate execution without writing data)
-python -m ifa_data_platform.lowfreq.runner --dataset china_a_share_daily --dry-run
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal --dry-run
 
 # Real-run
-python -m ifa_data_platform.lowfreq.runner --dataset china_a_share_daily
+python -m ifa_data_platform.lowfreq.runner --dataset trade_cal
 
 # Run all enabled datasets
 python -m ifa_data_platform.lowfreq.runner
@@ -96,19 +106,42 @@ from ifa_data_platform.lowfreq.runner import LowFreqRunner
 runner = LowFreqRunner()
 
 # Run a specific dataset
-result = runner.run("china_a_share_daily", dry_run=False)
+result = runner.run("trade_cal", dry_run=False)
 print(f"Status: {result.status}, Records: {result.records_processed}, Watermark: {result.watermark}")
 
 # Run all enabled datasets
 results = runner.run_all(dry_run=True)
 ```
 
+### Register Trade Cal and Stock Basic Datasets
+
+```bash
+# Register the standard China-market datasets
+python scripts/register_datasets.py
+```
+
+## Tushare Datasets
+
+The framework includes real Tushare data source implementation:
+
+### trade_cal
+- **Description**: China-market trading calendar (SSE)
+- **Job Type**: Incremental
+- **Watermark Strategy**: Date-based
+- **Canonical Table**: `ifa2.trade_cal_current`
+
+### stock_basic
+- **Description**: A-share instrument master data
+- **Job Type**: Snapshot
+- **Watermark Strategy**: None (full refresh)
+- **Canonical Table**: `ifa2.stock_basic_current`
+
 ## Adaptors
 
 ### Built-in Adaptors
 
-- **DummyAdaptor** (`src/ifa_data_platform/lowfreq/adaptors/dummy.py`): Returns mock data for testing and placeholder jobs.
-- **TushareAdaptor** (`src/ifa_data_platform/lowfreq/adaptors/tushare.py`): Placeholder for Tushare China-market data.
+- **DummyAdaptor** (`src/ifa_data_platform/lowfreq/adaptors/dummy.py`): Returns mock data for testing.
+- **TushareAdaptor** (`src/ifa_data_platform/lowfreq/adaptors/tushare.py`): Real Tushare API for trade_cal and stock_basic.
 
 ### Creating a Custom Adaptor
 
@@ -116,7 +149,7 @@ results = runner.run_all(dry_run=True)
 from ifa_data_platform.lowfreq.adaptor import BaseAdaptor, FetchResult
 
 class MyCustomAdaptor(BaseAdaptor):
-    def fetch(self, dataset_name, watermark=None, limit=None):
+    def fetch(self, dataset_name, watermark=None, limit=None, run_id=None, source_name="generic"):
         # Fetch data from your source
         return FetchResult(records=[...], watermark="2024-01-15", fetched_at="...")
 
@@ -129,16 +162,32 @@ class MyCustomAdaptor(BaseAdaptor):
 
 ```bash
 # Run all low-frequency tests
-pytest tests/unit/test_lowfreq.py
+pytest tests/unit/test_lowfreq.py tests/integration/test_lowfreq_job3.py
 
 # Run specific test class
 pytest tests/unit/test_lowfreq.py::TestDatasetRegistry -v
+
+# Run Job 3 integration tests
+pytest tests/integration/test_lowfreq_job3.py -v
 ```
+
+### Test Coverage
+
+Job 3 integration tests cover:
+- Runner trigger functionality
+- Adaptor path (dummy and mocked Tushare)
+- Raw persistence (store, retrieve, failure records)
+- Canonical persistence (upsert, idempotent, bulk)
+- Watermark advancement on repeat runs
+- Idempotent re-run behavior
+- Error status handling
+- End-to-end registry-to-runner chain
 
 ## Design Principles
 
 1. **Provider-agnostic**: The adaptor interface ensures the framework is not tied to any specific data source.
-2. **Minimal schema changes**: Uses existing `job_runs` pattern and adds minimal new tables.
-3. **Watermark support**: Placeholder for date/datetime/version-based watermarking.
-4. **Budget/limits**: Placeholder for record count and time budget enforcement.
-5. **Clear boundaries**: Adaptor interface separates provider-specific logic from framework logic.
+2. **Minimal schema changes**: Uses existing patterns and adds minimal new tables via Alembic.
+3. **Watermark support**: Date-based watermarking for incremental datasets.
+4. **Idempotent operations**: Canonical current tables use UPSERT to handle repeat runs.
+5. **Clear boundaries**: Raw/source mirror and canonical current are clearly separated.
+6. **Audit capability**: Raw persistence stores full request/response for replay and debugging.
