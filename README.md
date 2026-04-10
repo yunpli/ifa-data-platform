@@ -178,10 +178,22 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
+# Add TUSHARE_TOKEN to .env for China-market data
 alembic upgrade head
 pytest
 python scripts/demo_runtime.py
 ```
+
+## Tushare configuration (China-market low-frequency acquisition)
+
+To enable Tushare data ingestion:
+
+```bash
+# Add to .env
+TUSHARE_TOKEN=your_token_here
+```
+
+Obtain token from https://tushare.pro. See [Runbook](docs/runbook.md) for verification steps.
 
 ## Documentation
 

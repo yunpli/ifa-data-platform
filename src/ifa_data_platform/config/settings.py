@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     job_default_timeout_sec: int = 300
     job_default_retries: int = 3
     redis_url: str = "redis://localhost:6379/0"
+    tushare_token: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

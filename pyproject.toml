@@ -13,6 +13,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
@@ -31,3 +32,8 @@ target-version = "py311"
 
 [tool.mypy]
 python_version = "3.11"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (require external resources)",
+]

@@ -131,7 +131,58 @@ Symptoms:
 Likely cause:
 - venv missing packages from `pyproject.toml`
 
-## 10. Known limitations at this phase
+## 10. Tushare setup (China-market low-frequency acquisition)
+
+### 1. Obtain Tushare token
+
+Register at https://tushare.pro and obtain your API token from the user dashboard.
+
+### 2. Configure token
+
+Add to your `.env` file:
+```bash
+TUSHARE_TOKEN=your_token_here
+```
+
+Or set as environment variable:
+```bash
+export TUSHARE_TOKEN=your_token_here
+```
+
+### 3. Test Tushare connection
+
+Run the smoke test:
+```bash
+python3 - <<'PY'
+import os
+os.environ['TUSHARE_TOKEN'] = 'your_token_here'
+from ifa_data_platform.tushare import get_tushare_client
+client = get_tushare_client()
+result = client.query('stock_basic', {'list_status': 'L', 'fields': 'ts_code,symbol'})
+print(f'Tushare connection OK, returned {len(result)} records')
+PY
+```
+
+Expected: Returns list of active stocks.
+
+### 4. Error handling
+
+If token is missing, raises `TushareTokenMissingError` with clear message.
+
+## 11. Running tests
+
+```bash
+# Run all unit tests
+pytest tests/unit/
+
+# Run with integration tests (requires DB, Tushare token)
+pytest tests/ -m "not integration"
+
+# Run only integration tests
+pytest tests/ -m integration
+```
+
+## 12. Known limitations at this phase
 
 - provider integrations are not complete
 - Redis integration is reserved but not yet mandatory
