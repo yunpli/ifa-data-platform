@@ -9,8 +9,12 @@ from typing import Optional
 
 from ifa_data_platform.lowfreq.adaptor import BaseAdaptor, FetchResult
 from ifa_data_platform.lowfreq.canonical_persistence import (
+    AnnouncementsCurrent,
     FundBasicEtfCurrent,
     IndexBasicCurrent,
+    InvestorQaCurrent,
+    NewsCurrent,
+    ResearchReportsCurrent,
     StockBasicCurrent,
     SwIndustryMappingCurrent,
     TradeCalCurrent,
@@ -41,6 +45,10 @@ class TushareAdaptor(BaseAdaptor):
         self._index_basic = IndexBasicCurrent()
         self._fund_basic_etf = FundBasicEtfCurrent()
         self._sw_industry_mapping = SwIndustryMappingCurrent()
+        self._announcements = AnnouncementsCurrent()
+        self._news = NewsCurrent()
+        self._research_reports = ResearchReportsCurrent()
+        self._investor_qa = InvestorQaCurrent()
 
     @property
     def client(self) -> TushareClient:
@@ -106,6 +114,31 @@ class TushareAdaptor(BaseAdaptor):
             elif dataset_name == "sw_industry_mapping":
                 raw_records, new_watermark = self._fetch_sw_industry_mapping()
                 request_params = {}
+
+            elif dataset_name == "announcements":
+                raw_records, new_watermark = self._fetch_announcements(watermark)
+                request_params = {
+                    "ann_date": watermark
+                    or datetime.now(timezone.utc).strftime("%Y%m%d"),
+                }
+
+            elif dataset_name == "news":
+                raw_records, new_watermark = self._fetch_news(watermark)
+                request_params = {}
+
+            elif dataset_name == "research_reports":
+                raw_records, new_watermark = self._fetch_research_reports(watermark)
+                request_params = {
+                    "trade_date": watermark
+                    or datetime.now(timezone.utc).strftime("%Y%m%d"),
+                }
+
+            elif dataset_name == "investor_qa":
+                raw_records, new_watermark = self._fetch_investor_qa(watermark)
+                request_params = {
+                    "trade_date": watermark
+                    or datetime.now(timezone.utc).strftime("%Y%m%d"),
+                }
 
             else:
                 raise ValueError(f"Unsupported dataset: {dataset_name}")
@@ -402,6 +435,179 @@ class TushareAdaptor(BaseAdaptor):
 
         return parsed_records, "full_snapshot"
 
+    def _fetch_announcements(
+        self, ann_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch announcements from Tushare anns_d API."""
+        if not ann_date:
+            ann_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query(
+            "anns_d",
+            {"ann_date": ann_date},
+        )
+
+        parsed_records = []
+        for rec in records:
+            rec_time = None
+            rec_time_str = rec.get("rec_time", "")
+            if rec_time_str:
+                try:
+                    rec_time = datetime.strptime(rec_time_str, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    rec_time = None
+
+            ann_date_val = None
+            ann_date_str = rec.get("ann_date", "")
+            if ann_date_str:
+                try:
+                    ann_date_val = datetime.strptime(ann_date_str, "%Y%m%d").date()
+                except ValueError:
+                    ann_date_val = None
+
+            parsed_records.append(
+                {
+                    "ann_date": ann_date_val,
+                    "ts_code": rec.get("ts_code", ""),
+                    "name": rec.get("name", ""),
+                    "title": rec.get("title", ""),
+                    "url": rec.get("url", ""),
+                    "rec_time": rec_time,
+                }
+            )
+
+        return parsed_records, ann_date
+
+    def _fetch_news(self, watermark: Optional[str] = None) -> tuple[list[dict], str]:
+        """Fetch news from Tushare news API."""
+        records = self.client.query(
+            "news",
+            {},
+        )
+
+        parsed_records = []
+        for rec in records:
+            news_time_str = rec.get("time", "")
+            news_datetime = None
+            if news_time_str:
+                try:
+                    news_datetime = datetime.strptime(news_time_str, "%m-%d %H:%M")
+                    current_year = datetime.now().year
+                    news_datetime = news_datetime.replace(year=current_year)
+                except ValueError:
+                    news_datetime = datetime.now(timezone.utc)
+
+            parsed_records.append(
+                {
+                    "datetime": news_datetime,
+                    "classify": rec.get("classify", ""),
+                    "title": rec.get("title", ""),
+                    "source": rec.get("source", ""),
+                    "url": rec.get("url", ""),
+                    "content": rec.get("content", "")[:2000]
+                    if rec.get("content")
+                    else None,
+                }
+            )
+
+        return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    def _fetch_research_reports(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch research reports from Tushare research_report API."""
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query(
+            "research_report",
+            {"trade_date": trade_date},
+        )
+
+        parsed_records = []
+        for rec in records:
+            report_date_val = None
+            report_date_str = rec.get("trade_date", "")
+            if report_date_str:
+                try:
+                    report_date_val = datetime.strptime(
+                        report_date_str, "%Y%m%d"
+                    ).date()
+                except ValueError:
+                    report_date_val = None
+
+            parsed_records.append(
+                {
+                    "trade_date": report_date_val,
+                    "ts_code": rec.get("ts_code", ""),
+                    "name": rec.get("name", ""),
+                    "title": rec.get("title", ""),
+                    "report_type": rec.get("report_type", ""),
+                    "author": rec.get("author", ""),
+                    "inst_csname": rec.get("inst_csname", ""),
+                    "ind_name": rec.get("ind_name", ""),
+                    "url": rec.get("url", ""),
+                }
+            )
+
+        return parsed_records, trade_date
+
+    def _fetch_investor_qa(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch investor Q&A from Tushare irm_qa_sz and irm_qa_sh APIs."""
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        parsed_records = []
+
+        for api_name in ["irm_qa_sz", "irm_qa_sh"]:
+            try:
+                records = self.client.query(
+                    api_name,
+                    {"trade_date": trade_date},
+                )
+
+                for rec in records:
+                    pub_time_val = None
+                    pub_time_str = rec.get("pub_time", "")
+                    if pub_time_str:
+                        try:
+                            pub_time_val = datetime.strptime(
+                                pub_time_str, "%Y-%m-%d %H:%M:%S"
+                            )
+                        except ValueError:
+                            pub_time_val = None
+
+                    qa_date_val = None
+                    qa_date_str = rec.get("trade_date", "")
+                    if qa_date_str:
+                        try:
+                            qa_date_val = datetime.strptime(
+                                qa_date_str, "%Y%m%d"
+                            ).date()
+                        except ValueError:
+                            qa_date_val = None
+
+                    answer_text = rec.get("a", "")
+                    if answer_text and len(answer_text) > 5000:
+                        answer_text = answer_text[:5000]
+
+                    parsed_records.append(
+                        {
+                            "ts_code": rec.get("ts_code", ""),
+                            "trade_date": qa_date_val,
+                            "q": rec.get("q", ""),
+                            "name": rec.get("name", ""),
+                            "a": answer_text,
+                            "pub_time": pub_time_val,
+                        }
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to fetch {api_name}: {e}")
+
+        return parsed_records, trade_date
+
     def _persist_canonical(
         self,
         dataset_name: str,
@@ -518,6 +724,79 @@ class TushareAdaptor(BaseAdaptor):
             )
             logger.info(
                 f"Persisted {len(sw_industry_mapping_records)} sw_industry_mapping records to canonical"
+            )
+
+        elif dataset_name == "announcements":
+            announcements_records = [
+                {
+                    "ann_date": rec["ann_date"],
+                    "ts_code": rec["ts_code"],
+                    "name": rec.get("name"),
+                    "title": rec.get("title"),
+                    "url": rec.get("url"),
+                    "rec_time": rec.get("rec_time"),
+                }
+                for rec in records
+            ]
+            self._announcements.bulk_upsert(
+                announcements_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(announcements_records)} announcements records to canonical"
+            )
+
+        elif dataset_name == "news":
+            news_records = [
+                {
+                    "datetime": rec["datetime"],
+                    "classify": rec.get("classify"),
+                    "title": rec.get("title"),
+                    "source": rec.get("source"),
+                    "url": rec.get("url"),
+                    "content": rec.get("content"),
+                }
+                for rec in records
+            ]
+            self._news.bulk_upsert(news_records, version_id=version_id)
+            logger.info(f"Persisted {len(news_records)} news records to canonical")
+
+        elif dataset_name == "research_reports":
+            research_reports_records = [
+                {
+                    "trade_date": rec["trade_date"],
+                    "ts_code": rec["ts_code"],
+                    "name": rec.get("name"),
+                    "title": rec.get("title"),
+                    "report_type": rec.get("report_type"),
+                    "author": rec.get("author"),
+                    "inst_csname": rec.get("inst_csname"),
+                    "ind_name": rec.get("ind_name"),
+                    "url": rec.get("url"),
+                }
+                for rec in records
+            ]
+            self._research_reports.bulk_upsert(
+                research_reports_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(research_reports_records)} research_reports records to canonical"
+            )
+
+        elif dataset_name == "investor_qa":
+            investor_qa_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "trade_date": rec["trade_date"],
+                    "q": rec["q"],
+                    "name": rec.get("name"),
+                    "a": rec.get("a"),
+                    "pub_time": rec.get("pub_time"),
+                }
+                for rec in records
+            ]
+            self._investor_qa.bulk_upsert(investor_qa_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(investor_qa_records)} investor_qa records to canonical"
             )
 
     def test_connection(self) -> bool:

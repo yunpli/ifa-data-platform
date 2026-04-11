@@ -956,3 +956,405 @@ class SwIndustryMappingHistory:
                 }
                 for row in rows
             ]
+
+
+class AnnouncementsHistory:
+    """Historical announcement records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.announcements_history (
+                            id, version_id, ann_date, ts_code, name, title,
+                            url, rec_time, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ann_date, :ts_code, :name, :title,
+                            :url, :rec_time, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ann_date": rec["ann_date"],
+                        "ts_code": rec["ts_code"],
+                        "name": rec.get("name"),
+                        "title": rec.get("title"),
+                        "url": rec.get("url"),
+                        "rec_time": rec.get("rec_time"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ann_date, ts_code, name, title,
+                               url, rec_time, created_at
+                        FROM ifa2.announcements_history
+                        WHERE version_id = :version_id
+                        ORDER BY ann_date DESC, ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ann_date, ts_code, name, title,
+                               url, rec_time, created_at
+                        FROM ifa2.announcements_history
+                        WHERE version_id = :version_id
+                        ORDER BY ann_date DESC, ts_code
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ann_date": row.ann_date,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "url": row.url,
+                    "rec_time": row.rec_time,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class NewsHistory:
+    """Historical news records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.news_history (
+                            id, version_id, datetime, classify, title, source,
+                            url, content, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :datetime, :classify, :title, :source,
+                            :url, :content, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "datetime": rec["datetime"],
+                        "classify": rec.get("classify"),
+                        "title": rec.get("title"),
+                        "source": rec.get("source"),
+                        "url": rec.get("url"),
+                        "content": rec.get("content"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, datetime, classify, title, source,
+                               url, content, created_at
+                        FROM ifa2.news_history
+                        WHERE version_id = :version_id
+                        ORDER BY datetime DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, datetime, classify, title, source,
+                               url, content, created_at
+                        FROM ifa2.news_history
+                        WHERE version_id = :version_id
+                        ORDER BY datetime DESC
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "datetime": row.datetime,
+                    "classify": row.classify,
+                    "title": row.title,
+                    "source": row.source,
+                    "url": row.url,
+                    "content": row.content,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class ResearchReportsHistory:
+    """Historical research report records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.research_reports_history (
+                            id, version_id, trade_date, ts_code, name, title,
+                            report_type, author, inst_csname, ind_name, url,
+                            created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :trade_date, :ts_code, :name, :title,
+                            :report_type, :author, :inst_csname, :ind_name, :url,
+                            now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "trade_date": rec["trade_date"],
+                        "ts_code": rec["ts_code"],
+                        "name": rec.get("name"),
+                        "title": rec.get("title"),
+                        "report_type": rec.get("report_type"),
+                        "author": rec.get("author"),
+                        "inst_csname": rec.get("inst_csname"),
+                        "ind_name": rec.get("ind_name"),
+                        "url": rec.get("url"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, trade_date, ts_code, name, title,
+                               report_type, author, inst_csname, ind_name, url,
+                               created_at
+                        FROM ifa2.research_reports_history
+                        WHERE version_id = :version_id
+                        ORDER BY trade_date DESC, ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, trade_date, ts_code, name, title,
+                               report_type, author, inst_csname, ind_name, url,
+                               created_at
+                        FROM ifa2.research_reports_history
+                        WHERE version_id = :version_id
+                        ORDER BY trade_date DESC, ts_code
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "trade_date": row.trade_date,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "report_type": row.report_type,
+                    "author": row.author,
+                    "inst_csname": row.inst_csname,
+                    "ind_name": row.ind_name,
+                    "url": row.url,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class InvestorQaHistory:
+    """Historical investor Q&A records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.investor_qa_history (
+                            id, version_id, ts_code, trade_date, q, name, a,
+                            pub_time, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :trade_date, :q, :name,
+                            :a, :pub_time, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "trade_date": rec["trade_date"],
+                        "q": rec["q"],
+                        "name": rec.get("name"),
+                        "a": rec.get("a"),
+                        "pub_time": rec.get("pub_time"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, trade_date, q, name, a,
+                               pub_time, created_at
+                        FROM ifa2.investor_qa_history
+                        WHERE version_id = :version_id
+                        ORDER BY trade_date DESC, ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, trade_date, q, name, a,
+                               pub_time, created_at
+                        FROM ifa2.investor_qa_history
+                        WHERE version_id = :version_id
+                        ORDER BY trade_date DESC, ts_code
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ts_code": row.ts_code,
+                    "trade_date": row.trade_date,
+                    "q": row.q,
+                    "name": row.name,
+                    "a": row.a,
+                    "pub_time": row.pub_time,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]

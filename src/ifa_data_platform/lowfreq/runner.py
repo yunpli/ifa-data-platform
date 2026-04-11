@@ -13,9 +13,13 @@ from ifa_data_platform.lowfreq.models import DatasetConfig, JobStatus, RunnerTyp
 from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.run_state import RunStateManager
 from ifa_data_platform.lowfreq.version_persistence import (
+    AnnouncementsHistory,
     DatasetVersionRegistry,
     FundBasicEtfHistory,
     IndexBasicHistory,
+    InvestorQaHistory,
+    NewsHistory,
+    ResearchReportsHistory,
     StockBasicHistory,
     SwIndustryMappingHistory,
     TradeCalHistory,
@@ -54,6 +58,10 @@ class LowFreqRunner:
         self._index_basic_history = IndexBasicHistory()
         self._fund_basic_etf_history = FundBasicEtfHistory()
         self._sw_industry_mapping_history = SwIndustryMappingHistory()
+        self._announcements_history = AnnouncementsHistory()
+        self._news_history = NewsHistory()
+        self._research_reports_history = ResearchReportsHistory()
+        self._investor_qa_history = InvestorQaHistory()
 
     def run(
         self,
@@ -192,6 +200,18 @@ class LowFreqRunner:
         elif dataset_name == "sw_industry_mapping":
             self._sw_industry_mapping_history.store_version(version_id, records)
             logger.info(f"Stored {len(records)} sw_industry_mapping records to history")
+        elif dataset_name == "announcements":
+            self._announcements_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} announcements records to history")
+        elif dataset_name == "news":
+            self._news_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} news records to history")
+        elif dataset_name == "research_reports":
+            self._research_reports_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} research_reports records to history")
+        elif dataset_name == "investor_qa":
+            self._investor_qa_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} investor_qa records to history")
 
     def promote(
         self,

@@ -1007,3 +1007,623 @@ class SwIndustryMappingCurrent:
                 }
                 for row in rows
             ]
+
+
+class AnnouncementsCurrent:
+    """Canonical current table for company announcements (anns_d)."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ann_date: date,
+        ts_code: str,
+        name: Optional[str] = None,
+        title: Optional[str] = None,
+        url: Optional[str] = None,
+        rec_time: Optional[datetime] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        """Upsert an announcement record."""
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.announcements_current (
+                        id, ann_date, ts_code, name, title, url, rec_time,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ann_date, :ts_code, :name, :title, :url, :rec_time,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, ann_date, title) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        url = EXCLUDED.url,
+                        rec_time = EXCLUDED.rec_time,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ann_date": ann_date,
+                    "ts_code": ts_code,
+                    "name": name,
+                    "title": title,
+                    "url": url,
+                    "rec_time": rec_time,
+                    "version_id": version_id_value,
+                },
+            )
+
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        """Bulk upsert announcement records."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            self.upsert(
+                ann_date=rec["ann_date"],
+                ts_code=rec["ts_code"],
+                name=rec.get("name"),
+                title=rec.get("title"),
+                url=rec.get("url"),
+                rec_time=rec.get("rec_time"),
+                version_id=version_id,
+            )
+            count += 1
+
+        return count
+
+    def get_by_ts_code(self, ts_code: str, limit: int = 10) -> list[dict]:
+        """Get announcement records by ts_code."""
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT id, ann_date, ts_code, name, title, url, rec_time,
+                           created_at, updated_at
+                    FROM ifa2.announcements_current
+                    WHERE ts_code = :ts_code
+                    ORDER BY ann_date DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"ts_code": ts_code, "limit": limit},
+            ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "ann_date": row.ann_date,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "url": row.url,
+                    "rec_time": row.rec_time,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        """List all announcement records."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, ann_date, ts_code, name, title, url, rec_time,
+                               created_at, updated_at
+                        FROM ifa2.announcements_current
+                        ORDER BY ann_date DESC, ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, ann_date, ts_code, name, title, url, rec_time,
+                               created_at, updated_at
+                        FROM ifa2.announcements_current
+                        ORDER BY ann_date DESC, ts_code
+                        """
+                    ),
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "ann_date": row.ann_date,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "url": row.url,
+                    "rec_time": row.rec_time,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
+
+
+class NewsCurrent:
+    """Canonical current table for financial news (news)."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        datetime: datetime,
+        classify: Optional[str] = None,
+        title: Optional[str] = None,
+        source: Optional[str] = None,
+        url: Optional[str] = None,
+        content: Optional[str] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        """Upsert a news record."""
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.news_current (
+                        id, datetime, classify, title, source, url, content,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :datetime, :classify, :title, :source, :url, :content,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (datetime, title) DO UPDATE SET
+                        classify = EXCLUDED.classify,
+                        source = EXCLUDED.source,
+                        url = EXCLUDED.url,
+                        content = EXCLUDED.content,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "datetime": datetime,
+                    "classify": classify,
+                    "title": title,
+                    "source": source,
+                    "url": url,
+                    "content": content,
+                    "version_id": version_id_value,
+                },
+            )
+
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        """Bulk upsert news records."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            self.upsert(
+                datetime=rec["datetime"],
+                classify=rec.get("classify"),
+                title=rec.get("title"),
+                source=rec.get("source"),
+                url=rec.get("url"),
+                content=rec.get("content"),
+                version_id=version_id,
+            )
+            count += 1
+
+        return count
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        """List all news records."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, datetime, classify, title, source, url, content,
+                               created_at, updated_at
+                        FROM ifa2.news_current
+                        ORDER BY datetime DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, datetime, classify, title, source, url, content,
+                               created_at, updated_at
+                        FROM ifa2.news_current
+                        ORDER BY datetime DESC
+                        """
+                    ),
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "datetime": row.datetime,
+                    "classify": row.classify,
+                    "title": row.title,
+                    "source": row.source,
+                    "url": row.url,
+                    "content": row.content,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
+
+
+class ResearchReportsCurrent:
+    """Canonical current table for research reports."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        trade_date: date,
+        ts_code: str,
+        name: Optional[str] = None,
+        title: Optional[str] = None,
+        report_type: Optional[str] = None,
+        author: Optional[str] = None,
+        inst_csname: Optional[str] = None,
+        ind_name: Optional[str] = None,
+        url: Optional[str] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        """Upsert a research report record."""
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.research_reports_current (
+                        id, trade_date, ts_code, name, title, report_type,
+                        author, inst_csname, ind_name, url,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :trade_date, :ts_code, :name, :title, :report_type,
+                        :author, :inst_csname, :ind_name, :url,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, trade_date, title) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        report_type = EXCLUDED.report_type,
+                        author = EXCLUDED.author,
+                        inst_csname = EXCLUDED.inst_csname,
+                        ind_name = EXCLUDED.ind_name,
+                        url = EXCLUDED.url,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "trade_date": trade_date,
+                    "ts_code": ts_code,
+                    "name": name,
+                    "title": title,
+                    "report_type": report_type,
+                    "author": author,
+                    "inst_csname": inst_csname,
+                    "ind_name": ind_name,
+                    "url": url,
+                    "version_id": version_id_value,
+                },
+            )
+
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        """Bulk upsert research report records."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            self.upsert(
+                trade_date=rec["trade_date"],
+                ts_code=rec["ts_code"],
+                name=rec.get("name"),
+                title=rec.get("title"),
+                report_type=rec.get("report_type"),
+                author=rec.get("author"),
+                inst_csname=rec.get("inst_csname"),
+                ind_name=rec.get("ind_name"),
+                url=rec.get("url"),
+                version_id=version_id,
+            )
+            count += 1
+
+        return count
+
+    def get_by_ts_code(self, ts_code: str, limit: int = 10) -> list[dict]:
+        """Get research report records by ts_code."""
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT id, trade_date, ts_code, name, title, report_type,
+                           author, inst_csname, ind_name, url,
+                           created_at, updated_at
+                    FROM ifa2.research_reports_current
+                    WHERE ts_code = :ts_code
+                    ORDER BY trade_date DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"ts_code": ts_code, "limit": limit},
+            ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "trade_date": row.trade_date,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "report_type": row.report_type,
+                    "author": row.author,
+                    "inst_csname": row.inst_csname,
+                    "ind_name": row.ind_name,
+                    "url": row.url,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        """List all research report records."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, trade_date, ts_code, name, title, report_type,
+                               author, inst_csname, ind_name, url,
+                               created_at, updated_at
+                        FROM ifa2.research_reports_current
+                        ORDER BY trade_date DESC, ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, trade_date, ts_code, name, title, report_type,
+                               author, inst_csname, ind_name, url,
+                               created_at, updated_at
+                        FROM ifa2.research_reports_current
+                        ORDER BY trade_date DESC, ts_code
+                        """
+                    ),
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "trade_date": row.trade_date,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "report_type": row.report_type,
+                    "author": row.author,
+                    "inst_csname": row.inst_csname,
+                    "ind_name": row.ind_name,
+                    "url": row.url,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
+
+
+class InvestorQaCurrent:
+    """Canonical current table for investor Q&A (互动易)."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        trade_date: date,
+        q: str,
+        name: Optional[str] = None,
+        a: Optional[str] = None,
+        pub_time: Optional[datetime] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        """Upsert an investor Q&A record."""
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.investor_qa_current (
+                        id, ts_code, trade_date, q, name, a, pub_time,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :trade_date, :q, :name, :a, :pub_time,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, trade_date, q) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        a = EXCLUDED.a,
+                        pub_time = EXCLUDED.pub_time,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "trade_date": trade_date,
+                    "q": q,
+                    "name": name,
+                    "a": a,
+                    "pub_time": pub_time,
+                    "version_id": version_id_value,
+                },
+            )
+
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        """Bulk upsert investor Q&A records."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                trade_date=rec["trade_date"],
+                q=rec["q"],
+                name=rec.get("name"),
+                a=rec.get("a"),
+                pub_time=rec.get("pub_time"),
+                version_id=version_id,
+            )
+            count += 1
+
+        return count
+
+    def get_by_ts_code(self, ts_code: str, limit: int = 10) -> list[dict]:
+        """Get investor Q&A records by ts_code."""
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT id, ts_code, trade_date, q, name, a, pub_time,
+                           created_at, updated_at
+                    FROM ifa2.investor_qa_current
+                    WHERE ts_code = :ts_code
+                    ORDER BY trade_date DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"ts_code": ts_code, "limit": limit},
+            ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "ts_code": row.ts_code,
+                    "trade_date": row.trade_date,
+                    "q": row.q,
+                    "name": row.name,
+                    "a": row.a,
+                    "pub_time": row.pub_time,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        """List all investor Q&A records."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, ts_code, trade_date, q, name, a, pub_time,
+                               created_at, updated_at
+                        FROM ifa2.investor_qa_current
+                        ORDER BY trade_date DESC, ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, ts_code, trade_date, q, name, a, pub_time,
+                               created_at, updated_at
+                        FROM ifa2.investor_qa_current
+                        ORDER BY trade_date DESC, ts_code
+                        """
+                    ),
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "ts_code": row.ts_code,
+                    "trade_date": row.trade_date,
+                    "q": row.q,
+                    "name": row.name,
+                    "a": row.a,
+                    "pub_time": row.pub_time,
+                    "created_at": row.created_at,
+                    "updated_at": row.updated_at,
+                }
+                for row in rows
+            ]
