@@ -334,9 +334,8 @@ class TushareAdaptor(BaseAdaptor):
                 delist_date = None
 
             fund_type = rec.get("fund_type", "")
-            is_etf = fund_type and "ETF" in fund_type.upper()
 
-            if is_etf or not fund_type:
+            if fund_type:
                 parsed_records.append(
                     {
                         "ts_code": rec.get("ts_code", ""),
