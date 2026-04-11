@@ -184,6 +184,10 @@ class TushareAdaptor(BaseAdaptor):
                 raw_records, new_watermark = self._fetch_stk_holdernumber(watermark)
                 request_params = {"end_date": watermark}
 
+            elif dataset_name == "name_change":
+                raw_records, new_watermark = self._fetch_name_change()
+                request_params = {}
+
             else:
                 raise ValueError(f"Unsupported dataset: {dataset_name}")
 
@@ -667,11 +671,33 @@ class TushareAdaptor(BaseAdaptor):
 
         return parsed_records, trade_date
 
+    def _get_last_trading_day(self) -> Optional[str]:
+        """Get the last trading day from the database."""
+        try:
+            from sqlalchemy import text
+
+            with self._trade_cal.engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        "SELECT cal_date FROM ifa2.trade_cal_current "
+                        "WHERE is_open = 1 AND cal_date <= CURRENT_DATE "
+                        "ORDER BY cal_date DESC LIMIT 1"
+                    )
+                )
+                row = result.fetchone()
+                if row:
+                    return row[0].strftime("%Y%m%d")
+        except Exception as e:
+            logger.warning(f"Failed to get last trading day: {e}")
+        return None
+
     def _fetch_index_weight(
         self, trade_date: Optional[str] = None
     ) -> tuple[list[dict], str]:
         if not trade_date:
-            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = "20240116"
 
         records = self.client.query(
             "index_weight",
@@ -703,15 +729,19 @@ class TushareAdaptor(BaseAdaptor):
         self, trade_date: Optional[str] = None
     ) -> tuple[list[dict], str]:
         if not trade_date:
-            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
         records = self.client.query(
-            "etf_daily_basic",
+            "etf_daily",
             {"trade_date": trade_date},
         )
 
         parsed_records = []
         for rec in records:
+            ts_code = rec.get("ts_code", "")
+
             trade_date_val = None
             td_str = rec.get("trade_date", "")
             if td_str:
@@ -722,7 +752,7 @@ class TushareAdaptor(BaseAdaptor):
 
             parsed_records.append(
                 {
-                    "ts_code": rec.get("ts_code", ""),
+                    "ts_code": ts_code,
                     "trade_date": trade_date_val,
                     "unit_nav": rec.get("unit_nav"),
                     "unit_total": rec.get("unit_total"),
@@ -771,7 +801,7 @@ class TushareAdaptor(BaseAdaptor):
         return parsed_records, trade_date
 
     def _fetch_company_basic(self) -> tuple[list[dict], str]:
-        records = self.client.query("company_basic", {})
+        records = self.client.query("stock_company", {})
 
         parsed_records = []
         for rec in records:
@@ -790,8 +820,8 @@ class TushareAdaptor(BaseAdaptor):
                     "chairman": rec.get("chairman"),
                     "manager": rec.get("manager"),
                     "secretary": rec.get("secretary"),
-                    "registered_capital": rec.get("registered_capital"),
-                    "paid_in_capital": rec.get("paid_in_capital"),
+                    "registered_capital": rec.get("reg_capital"),
+                    "paid_in_capital": None,
                     "setup_date": setup_date_val,
                     "province": rec.get("province"),
                     "city": rec.get("city"),
@@ -877,8 +907,40 @@ class TushareAdaptor(BaseAdaptor):
                     "name": rec.get("name", ""),
                     "ipo_date": ipo_date_val,
                     "issue_date": issue_date_val,
-                    "issue_price": rec.get("issue_price"),
+                    "issue_price": rec.get("price"),
                     "amount": rec.get("amount"),
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_name_change(self) -> tuple[list[dict], str]:
+        records = self.client.query("stock_namechange", {})
+
+        parsed_records = []
+        for rec in records:
+            start_date_val = None
+            sd_str = rec.get("start_date", "")
+            if sd_str:
+                try:
+                    start_date_val = datetime.strptime(sd_str, "%Y%m%d").date()
+                except ValueError:
+                    start_date_val = None
+
+            end_date_val = None
+            ed_str = rec.get("end_date", "")
+            if ed_str:
+                try:
+                    end_date_val = datetime.strptime(ed_str, "%Y%m%d").date()
+                except ValueError:
+                    end_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "name": rec.get("name", ""),
+                    "start_date": start_date_val,
+                    "end_date": end_date_val,
                 }
             )
 
@@ -1238,6 +1300,21 @@ class TushareAdaptor(BaseAdaptor):
             )
             logger.info(
                 f"Persisted {len(stk_holdernumber_records)} stk_holdernumber records to canonical"
+            )
+
+        elif dataset_name == "name_change":
+            name_change_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "name": rec["name"],
+                    "start_date": rec["start_date"],
+                    "end_date": rec.get("end_date"),
+                }
+                for rec in records
+            ]
+            self._name_change.bulk_upsert(name_change_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(name_change_records)} name_change records to canonical"
             )
 
     def test_connection(self) -> bool:

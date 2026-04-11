@@ -1752,6 +1752,282 @@ class CompanyBasicHistory:
             ]
 
 
+class StkManagersHistory:
+    """Historical stk managers records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.stk_managers_history (
+                            id, version_id, ts_code, name, title, gender,
+                            edu, nationality, birthday, begin_date, end_date,
+                            created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :name, :title, :gender,
+                            :edu, :nationality, :birthday, :begin_date, :end_date,
+                            now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "name": rec["name"],
+                        "title": rec.get("title"),
+                        "gender": rec.get("gender"),
+                        "edu": rec.get("edu"),
+                        "nationality": rec.get("nationality"),
+                        "birthday": rec.get("birthday"),
+                        "begin_date": rec.get("begin_date"),
+                        "end_date": rec.get("end_date"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self, version_id: str, limit: Optional[int] = None
+    ) -> list[dict]:
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, title, gender,
+                               edu, nationality, birthday, begin_date, end_date,
+                               created_at
+                        FROM ifa2.stk_managers_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code, begin_date
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, title, gender,
+                               edu, nationality, birthday, begin_date, end_date,
+                               created_at
+                        FROM ifa2.stk_managers_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code, begin_date
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "title": row.title,
+                    "gender": row.gender,
+                    "edu": row.edu,
+                    "nationality": row.nationality,
+                    "birthday": row.birthday,
+                    "begin_date": row.begin_date,
+                    "end_date": row.end_date,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class NewShareHistory:
+    """Historical new share records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.new_share_history (
+                            id, version_id, ts_code, name, ipo_date, issue_date,
+                            issue_price, amount, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :name, :ipo_date, :issue_date,
+                            :issue_price, :amount, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "name": rec["name"],
+                        "ipo_date": rec.get("ipo_date"),
+                        "issue_date": rec.get("issue_date"),
+                        "issue_price": rec.get("issue_price"),
+                        "amount": rec.get("amount"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self, version_id: str, limit: Optional[int] = None
+    ) -> list[dict]:
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, ipo_date, issue_date,
+                               issue_price, amount, created_at
+                        FROM ifa2.new_share_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, ipo_date, issue_date,
+                               issue_price, amount, created_at
+                        FROM ifa2.new_share_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "ipo_date": row.ipo_date,
+                    "issue_date": row.issue_date,
+                    "issue_price": row.issue_price,
+                    "amount": row.amount,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class NameChangeHistory:
+    """Historical name change records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.name_change_history (
+                            id, version_id, ts_code, name, start_date,
+                            end_date, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :name, :start_date,
+                            :end_date, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "name": rec["name"],
+                        "start_date": rec["start_date"],
+                        "end_date": rec.get("end_date"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self, version_id: str, limit: Optional[int] = None
+    ) -> list[dict]:
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, start_date,
+                               end_date, created_at
+                        FROM ifa2.name_change_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code, start_date
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, start_date,
+                               end_date, created_at
+                        FROM ifa2.name_change_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code, start_date
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "start_date": row.start_date,
+                    "end_date": row.end_date,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
 class StkHoldernumberHistory:
     """Historical stk holdernumber records per version."""
 
