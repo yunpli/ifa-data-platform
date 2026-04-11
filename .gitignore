@@ -11,6 +11,7 @@ build/
 .venv/
 venv/
 .env
+config/runtime/*.env
 .eggs/
 *.egg
 .mypy_cache/

@@ -14,7 +14,10 @@ from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.run_state import RunStateManager
 from ifa_data_platform.lowfreq.version_persistence import (
     DatasetVersionRegistry,
+    FundBasicEtfHistory,
+    IndexBasicHistory,
     StockBasicHistory,
+    SwIndustryMappingHistory,
     TradeCalHistory,
     VersionStatus,
 )
@@ -48,6 +51,9 @@ class LowFreqRunner:
         self._version_registry = DatasetVersionRegistry()
         self._trade_cal_history = TradeCalHistory()
         self._stock_basic_history = StockBasicHistory()
+        self._index_basic_history = IndexBasicHistory()
+        self._fund_basic_etf_history = FundBasicEtfHistory()
+        self._sw_industry_mapping_history = SwIndustryMappingHistory()
 
     def run(
         self,
@@ -177,6 +183,15 @@ class LowFreqRunner:
         elif dataset_name == "stock_basic":
             self._stock_basic_history.store_version(version_id, records)
             logger.info(f"Stored {len(records)} stock_basic records to history")
+        elif dataset_name == "index_basic":
+            self._index_basic_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} index_basic records to history")
+        elif dataset_name == "fund_basic_etf":
+            self._fund_basic_etf_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} fund_basic_etf records to history")
+        elif dataset_name == "sw_industry_mapping":
+            self._sw_industry_mapping_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} sw_industry_mapping records to history")
 
     def promote(
         self,

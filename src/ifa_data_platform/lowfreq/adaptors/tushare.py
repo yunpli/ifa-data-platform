@@ -9,7 +9,10 @@ from typing import Optional
 
 from ifa_data_platform.lowfreq.adaptor import BaseAdaptor, FetchResult
 from ifa_data_platform.lowfreq.canonical_persistence import (
+    FundBasicEtfCurrent,
+    IndexBasicCurrent,
     StockBasicCurrent,
+    SwIndustryMappingCurrent,
     TradeCalCurrent,
 )
 from ifa_data_platform.lowfreq.models import DatasetConfig
@@ -35,6 +38,9 @@ class TushareAdaptor(BaseAdaptor):
         self._raw_persistence = RawFetchPersistence()
         self._trade_cal = TradeCalCurrent()
         self._stock_basic = StockBasicCurrent()
+        self._index_basic = IndexBasicCurrent()
+        self._fund_basic_etf = FundBasicEtfCurrent()
+        self._sw_industry_mapping = SwIndustryMappingCurrent()
 
     @property
     def client(self) -> TushareClient:
@@ -88,6 +94,18 @@ class TushareAdaptor(BaseAdaptor):
                     "list_status": "L",
                     "market": None,
                 }
+
+            elif dataset_name == "index_basic":
+                raw_records, new_watermark = self._fetch_index_basic()
+                request_params = {"market": None}
+
+            elif dataset_name == "fund_basic_etf":
+                raw_records, new_watermark = self._fetch_fund_basic_etf()
+                request_params = {"market": None}
+
+            elif dataset_name == "sw_industry_mapping":
+                raw_records, new_watermark = self._fetch_sw_industry_mapping()
+                request_params = {}
 
             else:
                 raise ValueError(f"Unsupported dataset: {dataset_name}")
@@ -223,6 +241,168 @@ class TushareAdaptor(BaseAdaptor):
 
         return parsed_records, "full_snapshot"
 
+    def _fetch_index_basic(
+        self,
+    ) -> tuple[list[dict], str]:
+        """Fetch index basic from Tushare."""
+        records = self.client.query(
+            "index_basic",
+            {"market": None},
+        )
+
+        parsed_records = []
+        for rec in records:
+            base_date_str = rec.get("base_date", "")
+            if base_date_str:
+                try:
+                    base_date = datetime.strptime(base_date_str, "%Y%m%d").date()
+                except ValueError:
+                    base_date = None
+            else:
+                base_date = None
+
+            list_date_str = rec.get("list_date", "")
+            if list_date_str:
+                try:
+                    list_date = datetime.strptime(list_date_str, "%Y%m%d").date()
+                except ValueError:
+                    list_date = None
+            else:
+                list_date = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "name": rec.get("name", ""),
+                    "market": rec.get("market", ""),
+                    "publisher": rec.get("publisher", ""),
+                    "category": rec.get("category", ""),
+                    "base_date": base_date,
+                    "base_point": rec.get("base_point"),
+                    "list_date": list_date,
+                    "weight_rule": rec.get("weight_rule", ""),
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_fund_basic_etf(
+        self,
+    ) -> tuple[list[dict], str]:
+        """Fetch fund basic (ETF subset) from Tushare."""
+        records = self.client.query(
+            "fund_basic",
+            {"market": None},
+        )
+
+        parsed_records = []
+        for rec in records:
+            list_date_str = rec.get("list_date", "")
+            if list_date_str:
+                try:
+                    list_date = datetime.strptime(list_date_str, "%Y%m%d").date()
+                except ValueError:
+                    list_date = None
+            else:
+                list_date = None
+
+            due_date_str = rec.get("due_date", "")
+            if due_date_str:
+                try:
+                    due_date = datetime.strptime(due_date_str, "%Y%m%d").date()
+                except ValueError:
+                    due_date = None
+            else:
+                due_date = None
+
+            issue_date_str = rec.get("issue_date", "")
+            if issue_date_str:
+                try:
+                    issue_date = datetime.strptime(issue_date_str, "%Y%m%d").date()
+                except ValueError:
+                    issue_date = None
+            else:
+                issue_date = None
+
+            delist_date_str = rec.get("delist_date", "")
+            if delist_date_str:
+                try:
+                    delist_date = datetime.strptime(delist_date_str, "%Y%m%d").date()
+                except ValueError:
+                    delist_date = None
+            else:
+                delist_date = None
+
+            fund_type = rec.get("fund_type", "")
+            is_etf = fund_type and "ETF" in fund_type.upper()
+
+            if is_etf or not fund_type:
+                parsed_records.append(
+                    {
+                        "ts_code": rec.get("ts_code", ""),
+                        "name": rec.get("name", ""),
+                        "market": rec.get("market", ""),
+                        "fund_type": fund_type,
+                        "management": rec.get("management", ""),
+                        "custodian": rec.get("custodian", ""),
+                        "list_date": list_date,
+                        "due_date": due_date,
+                        "issue_date": issue_date,
+                        "delist_date": delist_date,
+                        "invest_type": rec.get("invest_type", ""),
+                        "benchmark": rec.get("benchmark", ""),
+                        "status": rec.get("status", ""),
+                    }
+                )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_sw_industry_mapping(
+        self,
+    ) -> tuple[list[dict], str]:
+        """Fetch Shenwan industry mapping from Tushare."""
+        records = self.client.query(
+            "index_member",
+            {},
+        )
+
+        parsed_records = []
+        for rec in records:
+            in_date_str = rec.get("in_date", "")
+            if in_date_str:
+                try:
+                    in_date = datetime.strptime(in_date_str, "%Y%m%d").date()
+                except ValueError:
+                    in_date = None
+            else:
+                in_date = None
+
+            out_date_str = rec.get("out_date", "")
+            if out_date_str:
+                try:
+                    out_date = datetime.strptime(out_date_str, "%Y%m%d").date()
+                except ValueError:
+                    out_date = None
+            else:
+                out_date = None
+
+            parsed_records.append(
+                {
+                    "index_code": rec.get("index_code", ""),
+                    "industry_name": rec.get("industry_name", ""),
+                    "level": None,
+                    "parent_code": None,
+                    "src": "sw",
+                    "member_ts_code": rec.get("con_code", ""),
+                    "member_name": rec.get("name", ""),
+                    "in_date": in_date,
+                    "out_date": out_date,
+                    "is_active": out_date is None,
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
     def _persist_canonical(
         self,
         dataset_name: str,
@@ -270,6 +450,75 @@ class TushareAdaptor(BaseAdaptor):
             self._stock_basic.bulk_upsert(stock_basic_records, version_id=version_id)
             logger.info(
                 f"Persisted {len(stock_basic_records)} stock_basic records to canonical"
+            )
+
+        elif dataset_name == "index_basic":
+            index_basic_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "name": rec.get("name"),
+                    "market": rec.get("market"),
+                    "publisher": rec.get("publisher"),
+                    "category": rec.get("category"),
+                    "base_date": rec.get("base_date"),
+                    "base_point": rec.get("base_point"),
+                    "list_date": rec.get("list_date"),
+                    "weight_rule": rec.get("weight_rule"),
+                }
+                for rec in records
+            ]
+            self._index_basic.bulk_upsert(index_basic_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(index_basic_records)} index_basic records to canonical"
+            )
+
+        elif dataset_name == "fund_basic_etf":
+            fund_basic_etf_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "name": rec.get("name"),
+                    "market": rec.get("market"),
+                    "fund_type": rec.get("fund_type"),
+                    "management": rec.get("management"),
+                    "custodian": rec.get("custodian"),
+                    "list_date": rec.get("list_date"),
+                    "due_date": rec.get("due_date"),
+                    "issue_date": rec.get("issue_date"),
+                    "delist_date": rec.get("delist_date"),
+                    "invest_type": rec.get("invest_type"),
+                    "benchmark": rec.get("benchmark"),
+                    "status": rec.get("status"),
+                }
+                for rec in records
+            ]
+            self._fund_basic_etf.bulk_upsert(
+                fund_basic_etf_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(fund_basic_etf_records)} fund_basic_etf records to canonical"
+            )
+
+        elif dataset_name == "sw_industry_mapping":
+            sw_industry_mapping_records = [
+                {
+                    "index_code": rec["index_code"],
+                    "industry_name": rec.get("industry_name"),
+                    "level": rec.get("level"),
+                    "parent_code": rec.get("parent_code"),
+                    "src": rec.get("src"),
+                    "member_ts_code": rec.get("member_ts_code"),
+                    "member_name": rec.get("member_name"),
+                    "in_date": rec.get("in_date"),
+                    "out_date": rec.get("out_date"),
+                    "is_active": rec.get("is_active", True),
+                }
+                for rec in records
+            ]
+            self._sw_industry_mapping.bulk_upsert(
+                sw_industry_mapping_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(sw_industry_mapping_records)} sw_industry_mapping records to canonical"
             )
 
     def test_connection(self) -> bool:

@@ -98,12 +98,24 @@ def _get_default_config() -> DaemonConfig:
         groups=[
             GroupConfig(
                 group_name="daily_light",
-                datasets=["trade_cal", "stock_basic"],
+                datasets=[
+                    "trade_cal",
+                    "stock_basic",
+                    "index_basic",
+                    "fund_basic_etf",
+                    "sw_industry_mapping",
+                ],
                 description="Daily light ingestion for trade calendar and stock basic",
             ),
             GroupConfig(
                 group_name="weekly_deep",
-                datasets=["trade_cal", "stock_basic"],
+                datasets=[
+                    "trade_cal",
+                    "stock_basic",
+                    "index_basic",
+                    "fund_basic_etf",
+                    "sw_industry_mapping",
+                ],
                 description="Weekly deep ingestion",
             ),
         ],

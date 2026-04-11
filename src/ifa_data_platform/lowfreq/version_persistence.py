@@ -622,3 +622,337 @@ class StockBasicHistory:
                 }
                 for row in rows
             ]
+
+
+class IndexBasicHistory:
+    """Historical index basic records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.index_basic_history (
+                            id, version_id, ts_code, name, market, publisher,
+                            category, base_date, base_point, list_date, weight_rule,
+                            created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :name, :market, :publisher,
+                            :category, :base_date, :base_point, :list_date, :weight_rule,
+                            now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "name": rec.get("name"),
+                        "market": rec.get("market"),
+                        "publisher": rec.get("publisher"),
+                        "category": rec.get("category"),
+                        "base_date": rec.get("base_date"),
+                        "base_point": rec.get("base_point"),
+                        "list_date": rec.get("list_date"),
+                        "weight_rule": rec.get("weight_rule"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, market, publisher,
+                               category, base_date, base_point, list_date, weight_rule,
+                               created_at
+                        FROM ifa2.index_basic_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, market, publisher,
+                               category, base_date, base_point, list_date, weight_rule,
+                               created_at
+                        FROM ifa2.index_basic_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "market": row.market,
+                    "publisher": row.publisher,
+                    "category": row.category,
+                    "base_date": row.base_date,
+                    "base_point": row.base_point,
+                    "list_date": row.list_date,
+                    "weight_rule": row.weight_rule,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class FundBasicEtfHistory:
+    """Historical fund basic ETF records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.fund_basic_etf_history (
+                            id, version_id, ts_code, name, market, fund_type,
+                            management, custodian, list_date, due_date, issue_date,
+                            delist_date, invest_type, benchmark, status, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :name, :market, :fund_type,
+                            :management, :custodian, :list_date, :due_date, :issue_date,
+                            :delist_date, :invest_type, :benchmark, :status, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "name": rec.get("name"),
+                        "market": rec.get("market"),
+                        "fund_type": rec.get("fund_type"),
+                        "management": rec.get("management"),
+                        "custodian": rec.get("custodian"),
+                        "list_date": rec.get("list_date"),
+                        "due_date": rec.get("due_date"),
+                        "issue_date": rec.get("issue_date"),
+                        "delist_date": rec.get("delist_date"),
+                        "invest_type": rec.get("invest_type"),
+                        "benchmark": rec.get("benchmark"),
+                        "status": rec.get("status"),
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, market, fund_type,
+                               management, custodian, list_date, due_date, issue_date,
+                               delist_date, invest_type, benchmark, status, created_at
+                        FROM ifa2.fund_basic_etf_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, ts_code, name, market, fund_type,
+                               management, custodian, list_date, due_date, issue_date,
+                               delist_date, invest_type, benchmark, status, created_at
+                        FROM ifa2.fund_basic_etf_history
+                        WHERE version_id = :version_id
+                        ORDER BY ts_code
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "ts_code": row.ts_code,
+                    "name": row.name,
+                    "market": row.market,
+                    "fund_type": row.fund_type,
+                    "management": row.management,
+                    "custodian": row.custodian,
+                    "list_date": row.list_date,
+                    "due_date": row.due_date,
+                    "issue_date": row.issue_date,
+                    "delist_date": row.delist_date,
+                    "invest_type": row.invest_type,
+                    "benchmark": row.benchmark,
+                    "status": row.status,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+
+
+class SwIndustryMappingHistory:
+    """Historical SW industry mapping records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(
+        self,
+        version_id: str,
+        records: list[dict],
+    ) -> int:
+        """Store historical records for a version."""
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.sw_industry_mapping_history (
+                            id, version_id, index_code, industry_name, level,
+                            parent_code, src, member_ts_code, member_name,
+                            in_date, out_date, is_active, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :index_code, :industry_name, :level,
+                            :parent_code, :src, :member_ts_code, :member_name,
+                            :in_date, :out_date, :is_active, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "index_code": rec["index_code"],
+                        "industry_name": rec.get("industry_name"),
+                        "level": rec.get("level"),
+                        "parent_code": rec.get("parent_code"),
+                        "src": rec.get("src"),
+                        "member_ts_code": rec.get("member_ts_code"),
+                        "member_name": rec.get("member_name"),
+                        "in_date": rec.get("in_date"),
+                        "out_date": rec.get("out_date"),
+                        "is_active": 1 if rec.get("is_active", True) else 0,
+                    },
+                )
+                count += 1
+
+        return count
+
+    def query_by_version(
+        self,
+        version_id: str,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
+        """Query historical records by version."""
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, index_code, industry_name, level,
+                               parent_code, src, member_ts_code, member_name,
+                               in_date, out_date, is_active, created_at
+                        FROM ifa2.sw_industry_mapping_history
+                        WHERE version_id = :version_id
+                        ORDER BY index_code, level
+                        LIMIT :limit
+                        """
+                    ),
+                    {"version_id": version_id, "limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """
+                        SELECT id, version_id, index_code, industry_name, level,
+                               parent_code, src, member_ts_code, member_name,
+                               in_date, out_date, is_active, created_at
+                        FROM ifa2.sw_industry_mapping_history
+                        WHERE version_id = :version_id
+                        ORDER BY index_code, level
+                        """
+                    ),
+                    {"version_id": version_id},
+                ).fetchall()
+
+            return [
+                {
+                    "id": row.id,
+                    "version_id": row.version_id,
+                    "index_code": row.index_code,
+                    "industry_name": row.industry_name,
+                    "level": row.level,
+                    "parent_code": row.parent_code,
+                    "src": row.src,
+                    "member_ts_code": row.member_ts_code,
+                    "member_name": row.member_name,
+                    "in_date": row.in_date,
+                    "out_date": row.out_date,
+                    "is_active": bool(row.is_active),
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
