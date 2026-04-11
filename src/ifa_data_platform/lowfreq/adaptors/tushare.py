@@ -4,17 +4,25 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from ifa_data_platform.lowfreq.adaptor import BaseAdaptor, FetchResult
 from ifa_data_platform.lowfreq.canonical_persistence import (
     AnnouncementsCurrent,
+    CompanyBasicCurrent,
+    EtfDailyBasicCurrent,
     FundBasicEtfCurrent,
     IndexBasicCurrent,
+    IndexWeightCurrent,
     InvestorQaCurrent,
+    NameChangeCurrent,
+    NewShareCurrent,
     NewsCurrent,
     ResearchReportsCurrent,
+    ShareFloatCurrent,
+    StkHoldernumberCurrent,
+    StkManagersCurrent,
     StockBasicCurrent,
     SwIndustryMappingCurrent,
     TradeCalCurrent,
@@ -49,6 +57,14 @@ class TushareAdaptor(BaseAdaptor):
         self._news = NewsCurrent()
         self._research_reports = ResearchReportsCurrent()
         self._investor_qa = InvestorQaCurrent()
+        self._index_weight = IndexWeightCurrent()
+        self._etf_daily_basic = EtfDailyBasicCurrent()
+        self._share_float = ShareFloatCurrent()
+        self._company_basic = CompanyBasicCurrent()
+        self._stk_holdernumber = StkHoldernumberCurrent()
+        self._name_change = NameChangeCurrent()
+        self._new_share = NewShareCurrent()
+        self._stk_managers = StkManagersCurrent()
 
     @property
     def client(self) -> TushareClient:
@@ -139,6 +155,34 @@ class TushareAdaptor(BaseAdaptor):
                     "trade_date": watermark
                     or datetime.now(timezone.utc).strftime("%Y%m%d"),
                 }
+
+            elif dataset_name == "index_weight":
+                raw_records, new_watermark = self._fetch_index_weight(watermark)
+                request_params = {"trade_date": watermark}
+
+            elif dataset_name == "etf_daily_basic":
+                raw_records, new_watermark = self._fetch_etf_daily_basic(watermark)
+                request_params = {"trade_date": watermark}
+
+            elif dataset_name == "share_float":
+                raw_records, new_watermark = self._fetch_share_float(watermark)
+                request_params = {"trade_date": watermark}
+
+            elif dataset_name == "company_basic":
+                raw_records, new_watermark = self._fetch_company_basic()
+                request_params = {}
+
+            elif dataset_name == "stk_managers":
+                raw_records, new_watermark = self._fetch_stk_managers(watermark)
+                request_params = {"ts_code": watermark}
+
+            elif dataset_name == "new_share":
+                raw_records, new_watermark = self._fetch_new_share()
+                request_params = {}
+
+            elif dataset_name == "stk_holdernumber":
+                raw_records, new_watermark = self._fetch_stk_holdernumber(watermark)
+                request_params = {"end_date": watermark}
 
             else:
                 raise ValueError(f"Unsupported dataset: {dataset_name}")
@@ -487,21 +531,31 @@ class TushareAdaptor(BaseAdaptor):
 
         parsed_records = []
         for rec in records:
-            news_time_str = rec.get("time", "")
             news_datetime = None
+            news_time_str = rec.get("datetime", "")
             if news_time_str:
                 try:
-                    news_datetime = datetime.strptime(news_time_str, "%m-%d %H:%M")
-                    current_year = datetime.now().year
-                    news_datetime = news_datetime.replace(year=current_year)
+                    news_datetime = datetime.strptime(
+                        news_time_str, "%Y-%m-%d %H:%M:%S"
+                    )
                 except ValueError:
-                    news_datetime = datetime.now(timezone.utc)
+                    try:
+                        news_datetime = datetime.strptime(
+                            news_time_str, "%Y-%m-%d %H:%M"
+                        )
+                    except ValueError:
+                        news_datetime = datetime.now(timezone.utc)
+
+            title = rec.get("title")
+            if title is None:
+                content = rec.get("content", "")
+                title = content[:80] + "..." if len(content) > 80 else content
 
             parsed_records.append(
                 {
                     "datetime": news_datetime,
                     "classify": rec.get("classify", ""),
-                    "title": rec.get("title", ""),
+                    "title": title,
                     "source": rec.get("source", ""),
                     "url": rec.get("url", ""),
                     "content": rec.get("content", "")[:2000]
@@ -517,7 +571,8 @@ class TushareAdaptor(BaseAdaptor):
     ) -> tuple[list[dict], str]:
         """Fetch research reports from Tushare research_report API."""
         if not trade_date:
-            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+            yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+            trade_date = yesterday.strftime("%Y%m%d")
 
         records = self.client.query(
             "research_report",
@@ -526,6 +581,9 @@ class TushareAdaptor(BaseAdaptor):
 
         parsed_records = []
         for rec in records:
+            if not rec.get("ts_code"):
+                continue
+
             report_date_val = None
             report_date_str = rec.get("trade_date", "")
             if report_date_str:
@@ -557,7 +615,8 @@ class TushareAdaptor(BaseAdaptor):
     ) -> tuple[list[dict], str]:
         """Fetch investor Q&A from Tushare irm_qa_sz and irm_qa_sh APIs."""
         if not trade_date:
-            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+            yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+            trade_date = yesterday.strftime("%Y%m%d")
 
         parsed_records = []
 
@@ -607,6 +666,251 @@ class TushareAdaptor(BaseAdaptor):
                 logger.warning(f"Failed to fetch {api_name}: {e}")
 
         return parsed_records, trade_date
+
+    def _fetch_index_weight(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query(
+            "index_weight",
+            {"trade_date": trade_date},
+        )
+
+        parsed_records = []
+        for rec in records:
+            trade_date_val = None
+            td_str = rec.get("trade_date", "")
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    trade_date_val = None
+
+            parsed_records.append(
+                {
+                    "index_code": rec.get("index_code", ""),
+                    "trade_date": trade_date_val,
+                    "con_code": rec.get("con_code", ""),
+                    "weight": rec.get("weight"),
+                }
+            )
+
+        return parsed_records, trade_date
+
+    def _fetch_etf_daily_basic(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query(
+            "etf_daily_basic",
+            {"trade_date": trade_date},
+        )
+
+        parsed_records = []
+        for rec in records:
+            trade_date_val = None
+            td_str = rec.get("trade_date", "")
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    trade_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "trade_date": trade_date_val,
+                    "unit_nav": rec.get("unit_nav"),
+                    "unit_total": rec.get("unit_total"),
+                    "total_mv": rec.get("total_mv"),
+                    "nav_mv": rec.get("nav_mv"),
+                    "share": rec.get("share"),
+                    "adj_factor": rec.get("adj_factor"),
+                }
+            )
+
+        return parsed_records, trade_date
+
+    def _fetch_share_float(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query(
+            "share_float",
+            {"trade_date": trade_date},
+        )
+
+        parsed_records = []
+        for rec in records:
+            float_date_val = None
+            fd_str = rec.get("float_date", "")
+            if fd_str:
+                try:
+                    float_date_val = datetime.strptime(fd_str, "%Y%m%d").date()
+                except ValueError:
+                    float_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "float_date": float_date_val,
+                    "float_share": rec.get("float_share"),
+                    "total_share": rec.get("total_share"),
+                    "free_share": rec.get("free_share"),
+                    "float_mv": rec.get("float_mv"),
+                    "total_mv": rec.get("total_mv"),
+                }
+            )
+
+        return parsed_records, trade_date
+
+    def _fetch_company_basic(self) -> tuple[list[dict], str]:
+        records = self.client.query("company_basic", {})
+
+        parsed_records = []
+        for rec in records:
+            setup_date_val = None
+            sd_str = rec.get("setup_date", "")
+            if sd_str:
+                try:
+                    setup_date_val = datetime.strptime(sd_str, "%Y%m%d").date()
+                except ValueError:
+                    setup_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "exchange": rec.get("exchange"),
+                    "chairman": rec.get("chairman"),
+                    "manager": rec.get("manager"),
+                    "secretary": rec.get("secretary"),
+                    "registered_capital": rec.get("registered_capital"),
+                    "paid_in_capital": rec.get("paid_in_capital"),
+                    "setup_date": setup_date_val,
+                    "province": rec.get("province"),
+                    "city": rec.get("city"),
+                    "introduction": rec.get("introduction"),
+                    "website": rec.get("website"),
+                    "email": rec.get("email"),
+                    "office": rec.get("office"),
+                    "employees": rec.get("employees"),
+                    "main_business": rec.get("main_business"),
+                    "business_scope": rec.get("business_scope"),
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_stk_managers(
+        self, ts_code: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        params = {}
+        if ts_code:
+            params["ts_code"] = ts_code
+
+        records = self.client.query("stk_managers", params)
+
+        parsed_records = []
+        for rec in records:
+            begin_date_val = None
+            bd_str = rec.get("begin_date", "")
+            if bd_str:
+                try:
+                    begin_date_val = datetime.strptime(bd_str, "%Y%m%d").date()
+                except ValueError:
+                    begin_date_val = None
+
+            end_date_val = None
+            ed_str = rec.get("end_date", "")
+            if ed_str:
+                try:
+                    end_date_val = datetime.strptime(ed_str, "%Y%m%d").date()
+                except ValueError:
+                    end_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "name": rec.get("name", ""),
+                    "title": rec.get("title", ""),
+                    "gender": rec.get("gender"),
+                    "edu": rec.get("edu"),
+                    "nationality": rec.get("nationality"),
+                    "birthday": rec.get("birthday"),
+                    "begin_date": begin_date_val,
+                    "end_date": end_date_val,
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_new_share(self) -> tuple[list[dict], str]:
+        records = self.client.query("new_share", {})
+
+        parsed_records = []
+        for rec in records:
+            ipo_date_val = None
+            ipo_str = rec.get("ipo_date", "")
+            if ipo_str:
+                try:
+                    ipo_date_val = datetime.strptime(ipo_str, "%Y%m%d").date()
+                except ValueError:
+                    ipo_date_val = None
+
+            issue_date_val = None
+            issue_str = rec.get("issue_date", "")
+            if issue_str:
+                try:
+                    issue_date_val = datetime.strptime(issue_str, "%Y%m%d").date()
+                except ValueError:
+                    issue_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "name": rec.get("name", ""),
+                    "ipo_date": ipo_date_val,
+                    "issue_date": issue_date_val,
+                    "issue_price": rec.get("issue_price"),
+                    "amount": rec.get("amount"),
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_stk_holdernumber(
+        self, end_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not end_date:
+            end_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query("stk_holdernumber", {"end_date": end_date})
+
+        parsed_records = []
+        for rec in records:
+            end_date_val = None
+            ed_str = rec.get("end_date", "")
+            if ed_str:
+                try:
+                    end_date_val = datetime.strptime(ed_str, "%Y%m%d").date()
+                except ValueError:
+                    end_date_val = None
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "end_date": end_date_val,
+                    "holder_num": rec.get("holder_num"),
+                }
+            )
+
+        return parsed_records, end_date
 
     def _persist_canonical(
         self,
@@ -797,6 +1101,143 @@ class TushareAdaptor(BaseAdaptor):
             self._investor_qa.bulk_upsert(investor_qa_records, version_id=version_id)
             logger.info(
                 f"Persisted {len(investor_qa_records)} investor_qa records to canonical"
+            )
+
+        elif dataset_name == "index_weight":
+            index_weight_records = [
+                {
+                    "index_code": rec["index_code"],
+                    "trade_date": rec["trade_date"],
+                    "con_code": rec["con_code"],
+                    "weight": rec["weight"],
+                }
+                for rec in records
+            ]
+            self._index_weight.bulk_upsert(index_weight_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(index_weight_records)} index_weight records to canonical"
+            )
+
+        elif dataset_name == "etf_daily_basic":
+            etf_daily_basic_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "trade_date": rec["trade_date"],
+                    "unit_nav": rec.get("unit_nav"),
+                    "unit_total": rec.get("unit_total"),
+                    "total_mv": rec.get("total_mv"),
+                    "nav_mv": rec.get("nav_mv"),
+                    "share": rec.get("share"),
+                    "adj_factor": rec.get("adj_factor"),
+                }
+                for rec in records
+            ]
+            self._etf_daily_basic.bulk_upsert(
+                etf_daily_basic_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(etf_daily_basic_records)} etf_daily_basic records to canonical"
+            )
+
+        elif dataset_name == "share_float":
+            share_float_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "float_date": rec["float_date"],
+                    "float_share": rec.get("float_share"),
+                    "total_share": rec.get("total_share"),
+                    "free_share": rec.get("free_share"),
+                    "float_mv": rec.get("float_mv"),
+                    "total_mv": rec.get("total_mv"),
+                }
+                for rec in records
+            ]
+            self._share_float.bulk_upsert(share_float_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(share_float_records)} share_float records to canonical"
+            )
+
+        elif dataset_name == "company_basic":
+            company_basic_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "exchange": rec.get("exchange"),
+                    "chairman": rec.get("chairman"),
+                    "manager": rec.get("manager"),
+                    "secretary": rec.get("secretary"),
+                    "registered_capital": rec.get("registered_capital"),
+                    "paid_in_capital": rec.get("paid_in_capital"),
+                    "setup_date": rec.get("setup_date"),
+                    "province": rec.get("province"),
+                    "city": rec.get("city"),
+                    "introduction": rec.get("introduction"),
+                    "website": rec.get("website"),
+                    "email": rec.get("email"),
+                    "office": rec.get("office"),
+                    "employees": rec.get("employees"),
+                    "main_business": rec.get("main_business"),
+                    "business_scope": rec.get("business_scope"),
+                }
+                for rec in records
+            ]
+            self._company_basic.bulk_upsert(
+                company_basic_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(company_basic_records)} company_basic records to canonical"
+            )
+
+        elif dataset_name == "stk_managers":
+            stk_managers_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "name": rec["name"],
+                    "title": rec.get("title"),
+                    "gender": rec.get("gender"),
+                    "edu": rec.get("edu"),
+                    "nationality": rec.get("nationality"),
+                    "birthday": rec.get("birthday"),
+                    "begin_date": rec.get("begin_date"),
+                    "end_date": rec.get("end_date"),
+                }
+                for rec in records
+            ]
+            self._stk_managers.bulk_upsert(stk_managers_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(stk_managers_records)} stk_managers records to canonical"
+            )
+
+        elif dataset_name == "new_share":
+            new_share_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "name": rec["name"],
+                    "ipo_date": rec.get("ipo_date"),
+                    "issue_date": rec.get("issue_date"),
+                    "issue_price": rec.get("issue_price"),
+                    "amount": rec.get("amount"),
+                }
+                for rec in records
+            ]
+            self._new_share.bulk_upsert(new_share_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(new_share_records)} new_share records to canonical"
+            )
+
+        elif dataset_name == "stk_holdernumber":
+            stk_holdernumber_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "end_date": rec["end_date"],
+                    "holder_num": rec.get("holder_num"),
+                }
+                for rec in records
+            ]
+            self._stk_holdernumber.bulk_upsert(
+                stk_holdernumber_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(stk_holdernumber_records)} stk_holdernumber records to canonical"
             )
 
     def test_connection(self) -> bool:
