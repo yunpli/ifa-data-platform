@@ -28,6 +28,10 @@ from ifa_data_platform.midfreq.schedule_memory import (
     ScheduleMemory,
     WindowState,
 )
+from ifa_data_platform.midfreq.summary_persistence import (
+    ExecutionSummaryStore,
+    DaemonWatchdog,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -136,9 +140,15 @@ def run_loop(config: DaemonConfig) -> None:
     """Run daemon in continuous loop mode."""
     orchestrator = DaemonOrchestrator(config)
     schedule_memory = ScheduleMemory()
+    summary_store = ExecutionSummaryStore()
+    watchdog = DaemonWatchdog()
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
+
+    # Record initial heartbeat
+    watchdog = DaemonWatchdog()
+    watchdog.record_heartbeat()
 
     logger.info(
         f"Starting midfreq daemon loop with {config.loop_interval_sec}s interval"
@@ -163,6 +173,12 @@ def run_loop(config: DaemonConfig) -> None:
                     f"Matched window: {window.window_type} (group: {window.group_name})"
                 )
                 summary = orchestrator.run_group(window.group_name)
+
+                # Store summary to database
+                summary_store = ExecutionSummaryStore()
+                summary_store.store(
+                    summary.to_json(), window.group_name, window.window_type
+                )
 
                 schedule_memory.update_daemon_loop(
                     window.group_name,
@@ -213,6 +229,11 @@ def main() -> None:
         action="store_true",
         help="Show daemon health and exit",
     )
+    parser.add_argument(
+        "--watchdog",
+        action="store_true",
+        help="Show watchdog status and check if daemon needs restart",
+    )
     args = parser.parse_args()
 
     config = get_daemon_config(args.config)
@@ -222,10 +243,26 @@ def main() -> None:
         print(health.to_json())
         return
 
-    if args.group:
+    if args.watchdog:
+        from ifa_data_platform.midfreq.summary_persistence import DaemonWatchdog
+
+        watchdog = DaemonWatchdog()
+        health = watchdog.check_health()
+        import json
+
+        print(json.dumps(health, indent=2, default=str))
+        return
+
+if args.group:
         logger.info(f"Running midfreq group: {args.group}")
         orchestrator = DaemonOrchestrator(config)
         summary = orchestrator.run_group(args.group)
+        
+        # Store summary with window_type = group_name
+        from ifa_data_platform.midfreq.summary_persistence import ExecutionSummaryStore
+        summary_store = ExecutionSummaryStore()
+        summary_store.store(summary.to_json(), args.group, args.group)
+        
         print(summary.to_json())
         return
 
