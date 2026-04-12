@@ -714,3 +714,312 @@ class LimitUpDownStatusCurrent:
                 }
                 for row in rows
             ]
+
+
+class MarginFinancingCurrent:
+    """Canonical current for margin financing balance."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        trade_date: date,
+        rzye: Optional[float] = None,
+        rzmre: Optional[float] = None,
+        rzche: Optional[float] = None,
+        rzrqye: Optional[float] = None,
+        rqryl: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.margin_financing_current (
+                        id, ts_code, trade_date, rzye, rzmre, rzche, rzrqye, rqryl,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :trade_date, :rzye, :rzmre, :rzche, :rzrqye, :rqryl,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, trade_date) DO UPDATE SET
+                        rzye = EXCLUDED.rzye,
+                        rzmre = EXCLUDED.rzmre,
+                        rzche = EXCLUDED.rzche,
+                        rzrqye = EXCLUDED.rzrqye,
+                        rqryl = EXCLUDED.rqryl,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "trade_date": trade_date,
+                    "rzye": rzye,
+                    "rzmre": rzmre,
+                    "rzche": rzche,
+                    "rzrqye": rzrqye,
+                    "rqryl": rqryl,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                trade_date=rec["trade_date"],
+                rzye=rec.get("rzye"),
+                rzmre=rec.get("rzmre"),
+                rzche=rec.get("rzche"),
+                rzrqye=rec.get("rzrqye"),
+                rqryl=rec.get("rqryl"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """SELECT id, ts_code, trade_date, rzye, rzmre, rzche, rzrqye, rqryl
+                        FROM ifa2.margin_financing_current ORDER BY ts_code, trade_date LIMIT :limit"""
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """SELECT id, ts_code, trade_date, rzye, rzmre, rzche, rzrqye, rqryl
+                        FROM ifa2.margin_financing_current ORDER BY ts_code, trade_date"""
+                    ),
+                ).fetchall()
+            return [
+                {
+                    "id": row.id,
+                    "ts_code": row.ts_code,
+                    "trade_date": row.trade_date,
+                    "rzye": row.rzye,
+                    "rzmre": row.rzmre,
+                    "rzche": row.rzche,
+                    "rzrqye": row.rzrqye,
+                    "rqryl": row.rqryl,
+                }
+                for row in rows
+            ]
+
+
+class LimitUpDetailCurrent:
+    """Canonical current for limit up/down details."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        trade_date: date,
+        limit: Optional[str] = None,
+        pre_limit: Optional[str] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.limit_up_detail_current (
+                        id, ts_code, trade_date, limit, pre_limit,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :trade_date, :limit, :pre_limit,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, trade_date) DO UPDATE SET
+                        limit = EXCLUDED.limit,
+                        pre_limit = EXCLUDED.pre_limit,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "trade_date": trade_date,
+                    "limit": limit,
+                    "pre_limit": pre_limit,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                trade_date=rec["trade_date"],
+                limit=rec.get("limit"),
+                pre_limit=rec.get("pre_limit"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """SELECT id, ts_code, trade_date, limit, pre_limit
+                        FROM ifa2.limit_up_detail_current ORDER BY ts_code, trade_date LIMIT :limit"""
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """SELECT id, ts_code, trade_date, limit, pre_limit
+                        FROM ifa2.limit_up_detail_current ORDER BY ts_code, trade_date"""
+                    ),
+                ).fetchall()
+            return [
+                {
+                    "id": row.id,
+                    "ts_code": row.ts_code,
+                    "trade_date": row.trade_date,
+                    "limit": row.limit,
+                    "pre_limit": row.pre_limit,
+                }
+                for row in rows
+            ]
+
+
+class TurnoverRateCurrent:
+    """Canonical current for stock turnover rates."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        trade_date: date,
+        turnover_rate: Optional[float] = None,
+        turnover_rate_f: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.turnover_rate_current (
+                        id, ts_code, trade_date, turnover_rate, turnover_rate_f,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :trade_date, :turnover_rate, :turnover_rate_f,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, trade_date) DO UPDATE SET
+                        turnover_rate = EXCLUDED.turnover_rate,
+                        turnover_rate_f = EXCLUDED.turnover_rate_f,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "trade_date": trade_date,
+                    "turnover_rate": turnover_rate,
+                    "turnover_rate_f": turnover_rate_f,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                trade_date=rec["trade_date"],
+                turnover_rate=rec.get("turnover_rate"),
+                turnover_rate_f=rec.get("turnover_rate_f"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+    def list_all(self, limit: Optional[int] = None) -> list[dict]:
+        with self.engine.begin() as conn:
+            if limit:
+                rows = conn.execute(
+                    text(
+                        """SELECT id, ts_code, trade_date, turnover_rate, turnover_rate_f
+                        FROM ifa2.turnover_rate_current ORDER BY ts_code, trade_date LIMIT :limit"""
+                    ),
+                    {"limit": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text(
+                        """SELECT id, ts_code, trade_date, turnover_rate, turnover_rate_f
+                        FROM ifa2.turnover_rate_current ORDER BY ts_code, trade_date"""
+                    ),
+                ).fetchall()
+            return [
+                {
+                    "id": row.id,
+                    "ts_code": row.ts_code,
+                    "trade_date": row.trade_date,
+                    "turnover_rate": row.turnover_rate,
+                    "turnover_rate_f": row.turnover_rate_f,
+                }
+                for row in rows
+            ]

@@ -151,6 +151,34 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                     "trade_date": watermark,
                 }
 
+            elif dataset_name == "margin_financing":
+                raw_records, new_watermark = self._fetch_margin_financing(watermark)
+                request_params = {
+                    "api_name": "margin",
+                    "trade_date": watermark,
+                }
+
+            elif dataset_name == "limit_up_detail":
+                raw_records, new_watermark = self._fetch_limit_up_detail(watermark)
+                request_params = {
+                    "api_name": "stk_limit",
+                    "trade_date": watermark,
+                }
+
+            elif dataset_name == "turnover_rate":
+                raw_records, new_watermark = self._fetch_turnover_rate(watermark)
+                request_params = {
+                    "api_name": "daily",
+                    "trade_date": watermark,
+                }
+
+            elif dataset_name == "southbound_flow":
+                raw_records, new_watermark = self._fetch_southbound_flow(watermark)
+                request_params = {
+                    "api_name": "moneyflow_hsgt",
+                    "trade_date": watermark,
+                }
+
             else:
                 raise ValueError(f"Unsupported midfreq dataset: {dataset_name}")
 
@@ -192,6 +220,24 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             return self._northbound_flow.bulk_upsert(records, version_id)
         elif dataset_name == "limit_up_down_status":
             return self._limit_up_down_status.bulk_upsert(records, version_id)
+        elif dataset_name == "margin_financing":
+            from ifa_data_platform.midfreq.canonical_persistence import (
+                MarginFinancingCurrent,
+            )
+
+            return MarginFinancingCurrent().bulk_upsert(records, version_id)
+        elif dataset_name == "turnover_rate":
+            from ifa_data_platform.midfreq.canonical_persistence import (
+                TurnoverRateCurrent,
+            )
+
+            return TurnoverRateCurrent().bulk_upsert(records, version_id)
+        elif dataset_name == "limit_up_detail":
+            from ifa_data_platform.midfreq.canonical_persistence import (
+                LimitUpDetailCurrent,
+            )
+
+            return LimitUpDetailCurrent().bulk_upsert(records, version_id)
 
         return 0
 
@@ -478,5 +524,220 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                     "limit_down_streak_high": None,
                 }
             )
+
+        return parsed_records, trade_date
+
+    def _fetch_margin_financing(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch margin financing data."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        symbols = self._get_universe_symbols("B")
+        parsed_records = []
+
+        # Query for recent 5 days to get data on any trading day
+        from datetime import datetime, timedelta
+
+        end_date = trade_date
+        start_date_dt = datetime.strptime(trade_date, "%Y%m%d") - timedelta(days=7)
+        start_date = start_date_dt.strftime("%Y%m%d")
+
+        for ts_code in symbols:
+            full_code = (
+                f"{ts_code}.SZ"
+                if ts_code.startswith("0") or ts_code.startswith("3")
+                else f"{ts_code}.SH"
+            )
+            try:
+                records = self.client.query(
+                    "margin",
+                    {
+                        "ts_code": full_code,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                    },
+                    timeout_sec=30,
+                    max_retries=2,
+                )
+                for rec in records:
+                    trade_date_val = None
+                    td_str = rec.get("trade_date", "")
+                    if td_str:
+                        try:
+                            trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                        except ValueError:
+                            continue
+                    if trade_date_val:
+                        parsed_records.append(
+                            {
+                                "ts_code": rec.get("ts_code", full_code),
+                                "trade_date": trade_date_val,
+                                "rzye": rec.get("rzye"),
+                                "rzmre": rec.get("rzmre"),
+                                "rzche": rec.get("rzche"),
+                                "rzrqye": rec.get("rzrqye"),
+                                "rqryl": rec.get("rqryl"),
+                            }
+                        )
+            except Exception as e:
+                logger.warning(f"margin_financing failed for {ts_code}: {e}")
+                continue
+
+        return parsed_records, trade_date
+
+    def _fetch_limit_up_detail(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch limit up/down details per stock."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        try:
+            records = self.client.query(
+                "stk_limit", {"trade_date": trade_date}, timeout_sec=30, max_retries=2
+            )
+        except Exception as e:
+            logger.warning(f"limit_up_detail query failed: {e}")
+            return [], trade_date
+
+        parsed_records = []
+        prev_records = {}
+        if trade_date:
+            try:
+                prev_date = (
+                    datetime.strptime(trade_date, "%Y%m%d") - timedelta(days=1)
+                ).strftime("%Y%m%d")
+                prev_data = self.client.query(
+                    "stk_limit",
+                    {"trade_date": prev_date},
+                    timeout_sec=30,
+                    max_retries=2,
+                )
+                for r in prev_data:
+                    prev_records[r.get("ts_code", "")] = r.get("limit", "")
+            except:
+                pass
+
+        for rec in records:
+            td_str = rec.get("trade_date", "")
+            trade_date_val = None
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    continue
+            if trade_date_val:
+                ts = rec.get("ts_code", "")
+                parsed_records.append(
+                    {
+                        "ts_code": ts,
+                        "trade_date": trade_date_val,
+                        "limit": rec.get("limit"),
+                        "pre_limit": prev_records.get(ts, ""),
+                    }
+                )
+
+        return parsed_records, trade_date
+
+    def _fetch_turnover_rate(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch turnover rate."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        symbols = self._get_universe_symbols("B")
+        parsed_records = []
+
+        for ts_code in symbols:
+            full_code = (
+                f"{ts_code}.SZ"
+                if ts_code.startswith("0") or ts_code.startswith("3")
+                else f"{ts_code}.SH"
+            )
+            try:
+                records = self.client.query(
+                    "daily",
+                    {"ts_code": full_code, "trade_date": trade_date},
+                    timeout_sec=30,
+                    max_retries=2,
+                )
+                for rec in records:
+                    trade_date_val = None
+                    td_str = rec.get("trade_date", "")
+                    if td_str:
+                        try:
+                            trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                        except ValueError:
+                            continue
+                    if trade_date_val:
+                        parsed_records.append(
+                            {
+                                "ts_code": rec.get("ts_code", full_code),
+                                "trade_date": trade_date_val,
+                                "turnover_rate": rec.get("turnover_rate"),
+                                "turnover_rate_f": rec.get("turnover_rate_f"),
+                            }
+                        )
+            except Exception as e:
+                continue
+
+        return parsed_records, trade_date
+
+    def _fetch_southbound_flow(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch southbound (CN->HK) flow."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        try:
+            records = self.client.query(
+                "moneyflow_hsgt",
+                {"trade_date": trade_date},
+                timeout_sec=30,
+                max_retries=2,
+            )
+        except Exception as e:
+            logger.warning(f"southbound_flow query failed: {e}")
+            return [], trade_date
+
+        parsed_records = []
+        for rec in records:
+            trade_date_val = None
+            td_str = rec.get("trade_date", "")
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    continue
+            if trade_date_val:
+                parsed_records.append(
+                    {
+                        "trade_date": trade_date_val,
+                        "south_money": rec.get("south_money"),
+                        "south_bal": rec.get("south_bal"),
+                        "south_buy": rec.get("south_buy"),
+                        "south_sell": rec.get("south_sell"),
+                    }
+                )
 
         return parsed_records, trade_date

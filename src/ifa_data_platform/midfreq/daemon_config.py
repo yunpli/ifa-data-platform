@@ -148,8 +148,18 @@ def _get_default_config() -> DaemonConfig:
                     "etf_daily_bar",
                     "northbound_flow",
                     "limit_up_down_status",
+                    "margin_financing",
+                    "southbound_flow",
+                    "turnover_rate",
                 ],
-                description="Post-close final - main data window for B4",
+                description="Post-close final - main data window for B4/B6",
+            ),
+            GroupConfig(
+                group_name="post_close_extended",
+                datasets=[
+                    "limit_up_detail",
+                ],
+                description="Post-close extended data",
             ),
             GroupConfig(
                 group_name="night_settlement",

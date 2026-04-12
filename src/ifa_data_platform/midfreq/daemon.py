@@ -253,16 +253,17 @@ def main() -> None:
         print(json.dumps(health, indent=2, default=str))
         return
 
-if args.group:
+    if args.group:
         logger.info(f"Running midfreq group: {args.group}")
         orchestrator = DaemonOrchestrator(config)
         summary = orchestrator.run_group(args.group)
-        
+
         # Store summary with window_type = group_name
         from ifa_data_platform.midfreq.summary_persistence import ExecutionSummaryStore
+
         summary_store = ExecutionSummaryStore()
         summary_store.store(summary.to_json(), args.group, args.group)
-        
+
         print(summary.to_json())
         return
 
