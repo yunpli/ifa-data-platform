@@ -196,6 +196,35 @@ class TushareAdaptor(BaseAdaptor):
                 raw_records, new_watermark = self._fetch_name_change()
                 request_params = {}
 
+            elif dataset_name == "news_basic":
+                raw_records, new_watermark = self._fetch_news_basic()
+                request_params = {}
+
+            elif dataset_name == "stock_repurchase":
+                raw_records, new_watermark = self._fetch_stock_repurchase(watermark)
+                request_params = {
+                    "ann_date": watermark
+                    or datetime.now(timezone.utc).strftime("%Y%m%d")
+                }
+
+            elif dataset_name == "stock_dividend":
+                raw_records, new_watermark = self._fetch_stock_dividend(watermark)
+                request_params = {
+                    "ann_date": watermark
+                    or datetime.now(timezone.utc).strftime("%Y%m%d")
+                }
+
+            elif dataset_name == "management":
+                raw_records, new_watermark = self._fetch_management()
+                request_params = {}
+
+            elif dataset_name == "stock_equity_change":
+                raw_records, new_watermark = self._fetch_stock_equity_change(watermark)
+                request_params = {
+                    "ann_date": watermark
+                    or datetime.now(timezone.utc).strftime("%Y%m%d")
+                }
+
             elif dataset_name == "top10_holders":
                 raw_records, new_watermark = self._fetch_top10_holders()
                 request_params = {"api_name": "top10_holders"}
@@ -972,6 +1001,137 @@ class TushareAdaptor(BaseAdaptor):
             )
 
         return parsed_records, "full_snapshot"
+
+    def _fetch_news_basic(self) -> tuple[list[dict], str]:
+        records = self.client.query("news", {})
+
+        parsed_records = []
+        for rec in records:
+            datetime_val = None
+            dt_str = rec.get("datetime", "")
+            if dt_str:
+                try:
+                    datetime_val = datetime.strptime(dt_str, "%Y%m%d%H%M%S")
+                except ValueError:
+                    pass
+
+            parsed_records.append(
+                {
+                    "datetime": datetime_val,
+                    "classify": rec.get("classify"),
+                    "title": rec.get("title"),
+                    "source": rec.get("source"),
+                    "url": rec.get("url"),
+                    "content": rec.get("content"),
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_stock_repurchase(
+        self, watermark: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        ann_date = watermark or datetime.now(timezone.utc).strftime("%Y%m%d")
+        records = self.client.query("repurchase", {"ann_date": ann_date})
+
+        parsed_records = []
+        for rec in records:
+            ann_date_val = None
+            ad_str = rec.get("ann_date", "")
+            if ad_str:
+                try:
+                    ann_date_val = datetime.strptime(ad_str, "%Y%m%d").date()
+                except ValueError:
+                    pass
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "ann_date": ann_date_val,
+                    "holder_name": rec.get("holder_name"),
+                    "hold_amount": rec.get("hold_amount"),
+                    "hold_ratio": rec.get("hold_ratio"),
+                }
+            )
+
+        return parsed_records, ann_date
+
+    def _fetch_stock_dividend(
+        self, watermark: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        ann_date = watermark or datetime.now(timezone.utc).strftime("%Y%m%d")
+        records = self.client.query("dividend", {"ann_date": ann_date})
+
+        parsed_records = []
+        for rec in records:
+            ann_date_val = None
+            ad_str = rec.get("ann_date", "")
+            if ad_str:
+                try:
+                    ann_date_val = datetime.strptime(ad_str, "%Y%m%d").date()
+                except ValueError:
+                    pass
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "ann_date": ann_date_val,
+                    "name": rec.get("name"),
+                    "divi": rec.get("divi"),
+                    "divi_ratio": rec.get("divi_ratio"),
+                }
+            )
+
+        return parsed_records, ann_date
+
+    def _fetch_management(self) -> tuple[list[dict], str]:
+        records = self.client.query("stock_company", {})
+
+        parsed_records = []
+        for rec in records:
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "exchange": rec.get("exchange"),
+                    "chairman": rec.get("chairman"),
+                    "manager": rec.get("manager"),
+                    "secretary": rec.get("secretary"),
+                    "registered_capital": rec.get("reg_capital"),
+                    "setup_date": rec.get("setup_date"),
+                    "province": rec.get("province"),
+                    "city": rec.get("city"),
+                }
+            )
+
+        return parsed_records, "full_snapshot"
+
+    def _fetch_stock_equity_change(
+        self, watermark: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        ann_date = watermark or datetime.now(timezone.utc).strftime("%Y%m%d")
+        records = self.client.query("equity_change", {"ann_date": ann_date})
+
+        parsed_records = []
+        for rec in records:
+            ann_date_val = None
+            ad_str = rec.get("ann_date", "")
+            if ad_str:
+                try:
+                    ann_date_val = datetime.strptime(ad_str, "%Y%m%d").date()
+                except ValueError:
+                    pass
+
+            parsed_records.append(
+                {
+                    "ts_code": rec.get("ts_code", ""),
+                    "ann_date": ann_date_val,
+                    "change_type": rec.get("change_type"),
+                    "change_vol": rec.get("change_vol"),
+                    "after_share": rec.get("after_share"),
+                }
+            )
+
+        return parsed_records, ann_date
 
     def _fetch_name_change(self) -> tuple[list[dict], str]:
         records = self.client.query("namechange", {})
