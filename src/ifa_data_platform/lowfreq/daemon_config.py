@@ -145,7 +145,6 @@ def _get_default_config() -> DaemonConfig:
                     "forecast",
                     "margin",
                     "north_south_flow",
-                    "etf_basic",
                     "management",
                     "stock_equity_change",
                 ],
