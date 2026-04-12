@@ -2350,6 +2350,362 @@ class StkManagersCurrent:
             ]
 
 
+class Top10HoldersCurrent:
+    """Canonical current table for top10 holders."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        end_date: date,
+        holder_name: str,
+        ann_date: Optional[date] = None,
+        hold_amount: Optional[float] = None,
+        hold_ratio: Optional[float] = None,
+        hold_float_ratio: Optional[float] = None,
+        hold_change: Optional[float] = None,
+        holder_type: Optional[str] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.top10_holders_current (
+                        id, ts_code, ann_date, end_date, holder_name, hold_amount,
+                        hold_ratio, hold_float_ratio, hold_change, holder_type,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :ann_date, :end_date, :holder_name, :hold_amount,
+                        :hold_ratio, :hold_float_ratio, :hold_change, :holder_type,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, end_date, holder_name) DO UPDATE SET
+                        ann_date = EXCLUDED.ann_date,
+                        hold_amount = EXCLUDED.hold_amount,
+                        hold_ratio = EXCLUDED.hold_ratio,
+                        hold_float_ratio = EXCLUDED.hold_float_ratio,
+                        hold_change = EXCLUDED.hold_change,
+                        holder_type = EXCLUDED.holder_type,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "ann_date": ann_date,
+                    "end_date": end_date,
+                    "holder_name": holder_name,
+                    "hold_amount": hold_amount,
+                    "hold_ratio": hold_ratio,
+                    "hold_float_ratio": hold_float_ratio,
+                    "hold_change": hold_change,
+                    "holder_type": holder_type,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(self, records: list[dict], version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                ann_date=rec.get("ann_date"),
+                end_date=rec["end_date"],
+                holder_name=rec["holder_name"],
+                hold_amount=rec.get("hold_amount"),
+                hold_ratio=rec.get("hold_ratio"),
+                hold_float_ratio=rec.get("hold_float_ratio"),
+                hold_change=rec.get("hold_change"),
+                holder_type=rec.get("holder_type"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
+class Top10FloatholdersCurrent:
+    """Canonical current table for top10 floatholders."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        end_date: date,
+        holder_name: str,
+        ann_date: Optional[date] = None,
+        hold_amount: Optional[float] = None,
+        hold_ratio: Optional[float] = None,
+        hold_float_ratio: Optional[float] = None,
+        hold_change: Optional[float] = None,
+        holder_type: Optional[str] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.top10_floatholders_current (
+                        id, ts_code, ann_date, end_date, holder_name, hold_amount,
+                        hold_ratio, hold_float_ratio, hold_change, holder_type,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :ann_date, :end_date, :holder_name, :hold_amount,
+                        :hold_ratio, :hold_float_ratio, :hold_change, :holder_type,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, end_date, holder_name) DO UPDATE SET
+                        ann_date = EXCLUDED.ann_date,
+                        hold_amount = EXCLUDED.hold_amount,
+                        hold_ratio = EXCLUDED.hold_ratio,
+                        hold_float_ratio = EXCLUDED.hold_float_ratio,
+                        hold_change = EXCLUDED.hold_change,
+                        holder_type = EXCLUDED.holder_type,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "ann_date": ann_date,
+                    "end_date": end_date,
+                    "holder_name": holder_name,
+                    "hold_amount": hold_amount,
+                    "hold_ratio": hold_ratio,
+                    "hold_float_ratio": hold_float_ratio,
+                    "hold_change": hold_change,
+                    "holder_type": holder_type,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(self, records: list[dict], version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                ann_date=rec.get("ann_date"),
+                end_date=rec["end_date"],
+                holder_name=rec["holder_name"],
+                hold_amount=rec.get("hold_amount"),
+                hold_ratio=rec.get("hold_ratio"),
+                hold_float_ratio=rec.get("hold_float_ratio"),
+                hold_change=rec.get("hold_change"),
+                holder_type=rec.get("holder_type"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
+class PledgeStatCurrent:
+    """Canonical current table for pledge stats."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        end_date: date,
+        pledge_count: Optional[int] = None,
+        unrest_pledge: Optional[float] = None,
+        rest_pledge: Optional[float] = None,
+        total_share: Optional[float] = None,
+        pledge_ratio: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.pledge_stat_current (
+                        id, ts_code, end_date, pledge_count, unrest_pledge, rest_pledge,
+                        total_share, pledge_ratio, version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :end_date, :pledge_count, :unrest_pledge, :rest_pledge,
+                        :total_share, :pledge_ratio, :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, end_date) DO UPDATE SET
+                        pledge_count = EXCLUDED.pledge_count,
+                        unrest_pledge = EXCLUDED.unrest_pledge,
+                        rest_pledge = EXCLUDED.rest_pledge,
+                        total_share = EXCLUDED.total_share,
+                        pledge_ratio = EXCLUDED.pledge_ratio,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "end_date": end_date,
+                    "pledge_count": pledge_count,
+                    "unrest_pledge": unrest_pledge,
+                    "rest_pledge": rest_pledge,
+                    "total_share": total_share,
+                    "pledge_ratio": pledge_ratio,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(self, records: list[dict], version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                end_date=rec["end_date"],
+                pledge_count=rec.get("pledge_count"),
+                unrest_pledge=rec.get("unrest_pledge"),
+                rest_pledge=rec.get("rest_pledge"),
+                total_share=rec.get("total_share"),
+                pledge_ratio=rec.get("pledge_ratio"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
+class ForecastCurrent:
+    """Canonical current table for forecast."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        ann_date: date,
+        end_date: date,
+        type: Optional[str] = None,
+        p_change_min: Optional[float] = None,
+        p_change_max: Optional[float] = None,
+        net_profit_min: Optional[float] = None,
+        net_profit_max: Optional[float] = None,
+        eps_min: Optional[float] = None,
+        eps_max: Optional[float] = None,
+        roe_min: Optional[float] = None,
+        roe_max: Optional[float] = None,
+        net_profit_ratio_min: Optional[float] = None,
+        net_profit_ratio_max: Optional[float] = None,
+        op_income_min: Optional[float] = None,
+        op_income_max: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.forecast_current (
+                        id, ts_code, ann_date, end_date, type, p_change_min, p_change_max,
+                        net_profit_min, net_profit_max, eps_min, eps_max, roe_min, roe_max,
+                        net_profit_ratio_min, net_profit_ratio_max, op_income_min, op_income_max,
+                        version_id, created_at, updated_at
+                    ) VALUES (
+                        :id, :ts_code, :ann_date, :end_date, :type, :p_change_min, :p_change_max,
+                        :net_profit_min, :net_profit_max, :eps_min, :eps_max, :roe_min, :roe_max,
+                        :net_profit_ratio_min, :net_profit_ratio_max, :op_income_min, :op_income_max,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, ann_date, end_date) DO UPDATE SET
+                        type = EXCLUDED.type,
+                        p_change_min = EXCLUDED.p_change_min,
+                        p_change_max = EXCLUDED.p_change_max,
+                        net_profit_min = EXCLUDED.net_profit_min,
+                        net_profit_max = EXCLUDED.net_profit_max,
+                        eps_min = EXCLUDED.eps_min,
+                        eps_max = EXCLUDED.eps_max,
+                        roe_min = EXCLUDED.roe_min,
+                        roe_max = EXCLUDED.roe_max,
+                        net_profit_ratio_min = EXCLUDED.net_profit_ratio_min,
+                        net_profit_ratio_max = EXCLUDED.net_profit_ratio_max,
+                        op_income_min = EXCLUDED.op_income_min,
+                        op_income_max = EXCLUDED.op_income_max,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "ann_date": ann_date,
+                    "end_date": end_date,
+                    "type": type,
+                    "p_change_min": p_change_min,
+                    "p_change_max": p_change_max,
+                    "net_profit_min": net_profit_min,
+                    "net_profit_max": net_profit_max,
+                    "eps_min": eps_min,
+                    "eps_max": eps_max,
+                    "roe_min": roe_min,
+                    "roe_max": roe_max,
+                    "net_profit_ratio_min": net_profit_ratio_min,
+                    "net_profit_ratio_max": net_profit_ratio_max,
+                    "op_income_min": op_income_min,
+                    "op_income_max": op_income_max,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(self, records: list[dict], version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                ann_date=rec["ann_date"],
+                end_date=rec["end_date"],
+                type=rec.get("type"),
+                p_change_min=rec.get("p_change_min"),
+                p_change_max=rec.get("p_change_max"),
+                net_profit_min=rec.get("net_profit_min"),
+                net_profit_max=rec.get("net_profit_max"),
+                eps_min=rec.get("eps_min"),
+                eps_max=rec.get("eps_max"),
+                roe_min=rec.get("roe_min"),
+                roe_max=rec.get("roe_max"),
+                net_profit_ratio_min=rec.get("net_profit_ratio_min"),
+                net_profit_ratio_max=rec.get("net_profit_ratio_max"),
+                op_income_min=rec.get("op_income_min"),
+                op_income_max=rec.get("op_income_max"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
 class ResearchReportsCurrent:
     """Canonical current table for research reports."""
 

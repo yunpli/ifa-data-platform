@@ -1,5 +1,6 @@
 """Minimal Tushare client wrapper for China-market low-frequency acquisition."""
 
+import time
 from typing import Any, Optional
 
 import requests
@@ -29,6 +30,9 @@ class TushareClient:
     """Minimal Tushare API client for low-frequency China-market data acquisition."""
 
     BASE_URL = "https://api.tushare.pro"
+    DEFAULT_TIMEOUT_SEC = 60
+    DEFAULT_MAX_RETRIES = 3
+    DEFAULT_RETRY_BACKOFF_SEC = 2.0
 
     def __init__(self, token: Optional[str] = None):
         """Initialize client with optional token override.
@@ -45,9 +49,14 @@ class TushareClient:
                 raise TushareTokenMissingError(
                     "TUSHARE_TOKEN not configured. Set TUSHARE_TOKEN in .env file."
                 )
+        self._session = requests.Session()
 
     def _request(
-        self, api_name: str, params: Optional[dict[str, Any]] = None
+        self,
+        api_name: str,
+        params: Optional[dict[str, Any]] = None,
+        timeout_sec: int = DEFAULT_TIMEOUT_SEC,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> dict[str, Any]:
         """Make a request to the Tushare API.
 
@@ -74,18 +83,37 @@ class TushareClient:
         if params:
             payload["params"] = params
 
-        response = requests.post(self.BASE_URL, json=payload, timeout=30)
-        response.raise_for_status()
+        last_error: Optional[Exception] = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = self._session.post(
+                    self.BASE_URL,
+                    json=payload,
+                    timeout=timeout_sec,
+                )
+                response.raise_for_status()
+                data = response.json()
+                if data.get("code") != 0:
+                    raise TushareAPIError(
+                        f"Tushare API error [{data.get('code', '?')}]: {data.get('msg', 'Unknown error')}"
+                    )
+                return data
+            except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as e:
+                last_error = e
+                if attempt >= max_retries:
+                    break
+                time.sleep(self.DEFAULT_RETRY_BACKOFF_SEC * attempt)
 
-        data = response.json()
-        if data.get("code") != 0:
-            raise TushareAPIError(
-                f"Tushare API error [{data.get('code', '?')}]: {data.get('msg', 'Unknown error')}"
-            )
-        return data
+        if last_error:
+            raise TushareAPIError(f"Tushare request failed after retries: {last_error}")
+        raise TushareAPIError("Tushare request failed for unknown reason")
 
     def query(
-        self, api_name: str, params: Optional[dict[str, Any]] = None
+        self,
+        api_name: str,
+        params: Optional[dict[str, Any]] = None,
+        timeout_sec: int = DEFAULT_TIMEOUT_SEC,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> list[dict[str, Any]]:
         """Query data from a Tushare API endpoint.
 
@@ -96,7 +124,12 @@ class TushareClient:
         Returns:
             List of row dicts returned by the API.
         """
-        payload = self._request(api_name, params)
+        payload = self._request(
+            api_name,
+            params,
+            timeout_sec=timeout_sec,
+            max_retries=max_retries,
+        )
         data = payload.get("data") or {}
         fields = data.get("fields") or []
         items = data.get("items") or []

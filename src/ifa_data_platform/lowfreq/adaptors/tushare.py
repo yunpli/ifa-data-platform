@@ -25,10 +25,15 @@ from ifa_data_platform.lowfreq.canonical_persistence import (
     StkManagersCurrent,
     StockBasicCurrent,
     SwIndustryMappingCurrent,
+    Top10FloatholdersCurrent,
+    Top10HoldersCurrent,
+    PledgeStatCurrent,
     TradeCalCurrent,
 )
 from ifa_data_platform.lowfreq.models import DatasetConfig
-from ifa_data_platform.lowfreq.models import DatasetConfig
+from sqlalchemy import text
+
+from ifa_data_platform.db.engine import make_engine
 from ifa_data_platform.lowfreq.raw_persistence import RawFetchPersistence
 from ifa_data_platform.tushare.client import TushareClient, get_tushare_client
 
@@ -72,13 +77,10 @@ class TushareAdaptor(BaseAdaptor):
         self._stock_dividend = AnnouncementsCurrent()  # reuse announcements table
         self._management = CompanyBasicCurrent()  # reuse company_basic table
         self._stock_equity_change = AnnouncementsCurrent()  # reuse announcements table
-        # Not implemented in canonical_persistence.py yet - commented out to avoid import errors
-        # self._top10_holders = Top10HoldersCurrent()
-        # self._top10_floatholders = Top10FloatholdersCurrent()
-        # self._pledge_stat = PledgeStatCurrent()
-        # self._stock_fund_forecast = StockFundForecastCurrent()
-        # self._margin = MarginCurrent()
-        # self._north_south_flow = NorthSouthFlowCurrent()
+        self._top10_holders = Top10HoldersCurrent()
+        self._top10_floatholders = Top10FloatholdersCurrent()
+        self._pledge_stat = PledgeStatCurrent()
+        self.engine = make_engine()
 
     @property
     def client(self) -> TushareClient:
@@ -86,6 +88,21 @@ class TushareAdaptor(BaseAdaptor):
         if self._client is None:
             self._client = get_tushare_client()
         return self._client
+
+    def _get_universe_symbols(self, universe_type: str = "C") -> list[str]:
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT symbol
+                    FROM ifa2.symbol_universe
+                    WHERE universe_type = :u AND is_active = true
+                    ORDER BY symbol
+                    """
+                ),
+                {"u": universe_type},
+            ).fetchall()
+            return [r.symbol for r in rows]
 
     def fetch(
         self,
@@ -1182,10 +1199,16 @@ class TushareAdaptor(BaseAdaptor):
         return parsed_records, "full_snapshot"
 
     def _fetch_top10_holders(self) -> tuple[list[dict], str]:
-        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        codes = self._get_universe_symbols("C")
         parsed_records = []
+        failures = []
         for ts_code in codes:
-            records = self.client.query("top10_holders", {"ts_code": ts_code})
+            try:
+                records = self.client.query("top10_holders", {"ts_code": ts_code}, timeout_sec=60, max_retries=3)
+            except Exception as e:
+                failures.append((ts_code, str(e)))
+                logger.warning(f"top10_holders failed for {ts_code}: {e}")
+                continue
             for rec in records:
                 ann_date_val = None
                 if rec.get("ann_date"):
@@ -1207,13 +1230,21 @@ class TushareAdaptor(BaseAdaptor):
                             "holder_type": rec.get("holder_type"),
                         }
                     )
+        if failures:
+            logger.warning(f"top10_holders partial failures: {len(failures)} symbols")
         return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
 
     def _fetch_top10_floatholders(self) -> tuple[list[dict], str]:
-        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        codes = self._get_universe_symbols("C")
         parsed_records = []
+        failures = []
         for ts_code in codes:
-            records = self.client.query("top10_floatholders", {"ts_code": ts_code})
+            try:
+                records = self.client.query("top10_floatholders", {"ts_code": ts_code}, timeout_sec=60, max_retries=3)
+            except Exception as e:
+                failures.append((ts_code, str(e)))
+                logger.warning(f"top10_floatholders failed for {ts_code}: {e}")
+                continue
             for rec in records:
                 ann_date_val = None
                 if rec.get("ann_date"):
@@ -1235,13 +1266,21 @@ class TushareAdaptor(BaseAdaptor):
                             "holder_type": rec.get("holder_type"),
                         }
                     )
+        if failures:
+            logger.warning(f"top10_floatholders partial failures: {len(failures)} symbols")
         return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
 
     def _fetch_pledge_stat(self) -> tuple[list[dict], str]:
-        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        codes = self._get_universe_symbols("C")
         parsed_records = []
+        failures = []
         for ts_code in codes:
-            records = self.client.query("pledge_stat", {"ts_code": ts_code})
+            try:
+                records = self.client.query("pledge_stat", {"ts_code": ts_code}, timeout_sec=60, max_retries=3)
+            except Exception as e:
+                failures.append((ts_code, str(e)))
+                logger.warning(f"pledge_stat failed for {ts_code}: {e}")
+                continue
             for rec in records:
                 end_date_val = None
                 if rec.get("end_date"):
@@ -1258,6 +1297,8 @@ class TushareAdaptor(BaseAdaptor):
                             "pledge_ratio": rec.get("pledge_ratio"),
                         }
                     )
+        if failures:
+            logger.warning(f"pledge_stat partial failures: {len(failures)} symbols")
         return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
 
     def _fetch_stk_holdernumber(
@@ -1294,7 +1335,7 @@ class TushareAdaptor(BaseAdaptor):
         if not start_date:
             start_date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
-        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        codes = self._get_universe_symbols("C")
         parsed_records = []
         for ts_code in codes:
             records = self.client.query(
@@ -1344,7 +1385,7 @@ class TushareAdaptor(BaseAdaptor):
         if not end_date:
             end_date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
-        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        codes = self._get_universe_symbols("C")
         parsed_records = []
         for ts_code in codes:
             records = self.client.query(
