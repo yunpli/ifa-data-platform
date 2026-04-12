@@ -8,11 +8,14 @@ from typing import Optional
 
 from ifa_data_platform.midfreq.adaptor import BaseAdaptor, FetchResult
 from ifa_data_platform.midfreq.canonical_persistence import (
+    DragonTigerListCurrent,
     EquityDailyBarCurrent,
     EtfDailyBarCurrent,
     IndexDailyBarCurrent,
     LimitUpDownStatusCurrent,
+    MainForceFlowCurrent,
     NorthboundFlowCurrent,
+    SectorPerformanceCurrent,
 )
 from ifa_data_platform.tushare.client import TushareClient, get_tushare_client
 from sqlalchemy import text
@@ -179,6 +182,24 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                     "trade_date": watermark,
                 }
 
+            elif dataset_name == "main_force_flow":
+                raw_records, new_watermark = self._fetch_main_force_flow(watermark)
+                request_params = {
+                    "api_name": "moneyflow",
+                    "trade_date": watermark,
+                }
+
+            elif dataset_name == "sector_performance":
+                raw_records, new_watermark = [], watermark
+                request_params = {}
+
+            elif dataset_name == "dragon_tiger_list":
+                raw_records, new_watermark = self._fetch_dragon_tiger_list(watermark)
+                request_params = {
+                    "api_name": "top_list",
+                    "trade_date": watermark,
+                }
+
             else:
                 raise ValueError(f"Unsupported midfreq dataset: {dataset_name}")
 
@@ -238,6 +259,12 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             )
 
             return LimitUpDetailCurrent().bulk_upsert(records, version_id)
+        elif dataset_name == "main_force_flow":
+            return MainForceFlowCurrent().bulk_upsert(records, version_id)
+        elif dataset_name == "sector_performance":
+            return SectorPerformanceCurrent().bulk_upsert(records, version_id)
+        elif dataset_name == "dragon_tiger_list":
+            return DragonTigerListCurrent().bulk_upsert(records, version_id)
 
         return 0
 
@@ -737,6 +764,161 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                         "south_bal": rec.get("south_bal"),
                         "south_buy": rec.get("south_buy"),
                         "south_sell": rec.get("south_sell"),
+                    }
+                )
+
+        return parsed_records, trade_date
+
+    def _fetch_main_force_flow(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch main force flow (主力资金) - aggregated moneyflow per stock."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        symbols = self._get_universe_symbols("B")
+        parsed_records = []
+
+        for ts_code in symbols:
+            full_code = ts_code
+            if not ts_code.endswith(".SZ") and not ts_code.endswith(".SH"):
+                full_code = (
+                    f"{ts_code}.SZ"
+                    if ts_code.startswith("0") or ts_code.startswith("3")
+                    else f"{ts_code}.SH"
+                )
+            try:
+                records = self.client.query(
+                    "moneyflow",
+                    {"ts_code": full_code, "trade_date": trade_date},
+                    timeout_sec=30,
+                    max_retries=2,
+                )
+                for rec in records:
+                    td_str = rec.get("trade_date", "")
+                    trade_date_val = None
+                    if td_str:
+                        try:
+                            trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                        except ValueError:
+                            continue
+                    if trade_date_val:
+                        main_force = rec.get("net_mf_amount")
+                        parsed_records.append(
+                            {
+                                "ts_code": rec.get("ts_code", full_code),
+                                "trade_date": trade_date_val,
+                                "main_force": main_force,
+                                "main_force_pct": None,
+                            }
+                        )
+            except Exception as e:
+                continue
+
+        return parsed_records, trade_date
+
+    def _fetch_sector_performance(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch sector (SW行业) daily performance."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        parsed_records = []
+        try:
+            sectors = self.client.query(
+                "index_classify",
+                {"market": "SW"},
+                timeout_sec=30,
+                max_retries=2,
+            )
+        except Exception as e:
+            logger.warning(f"sector_performance query failed: {e}")
+            return [], trade_date
+
+        for sector in sectors:
+            index_code = sector.get("index_code", "")
+            if not index_code:
+                continue
+            try:
+                records = self.client.query(
+                    "index_daily",
+                    {"ts_code": index_code, "trade_date": trade_date},
+                    timeout_sec=30,
+                    max_retries=2,
+                )
+                if records:
+                    rec = records[0]
+                    td_str = rec.get("trade_date", "")
+                    trade_date_val = None
+                    if td_str:
+                        try:
+                            trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                        except ValueError:
+                            continue
+                    if trade_date_val:
+                        parsed_records.append(
+                            {
+                                "sector_code": index_code,
+                                "trade_date": trade_date_val,
+                                "sector_name": sector.get("industry_name"),
+                                "close": rec.get("close"),
+                                "pct_chg": rec.get("pct_chg"),
+                                "turnover_rate": None,
+                            }
+                        )
+            except Exception as e:
+                continue
+
+        return parsed_records, trade_date
+
+    def _fetch_dragon_tiger_list(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        """Fetch dragon tiger list (龙虎榜) - top trading stocks."""
+        if not trade_date:
+            trade_date = self._get_last_trading_day()
+            if not trade_date:
+                trade_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+                    "%Y%m%d"
+                )
+
+        try:
+            records = self.client.query(
+                "top_list",
+                {"trade_date": trade_date},
+                timeout_sec=30,
+                max_retries=2,
+            )
+        except Exception as e:
+            logger.warning(f"dragon_tiger_list query failed: {e}")
+            return [], trade_date
+
+        parsed_records = []
+        for rec in records:
+            td_str = rec.get("trade_date", "")
+            trade_date_val = None
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    continue
+            if trade_date_val:
+                parsed_records.append(
+                    {
+                        "ts_code": rec.get("ts_code"),
+                        "trade_date": trade_date_val,
+                        "buy_amount": rec.get("l_buy"),
+                        "sell_amount": rec.get("l_sell"),
+                        "net_amount": rec.get("net_amount"),
                     }
                 )
 
