@@ -66,6 +66,12 @@ class TushareAdaptor(BaseAdaptor):
         self._name_change = NameChangeCurrent()
         self._new_share = NewShareCurrent()
         self._stk_managers = StkManagersCurrent()
+        # Use existing classes for new datasets
+        self._news_basic = NewsCurrent()  # news_basic uses news table
+        self._stock_repurchase = AnnouncementsCurrent()  # reuse announcements table
+        self._stock_dividend = AnnouncementsCurrent()  # reuse announcements table
+        self._management = CompanyBasicCurrent()  # reuse company_basic table
+        self._stock_equity_change = AnnouncementsCurrent()  # reuse announcements table
         # Not implemented in canonical_persistence.py yet - commented out to avoid import errors
         # self._top10_holders = Top10HoldersCurrent()
         # self._top10_floatholders = Top10FloatholdersCurrent()
@@ -1011,9 +1017,13 @@ class TushareAdaptor(BaseAdaptor):
             dt_str = rec.get("datetime", "")
             if dt_str:
                 try:
-                    datetime_val = datetime.strptime(dt_str, "%Y%m%d%H%M%S")
+                    datetime_val = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
                 except ValueError:
                     pass
+
+            # Skip records without datetime
+            if not datetime_val:
+                continue
 
             parsed_records.append(
                 {
@@ -1031,8 +1041,8 @@ class TushareAdaptor(BaseAdaptor):
     def _fetch_stock_repurchase(
         self, watermark: Optional[str] = None
     ) -> tuple[list[dict], str]:
-        ann_date = watermark or datetime.now(timezone.utc).strftime("%Y%m%d")
-        records = self.client.query("repurchase", {"ann_date": ann_date})
+        # Fetch recent repurchase data without date filter
+        records = self.client.query("repurchase", {})
 
         parsed_records = []
         for rec in records:
@@ -1054,13 +1064,19 @@ class TushareAdaptor(BaseAdaptor):
                 }
             )
 
-        return parsed_records, ann_date
+        return parsed_records, "full_snapshot"
 
     def _fetch_stock_dividend(
         self, watermark: Optional[str] = None
     ) -> tuple[list[dict], str]:
-        ann_date = watermark or datetime.now(timezone.utc).strftime("%Y%m%d")
-        records = self.client.query("dividend", {"ann_date": ann_date})
+        # Fetch dividend data with a date range (last 1 year)
+        end_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+        start_date = (datetime.now(timezone.utc) - timedelta(days=365)).strftime(
+            "%Y%m%d"
+        )
+        records = self.client.query(
+            "dividend", {"start_date": start_date, "end_date": end_date}
+        )
 
         parsed_records = []
         for rec in records:
@@ -1082,7 +1098,7 @@ class TushareAdaptor(BaseAdaptor):
                 }
             )
 
-        return parsed_records, ann_date
+        return parsed_records, "full_snapshot"
 
     def _fetch_management(self) -> tuple[list[dict], str]:
         records = self.client.query("stock_company", {})
@@ -1108,8 +1124,8 @@ class TushareAdaptor(BaseAdaptor):
     def _fetch_stock_equity_change(
         self, watermark: Optional[str] = None
     ) -> tuple[list[dict], str]:
-        ann_date = watermark or datetime.now(timezone.utc).strftime("%Y%m%d")
-        records = self.client.query("equity_change", {"ann_date": ann_date})
+        # Use stk_holdertrade for equity changes (股东增减持)
+        records = self.client.query("stk_holdertrade", {})
 
         parsed_records = []
         for rec in records:
@@ -1125,13 +1141,13 @@ class TushareAdaptor(BaseAdaptor):
                 {
                     "ts_code": rec.get("ts_code", ""),
                     "ann_date": ann_date_val,
-                    "change_type": rec.get("change_type"),
+                    "holder_name": rec.get("holder_name"),
                     "change_vol": rec.get("change_vol"),
-                    "after_share": rec.get("after_share"),
+                    "change_ratio": rec.get("change_ratio"),
                 }
             )
 
-        return parsed_records, ann_date
+        return parsed_records, "full_snapshot"
 
     def _fetch_name_change(self) -> tuple[list[dict], str]:
         records = self.client.query("namechange", {})
@@ -1772,6 +1788,97 @@ class TushareAdaptor(BaseAdaptor):
             self._name_change.bulk_upsert(name_change_records, version_id=version_id)
             logger.info(
                 f"Persisted {len(name_change_records)} name_change records to canonical"
+            )
+
+        elif dataset_name == "news_basic":
+            news_basic_records = [
+                {
+                    "datetime": rec.get("datetime"),
+                    "classify": rec.get("classify"),
+                    "title": rec.get("title"),
+                    "source": rec.get("source"),
+                    "url": rec.get("url"),
+                    "content": rec.get("content"),
+                }
+                for rec in records
+            ]
+            self._news.bulk_upsert(news_basic_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(news_basic_records)} news_basic records to canonical"
+            )
+
+        elif dataset_name == "stock_repurchase":
+            stock_repurchase_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "ann_date": rec.get("ann_date"),
+                    "holder_name": rec.get("holder_name"),
+                    "hold_amount": rec.get("hold_amount"),
+                    "hold_ratio": rec.get("hold_ratio"),
+                }
+                for rec in records
+            ]
+            self._stock_repurchase.bulk_upsert(
+                stock_repurchase_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(stock_repurchase_records)} stock_repurchase records to canonical"
+            )
+
+        elif dataset_name == "stock_dividend":
+            stock_dividend_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "ann_date": rec.get("ann_date"),
+                    "name": rec.get("name"),
+                    "divi": rec.get("divi"),
+                    "divi_ratio": rec.get("divi_ratio"),
+                }
+                for rec in records
+            ]
+            self._stock_dividend.bulk_upsert(
+                stock_dividend_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(stock_dividend_records)} stock_dividend records to canonical"
+            )
+
+        elif dataset_name == "management":
+            management_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "exchange": rec.get("exchange"),
+                    "chairman": rec.get("chairman"),
+                    "manager": rec.get("manager"),
+                    "secretary": rec.get("secretary"),
+                    "registered_capital": rec.get("registered_capital"),
+                    "setup_date": rec.get("setup_date"),
+                    "province": rec.get("province"),
+                    "city": rec.get("city"),
+                }
+                for rec in records
+            ]
+            self._management.bulk_upsert(management_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(management_records)} management records to canonical"
+            )
+
+        elif dataset_name == "stock_equity_change":
+            stock_equity_change_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "ann_date": rec.get("ann_date"),
+                    "change_type": rec.get("change_type"),
+                    "change_vol": rec.get("change_vol"),
+                    "after_share": rec.get("after_share"),
+                }
+                for rec in records
+            ]
+            self._stock_equity_change.bulk_upsert(
+                stock_equity_change_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(stock_equity_change_records)} stock_equity_change records to canonical"
             )
 
         elif dataset_name == "top10_holders":
