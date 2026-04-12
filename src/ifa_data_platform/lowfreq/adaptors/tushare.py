@@ -28,6 +28,7 @@ from ifa_data_platform.lowfreq.canonical_persistence import (
     TradeCalCurrent,
 )
 from ifa_data_platform.lowfreq.models import DatasetConfig
+from ifa_data_platform.lowfreq.models import DatasetConfig
 from ifa_data_platform.lowfreq.raw_persistence import RawFetchPersistence
 from ifa_data_platform.tushare.client import TushareClient, get_tushare_client
 
@@ -65,6 +66,13 @@ class TushareAdaptor(BaseAdaptor):
         self._name_change = NameChangeCurrent()
         self._new_share = NewShareCurrent()
         self._stk_managers = StkManagersCurrent()
+        # Not implemented in canonical_persistence.py yet - commented out to avoid import errors
+        # self._top10_holders = Top10HoldersCurrent()
+        # self._top10_floatholders = Top10FloatholdersCurrent()
+        # self._pledge_stat = PledgeStatCurrent()
+        # self._stock_fund_forecast = StockFundForecastCurrent()
+        # self._margin = MarginCurrent()
+        # self._north_south_flow = NorthSouthFlowCurrent()
 
     @property
     def client(self) -> TushareClient:
@@ -187,6 +195,34 @@ class TushareAdaptor(BaseAdaptor):
             elif dataset_name == "name_change":
                 raw_records, new_watermark = self._fetch_name_change()
                 request_params = {}
+
+            elif dataset_name == "top10_holders":
+                raw_records, new_watermark = self._fetch_top10_holders()
+                request_params = {"api_name": "top10_holders"}
+
+            elif dataset_name == "top10_floatholders":
+                raw_records, new_watermark = self._fetch_top10_floatholders()
+                request_params = {"api_name": "top10_floatholders"}
+
+            elif dataset_name == "pledge_stat":
+                raw_records, new_watermark = self._fetch_pledge_stat()
+                request_params = {"api_name": "pledge_stat"}
+
+            elif dataset_name == "forecast":
+                raw_records, new_watermark = self._fetch_forecast(watermark)
+                request_params = {"api_name": "forecast"}
+
+            elif dataset_name == "stock_fund_forecast":
+                raw_records, new_watermark = self._fetch_stock_fund_forecast(watermark)
+                request_params = {"api_name": "stock_fund_forecast"}
+
+            elif dataset_name == "margin":
+                raw_records, new_watermark = self._fetch_margin(watermark)
+                request_params = {"api_name": "margin"}
+
+            elif dataset_name == "north_south_flow":
+                raw_records, new_watermark = self._fetch_north_south_flow(watermark)
+                request_params = {"api_name": "moneyflow_hsgt"}
 
             else:
                 raise ValueError(f"Unsupported dataset: {dataset_name}")
@@ -731,35 +767,58 @@ class TushareAdaptor(BaseAdaptor):
         if not trade_date:
             trade_date = self._get_last_trading_day()
             if not trade_date:
-                trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+                trade_date = "20250410"
 
-        records = self.client.query(
-            "etf_daily",
+        nav_records = self.client.query(
+            "fund_nav",
+            {"nav_date": trade_date},
+        )
+        adj_records = self.client.query(
+            "fund_adj",
+            {"trade_date": trade_date},
+        )
+        share_records = self.client.query(
+            "fund_share",
             {"trade_date": trade_date},
         )
 
+        adj_by_code = {
+            rec.get("ts_code", ""): rec for rec in adj_records if rec.get("ts_code")
+        }
+        share_by_code = {
+            rec.get("ts_code", ""): rec for rec in share_records if rec.get("ts_code")
+        }
+
         parsed_records = []
-        for rec in records:
+        for rec in nav_records:
             ts_code = rec.get("ts_code", "")
+            if not ts_code:
+                continue
 
             trade_date_val = None
-            td_str = rec.get("trade_date", "")
+            td_str = rec.get("nav_date", "") or trade_date
             if td_str:
                 try:
                     trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
                 except ValueError:
                     trade_date_val = None
 
+            share_rec = share_by_code.get(ts_code, {})
+            adj_rec = adj_by_code.get(ts_code, {})
+            share = share_rec.get("fd_share")
+            unit_nav = rec.get("unit_nav")
+            total_netasset = rec.get("total_netasset")
+
             parsed_records.append(
                 {
                     "ts_code": ts_code,
                     "trade_date": trade_date_val,
-                    "unit_nav": rec.get("unit_nav"),
-                    "unit_total": rec.get("unit_total"),
-                    "total_mv": rec.get("total_mv"),
-                    "nav_mv": rec.get("nav_mv"),
-                    "share": rec.get("share"),
-                    "adj_factor": rec.get("adj_factor"),
+                    "unit_nav": unit_nav,
+                    "unit_total": rec.get("accum_nav"),
+                    "total_mv": total_netasset,
+                    "nav_mv": total_netasset,
+                    "share": share,
+                    "adj_factor": adj_rec.get("adj_factor"),
                 }
             )
 
@@ -915,7 +974,7 @@ class TushareAdaptor(BaseAdaptor):
         return parsed_records, "full_snapshot"
 
     def _fetch_name_change(self) -> tuple[list[dict], str]:
-        records = self.client.query("stock_namechange", {})
+        records = self.client.query("namechange", {})
 
         parsed_records = []
         for rec in records:
@@ -946,6 +1005,85 @@ class TushareAdaptor(BaseAdaptor):
 
         return parsed_records, "full_snapshot"
 
+    def _fetch_top10_holders(self) -> tuple[list[dict], str]:
+        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        parsed_records = []
+        for ts_code in codes:
+            records = self.client.query("top10_holders", {"ts_code": ts_code})
+            for rec in records:
+                ann_date_val = None
+                if rec.get("ann_date"):
+                    ann_date_val = datetime.strptime(rec["ann_date"], "%Y%m%d").date()
+                end_date_val = None
+                if rec.get("end_date"):
+                    end_date_val = datetime.strptime(rec["end_date"], "%Y%m%d").date()
+                if end_date_val and rec.get("holder_name"):
+                    parsed_records.append(
+                        {
+                            "ts_code": rec.get("ts_code", ts_code),
+                            "ann_date": ann_date_val,
+                            "end_date": end_date_val,
+                            "holder_name": rec.get("holder_name"),
+                            "hold_amount": rec.get("hold_amount"),
+                            "hold_ratio": rec.get("hold_ratio"),
+                            "hold_float_ratio": rec.get("hold_float_ratio"),
+                            "hold_change": rec.get("hold_change"),
+                            "holder_type": rec.get("holder_type"),
+                        }
+                    )
+        return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    def _fetch_top10_floatholders(self) -> tuple[list[dict], str]:
+        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        parsed_records = []
+        for ts_code in codes:
+            records = self.client.query("top10_floatholders", {"ts_code": ts_code})
+            for rec in records:
+                ann_date_val = None
+                if rec.get("ann_date"):
+                    ann_date_val = datetime.strptime(rec["ann_date"], "%Y%m%d").date()
+                end_date_val = None
+                if rec.get("end_date"):
+                    end_date_val = datetime.strptime(rec["end_date"], "%Y%m%d").date()
+                if end_date_val and rec.get("holder_name"):
+                    parsed_records.append(
+                        {
+                            "ts_code": rec.get("ts_code", ts_code),
+                            "ann_date": ann_date_val,
+                            "end_date": end_date_val,
+                            "holder_name": rec.get("holder_name"),
+                            "hold_amount": rec.get("hold_amount"),
+                            "hold_ratio": rec.get("hold_ratio"),
+                            "hold_float_ratio": rec.get("hold_float_ratio"),
+                            "hold_change": rec.get("hold_change"),
+                            "holder_type": rec.get("holder_type"),
+                        }
+                    )
+        return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    def _fetch_pledge_stat(self) -> tuple[list[dict], str]:
+        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        parsed_records = []
+        for ts_code in codes:
+            records = self.client.query("pledge_stat", {"ts_code": ts_code})
+            for rec in records:
+                end_date_val = None
+                if rec.get("end_date"):
+                    end_date_val = datetime.strptime(rec["end_date"], "%Y%m%d").date()
+                if end_date_val:
+                    parsed_records.append(
+                        {
+                            "ts_code": rec.get("ts_code", ts_code),
+                            "end_date": end_date_val,
+                            "pledge_count": rec.get("pledge_count"),
+                            "unrest_pledge": rec.get("unrest_pledge"),
+                            "rest_pledge": rec.get("rest_pledge"),
+                            "total_share": rec.get("total_share"),
+                            "pledge_ratio": rec.get("pledge_ratio"),
+                        }
+                    )
+        return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
+
     def _fetch_stk_holdernumber(
         self, end_date: Optional[str] = None
     ) -> tuple[list[dict], str]:
@@ -973,6 +1111,165 @@ class TushareAdaptor(BaseAdaptor):
             )
 
         return parsed_records, end_date
+
+    def _fetch_forecast(
+        self, start_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not start_date:
+            start_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        parsed_records = []
+        for ts_code in codes:
+            records = self.client.query(
+                "forecast", {"ts_code": ts_code, "ann_date": start_date}
+            )
+            for rec in records:
+                ann_date_val = None
+                ad_str = rec.get("ann_date", "")
+                if ad_str:
+                    try:
+                        ann_date_val = datetime.strptime(ad_str, "%Y%m%d").date()
+                    except ValueError:
+                        ann_date_val = None
+                end_date_val = None
+                ed_str = rec.get("end_date", "")
+                if ed_str:
+                    try:
+                        end_date_val = datetime.strptime(ed_str, "%Y%m%d").date()
+                    except ValueError:
+                        end_date_val = None
+                if ann_date_val and end_date_val:
+                    parsed_records.append(
+                        {
+                            "ts_code": rec.get("ts_code", ts_code),
+                            "ann_date": ann_date_val,
+                            "end_date": end_date_val,
+                            "type": rec.get("type"),
+                            "p_change_min": rec.get("p_change_min"),
+                            "p_change_max": rec.get("p_change_max"),
+                            "net_profit_min": rec.get("net_profit_min"),
+                            "net_profit_max": rec.get("net_profit_max"),
+                            "eps_min": rec.get("eps_min"),
+                            "eps_max": rec.get("eps_max"),
+                            "roe_min": rec.get("roe_min"),
+                            "roe_max": rec.get("roe_max"),
+                            "net_profit_ratio_min": rec.get("net_profit_ratio_min"),
+                            "net_profit_ratio_max": rec.get("net_profit_ratio_max"),
+                            "op_income_min": rec.get("op_income_min"),
+                            "op_income_max": rec.get("op_income_max"),
+                        }
+                    )
+        return parsed_records, datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    def _fetch_stock_fund_forecast(
+        self, end_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not end_date:
+            end_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        codes = [r["ts_code"] for r in self._stock_basic.list_all(limit=300)]
+        parsed_records = []
+        for ts_code in codes:
+            records = self.client.query(
+                "stock_fund_forecast", {"ts_code": ts_code, "end_date": end_date}
+            )
+            for rec in records:
+                end_date_val = None
+                ed_str = rec.get("end_date", "")
+                if ed_str:
+                    try:
+                        end_date_val = datetime.strptime(ed_str, "%Y%m%d").date()
+                    except ValueError:
+                        end_date_val = None
+
+                if end_date_val:
+                    parsed_records.append(
+                        {
+                            "ts_code": rec.get("ts_code", ts_code),
+                            "end_date": end_date_val,
+                            "type": rec.get("type"),
+                            "eps": rec.get("eps"),
+                            "eps_yoy": rec.get("eps_yoy"),
+                            "net_profit": rec.get("net_profit"),
+                            "net_profit_yoy": rec.get("net_profit_yoy"),
+                            "gross_profit_margin": rec.get("gross_profit_margin"),
+                            "net_profit_margin": rec.get("net_profit_margin"),
+                            "roe": rec.get("roe"),
+                            "earnings_weight": rec.get("earnings_weight"),
+                            "conference_type": rec.get("conference_type"),
+                            "org_type": rec.get("org_type"),
+                            "org_sname": rec.get("org_sname"),
+                            "analyst_name": rec.get("analyst_name"),
+                        }
+                    )
+        return parsed_records, end_date
+
+    def _fetch_margin(self, trade_date: Optional[str] = None) -> tuple[list[dict], str]:
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query("margin", {"trade_date": trade_date})
+
+        parsed_records = []
+        for rec in records:
+            trade_date_val = None
+            td_str = rec.get("trade_date", "")
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    trade_date_val = None
+
+            if trade_date_val:
+                parsed_records.append(
+                    {
+                        "trade_date": trade_date_val,
+                        "ts_code": rec.get("ts_code"),
+                        "rzye": rec.get("rzye"),
+                        "rzmre": rec.get("rzmre"),
+                        "rzche": rec.get("rzche"),
+                        "rzche_ratio": rec.get("rzche_ratio"),
+                        "rqye": rec.get("rqye"),
+                        "rqmcl": rec.get("rqmcl"),
+                        "rqchl": rec.get("rqchl"),
+                        "rqchl_ratio": rec.get("rqchl_ratio"),
+                        "total_market": rec.get("total_market"),
+                        "total_margin": rec.get("total_margin"),
+                    }
+                )
+
+        return parsed_records, trade_date
+
+    def _fetch_north_south_flow(
+        self, trade_date: Optional[str] = None
+    ) -> tuple[list[dict], str]:
+        if not trade_date:
+            trade_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+        records = self.client.query("moneyflow_hsgt", {"trade_date": trade_date})
+
+        parsed_records = []
+        for rec in records:
+            trade_date_val = None
+            td_str = rec.get("trade_date", "")
+            if td_str:
+                try:
+                    trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                except ValueError:
+                    trade_date_val = None
+
+            if trade_date_val:
+                parsed_records.append(
+                    {
+                        "trade_date": trade_date_val,
+                        "ts_code": rec.get("ts_code"),
+                        "north_money": rec.get("north_money"),
+                        "south_money": rec.get("south_money"),
+                    }
+                )
+
+        return parsed_records, trade_date
 
     def _persist_canonical(
         self,
@@ -1315,6 +1612,161 @@ class TushareAdaptor(BaseAdaptor):
             self._name_change.bulk_upsert(name_change_records, version_id=version_id)
             logger.info(
                 f"Persisted {len(name_change_records)} name_change records to canonical"
+            )
+
+        elif dataset_name == "top10_holders":
+            top10_holders_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "ann_date": rec.get("ann_date"),
+                    "end_date": rec["end_date"],
+                    "holder_name": rec["holder_name"],
+                    "hold_amount": rec.get("hold_amount"),
+                    "hold_ratio": rec.get("hold_ratio"),
+                    "hold_float_ratio": rec.get("hold_float_ratio"),
+                    "hold_change": rec.get("hold_change"),
+                    "holder_type": rec.get("holder_type"),
+                }
+                for rec in records
+            ]
+            self._top10_holders.bulk_upsert(
+                top10_holders_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(top10_holders_records)} top10_holders records to canonical"
+            )
+
+        elif dataset_name == "top10_floatholders":
+            top10_floatholders_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "ann_date": rec.get("ann_date"),
+                    "end_date": rec["end_date"],
+                    "holder_name": rec["holder_name"],
+                    "hold_amount": rec.get("hold_amount"),
+                    "hold_ratio": rec.get("hold_ratio"),
+                    "hold_float_ratio": rec.get("hold_float_ratio"),
+                    "hold_change": rec.get("hold_change"),
+                    "holder_type": rec.get("holder_type"),
+                }
+                for rec in records
+            ]
+            self._top10_floatholders.bulk_upsert(
+                top10_floatholders_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(top10_floatholders_records)} top10_floatholders records to canonical"
+            )
+
+        elif dataset_name == "pledge_stat":
+            pledge_stat_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "end_date": rec["end_date"],
+                    "pledge_count": rec.get("pledge_count"),
+                    "unrest_pledge": rec.get("unrest_pledge"),
+                    "rest_pledge": rec.get("rest_pledge"),
+                    "total_share": rec.get("total_share"),
+                    "pledge_ratio": rec.get("pledge_ratio"),
+                }
+                for rec in records
+            ]
+            self._pledge_stat.bulk_upsert(pledge_stat_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(pledge_stat_records)} pledge_stat records to canonical"
+            )
+
+        elif dataset_name == "forecast":
+            forecast_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "ann_date": rec["ann_date"],
+                    "end_date": rec["end_date"],
+                    "type": rec.get("type"),
+                    "p_change_min": rec.get("p_change_min"),
+                    "p_change_max": rec.get("p_change_max"),
+                    "net_profit_min": rec.get("net_profit_min"),
+                    "net_profit_max": rec.get("net_profit_max"),
+                    "eps_min": rec.get("eps_min"),
+                    "eps_max": rec.get("eps_max"),
+                    "roe_min": rec.get("roe_min"),
+                    "roe_max": rec.get("roe_max"),
+                    "net_profit_ratio_min": rec.get("net_profit_ratio_min"),
+                    "net_profit_ratio_max": rec.get("net_profit_ratio_max"),
+                    "op_income_min": rec.get("op_income_min"),
+                    "op_income_max": rec.get("op_income_max"),
+                }
+                for rec in records
+            ]
+            self._forecast.bulk_upsert(forecast_records, version_id=version_id)
+            logger.info(
+                f"Persisted {len(forecast_records)} forecast records to canonical"
+            )
+
+        elif dataset_name == "stock_fund_forecast":
+            stock_fund_forecast_records = [
+                {
+                    "ts_code": rec["ts_code"],
+                    "end_date": rec["end_date"],
+                    "type": rec.get("type"),
+                    "eps": rec.get("eps"),
+                    "eps_yoy": rec.get("eps_yoy"),
+                    "net_profit": rec.get("net_profit"),
+                    "net_profit_yoy": rec.get("net_profit_yoy"),
+                    "gross_profit_margin": rec.get("gross_profit_margin"),
+                    "net_profit_margin": rec.get("net_profit_margin"),
+                    "roe": rec.get("roe"),
+                    "earnings_weight": rec.get("earnings_weight"),
+                    "conference_type": rec.get("conference_type"),
+                    "org_type": rec.get("org_type"),
+                    "org_sname": rec.get("org_sname"),
+                    "analyst_name": rec.get("analyst_name"),
+                }
+                for rec in records
+            ]
+            self._stock_fund_forecast.bulk_upsert(
+                stock_fund_forecast_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(stock_fund_forecast_records)} stock_fund_forecast records to canonical"
+            )
+
+        elif dataset_name == "margin":
+            margin_records = [
+                {
+                    "trade_date": rec["trade_date"],
+                    "ts_code": rec["ts_code"],
+                    "rzye": rec.get("rzye"),
+                    "rzmre": rec.get("rzmre"),
+                    "rzche": rec.get("rzche"),
+                    "rzche_ratio": rec.get("rzche_ratio"),
+                    "rqye": rec.get("rqye"),
+                    "rqmcl": rec.get("rqmcl"),
+                    "rqchl": rec.get("rqchl"),
+                    "rqchl_ratio": rec.get("rqchl_ratio"),
+                    "total_market": rec.get("total_market"),
+                    "total_margin": rec.get("total_margin"),
+                }
+                for rec in records
+            ]
+            self._margin.bulk_upsert(margin_records, version_id=version_id)
+            logger.info(f"Persisted {len(margin_records)} margin records to canonical")
+
+        elif dataset_name == "north_south_flow":
+            north_south_flow_records = [
+                {
+                    "trade_date": rec["trade_date"],
+                    "ts_code": rec["ts_code"],
+                    "north_money": rec.get("north_money"),
+                    "south_money": rec.get("south_money"),
+                }
+                for rec in records
+            ]
+            self._north_south_flow.bulk_upsert(
+                north_south_flow_records, version_id=version_id
+            )
+            logger.info(
+                f"Persisted {len(north_south_flow_records)} north_south_flow records to canonical"
             )
 
     def test_connection(self) -> bool:

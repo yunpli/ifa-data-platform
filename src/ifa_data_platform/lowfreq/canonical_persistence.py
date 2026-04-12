@@ -2685,3 +2685,285 @@ class InvestorQaCurrent:
                 }
                 for row in rows
             ]
+
+
+class StockFundForecastCurrent:
+    """Canonical current table for stock fund forecast."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        ts_code: str,
+        end_date: date,
+        type: str,
+        eps: Optional[float] = None,
+        eps_yoy: Optional[float] = None,
+        net_profit: Optional[float] = None,
+        net_profit_yoy: Optional[float] = None,
+        gross_profit_margin: Optional[float] = None,
+        net_profit_margin: Optional[float] = None,
+        roe: Optional[float] = None,
+        earnings_weight: Optional[float] = None,
+        conference_type: Optional[str] = None,
+        org_type: Optional[str] = None,
+        org_sname: Optional[str] = None,
+        analyst_name: Optional[str] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.stock_fund_forecast_current (
+                        id, ts_code, end_date, type, eps, eps_yoy, net_profit, net_profit_yoy,
+                        gross_profit_margin, net_profit_margin, roe, earnings_weight,
+                        conference_type, org_type, org_sname, analyst_name,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :ts_code, :end_date, :type, :eps, :eps_yoy, :net_profit, :net_profit_yoy,
+                        :gross_profit_margin, :net_profit_margin, :roe, :earnings_weight,
+                        :conference_type, :org_type, :org_sname, :analyst_name,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (ts_code, end_date, type) DO UPDATE SET
+                        eps = EXCLUDED.eps,
+                        eps_yoy = EXCLUDED.eps_yoy,
+                        net_profit = EXCLUDED.net_profit,
+                        net_profit_yoy = EXCLUDED.net_profit_yoy,
+                        gross_profit_margin = EXCLUDED.gross_profit_margin,
+                        net_profit_margin = EXCLUDED.net_profit_margin,
+                        roe = EXCLUDED.roe,
+                        earnings_weight = EXCLUDED.earnings_weight,
+                        conference_type = EXCLUDED.conference_type,
+                        org_type = EXCLUDED.org_type,
+                        org_sname = EXCLUDED.org_sname,
+                        analyst_name = EXCLUDED.analyst_name,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "ts_code": ts_code,
+                    "end_date": end_date,
+                    "type": type,
+                    "eps": eps,
+                    "eps_yoy": eps_yoy,
+                    "net_profit": net_profit,
+                    "net_profit_yoy": net_profit_yoy,
+                    "gross_profit_margin": gross_profit_margin,
+                    "net_profit_margin": net_profit_margin,
+                    "roe": roe,
+                    "earnings_weight": earnings_weight,
+                    "conference_type": conference_type,
+                    "org_type": org_type,
+                    "org_sname": org_sname,
+                    "analyst_name": analyst_name,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                ts_code=rec["ts_code"],
+                end_date=rec["end_date"],
+                type=rec["type"],
+                eps=rec.get("eps"),
+                eps_yoy=rec.get("eps_yoy"),
+                net_profit=rec.get("net_profit"),
+                net_profit_yoy=rec.get("net_profit_yoy"),
+                gross_profit_margin=rec.get("gross_profit_margin"),
+                net_profit_margin=rec.get("net_profit_margin"),
+                roe=rec.get("roe"),
+                earnings_weight=rec.get("earnings_weight"),
+                conference_type=rec.get("conference_type"),
+                org_type=rec.get("org_type"),
+                org_sname=rec.get("org_sname"),
+                analyst_name=rec.get("analyst_name"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
+class MarginCurrent:
+    """Canonical current table for margin trading data."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        trade_date: date,
+        ts_code: str,
+        rzye: Optional[float] = None,
+        rzmre: Optional[float] = None,
+        rzche: Optional[float] = None,
+        rzche_ratio: Optional[float] = None,
+        rqye: Optional[float] = None,
+        rqmcl: Optional[float] = None,
+        rqchl: Optional[float] = None,
+        rqchl_ratio: Optional[float] = None,
+        total_market: Optional[float] = None,
+        total_margin: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.margin_current (
+                        id, trade_date, ts_code, rzye, rzmre, rzche, rzche_ratio,
+                        rqye, rqmcl, rqchl, rqchl_ratio, total_market, total_margin,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :trade_date, :ts_code, :rzye, :rzmre, :rzche, :rzche_ratio,
+                        :rqye, :rqmcl, :rqchl, :rqchl_ratio, :total_market, :total_margin,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (trade_date, ts_code) DO UPDATE SET
+                        rzye = EXCLUDED.rzye,
+                        rzmre = EXCLUDED.rzmre,
+                        rzche = EXCLUDED.rzche,
+                        rzche_ratio = EXCLUDED.rzche_ratio,
+                        rqye = EXCLUDED.rqye,
+                        rqmcl = EXCLUDED.rqmcl,
+                        rqchl = EXCLUDED.rqchl,
+                        rqchl_ratio = EXCLUDED.rqchl_ratio,
+                        total_market = EXCLUDED.total_market,
+                        total_margin = EXCLUDED.total_margin,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "trade_date": trade_date,
+                    "ts_code": ts_code,
+                    "rzye": rzye,
+                    "rzmre": rzmre,
+                    "rzche": rzche,
+                    "rzche_ratio": rzche_ratio,
+                    "rqye": rqye,
+                    "rqmcl": rqmcl,
+                    "rqchl": rqchl,
+                    "rqchl_ratio": rqchl_ratio,
+                    "total_market": total_market,
+                    "total_margin": total_margin,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                trade_date=rec["trade_date"],
+                ts_code=rec["ts_code"],
+                rzye=rec.get("rzye"),
+                rzmre=rec.get("rzmre"),
+                rzche=rec.get("rzche"),
+                rzche_ratio=rec.get("rzche_ratio"),
+                rqye=rec.get("rqye"),
+                rqmcl=rec.get("rqmcl"),
+                rqchl=rec.get("rqchl"),
+                rqchl_ratio=rec.get("rqchl_ratio"),
+                total_market=rec.get("total_market"),
+                total_margin=rec.get("total_margin"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
+class NorthSouthFlowCurrent:
+    """Canonical current table for north-south flow (moneyflow_hsgt)."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        trade_date: date,
+        ts_code: str,
+        north_money: Optional[float] = None,
+        south_money: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.north_south_flow_current (
+                        id, trade_date, ts_code, north_money, south_money,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :trade_date, :ts_code, :north_money, :south_money,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (trade_date, ts_code) DO UPDATE SET
+                        north_money = EXCLUDED.north_money,
+                        south_money = EXCLUDED.south_money,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "trade_date": trade_date,
+                    "ts_code": ts_code,
+                    "north_money": north_money,
+                    "south_money": south_money,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                trade_date=rec["trade_date"],
+                ts_code=rec["ts_code"],
+                north_money=rec.get("north_money"),
+                south_money=rec.get("south_money"),
+                version_id=version_id,
+            )
+            count += 1
+        return count

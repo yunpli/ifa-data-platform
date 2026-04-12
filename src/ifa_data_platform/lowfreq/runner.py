@@ -14,14 +14,29 @@ from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.run_state import RunStateManager
 from ifa_data_platform.lowfreq.version_persistence import (
     AnnouncementsHistory,
+    CompanyBasicHistory,
     DatasetVersionRegistry,
+    EtfDailyBasicHistory,
+    ForecastHistory,
     FundBasicEtfHistory,
     IndexBasicHistory,
+    IndexWeightHistory,
     InvestorQaHistory,
+    MarginHistory,
+    NameChangeHistory,
+    NewShareHistory,
     NewsHistory,
+    NorthSouthFlowHistory,
     ResearchReportsHistory,
+    ShareFloatHistory,
     StockBasicHistory,
+    StockFundForecastHistory,
+    StkHoldernumberHistory,
+    StkManagersHistory,
     SwIndustryMappingHistory,
+    Top10FloatholdersHistory,
+    Top10HoldersHistory,
+    PledgeStatHistory,
     TradeCalHistory,
     VersionStatus,
 )
@@ -62,6 +77,21 @@ class LowFreqRunner:
         self._news_history = NewsHistory()
         self._research_reports_history = ResearchReportsHistory()
         self._investor_qa_history = InvestorQaHistory()
+        self._index_weight_history = IndexWeightHistory()
+        self._etf_daily_basic_history = EtfDailyBasicHistory()
+        self._share_float_history = ShareFloatHistory()
+        self._company_basic_history = CompanyBasicHistory()
+        self._stk_managers_history = StkManagersHistory()
+        self._new_share_history = NewShareHistory()
+        self._name_change_history = NameChangeHistory()
+        self._stk_holdernumber_history = StkHoldernumberHistory()
+        self._top10_holders_history = Top10HoldersHistory()
+        self._top10_floatholders_history = Top10FloatholdersHistory()
+        self._pledge_stat_history = PledgeStatHistory()
+        self._forecast_history = ForecastHistory()
+        self._stock_fund_forecast_history = StockFundForecastHistory()
+        self._margin_history = MarginHistory()
+        self._north_south_flow_history = NorthSouthFlowHistory()
 
     def run(
         self,
@@ -212,6 +242,51 @@ class LowFreqRunner:
         elif dataset_name == "investor_qa":
             self._investor_qa_history.store_version(version_id, records)
             logger.info(f"Stored {len(records)} investor_qa records to history")
+        elif dataset_name == "index_weight":
+            self._index_weight_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} index_weight records to history")
+        elif dataset_name == "etf_daily_basic":
+            self._etf_daily_basic_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} etf_daily_basic records to history")
+        elif dataset_name == "share_float":
+            self._share_float_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} share_float records to history")
+        elif dataset_name == "company_basic":
+            self._company_basic_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} company_basic records to history")
+        elif dataset_name == "stk_managers":
+            self._stk_managers_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} stk_managers records to history")
+        elif dataset_name == "new_share":
+            self._new_share_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} new_share records to history")
+        elif dataset_name == "name_change":
+            self._name_change_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} name_change records to history")
+        elif dataset_name == "stk_holdernumber":
+            self._stk_holdernumber_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} stk_holdernumber records to history")
+        elif dataset_name == "top10_holders":
+            self._top10_holders_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} top10_holders records to history")
+        elif dataset_name == "top10_floatholders":
+            self._top10_floatholders_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} top10_floatholders records to history")
+        elif dataset_name == "pledge_stat":
+            self._pledge_stat_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} pledge_stat records to history")
+        elif dataset_name == "forecast":
+            self._forecast_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} forecast records to history")
+        elif dataset_name == "stock_fund_forecast":
+            self._stock_fund_forecast_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} stock_fund_forecast records to history")
+        elif dataset_name == "margin":
+            self._margin_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} margin records to history")
+        elif dataset_name == "north_south_flow":
+            self._north_south_flow_history.store_version(version_id, records)
+            logger.info(f"Stored {len(records)} north_south_flow records to history")
 
     def promote(
         self,

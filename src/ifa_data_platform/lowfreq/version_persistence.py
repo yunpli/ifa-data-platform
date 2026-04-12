@@ -1770,19 +1770,20 @@ class StkManagersHistory:
                     text(
                         """
                         INSERT INTO ifa2.stk_managers_history (
-                            id, version_id, ts_code, name, title, gender,
+                            id, dataset_name, version_id, ts_code, name, title, gender,
                             edu, nationality, birthday, begin_date, end_date,
-                            created_at
+                            fetched_at, created_at
                         )
                         VALUES (
-                            :id, :version_id, :ts_code, :name, :title, :gender,
+                            :id, :dataset_name, :version_id, :ts_code, :name, :title, :gender,
                             :edu, :nationality, :birthday, :begin_date, :end_date,
-                            now()
+                            now(), now()
                         )
                         """
                     ),
                     {
                         "id": record_id,
+                        "dataset_name": "stk_managers",
                         "version_id": version_id,
                         "ts_code": rec["ts_code"],
                         "name": rec["name"],
@@ -1870,17 +1871,18 @@ class NewShareHistory:
                     text(
                         """
                         INSERT INTO ifa2.new_share_history (
-                            id, version_id, ts_code, name, ipo_date, issue_date,
-                            issue_price, amount, created_at
+                            id, dataset_name, version_id, ts_code, name, ipo_date, issue_date,
+                            issue_price, amount, fetched_at, created_at
                         )
                         VALUES (
-                            :id, :version_id, :ts_code, :name, :ipo_date, :issue_date,
-                            :issue_price, :amount, now()
+                            :id, :dataset_name, :version_id, :ts_code, :name, :ipo_date, :issue_date,
+                            :issue_price, :amount, now(), now()
                         )
                         """
                     ),
                     {
                         "id": record_id,
+                        "dataset_name": "new_share",
                         "version_id": version_id,
                         "ts_code": rec["ts_code"],
                         "name": rec["name"],
@@ -2028,6 +2030,136 @@ class NameChangeHistory:
             ]
 
 
+class Top10HoldersHistory:
+    """Historical top10 holders records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.top10_holders_history (
+                            id, version_id, ts_code, ann_date, end_date, holder_name,
+                            hold_amount, hold_ratio, hold_float_ratio, hold_change, holder_type, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :ann_date, :end_date, :holder_name,
+                            :hold_amount, :hold_ratio, :hold_float_ratio, :hold_change, :holder_type, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "ann_date": rec.get("ann_date"),
+                        "end_date": rec["end_date"],
+                        "holder_name": rec["holder_name"],
+                        "hold_amount": rec.get("hold_amount"),
+                        "hold_ratio": rec.get("hold_ratio"),
+                        "hold_float_ratio": rec.get("hold_float_ratio"),
+                        "hold_change": rec.get("hold_change"),
+                        "holder_type": rec.get("holder_type"),
+                    },
+                )
+                count += 1
+        return count
+
+
+class Top10FloatholdersHistory:
+    """Historical top10 floatholders records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.top10_floatholders_history (
+                            id, version_id, ts_code, ann_date, end_date, holder_name,
+                            hold_amount, hold_ratio, hold_float_ratio, hold_change, holder_type, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :ann_date, :end_date, :holder_name,
+                            :hold_amount, :hold_ratio, :hold_float_ratio, :hold_change, :holder_type, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "ann_date": rec.get("ann_date"),
+                        "end_date": rec["end_date"],
+                        "holder_name": rec["holder_name"],
+                        "hold_amount": rec.get("hold_amount"),
+                        "hold_ratio": rec.get("hold_ratio"),
+                        "hold_float_ratio": rec.get("hold_float_ratio"),
+                        "hold_change": rec.get("hold_change"),
+                        "holder_type": rec.get("holder_type"),
+                    },
+                )
+                count += 1
+        return count
+
+
+class PledgeStatHistory:
+    """Historical pledge stat records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.pledge_stat_history (
+                            id, version_id, ts_code, end_date, pledge_count, unrest_pledge,
+                            rest_pledge, total_share, pledge_ratio, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :end_date, :pledge_count, :unrest_pledge,
+                            :rest_pledge, :total_share, :pledge_ratio, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "end_date": rec["end_date"],
+                        "pledge_count": rec.get("pledge_count"),
+                        "unrest_pledge": rec.get("unrest_pledge"),
+                        "rest_pledge": rec.get("rest_pledge"),
+                        "total_share": rec.get("total_share"),
+                        "pledge_ratio": rec.get("pledge_ratio"),
+                    },
+                )
+                count += 1
+        return count
+
+
 class StkHoldernumberHistory:
     """Historical stk holdernumber records per version."""
 
@@ -2106,3 +2238,194 @@ class StkHoldernumberHistory:
                 }
                 for row in rows
             ]
+
+
+class ForecastHistory:
+    """Historical earnings forecast records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.forecast_history (
+                            id, version_id, ts_code, ann_date, end_date, type, p_change_min,
+                            p_change_max, net_profit_min, net_profit_max, eps_min, eps_max,
+                            roe_min, roe_max, net_profit_ratio_min, net_profit_ratio_max,
+                            op_income_min, op_income_max, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :ann_date, :end_date, :type, :p_change_min,
+                            :p_change_max, :net_profit_min, :net_profit_max, :eps_min, :eps_max,
+                            :roe_min, :roe_max, :net_profit_ratio_min, :net_profit_ratio_max,
+                            :op_income_min, :op_income_max, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "ann_date": rec["ann_date"],
+                        "end_date": rec["end_date"],
+                        "type": rec.get("type"),
+                        "p_change_min": rec.get("p_change_min"),
+                        "p_change_max": rec.get("p_change_max"),
+                        "net_profit_min": rec.get("net_profit_min"),
+                        "net_profit_max": rec.get("net_profit_max"),
+                        "eps_min": rec.get("eps_min"),
+                        "eps_max": rec.get("eps_max"),
+                        "roe_min": rec.get("roe_min"),
+                        "roe_max": rec.get("roe_max"),
+                        "net_profit_ratio_min": rec.get("net_profit_ratio_min"),
+                        "net_profit_ratio_max": rec.get("net_profit_ratio_max"),
+                        "op_income_min": rec.get("op_income_min"),
+                        "op_income_max": rec.get("op_income_max"),
+                    },
+                )
+                count += 1
+        return count
+
+
+class StockFundForecastHistory:
+    """Historical stock fund forecast records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.stock_fund_forecast_history (
+                            id, version_id, ts_code, end_date, type, eps, eps_yoy, net_profit,
+                            net_profit_yoy, gross_profit_margin, net_profit_margin, roe, earnings_weight,
+                            conference_type, org_type, org_sname, analyst_name, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :ts_code, :end_date, :type, :eps, :eps_yoy, :net_profit,
+                            :net_profit_yoy, :gross_profit_margin, :net_profit_margin, :roe, :earnings_weight,
+                            :conference_type, :org_type, :org_sname, :analyst_name, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "ts_code": rec["ts_code"],
+                        "end_date": rec["end_date"],
+                        "type": rec.get("type"),
+                        "eps": rec.get("eps"),
+                        "eps_yoy": rec.get("eps_yoy"),
+                        "net_profit": rec.get("net_profit"),
+                        "net_profit_yoy": rec.get("net_profit_yoy"),
+                        "gross_profit_margin": rec.get("gross_profit_margin"),
+                        "net_profit_margin": rec.get("net_profit_margin"),
+                        "roe": rec.get("roe"),
+                        "earnings_weight": rec.get("earnings_weight"),
+                        "conference_type": rec.get("conference_type"),
+                        "org_type": rec.get("org_type"),
+                        "org_sname": rec.get("org_sname"),
+                        "analyst_name": rec.get("analyst_name"),
+                    },
+                )
+                count += 1
+        return count
+
+
+class MarginHistory:
+    """Historical margin trading records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.margin_history (
+                            id, version_id, trade_date, ts_code, rzye, rzmre, rzche, rzche_ratio,
+                            rqye, rqmcl, rqchl, rqchl_ratio, total_market, total_margin, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :trade_date, :ts_code, :rzye, :rzmre, :rzche, :rzche_ratio,
+                            :rqye, :rqmcl, :rqchl, :rqchl_ratio, :total_market, :total_margin, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "trade_date": rec["trade_date"],
+                        "ts_code": rec["ts_code"],
+                        "rzye": rec.get("rzye"),
+                        "rzmre": rec.get("rzmre"),
+                        "rzche": rec.get("rzche"),
+                        "rzche_ratio": rec.get("rzche_ratio"),
+                        "rqye": rec.get("rqye"),
+                        "rqmcl": rec.get("rqmcl"),
+                        "rqchl": rec.get("rqchl"),
+                        "rqchl_ratio": rec.get("rqchl_ratio"),
+                        "total_market": rec.get("total_market"),
+                        "total_margin": rec.get("total_margin"),
+                    },
+                )
+                count += 1
+        return count
+
+
+class NorthSouthFlowHistory:
+    """Historical north-south flow records per version."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def store_version(self, version_id: str, records: list[dict]) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            record_id = str(uuid.uuid4())
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.north_south_flow_history (
+                            id, version_id, trade_date, ts_code, north_money, south_money, created_at
+                        )
+                        VALUES (
+                            :id, :version_id, :trade_date, :ts_code, :north_money, :south_money, now()
+                        )
+                        """
+                    ),
+                    {
+                        "id": record_id,
+                        "version_id": version_id,
+                        "trade_date": rec["trade_date"],
+                        "ts_code": rec["ts_code"],
+                        "north_money": rec.get("north_money"),
+                        "south_money": rec.get("south_money"),
+                    },
+                )
+                count += 1
+        return count
