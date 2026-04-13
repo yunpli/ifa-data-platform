@@ -107,6 +107,10 @@ class MidfreqRunner:
 
             logger.info(f"{dataset_name}: {records_processed} records processed")
 
+            if records_processed > 0 and version_id:
+                self.version_registry.promote(dataset_name, version_id)
+                self._persist_current_to_history(dataset_name, version_id)
+
             return RunnerResult(
                 run_id=run_id,
                 dataset_name=dataset_name,
@@ -177,3 +181,81 @@ class MidfreqRunner:
 
             self.dataset_registry.register(config)
             logger.info(f"Registered midfreq dataset: {ds['dataset_name']}")
+
+    def _persist_current_to_history(self, dataset_name: str, version_id: str) -> int:
+        """Copy current records to history table for versioning."""
+        from sqlalchemy import text
+        from ifa_data_platform.db.engine import make_engine
+
+        engine = make_engine()
+        table_map = {
+            "equity_daily_bar": (
+                "equity_daily_bar_current",
+                "equity_daily_bar_history",
+            ),
+            "index_daily_bar": ("index_daily_bar_current", "index_daily_bar_history"),
+            "etf_daily_bar": ("etf_daily_bar_current", "etf_daily_bar_history"),
+            "northbound_flow": ("northbound_flow_current", "northbound_flow_history"),
+            "limit_up_down_status": (
+                "limit_up_down_status_current",
+                "limit_up_down_status_history",
+            ),
+            "margin_financing": (
+                "margin_financing_current",
+                "margin_financing_history",
+            ),
+            "turnover_rate": ("turnover_rate_current", "turnover_rate_history"),
+            "limit_up_detail": ("limit_up_detail_current", "limit_up_detail_history"),
+            "southbound_flow": ("southbound_flow_current", "southbound_flow_history"),
+            "main_force_flow": ("main_force_flow_current", "main_force_flow_history"),
+            "sector_performance": (
+                "sector_performance_current",
+                "sector_performance_history",
+            ),
+            "dragon_tiger_list": (
+                "dragon_tiger_list_current",
+                "dragon_tiger_list_history",
+            ),
+        }
+
+        if dataset_name not in table_map:
+            logger.warning(f"No history mapping for {dataset_name}")
+            return 0
+
+        current_table, history_table = table_map[dataset_name]
+
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(f"""
+                    INSERT INTO ifa2.{history_table} (id, version_id, 
+                        {self._get_columns_for_history(dataset_name)})
+                    SELECT gen_random_uuid(), :version_id,
+                        {self._get_columns_for_insert(dataset_name)}
+                    FROM ifa2.{current_table}
+                    WHERE version_id = :version_id
+                """),
+                {"version_id": version_id},
+            )
+            return result.rowcount
+
+    def _get_columns_for_history(self, dataset_name: str) -> str:
+        """Get column list for history insert."""
+        column_maps = {
+            "equity_daily_bar": "ts_code, trade_date, open, high, low, close, vol, amount, pre_close, change, pct_chg",
+            "index_daily_bar": "ts_code, trade_date, open, high, low, close, vol, amount, pre_close, change, pct_chg",
+            "etf_daily_bar": "ts_code, trade_date, open, high, low, close, vol, amount, pre_close, change, pct_chg",
+            "northbound_flow": "trade_date, north_money, north_bal, north_buy, north_sell",
+            "limit_up_down_status": "trade_date, limit_up_count, limit_down_count, limit_up_streak_high, limit_down_streak_high",
+            "margin_financing": "ts_code, trade_date, rzye, rzmre, rzche, rzrqye, rqryl",
+            "turnover_rate": "ts_code, trade_date, turnover_rate, turnover_rate_f",
+            "limit_up_detail": "ts_code, trade_date, limit, pre_limit",
+            "southbound_flow": "trade_date, south_money, south_bal, south_buy, south_sell",
+            "main_force_flow": "ts_code, trade_date, main_force, main_force_pct",
+            "sector_performance": "sector_code, trade_date, sector_name, close, pct_chg, turnover_rate",
+            "dragon_tiger_list": "ts_code, trade_date, buy_amount, sell_amount, net_amount",
+        }
+        return column_maps.get(dataset_name, "*")
+
+    def _get_columns_for_insert(self, dataset_name: str) -> str:
+        """Get column list for history insert."""
+        return self._get_columns_for_history(dataset_name)

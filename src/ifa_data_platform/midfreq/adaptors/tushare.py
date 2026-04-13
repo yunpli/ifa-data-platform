@@ -568,9 +568,6 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         symbols = self._get_universe_symbols("B")
         parsed_records = []
 
-        # Query for recent 5 days to get data on any trading day
-        from datetime import datetime, timedelta
-
         end_date = trade_date
         start_date_dt = datetime.strptime(trade_date, "%Y%m%d") - timedelta(days=7)
         start_date = start_date_dt.strftime("%Y%m%d")
