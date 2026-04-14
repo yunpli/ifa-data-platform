@@ -173,16 +173,44 @@ class ArchiveOrchestrator:
     ) -> int:
         """Process a single archive job.
 
-        This is a placeholder implementation that demonstrates the checkpoint/resume chain.
-        Real implementation would wire to actual data sources in D2+.
+        Routes to asset-specific archiver implementations.
+        D2: Stock daily historical archive.
         """
+        if asset_type == "stock":
+            return self._process_stock_job(dataset_name)
+
+        return self._process_generic_job(job_name, dataset_name, asset_type)
+
+    def _process_stock_job(self, dataset_name: str) -> int:
+        """Process stock daily archive job using real Tushare data."""
+        from ifa_data_platform.archive.stock_daily_archiver import StockDailyArchiver
+        from datetime import date, timedelta
+
+        archiver = StockDailyArchiver()
+
+        try:
+            records = archiver.run_archive(
+                dataset_name=dataset_name,
+                end_date=date.today() - timedelta(days=1),
+                limit_per_stock=20,
+            )
+            logger.info(f"Stock archive completed: {records} records")
+            return records
+        except Exception as e:
+            logger.error(f"Stock archive failed: {e}")
+            raise
+
+    def _process_generic_job(
+        self, job_name: str, dataset_name: str, asset_type: str
+    ) -> int:
+        """Generic fallback job processor."""
+        from datetime import date, timedelta
+
         checkpoint = self.checkpoint_store.get_checkpoint(dataset_name, asset_type)
 
         last_date = None
         if checkpoint and checkpoint.get("last_completed_date"):
             last_date = checkpoint["last_completed_date"]
-
-        from datetime import date, timedelta
 
         if last_date:
             current_date = last_date + timedelta(days=1)
