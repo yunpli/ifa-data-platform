@@ -119,6 +119,13 @@ class ArchiveOrchestrator:
         dataset_name = job_config.dataset_name
         asset_type = job_config.asset_type
 
+        run_id = self.run_store.create_run(
+            job_name=job_name,
+            dataset_name=dataset_name,
+            asset_type=asset_type,
+            window_name=window_name,
+        )
+
         try:
             if dry_run:
                 records = 0
@@ -126,6 +133,12 @@ class ArchiveOrchestrator:
                 records = self._process_job(
                     job_name, dataset_name, asset_type, window_name
                 )
+
+            self.run_store.update_status(
+                run_id=run_id,
+                status="succeeded",
+                records_processed=records,
+            )
 
             return ArchiveJobResult(
                 job_name=job_name,
@@ -136,6 +149,11 @@ class ArchiveOrchestrator:
 
         except Exception as e:
             logger.error(f"Exception running job {job_name}: {e}")
+            self.run_store.update_status(
+                run_id=run_id,
+                status="failed",
+                error_message=str(e),
+            )
             return ArchiveJobResult(
                 job_name=job_name,
                 dataset_name=dataset_name,
