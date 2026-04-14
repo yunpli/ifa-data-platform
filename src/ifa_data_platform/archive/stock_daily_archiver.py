@@ -201,6 +201,58 @@ class StockDailyArchiver:
                 }
         return None
 
+    def sync_to_archive_checkpoints(
+        self,
+        dataset_name: str,
+        asset_type: str,
+        last_completed_date: Optional[date] = None,
+        batch_no: int = 0,
+        status: str = "in_progress",
+    ) -> None:
+        """Sync checkpoint to archive_checkpoints for unified tracking."""
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.archive_checkpoints (
+                        id, dataset_name, asset_type, last_completed_date, batch_no, status, updated_at, created_at
+                    )
+                    SELECT gen_random_uuid(), :dataset_name, :asset_type, :last_completed_date,
+                           :batch_no, :status, NOW(), NOW()
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM ifa2.archive_checkpoints
+                        WHERE dataset_name = :dataset_name AND asset_type = :asset_type
+                    )
+                    """
+                ),
+                {
+                    "dataset_name": dataset_name,
+                    "asset_type": asset_type,
+                    "last_completed_date": last_completed_date,
+                    "batch_no": batch_no,
+                    "status": status,
+                },
+            )
+            conn.execute(
+                text(
+                    """
+                    UPDATE ifa2.archive_checkpoints
+                    SET last_completed_date = :last_completed_date,
+                        batch_no = :batch_no,
+                        status = :status,
+                        updated_at = NOW()
+                    WHERE dataset_name = :dataset_name AND asset_type = :asset_type
+                    """
+                ),
+                {
+                    "dataset_name": dataset_name,
+                    "asset_type": asset_type,
+                    "last_completed_date": last_completed_date,
+                    "batch_no": batch_no,
+                    "status": status,
+                },
+            )
+
     def upsert_checkpoint(
         self,
         dataset_name: str,
@@ -209,7 +261,8 @@ class StockDailyArchiver:
         batch_no: int = 0,
         status: str = "in_progress",
     ) -> None:
-        """Upsert checkpoint."""
+        """Upsert checkpoint to both stock_history_checkpoint and archive_checkpoints."""
+        asset_type = "stock"
         with self.engine.begin() as conn:
             conn.execute(
                 text(
@@ -236,6 +289,13 @@ class StockDailyArchiver:
                     "status": status,
                 },
             )
+        self.sync_to_archive_checkpoints(
+            dataset_name=dataset_name,
+            asset_type=asset_type,
+            last_completed_date=last_completed_date,
+            batch_no=batch_no,
+            status=status,
+        )
 
     def run_archive(
         self,

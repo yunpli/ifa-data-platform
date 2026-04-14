@@ -72,6 +72,12 @@ ORDER BY started_at DESC LIMIT 5;
 
 ## Checkpoint/Resume
 
+Two checkpoint tables are now unified:
+- `stock_history_checkpoint` - Stock-specific checkpoint (D2 native, primary source)
+- `archive_checkpoints` - Framework checkpoint (synced from stock_history_checkpoint)
+
+Both tables are kept in sync by code. Always check `stock_history_checkpoint` for stock path state.
+
 Checkpoint tracks:
 - `dataset_name`: stock_daily
 - `last_completed_date`: Last date archived

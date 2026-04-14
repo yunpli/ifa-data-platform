@@ -66,11 +66,47 @@ The following are explicitly deferred to future phases:
 - Watchdog: Reports alive/stale based on last run time
 - Archive runs properly tracked in archive_runs table
 
+## Checkpoint Unification Fix (2026-04-13)
+
+### Problem Identified
+
+Two checkpoint tables existed with inconsistent state:
+- `stock_history_checkpoint` - Stock-specific checkpoint (D2 native)
+- `archive_checkpoints` - Unified archive framework checkpoint
+
+State before fix:
+- stock_history_checkpoint: last_completed_date=2026-04-12, batch_no=20, status=completed
+- archive_checkpoints: last_completed_date=2025-05-17, batch_no=5, status=completed
+
+This caused "业务路径推进了，但 archive_checkpoints 没推进" mismatch.
+
+### Solution Implemented
+
+1. **Immediate sync**: Updated archive_checkpoints to match stock_history_checkpoint
+2. **Code fix**: Modified `stock_daily_archiver.py` to sync both tables on every checkpoint update
+   - Added `sync_to_archive_checkpoints()` method
+   - `upsert_checkpoint()` now writes to both tables atomically
+
+### Unified Checkpoint口径
+
+After fix, both tables are kept in sync:
+- **Primary source for stock path**: `stock_history_checkpoint`
+- **Framework checkpoint**: `archive_checkpoints` (synced from stock_history_checkpoint)
+- Checkpoint consistency verified on every run
+
+## Current State (Post-Fix)
+
+- stock_history_checkpoint: last_completed_date=2026-04-13, batch_no=5, status=completed
+- archive_checkpoints: last_completed_date=2026-04-13, batch_no=5, status=completed
+- stock_daily_history: 4831 records
+- Checkpoint consistency: VERIFIED
+
 ## Sign-off
 
 D2 stock historical archive layer is complete and functional:
 - Real Tushare data fetching works
 - Checkpoint/resume operational
+- Checkpoint tables unified (stock_history_checkpoint + archive_checkpoints)
 - Health monitoring reflects stock path
 - Documentation delivered
 
