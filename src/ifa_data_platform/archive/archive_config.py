@@ -130,6 +130,24 @@ def _get_default_config() -> ArchiveConfig:
                 is_enabled=True,
                 description="Stock daily historical data archive",
             ),
+            ArchiveJobConfig(
+                job_name="macro_archive",
+                dataset_name="macro_history",
+                asset_type="macro",
+                pool_name="default",
+                scope_name="cn_macro",
+                is_enabled=True,
+                description="Macro economic indicators historical archive",
+            ),
+            ArchiveJobConfig(
+                job_name="futures_archive",
+                dataset_name="futures_history",
+                asset_type="futures",
+                pool_name="default",
+                scope_name="commodity_pool",
+                is_enabled=True,
+                description="Commodity/Futures/Precious Metals historical archive",
+            ),
         ],
     )
 
