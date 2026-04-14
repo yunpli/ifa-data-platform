@@ -17,3 +17,7 @@ config/runtime/*.env
 .mypy_cache/
 .ruff_cache/
 
+ifa.db
+logs/
+config/archiver_test.yaml
+ops/snapshots/

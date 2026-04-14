@@ -1,0 +1,48 @@
+IFA COLLECTION STATUS SNAPSHOT
+Date: 2026-04-14
+Repo: /Users/neoclaw/repos/ifa-data-platform
+
+1) SYSTEM RUNNING OR NOT
+- lowfreq: NOT RUNNING (held intentionally)
+- midfreq: RUNNING (one live daemon process observed)
+- archive: NOT RUNNING at audit time
+
+2) DATABASE CLEANUP
+- Minimal necessary cleanup: DONE
+- Backup/snapshot: DONE before cleanup
+- Real asset data: RETAINED
+
+3) TABLES STILL PRESENT
+- lowfreq tables: PRESENT
+- midfreq tables: PRESENT
+- archive control tables: PRESENT
+- symbol_universe: PRESENT
+- stock_daily_history: PRESENT
+- macro_history: PRESENT
+- futures_history: PRESENT
+
+4) WHAT WAS FIXED
+- archive formal runtime entry normalized via python -m ifa_data_platform.archive.daemon
+- archive duplicate same-window run behavior blocked
+- archive loop now sleeps until next official window instead of noisy short empty polling
+- archive repeated runtime residue cleaned down to one clean retained run per job
+- repo ignore policy clarified for ifa.db / logs / archiver test config / ops snapshots
+- developer context doc created
+- archive runtime/data status doc created
+- focused watchlist design doc created
+
+5) WHAT REMAINS
+- midfreq still has one live daemon process and should be explicitly owner-confirmed before next upgrade stage
+- archive status vocabulary still mixes completed/succeeded across code paths and should be normalized later
+
+6) ARCHIVE HEALTHY BASELINE AFTER REPAIR
+- official windows: 21:30-22:30 Asia/Shanghai, 02:00-03:00 Asia/Shanghai
+- once mode: one eligible execution then exit
+- loop mode: wait for official window, run once per business-date/window, then sleep until next official window
+
+7) CLEANUP BOUNDARY
+- cleaned: runtime noise / repeated archive run residue / dummy job_run noise / stale midfreq failed window residue
+- not cleaned: real asset history tables, checkpoints, symbol_universe, lowfreq historical run facts
+
+8) CURRENT BLOCKER
+- Only blocker: midfreq live process remains and should be explicitly reviewed if full collection freeze is required before phase-upgrade
