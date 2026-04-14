@@ -12,6 +12,7 @@ from ifa_data_platform.archive.archive_checkpoint import ArchiveCheckpointStore
 from ifa_data_platform.archive.models import ArchiveJob
 from ifa_data_platform.archive.archive_run_store import ArchiveRunStore
 from ifa_data_platform.archive.archive_summary import ArchiveSummaryStore
+from ifa_data_platform.archive.archive_daemon_state import ArchiveDaemonStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class ArchiveOrchestrator:
         self.run_store = ArchiveRunStore()
         self.checkpoint_store = ArchiveCheckpointStore()
         self.summary_store = ArchiveSummaryStore()
+        self.daemon_store = ArchiveDaemonStateStore()
 
     def run_window(
         self, window_name: str, dry_run: bool = False
@@ -105,6 +107,10 @@ class ArchiveOrchestrator:
         )
 
         self._persist_summary(summary)
+
+        last_job = enabled_jobs[-1].job_name if enabled_jobs else None
+        last_status = "succeeded" if failed == 0 else "failed"
+        self.daemon_store.update_loop(last_job, last_status)
 
         logger.info(
             f"Window {window_name} completed: {succeeded}/{len(enabled_jobs)} succeeded, "
