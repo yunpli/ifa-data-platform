@@ -45,15 +45,17 @@ def test_unified_runtime_run_once_lowfreq_manifest_only():
     assert payload['manifest_snapshot_id']
 
 
-def test_unified_runtime_run_once_lowfreq_dry_run_executes():
+def test_unified_runtime_run_once_lowfreq_real_run_executes():
     payload = run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'lowfreq'
+    assert payload['execution_mode'] == 'real_run'
     assert {'trade_cal', 'stock_basic', 'index_basic'} <= set(payload['planned_dataset_names'])
     assert payload['executed_dataset_count'] >= 3
     assert any(r['dataset_name'] == 'stock_basic' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'trade_cal' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'index_basic' for r in payload['dataset_results'])
-    assert all(r['status'] in {'succeeded', 'dry_run'} for r in payload['dataset_results'])
+    assert all(r['status'] == 'succeeded' for r in payload['dataset_results'])
+    assert any((r['records_processed'] or 0) > 0 for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
 
