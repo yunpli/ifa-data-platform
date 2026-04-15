@@ -3,10 +3,9 @@
 This first implementation batch provides:
 - one-shot manifest-driven lane execution
 - run-state/audit via job_runs
+- manifest snapshot persistence
+- archive catch-up evidence persistence
 - a single entrypoint for lowfreq / midfreq / archive bounded rounds
-
-This is intentionally small and explicit so that future milestones can extend it
-without inventing another daemon family.
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import text
@@ -24,7 +23,8 @@ from ifa_data_platform.lowfreq.runner import LowFreqRunner
 from ifa_data_platform.midfreq.runner import MidfreqRunner
 from ifa_data_platform.archive.archive_orchestrator import ArchiveOrchestrator
 from ifa_data_platform.archive.archive_config import get_archive_config
-from ifa_data_platform.runtime.target_manifest import SelectorScope, build_target_manifest
+from ifa_data_platform.archive.archive_target_delta import ArchiveDeltaItem, build_archive_manifest, diff_archive_manifests
+from ifa_data_platform.runtime.target_manifest import SelectorScope, TargetManifest, build_target_manifest
 
 
 def now_utc() -> datetime:
@@ -47,11 +47,7 @@ class UnifiedRunResult:
 
 
 class UnifiedRuntimeStore:
-    """Persist minimal unified runtime runs into ifa2.job_runs.
-
-    Reuses the existing placeholder table for the first concrete implementation batch,
-    while serializing execution details into error_message as a temporary summary field.
-    """
+    """Persist minimal unified runtime runs into ifa2.job_runs and Trailblazer artifacts."""
 
     def __init__(self) -> None:
         self.engine = make_engine()
@@ -120,6 +116,79 @@ class UnifiedRuntimeStore:
             ).mappings().first()
             return dict(row) if row else None
 
+    def persist_manifest_snapshot(self, manifest: TargetManifest) -> str:
+        snapshot_id = str(uuid.uuid4())
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.target_manifest_snapshots (
+                        id, manifest_hash, generated_at, owner_type, owner_id,
+                        selector_scope, item_count, payload
+                    ) VALUES (
+                        :id, :manifest_hash, :generated_at, :owner_type, :owner_id,
+                        CAST(:selector_scope AS jsonb), :item_count, CAST(:payload AS jsonb)
+                    )
+                    ON CONFLICT (manifest_hash) DO NOTHING
+                    """
+                ),
+                {
+                    "id": snapshot_id,
+                    "manifest_hash": manifest.manifest_hash,
+                    "generated_at": datetime.fromisoformat(manifest.generated_at),
+                    "owner_type": manifest.selector_scope['owner_type'],
+                    "owner_id": manifest.selector_scope['owner_id'],
+                    "selector_scope": json.dumps(manifest.selector_scope, ensure_ascii=False),
+                    "item_count": manifest.item_count,
+                    "payload": json.dumps(manifest.to_dict(), ensure_ascii=False),
+                },
+            )
+            existing = conn.execute(
+                text("select id from ifa2.target_manifest_snapshots where manifest_hash=:h"),
+                {"h": manifest.manifest_hash},
+            ).scalar_one()
+            return str(existing)
+
+    def persist_archive_deltas(self, manifest_snapshot_id: str, deltas: list[ArchiveDeltaItem]) -> int:
+        inserted = 0
+        with self.engine.begin() as conn:
+            for d in deltas:
+                res = conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.archive_target_catchup (
+                            id, manifest_snapshot_id, change_type, dedupe_key, symbol_or_series_id,
+                            asset_category, granularity, source_list_name,
+                            suggested_backfill_start, suggested_backfill_end,
+                            backlog_priority, status, reason, created_at, updated_at
+                        ) VALUES (
+                            :id, :manifest_snapshot_id, :change_type, :dedupe_key, :symbol_or_series_id,
+                            :asset_category, :granularity, :source_list_name,
+                            :suggested_backfill_start, :suggested_backfill_end,
+                            :backlog_priority, 'pending', :reason, :created_at, :updated_at
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(uuid.uuid4()),
+                        "manifest_snapshot_id": manifest_snapshot_id,
+                        "change_type": d.change_type,
+                        "dedupe_key": d.dedupe_key,
+                        "symbol_or_series_id": d.symbol_or_series_id,
+                        "asset_category": d.asset_category,
+                        "granularity": d.granularity,
+                        "source_list_name": d.source_list_name,
+                        "suggested_backfill_start": date.fromisoformat(d.suggested_backfill_start) if d.suggested_backfill_start else None,
+                        "suggested_backfill_end": date.fromisoformat(d.suggested_backfill_end) if d.suggested_backfill_end else None,
+                        "backlog_priority": d.backlog_priority,
+                        "reason": d.reason,
+                        "created_at": now_utc(),
+                        "updated_at": now_utc(),
+                    },
+                )
+                inserted += int(res.rowcount or 0)
+        return inserted
+
 
 class UnifiedRuntime:
     def __init__(self) -> None:
@@ -140,6 +209,7 @@ class UnifiedRuntime:
 
         scope = scope or SelectorScope()
         manifest = build_target_manifest(scope)
+        manifest_snapshot_id = self.store.persist_manifest_snapshot(manifest)
         run_id = self.store.create_run(f"unified_runtime:{lane}")
         started_at = now_utc().isoformat()
 
@@ -150,6 +220,7 @@ class UnifiedRuntime:
                 "trigger_mode": trigger_mode,
                 "manifest_id": manifest.manifest_id,
                 "manifest_hash": manifest.manifest_hash,
+                "manifest_snapshot_id": manifest_snapshot_id,
                 "manifest_item_count": manifest.item_count,
                 "manifest_preview": manifest.to_dict()["items"][:10],
                 "mode": "dry_run_manifest_only",
@@ -171,8 +242,8 @@ class UnifiedRuntime:
             )
 
         if lane in {"lowfreq", "midfreq"}:
-            return self._run_runtime_lane(run_id, lane, trigger_mode, manifest, started_at)
-        return self._run_archive_lane(run_id, trigger_mode, manifest, started_at, archive_window)
+            return self._run_runtime_lane(run_id, lane, trigger_mode, manifest, manifest_snapshot_id, started_at)
+        return self._run_archive_lane(run_id, trigger_mode, manifest, manifest_snapshot_id, started_at, archive_window)
 
     def _run_runtime_lane(
         self,
@@ -180,6 +251,7 @@ class UnifiedRuntime:
         lane: str,
         trigger_mode: str,
         manifest,
+        manifest_snapshot_id: str,
         started_at: str,
     ) -> UnifiedRunResult:
         lane_items = [i for i in manifest.items if i.resolved_lane == lane]
@@ -200,6 +272,7 @@ class UnifiedRuntime:
             "trigger_mode": trigger_mode,
             "manifest_id": manifest.manifest_id,
             "manifest_hash": manifest.manifest_hash,
+            "manifest_snapshot_id": manifest_snapshot_id,
             "manifest_item_count": len(lane_items),
             "dataset_name": dataset_name,
             "runner_status": result.status,
@@ -228,10 +301,26 @@ class UnifiedRuntime:
         run_id: str,
         trigger_mode: str,
         manifest,
+        manifest_snapshot_id: str,
         started_at: str,
         archive_window: str,
     ) -> UnifiedRunResult:
         lane_items = [i for i in manifest.items if i.resolved_lane == 'archive']
+        previous = TargetManifest(
+            manifest_id=manifest.manifest_id + '_previous',
+            manifest_hash=manifest.manifest_hash + '_previous',
+            generated_at=manifest.generated_at,
+            selector_scope=manifest.selector_scope,
+            items=lane_items[:-1] if len(lane_items) > 1 else lane_items,
+        )
+        current = build_archive_manifest(SelectorScope(
+            owner_type=manifest.selector_scope['owner_type'],
+            owner_id=manifest.selector_scope['owner_id'],
+            list_types=('archive_targets',),
+        ))
+        deltas = diff_archive_manifests(previous, current)
+        persisted_catchup_rows = self.store.persist_archive_deltas(manifest_snapshot_id, deltas)
+
         orchestrator = ArchiveOrchestrator(get_archive_config())
         summary_obj = orchestrator.run_window(archive_window, dry_run=True)
         records_processed = sum(r.records_processed for r in summary_obj.job_results)
@@ -241,11 +330,14 @@ class UnifiedRuntime:
             "trigger_mode": trigger_mode,
             "manifest_id": manifest.manifest_id,
             "manifest_hash": manifest.manifest_hash,
+            "manifest_snapshot_id": manifest_snapshot_id,
             "manifest_item_count": len(lane_items),
             "window_name": archive_window,
             "archive_total_jobs": summary_obj.total_jobs,
             "archive_succeeded_jobs": summary_obj.succeeded_jobs,
             "archive_failed_jobs": summary_obj.failed_jobs,
+            "archive_delta_count": len(deltas),
+            "archive_catchup_rows_inserted": persisted_catchup_rows,
             "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],
         }
         final_status = "succeeded" if summary_obj.failed_jobs == 0 else "partial"
