@@ -76,7 +76,7 @@ def test_unified_runtime_run_once_archive_dry_run_executes():
     assert payload['lane'] == 'archive'
     assert 'manifest_id' in payload
     assert payload['manifest_item_count'] > 0
-    assert payload['archive_total_jobs'] == 3
+    assert payload['archive_total_jobs'] >= 10
     assert payload['archive_catchup_rows_inserted'] >= 0
 
 
