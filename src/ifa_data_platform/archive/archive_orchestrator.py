@@ -175,9 +175,16 @@ class ArchiveOrchestrator:
 
         Routes to asset-specific archiver implementations.
         D2: Stock daily historical archive.
+        Milestone A: commodity / precious_metal promoted into explicit runtime jobs.
         """
         if asset_type == "stock":
             return self._process_stock_job(dataset_name)
+        if asset_type == "futures":
+            return self._process_commodity_family_job(dataset_name, asset_type={"futures"}, checkpoint_asset_type="futures")
+        if asset_type == "commodity":
+            return self._process_commodity_family_job(dataset_name, asset_type={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, checkpoint_asset_type="commodity")
+        if asset_type == "precious_metal":
+            return self._process_commodity_family_job(dataset_name, asset_type={"precious_metal"}, checkpoint_asset_type="precious_metal")
 
         return self._process_generic_job(job_name, dataset_name, asset_type)
 
@@ -199,6 +206,22 @@ class ArchiveOrchestrator:
         except Exception as e:
             logger.error(f"Stock archive failed: {e}")
             raise
+
+    def _process_commodity_family_job(
+        self, dataset_name: str, asset_type: set[str], checkpoint_asset_type: str
+    ) -> int:
+        """Process commodity-family archive jobs through the commodity archiver with category filters."""
+        from datetime import date, timedelta
+        from ifa_data_platform.archive.commodity_archiver import CommodityArchiver
+
+        archiver = CommodityArchiver()
+        return archiver.run_archive(
+            dataset_name=dataset_name,
+            end_date=date.today() - timedelta(days=1),
+            max_contracts=20,
+            category_filter=asset_type,
+            asset_type=checkpoint_asset_type,
+        )
 
     def _process_generic_job(
         self, job_name: str, dataset_name: str, asset_type: str

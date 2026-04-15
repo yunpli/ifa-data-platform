@@ -68,6 +68,24 @@ def test_config():
                 is_enabled=True,
                 description="Test stock archive",
             ),
+            ArchiveJobConfig(
+                job_name="test_commodity_archive",
+                dataset_name="test_commodity_history",
+                asset_type="commodity",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test commodity archive",
+            ),
+            ArchiveJobConfig(
+                job_name="test_precious_archive",
+                dataset_name="test_precious_history",
+                asset_type="precious_metal",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test precious archive",
+            ),
         ],
     )
 
@@ -216,7 +234,7 @@ class TestArchiveFramework:
         summary = orchestrator.run_window("test_window_1", dry_run=False)
 
         assert summary is not None
-        assert summary.total_jobs >= 0
+        assert summary.total_jobs >= 3
         print(f"Executed: {summary.succeeded_jobs}/{summary.total_jobs} succeeded")
 
         checkpoint_store = ArchiveCheckpointStore()

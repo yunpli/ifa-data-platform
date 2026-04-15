@@ -262,11 +262,13 @@ class CommodityArchiver:
         dataset_name: str = "futures_history",
         end_date: Optional[date] = None,
         max_contracts: int = 30,
+        category_filter: Optional[set[str]] = None,
+        asset_type: str = "futures",
     ) -> int:
-        """Run futures archive for the given date range.
+        """Run futures/commodity/precious-metals archive for the given date range.
 
         Uses checkpoint to support resume.
-        Fetches data for configured futures contracts.
+        Fetches data for configured futures contracts, optionally filtered by category.
         """
         if end_date is None:
             end_date = date.today()
@@ -278,7 +280,10 @@ class CommodityArchiver:
             else date.today() - timedelta(days=365)
         )
 
-        contracts = self.get_active_contracts()[:max_contracts]
+        contracts = self.get_active_contracts()
+        if category_filter:
+            contracts = [c for c in contracts if c.get("category") in category_filter]
+        contracts = contracts[:max_contracts]
 
         total_records = 0
         batch_no = 0
@@ -297,25 +302,18 @@ class CommodityArchiver:
                 logger.warning(f"Failed to archive {ts_code}: {e}")
                 continue
 
+        self.upsert_checkpoint(
+            dataset_name=dataset_name,
+            asset_type=asset_type,
+            last_completed_date=end_date,
+            batch_no=batch_no,
+            status="completed",
+        )
         if total_records > 0:
-            self.upsert_checkpoint(
-                dataset_name=dataset_name,
-                asset_type="futures",
-                last_completed_date=end_date,
-                batch_no=batch_no,
-                status="completed",
-            )
             logger.info(
-                f"Futures archive completed: {total_records} records for {batch_no} contracts"
+                f"{asset_type} archive completed: {total_records} records for {batch_no} contracts"
             )
         else:
-            self.upsert_checkpoint(
-                dataset_name=dataset_name,
-                asset_type="futures",
-                last_completed_date=end_date,
-                batch_no=batch_no,
-                status="completed",
-            )
-            logger.info("Futures archive completed with no new records")
+            logger.info(f"{asset_type} archive completed with no new records")
 
         return total_records
