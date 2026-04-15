@@ -25,7 +25,8 @@ class ArchiveCheckpointStore:
     Tracks:
     - dataset_name, asset_type: Primary key
     - backfill_start, backfill_end: Backfill range
-    - last_completed_date: Progress watermark
+    - last_completed_date: Daily progress watermark
+    - last_completed_at: Intraday progress watermark for minute/15min datasets
     - shard_id, batch_no: Shard/batch tracking
     - status: Current checkpoint status
     """
@@ -40,6 +41,7 @@ class ArchiveCheckpointStore:
         backfill_start: Optional[date] = None,
         backfill_end: Optional[date] = None,
         last_completed_date: Optional[date] = None,
+        last_completed_at: Optional[datetime] = None,
         shard_id: Optional[str] = None,
         batch_no: Optional[int] = None,
         status: str = "pending",
@@ -51,14 +53,15 @@ class ArchiveCheckpointStore:
                     """
                     INSERT INTO ifa2.archive_checkpoints (
                         id, dataset_name, asset_type, backfill_start, backfill_end,
-                        last_completed_date, shard_id, batch_no, status, updated_at, created_at
+                        last_completed_date, last_completed_at, shard_id, batch_no, status, updated_at, created_at
                     )
                     VALUES (:id, :dataset_name, :asset_type, :backfill_start, :backfill_end,
-                            :last_completed_date, :shard_id, :batch_no, :status, :now, :now)
+                            :last_completed_date, :last_completed_at, :shard_id, :batch_no, :status, :now, :now)
                     ON CONFLICT (dataset_name, asset_type) DO UPDATE SET
                         backfill_start = COALESCE(EXCLUDED.backfill_start, ifa2.archive_checkpoints.backfill_start),
                         backfill_end = COALESCE(EXCLUDED.backfill_end, ifa2.archive_checkpoints.backfill_end),
                         last_completed_date = COALESCE(EXCLUDED.last_completed_date, ifa2.archive_checkpoints.last_completed_date),
+                        last_completed_at = COALESCE(EXCLUDED.last_completed_at, ifa2.archive_checkpoints.last_completed_at),
                         shard_id = COALESCE(EXCLUDED.shard_id, ifa2.archive_checkpoints.shard_id),
                         batch_no = COALESCE(EXCLUDED.batch_no, ifa2.archive_checkpoints.batch_no),
                         status = EXCLUDED.status,
@@ -72,6 +75,7 @@ class ArchiveCheckpointStore:
                     "backfill_start": backfill_start,
                     "backfill_end": backfill_end,
                     "last_completed_date": last_completed_date,
+                    "last_completed_at": last_completed_at,
                     "shard_id": shard_id,
                     "batch_no": batch_no,
                     "status": status,
@@ -86,7 +90,7 @@ class ArchiveCheckpointStore:
                 text(
                     """
                     SELECT id, dataset_name, asset_type, backfill_start, backfill_end,
-                           last_completed_date, shard_id, batch_no, status, updated_at, created_at
+                           last_completed_date, last_completed_at, shard_id, batch_no, status, updated_at, created_at
                     FROM ifa2.archive_checkpoints
                     WHERE dataset_name = :dataset_name AND asset_type = :asset_type
                     """
@@ -104,6 +108,7 @@ class ArchiveCheckpointStore:
                 "backfill_start": row.backfill_start,
                 "backfill_end": row.backfill_end,
                 "last_completed_date": row.last_completed_date,
+                "last_completed_at": row.last_completed_at,
                 "shard_id": row.shard_id,
                 "batch_no": row.batch_no,
                 "status": row.status,
@@ -170,7 +175,7 @@ class ArchiveCheckpointStore:
                 text(
                     """
                     SELECT id, dataset_name, asset_type, backfill_start, backfill_end,
-                           last_completed_date, shard_id, batch_no, status, updated_at, created_at
+                           last_completed_date, last_completed_at, shard_id, batch_no, status, updated_at, created_at
                     FROM ifa2.archive_checkpoints
                     ORDER BY updated_at DESC
                     """
@@ -185,6 +190,7 @@ class ArchiveCheckpointStore:
                     "backfill_start": row.backfill_start,
                     "backfill_end": row.backfill_end,
                     "last_completed_date": row.last_completed_date,
+                    "last_completed_at": row.last_completed_at,
                     "shard_id": row.shard_id,
                     "batch_no": row.batch_no,
                     "status": row.status,

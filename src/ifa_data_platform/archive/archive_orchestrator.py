@@ -180,7 +180,7 @@ class ArchiveOrchestrator:
         if dataset_name == "stock_daily":
             return self._process_stock_job(dataset_name)
         if dataset_name == "stock_15min_history":
-            return self._process_generic_job(job_name, dataset_name, asset_type)
+            return self._process_stock_15min_job(dataset_name)
         if dataset_name == "futures_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"futures"}, checkpoint_asset_type="futures")
         if dataset_name == "futures_15min_history":
@@ -217,6 +217,26 @@ class ArchiveOrchestrator:
             return records
         except Exception as e:
             logger.error(f"Stock archive failed: {e}")
+            raise
+
+    def _process_stock_15min_job(self, dataset_name: str) -> int:
+        """Process stock 15min archive job using real Tushare intraday bars."""
+        from datetime import date, datetime, time, timedelta
+        from ifa_data_platform.archive.stock_15min_archiver import Stock15MinArchiver
+
+        archiver = Stock15MinArchiver()
+        end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
+
+        try:
+            records = archiver.run_archive(
+                dataset_name=dataset_name,
+                end_time=end_time,
+                limit_stocks=5,
+            )
+            logger.info(f"Stock 15min archive completed: {records} records")
+            return records
+        except Exception as e:
+            logger.error(f"Stock 15min archive failed: {e}")
             raise
 
     def _process_commodity_family_job(
