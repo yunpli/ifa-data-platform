@@ -155,8 +155,11 @@ class TargetManifestBuilder:
         rows = self.reader.fetch_selector_rows(scope)
         generated_at = datetime.now(timezone.utc).isoformat()
         items = [self._row_to_item(row, generated_at) for row in rows]
-        deduped = self._dedupe_items(items)
-        manifest_hash = self._compute_manifest_hash(scope, deduped)
+        ordered = sorted(
+            items,
+            key=lambda i: (i.resolved_lane, i.source_list_type, i.source_list_name, i.priority, i.symbol_or_series_id),
+        )
+        manifest_hash = self._compute_manifest_hash(scope, ordered)
         manifest_id = manifest_hash[:16]
         return TargetManifest(
             manifest_id=manifest_id,
@@ -169,7 +172,7 @@ class TargetManifestBuilder:
                 "list_types": list(scope.list_types),
                 "include_inactive": scope.include_inactive,
             },
-            items=deduped,
+            items=ordered,
         )
 
     def _row_to_item(self, row: dict[str, Any], generated_at: str) -> TargetManifestItem:
@@ -260,17 +263,6 @@ class TargetManifestBuilder:
 
     def _dedupe_key(self, row: dict[str, Any], lane: str, granularity: str) -> str:
         return f"{lane}|{granularity}|{row['asset_category']}|{row['symbol']}"
-
-    def _dedupe_items(self, items: Iterable[TargetManifestItem]) -> list[TargetManifestItem]:
-        best: dict[str, TargetManifestItem] = {}
-        for item in items:
-            current = best.get(item.dedupe_key)
-            if current is None or item.priority < current.priority:
-                best[item.dedupe_key] = item
-        return sorted(
-            best.values(),
-            key=lambda i: (i.resolved_lane, i.source_list_type, i.source_list_name, i.priority, i.symbol_or_series_id),
-        )
 
     def _compute_manifest_hash(self, scope: SelectorScope, items: list[TargetManifestItem]) -> str:
         payload = {
