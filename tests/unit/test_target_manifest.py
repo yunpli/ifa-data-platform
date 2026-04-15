@@ -11,6 +11,13 @@ def test_build_target_manifest_for_default_focus_scope():
     assert 'tech_focus' in list_names
 
 
+def test_focus_family_stock_targets_resolve_to_lowfreq_and_midfreq():
+    manifest = build_target_manifest(SelectorScope(owner_type='default', owner_id='default', list_names=('default_focus', 'tech_focus')))
+    lanes = {item.resolved_lane for item in manifest.items if item.asset_category == 'stock'}
+    assert 'lowfreq' in lanes
+    assert 'midfreq' in lanes
+
+
 def test_build_target_manifest_archive_scope_only():
     manifest = build_target_manifest(SelectorScope(owner_type='default', owner_id='default', list_types=('archive_targets',)))
     assert manifest.item_count > 0

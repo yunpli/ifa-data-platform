@@ -54,6 +54,7 @@ class TargetManifestItem:
     dedupe_key: str
     selection_reason: str
     validation_status: str
+    lane_reason: str
 
 
 @dataclass(frozen=True)
@@ -154,7 +155,9 @@ class TargetManifestBuilder:
         scope = scope or SelectorScope()
         rows = self.reader.fetch_selector_rows(scope)
         generated_at = datetime.now(timezone.utc).isoformat()
-        items = [self._row_to_item(row, generated_at) for row in rows]
+        items: list[TargetManifestItem] = []
+        for row in rows:
+            items.extend(self._row_to_items(row, generated_at))
         ordered = sorted(
             items,
             key=lambda i: (i.resolved_lane, i.source_list_type, i.source_list_name, i.priority, i.symbol_or_series_id),
@@ -175,38 +178,43 @@ class TargetManifestBuilder:
             items=ordered,
         )
 
-    def _row_to_item(self, row: dict[str, Any], generated_at: str) -> TargetManifestItem:
+    def _row_to_items(self, row: dict[str, Any], generated_at: str) -> list[TargetManifestItem]:
         theme_tags = self._resolve_theme_tags(row)
-        lane = self._resolve_lane(row)
-        granularity = self._resolve_granularity(row, lane)
-        worker_type = self._resolve_worker_type(row, lane)
-        adapter_policy = self._resolve_adapter_policy(row, lane)
         validation_status = self._resolve_validation_status(row)
-        reason = self._selection_reason(row, lane)
-        dedupe_key = self._dedupe_key(row, lane, granularity)
-        return TargetManifestItem(
-            generated_at=generated_at,
-            source_owner_type=row["owner_type"],
-            source_owner_id=row["owner_id"],
-            source_list_name=row["list_name"],
-            source_list_type=row["list_type"],
-            source_frequency_type=row["frequency_type"] or "none",
-            source_asset_type=row["asset_type"],
-            source_rule_map=dict(row["rule_map"] or {}),
-            symbol_or_series_id=row["symbol"],
-            display_name=row["item_name"],
-            asset_category=row["asset_category"],
-            priority=int(row["priority"] or 100),
-            theme_tags=theme_tags,
-            resolved_lane=lane,
-            resolved_worker_type=worker_type,
-            resolved_granularity=granularity,
-            source_adapter_policy=adapter_policy,
-            is_active=bool(row["list_is_active"] and row["item_is_active"]),
-            dedupe_key=dedupe_key,
-            selection_reason=reason,
-            validation_status=validation_status,
-        )
+        items: list[TargetManifestItem] = []
+        for lane, lane_reason in self._resolve_lanes(row):
+            granularity = self._resolve_granularity(row, lane)
+            worker_type = self._resolve_worker_type(row, lane)
+            adapter_policy = self._resolve_adapter_policy(row, lane)
+            reason = self._selection_reason(row, lane, lane_reason)
+            dedupe_key = self._dedupe_key(row, lane, granularity)
+            items.append(
+                TargetManifestItem(
+                    generated_at=generated_at,
+                    source_owner_type=row["owner_type"],
+                    source_owner_id=row["owner_id"],
+                    source_list_name=row["list_name"],
+                    source_list_type=row["list_type"],
+                    source_frequency_type=row["frequency_type"] or "none",
+                    source_asset_type=row["asset_type"],
+                    source_rule_map=dict(row["rule_map"] or {}),
+                    symbol_or_series_id=row["symbol"],
+                    display_name=row["item_name"],
+                    asset_category=row["asset_category"],
+                    priority=int(row["priority"] or 100),
+                    theme_tags=theme_tags,
+                    resolved_lane=lane,
+                    resolved_worker_type=worker_type,
+                    resolved_granularity=granularity,
+                    source_adapter_policy=adapter_policy,
+                    is_active=bool(row["list_is_active"] and row["item_is_active"]),
+                    dedupe_key=dedupe_key,
+                    selection_reason=reason,
+                    validation_status=validation_status,
+                    lane_reason=lane_reason,
+                )
+            )
+        return items
 
     def _resolve_theme_tags(self, row: dict[str, Any]) -> tuple[str, ...]:
         tags = []
@@ -217,15 +225,18 @@ class TargetManifestBuilder:
             tags.append("technology")
         return tuple(tags)
 
-    def _resolve_lane(self, row: dict[str, Any]) -> str:
+    def _resolve_lanes(self, row: dict[str, Any]) -> list[tuple[str, str]]:
         if row["list_type"] == "archive_targets":
-            return "archive"
+            return [("archive", "archive_targets_frequency_mapping")]
+
+        lanes: list[tuple[str, str]] = []
         if row["list_type"] in {"key_focus", "focus"}:
-            # conservative first implementation:
-            # focus-family lists resolve to lowfreq production lane by default,
-            # with downstream room for future multi-lane expansion.
-            return "lowfreq"
-        return "lowfreq"
+            lanes.append(("lowfreq", "focus_family_lowfreq_default"))
+            if row["asset_category"] == "stock":
+                lanes.append(("midfreq", "focus_family_stock_midfreq_enabled"))
+            return lanes
+
+        return [("lowfreq", "default_fallback_lowfreq")]
 
     def _resolve_granularity(self, row: dict[str, Any], lane: str) -> str:
         freq = row["frequency_type"] or "none"
@@ -255,10 +266,10 @@ class TargetManifestBuilder:
             return "eligible_stock_symbol"
         return "unchecked"
 
-    def _selection_reason(self, row: dict[str, Any], lane: str) -> str:
+    def _selection_reason(self, row: dict[str, Any], lane: str, lane_reason: str) -> str:
         return (
             f"business_layer:{row['list_name']}:{row['list_type']}"
-            f"->{lane}:{row['asset_category']}"
+            f"->{lane}:{row['asset_category']}:{lane_reason}"
         )
 
     def _dedupe_key(self, row: dict[str, Any], lane: str, granularity: str) -> str:
