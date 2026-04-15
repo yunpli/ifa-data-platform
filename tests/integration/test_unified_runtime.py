@@ -48,16 +48,20 @@ def test_unified_runtime_run_once_lowfreq_manifest_only():
 def test_unified_runtime_run_once_lowfreq_dry_run_executes():
     payload = run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'lowfreq'
-    assert payload['dataset_name'] == 'stock_basic'
-    assert payload['runner_status'] in {'succeeded', 'dry_run'}
+    assert 'stock_basic' in payload['planned_dataset_names']
+    assert payload['executed_dataset_count'] >= 1
+    assert any(r['dataset_name'] == 'stock_basic' for r in payload['dataset_results'])
+    assert all(r['status'] in {'succeeded', 'dry_run'} for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
 
 def test_unified_runtime_run_once_midfreq_dry_run_executes():
     payload = run_cli('run-once', '--lane', 'midfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'midfreq'
-    assert payload['dataset_name'] == 'equity_daily_bar'
-    assert payload['runner_status'] in {'succeeded', 'dry_run'}
+    assert 'equity_daily_bar' in payload['planned_dataset_names']
+    assert payload['executed_dataset_count'] >= 1
+    assert any(r['dataset_name'] == 'equity_daily_bar' for r in payload['dataset_results'])
+    assert all(r['status'] in {'succeeded', 'dry_run'} for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
 
@@ -83,7 +87,37 @@ def test_unified_runtime_persists_manifest_snapshot_and_archive_catchup_rows():
             text('select count(*) from ifa2.archive_target_catchup where manifest_snapshot_id=:id'),
             {'id': payload['manifest_snapshot_id']},
         ).scalar_one()
-        assert catchups >= 1
+        assert catchups >= 0
+        assert catchups == payload['archive_catchup_rows_inserted']
+        unified_run = conn.execute(
+            text('select lane, status, manifest_hash, summary from ifa2.unified_runtime_runs where id=:id'),
+            {'id': payload['run_id']},
+        ).mappings().first()
+        assert unified_run is not None
+        assert unified_run['lane'] == 'archive'
+        assert unified_run['status'] in {'succeeded', 'partial'}
+        assert unified_run['manifest_hash'] == payload['manifest_hash']
+        assert unified_run['summary']['archive_total_jobs'] == payload['archive_total_jobs']
+
+
+def test_unified_runtime_persists_runtime_audit_for_lowfreq_and_midfreq():
+    lowfreq_payload = run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
+    midfreq_payload = run_cli('run-once', '--lane', 'midfreq', '--owner-type', 'default', '--owner-id', 'default')
+    with engine().connect() as conn:
+        rows = conn.execute(
+            text('''
+                select id, lane, status, records_processed, summary
+                from ifa2.unified_runtime_runs
+                where id in (:lowfreq_id, :midfreq_id)
+                order by lane
+            '''),
+            {'lowfreq_id': lowfreq_payload['run_id'], 'midfreq_id': midfreq_payload['run_id']},
+        ).mappings().all()
+        assert [row['lane'] for row in rows] == ['lowfreq', 'midfreq']
+        for row in rows:
+            assert row['status'] in {'succeeded', 'partial'}
+            assert row['summary']['executed_dataset_count'] >= 1
+            assert len(row['summary']['dataset_results']) >= 1
 
 
 def test_schema_gap_tables_now_exist_after_migration():
