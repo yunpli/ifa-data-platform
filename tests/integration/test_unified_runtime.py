@@ -120,14 +120,31 @@ def test_unified_runtime_persists_runtime_audit_for_lowfreq_and_midfreq():
             assert len(row['summary']['dataset_results']) >= 1
 
 
+def test_run_status_cli_lists_recent_unified_runs():
+    run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
+    payload = run_cli('run-status', '--limit', '3')
+    assert isinstance(payload, list)
+    assert len(payload) >= 1
+    assert {'id', 'lane', 'status', 'summary'} <= set(payload[0].keys())
+
+
+def test_archive_status_cli_returns_catchup_and_checkpoint_state():
+    run_cli('run-once', '--lane', 'archive', '--owner-type', 'default', '--owner-id', 'default', '--list-type', 'archive_targets')
+    payload = run_cli('archive-status', '--limit', '5')
+    assert {'summary_by_status', 'recent_catchup_rows', 'recent_checkpoints'} <= set(payload.keys())
+    assert isinstance(payload['summary_by_status'], list)
+    assert isinstance(payload['recent_catchup_rows'], list)
+    assert isinstance(payload['recent_checkpoints'], list)
+
+
 def test_schema_gap_tables_now_exist_after_migration():
     with engine().connect() as conn:
         rows = conn.execute(
             text("""
                 select table_name from information_schema.tables
                 where table_schema='ifa2'
-                  and table_name in ('stock_fund_forecast_current', 'stock_fund_forecast_history')
+                  and table_name in ('stock_fund_forecast_current', 'stock_fund_forecast_history', 'unified_runtime_runs')
                 order by table_name
             """)
         ).fetchall()
-        assert [r[0] for r in rows] == ['stock_fund_forecast_current', 'stock_fund_forecast_history']
+        assert [r[0] for r in rows] == ['stock_fund_forecast_current', 'stock_fund_forecast_history', 'unified_runtime_runs']

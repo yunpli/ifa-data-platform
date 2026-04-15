@@ -218,6 +218,83 @@ class UnifiedRuntimeStore:
             ).mappings().first()
             return dict(row) if row else None
 
+    def get_unified_run(self, run_id: str) -> Optional[dict[str, Any]]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT id, lane, worker_type, trigger_mode, manifest_snapshot_id,
+                           manifest_id, manifest_hash, status, started_at,
+                           completed_at, records_processed, summary, created_at
+                    FROM ifa2.unified_runtime_runs
+                    WHERE id = CAST(:id AS uuid)
+                    """
+                ),
+                {"id": run_id},
+            ).mappings().first()
+            return dict(row) if row else None
+
+    def list_unified_runs(self, limit: int = 10, lane: Optional[str] = None) -> list[dict[str, Any]]:
+        sql = """
+            SELECT id, lane, worker_type, trigger_mode, manifest_snapshot_id,
+                   manifest_id, manifest_hash, status, started_at,
+                   completed_at, records_processed, summary, created_at
+            FROM ifa2.unified_runtime_runs
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if lane:
+            sql += " WHERE lane = :lane"
+            params["lane"] = lane
+        sql += " ORDER BY started_at DESC LIMIT :limit"
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(sql), params).mappings().all()
+            return [dict(row) for row in rows]
+
+    def archive_catchup_status(self, limit: int = 20) -> dict[str, Any]:
+        with self.engine.begin() as conn:
+            summary_rows = conn.execute(
+                text(
+                    """
+                    SELECT status, count(*) AS row_count
+                    FROM ifa2.archive_target_catchup
+                    GROUP BY status
+                    ORDER BY status
+                    """
+                )
+            ).mappings().all()
+            recent_rows = conn.execute(
+                text(
+                    """
+                    SELECT id, manifest_snapshot_id, change_type, dedupe_key,
+                           symbol_or_series_id, asset_category, granularity,
+                           source_list_name, suggested_backfill_start,
+                           suggested_backfill_end, backlog_priority,
+                           status, reason, created_at, updated_at
+                    FROM ifa2.archive_target_catchup
+                    ORDER BY updated_at DESC, created_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().all()
+            checkpoint_rows = conn.execute(
+                text(
+                    """
+                    SELECT dataset_name, asset_type, backfill_start, backfill_end,
+                           last_completed_date, shard_id, batch_no, status, updated_at, created_at
+                    FROM ifa2.archive_checkpoints
+                    ORDER BY updated_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().all()
+        return {
+            "summary_by_status": [dict(row) for row in summary_rows],
+            "recent_catchup_rows": [dict(row) for row in recent_rows],
+            "recent_checkpoints": [dict(row) for row in checkpoint_rows],
+        }
+
     def persist_manifest_snapshot(self, manifest: TargetManifest) -> str:
         snapshot_id = str(uuid.uuid4())
         with self.engine.begin() as conn:

@@ -53,6 +53,22 @@ def cmd_archive_delta_demo(args: argparse.Namespace) -> None:
     print(json.dumps([d.__dict__ for d in deltas], ensure_ascii=False, indent=2))
 
 
+def cmd_run_status(args: argparse.Namespace) -> None:
+    rt = UnifiedRuntime()
+    if args.run_id:
+        payload = rt.store.get_unified_run(args.run_id)
+        print(json.dumps(payload or {}, ensure_ascii=False, indent=2, default=str))
+        return
+    payload = rt.store.list_unified_runs(limit=args.limit, lane=args.lane)
+    print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+
+
+def cmd_archive_status(args: argparse.Namespace) -> None:
+    rt = UnifiedRuntime()
+    payload = rt.store.archive_catchup_status(limit=args.limit)
+    print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest='cmd', required=True)
@@ -84,6 +100,16 @@ def main() -> None:
     p3.add_argument('--list-type', action='append')
     p3.add_argument('--include-inactive', action='store_true')
     p3.set_defaults(func=cmd_archive_delta_demo)
+
+    p4 = sub.add_parser('run-status')
+    p4.add_argument('--run-id')
+    p4.add_argument('--lane', choices=['lowfreq', 'midfreq', 'archive'])
+    p4.add_argument('--limit', type=int, default=10)
+    p4.set_defaults(func=cmd_run_status)
+
+    p5 = sub.add_parser('archive-status')
+    p5.add_argument('--limit', type=int, default=20)
+    p5.set_defaults(func=cmd_archive_status)
 
     args = parser.parse_args()
     args.func(args)
