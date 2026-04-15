@@ -2,6 +2,43 @@
 
 _Date: 2026-04-15_
 
+## Readiness-gap phase closure addendum (Milestones A-D)
+
+This document was originally written for the earlier Trailblazer main-line closure. It is now extended as the final review package for the **readiness-gap closure phase** accepted on 2026-04-15.
+
+### Frozen milestone state for this phase
+- **Milestone A (archive)** — accepted and frozen for this phase
+- **Milestone B (lowfreq)** — accepted and frozen for this phase
+- **Milestone C (midfreq)** — accepted and frozen for this phase
+- **Milestone D (final readiness-gap closure packaging)** — complete and frozen for review
+
+### Final truthful judgments for this phase
+- **archive**
+  - daily runtime coverage is in place across required categories for this phase
+  - 15min runtime coverage is in place across required categories for this phase
+  - one real 15min ingest/storage/checkpoint closure path was proven for `15min + stock`
+  - remaining non-stock 15min paths were explicitly classified, not hand-waved
+- **lowfreq**
+  - required proof set was materially closed with real non-dry-run evidence
+  - service-mode smoke was proven
+  - unified runtime semantics were corrected to truthfully use `real_run`
+- **midfreq**
+  - mandatory proof set is materially runnable
+  - safe non-dry-run proof was established for `northbound_flow`, `limit_up_down_status`, and `index_daily_bar`
+  - service-mode smoke exposed broader config/registry/schema drift, especially `southbound_flow` history-table absence
+- **highfreq**
+  - explicitly deferred out of this phase
+  - no highfreq implementation expansion was performed in this readiness-gap closure round
+
+### Phase commit evidence added after the earlier main-line closure
+- `f6442d6` — Expand archive runtime coverage for commodity and precious metals
+- `9680b93` — Add 15min archive runtime coverage for required categories
+- `5ce9dbb` — Add real stock 15min archive storage and checkpoints
+- `3bc0883` — Run lowfreq unified runtime in real execution mode
+- `7f0be62` — Align unified runtime tests with real lowfreq execution
+- `4b8b445` — Refresh unified runtime integration expectations
+- `4a8b779` — Reconcile midfreq registry truth and daemon state handling
+
 ## Milestone position (source of truth: implementation execution plan)
 
 Total milestone count in the execution plan: **7**
@@ -334,33 +371,37 @@ Result:
 
 ## Remaining items
 
-- no implementation or repo-state items remain on the main line
-- only review-time attachment visibility may still vary by Telegram client behavior
+- no further implementation expansion is in scope for this phase
+- remaining reviewer-facing work is limited to document review and attachment visibility
 
 ---
 
 ## Current judgment
 
-Trailblazer main-line implementation is complete and frozen for review.
+The **readiness-gap closure phase** is complete and frozen for review.
 
-Final milestone judgment:
-- Milestone 0: complete
-- Milestone 1: complete
-- Milestone 2: complete
-- Milestone 3: complete
-- Milestone 4: complete
-- Milestone 5: complete
-- Milestone 6: complete
+Accepted phase judgments:
+- Archive (Milestone A): accepted at the strongest truthful level reached in this phase
+- Lowfreq (Milestone B): accepted as closed for this phase
+- Midfreq (Milestone C): accepted at the strongest truthful level reached in this phase
+- Milestone D packaging: complete in the current document set
+
+Explicit defer list for future phases:
+- any highfreq implementation work
+- archive non-stock 15min ingest/storage closure beyond current classified residuals
+- midfreq broader configured-set schema completion beyond the accepted proof set (for example `southbound_flow_history`)
 
 The frozen review state now includes:
+- archive/lowfreq/midfreq accepted phase judgments
+- explicit residual-gap classifications where full closure was not honest in this phase
+- truthful highfreq deferral
 - selector + manifest contract
 - unified runtime audit path
-- lowfreq closure-grade one-shot acceptance evidence
-- midfreq closure-grade one-shot acceptance evidence
-- archive catch-up state progression closure logic
-- non-zero archive delta proof with persisted DB evidence
+- archive runtime coverage + stock 15min ingest/checkpoint proof
+- lowfreq required-proof-set non-dry-run evidence and service smoke
+- midfreq mandatory-proof-set runnable evidence and safe non-dry-run evidence
 - queryable runtime and archive-state CLI surfaces
 - reproducibility evidence from in-repo and clean-clone execution
 - profiling measurements captured
 - clean repo state in `ifa-data-platform`
-- pushed final closure commit on remote main
+- final phase commit evidence and push evidence

@@ -84,11 +84,13 @@ Important reproducibility caveat discovered during clean-clone execution:
 
 ## Final closure note
 
-This document reflects the frozen final review state after the successful main-line push.
+This document reflects the frozen final review state for the accepted **readiness-gap closure phase**.
 
 Final-state markers:
-- final closure commit: `72d2def`
-- push to `origin/main` succeeded
-- no further implementation work is continuing right now
+- archive / lowfreq / midfreq phase judgments are frozen for review
+- no further implementation expansion is continuing right now
+- highfreq remains explicitly deferred
 
-This remains a real clean-clone / init / migrate / smoke / validation evidence artifact, with one explicit environment caveat recorded: fresh-clone midfreq runs are materially cleaner when `TUSHARE_TOKEN` is configured.
+This remains a real clean-clone / init / migrate / smoke / validation evidence artifact, with explicit caveats recorded:
+- fresh-clone midfreq runs are materially cleaner when `TUSHARE_TOKEN` is configured
+- clean-clone repro should not be overstated as proof of unresolved broader midfreq configured-set schema completeness

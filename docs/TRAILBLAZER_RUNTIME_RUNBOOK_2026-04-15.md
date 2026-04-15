@@ -206,12 +206,14 @@ This is the current minimal closure path for:
 
 ## Frozen review-state note
 
-This runbook now corresponds to the frozen main-line review state.
+This runbook now corresponds to the frozen **readiness-gap closure phase** review state.
 
 Implementation status:
-- no further implementation work is continuing right now
-- final main-line closure commit is `72d2def`
-- remote push completed successfully to `origin/main`
+- Milestones A-D for the readiness-gap phase are frozen for review
+- no further implementation expansion is continuing right now
+- highfreq remains explicitly deferred out of scope for this phase
 
-Known operational caveat retained for reviewers:
+Known operational caveats retained for reviewers:
 - fresh-clone midfreq runs are materially cleaner when `TUSHARE_TOKEN` is configured
+- midfreq broader configured-set service execution is not fully schema-aligned yet; in this phase `southbound_flow` was proven blocked by missing `ifa2.southbound_flow_history`
+- archive non-stock 15min paths beyond the accepted stock closure remain classified residuals, not closed ingestion paths
