@@ -422,7 +422,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         for ts_code in etf_codes:
             try:
                 records = self.client.query(
-                    "etf_daily",
+                    "fund_daily",
                     {"ts_code": ts_code, "trade_date": trade_date},
                     timeout_sec=30,
                     max_retries=2,

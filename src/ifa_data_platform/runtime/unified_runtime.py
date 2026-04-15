@@ -27,7 +27,9 @@ from ifa_data_platform.archive.archive_target_delta import (
     diff_archive_manifests,
 )
 from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.runner import LowFreqRunner
+from ifa_data_platform.midfreq.registry import MidfreqDatasetRegistry
 from ifa_data_platform.midfreq.runner import MidfreqRunner
 from ifa_data_platform.runtime.target_manifest import (
     SelectorScope,
@@ -609,6 +611,8 @@ class UnifiedRuntime:
         self.store = UnifiedRuntimeStore()
         self.lowfreq_runner = LowFreqRunner()
         self.midfreq_runner = MidfreqRunner()
+        self.lowfreq_registry = DatasetRegistry()
+        self.midfreq_registry = MidfreqDatasetRegistry()
 
     def run_once(
         self,
@@ -736,30 +740,32 @@ class UnifiedRuntime:
         )
 
     def _plan_lane_datasets(self, lane: str, lane_items: list[TargetManifestItem]) -> list[str]:
-        default_map = {
-            "lowfreq": ["stock_basic"],
-            "midfreq": ["equity_daily_bar"],
-        }
-        asset_map = {
-            "lowfreq": {
-                "stock": "stock_basic",
-                "index": "index_basic",
-                "fund": "fund_basic_etf",
-                "etf": "fund_basic_etf",
-            },
-            "midfreq": {
-                "stock": "equity_daily_bar",
-                "index": "index_daily_bar",
-                "fund": "etf_daily_bar",
-                "etf": "etf_daily_bar",
-            },
-        }
-        planned: list[str] = []
-        for item in lane_items:
-            dataset_name = asset_map.get(lane, {}).get(item.asset_category)
-            if dataset_name and dataset_name not in planned:
-                planned.append(dataset_name)
-        return planned or list(default_map.get(lane, []))
+        if lane == "lowfreq":
+            preferred = [
+                "trade_cal",
+                "stock_basic",
+                "index_basic",
+                "fund_basic_etf",
+                "sw_industry_mapping",
+                "news_basic",
+            ]
+            enabled = {d.dataset_name for d in self.lowfreq_registry.list_enabled()}
+            planned = [d for d in preferred if d in enabled]
+            return planned or ["stock_basic"]
+
+        if lane == "midfreq":
+            preferred = [
+                "equity_daily_bar",
+                "index_daily_bar",
+                "etf_daily_bar",
+                "northbound_flow",
+                "limit_up_down_status",
+            ]
+            enabled = {d.dataset_name for d in self.midfreq_registry.list_enabled()}
+            planned = [d for d in preferred if d in enabled]
+            return planned or ["equity_daily_bar"]
+
+        return []
 
     def _execute_lane_dataset(self, lane: str, dataset_name: str) -> DatasetExecutionResult:
         if lane == "lowfreq":

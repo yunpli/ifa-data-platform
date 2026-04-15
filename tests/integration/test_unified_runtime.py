@@ -48,9 +48,11 @@ def test_unified_runtime_run_once_lowfreq_manifest_only():
 def test_unified_runtime_run_once_lowfreq_dry_run_executes():
     payload = run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'lowfreq'
-    assert 'stock_basic' in payload['planned_dataset_names']
-    assert payload['executed_dataset_count'] >= 1
+    assert {'trade_cal', 'stock_basic', 'index_basic'} <= set(payload['planned_dataset_names'])
+    assert payload['executed_dataset_count'] >= 3
     assert any(r['dataset_name'] == 'stock_basic' for r in payload['dataset_results'])
+    assert any(r['dataset_name'] == 'trade_cal' for r in payload['dataset_results'])
+    assert any(r['dataset_name'] == 'index_basic' for r in payload['dataset_results'])
     assert all(r['status'] in {'succeeded', 'dry_run'} for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
@@ -58,9 +60,11 @@ def test_unified_runtime_run_once_lowfreq_dry_run_executes():
 def test_unified_runtime_run_once_midfreq_dry_run_executes():
     payload = run_cli('run-once', '--lane', 'midfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'midfreq'
-    assert 'equity_daily_bar' in payload['planned_dataset_names']
-    assert payload['executed_dataset_count'] >= 1
+    assert {'equity_daily_bar', 'index_daily_bar', 'etf_daily_bar'} <= set(payload['planned_dataset_names'])
+    assert payload['executed_dataset_count'] >= 3
     assert any(r['dataset_name'] == 'equity_daily_bar' for r in payload['dataset_results'])
+    assert any(r['dataset_name'] == 'index_daily_bar' for r in payload['dataset_results'])
+    assert any(r['dataset_name'] == 'etf_daily_bar' for r in payload['dataset_results'])
     assert all(r['status'] in {'succeeded', 'dry_run'} for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
@@ -118,8 +122,8 @@ def test_unified_runtime_persists_runtime_audit_for_lowfreq_and_midfreq():
         assert [row['lane'] for row in rows] == ['lowfreq', 'midfreq']
         for row in rows:
             assert row['status'] in {'succeeded', 'partial'}
-            assert row['summary']['executed_dataset_count'] >= 1
-            assert len(row['summary']['dataset_results']) >= 1
+            assert row['summary']['executed_dataset_count'] >= 3
+            assert len(row['summary']['dataset_results']) >= 3
 
 
 def test_run_status_cli_lists_recent_unified_runs():

@@ -25,6 +25,34 @@ class MidfreqDatasetRegistry:
     def __init__(self) -> None:
         self.engine = make_engine()
 
+    def _coerce_market(self, value: str) -> Market:
+        legacy_map = {
+            "B": Market.CHINA_A_SHARE,
+            "china_a": Market.CHINA_A_SHARE,
+            "china_a_share": Market.CHINA_A_SHARE,
+            "us_equity": Market.US_EQUITY,
+            "unknown": Market.UNKNOWN,
+        }
+        return legacy_map.get(value, Market.UNKNOWN)
+
+    def _row_to_config(self, row) -> DatasetConfig:
+        return DatasetConfig(
+            dataset_name=row.dataset_name,
+            market=self._coerce_market(row.market),
+            source_name=row.source_name,
+            job_type=JobType(row.job_type),
+            enabled=bool(row.enabled),
+            timezone_semantics=TimezoneSemantics(row.timezone_semantics),
+            runner_type=RunnerType(row.runner_type),
+            watermark_strategy=WatermarkStrategy(row.watermark_strategy),
+            budget_records_max=row.budget_records_max,
+            budget_seconds_max=row.budget_seconds_max,
+            metadata=eval(row.metadata) if row.metadata else {},
+            description=row.description or "",
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
     def register(self, config: DatasetConfig) -> str:
         """Register a new dataset configuration."""
         dataset_id = str(uuid.uuid4())
@@ -98,22 +126,7 @@ class MidfreqDatasetRegistry:
             if not row:
                 return None
 
-            return DatasetConfig(
-                dataset_name=row.dataset_name,
-                market=Market(row.market),
-                source_name=row.source_name,
-                job_type=JobType(row.job_type),
-                enabled=bool(row.enabled),
-                timezone_semantics=TimezoneSemantics(row.timezone_semantics),
-                runner_type=RunnerType(row.runner_type),
-                watermark_strategy=WatermarkStrategy(row.watermark_strategy),
-                budget_records_max=row.budget_records_max,
-                budget_seconds_max=row.budget_seconds_max,
-                metadata=eval(row.metadata) if row.metadata else {},
-                description=row.description or "",
-                created_at=row.created_at,
-                updated_at=row.updated_at,
-            )
+            return self._row_to_config(row)
 
     def list_enabled(self) -> list[DatasetConfig]:
         """List all enabled datasets."""
@@ -126,31 +139,13 @@ class MidfreqDatasetRegistry:
                            budget_records_max, budget_seconds_max, metadata, description,
                            created_at, updated_at
                     FROM ifa2.midfreq_datasets
-                    WHERE enabled = 1
+                    WHERE enabled = true
                     ORDER BY dataset_name
                     """
                 ),
             ).fetchall()
 
-            return [
-                DatasetConfig(
-                    dataset_name=row.dataset_name,
-                    market=Market(row.market),
-                    source_name=row.source_name,
-                    job_type=JobType(row.job_type),
-                    enabled=bool(row.enabled),
-                    timezone_semantics=TimezoneSemantics(row.timezone_semantics),
-                    runner_type=RunnerType(row.runner_type),
-                    watermark_strategy=WatermarkStrategy(row.watermark_strategy),
-                    budget_records_max=row.budget_records_max,
-                    budget_seconds_max=row.budget_seconds_max,
-                    metadata=eval(row.metadata) if row.metadata else {},
-                    description=row.description or "",
-                    created_at=row.created_at,
-                    updated_at=row.updated_at,
-                )
-                for row in rows
-            ]
+            return [self._row_to_config(row) for row in rows]
 
     def list_all(self) -> list[DatasetConfig]:
         """List all datasets."""
@@ -168,25 +163,7 @@ class MidfreqDatasetRegistry:
                 ),
             ).fetchall()
 
-            return [
-                DatasetConfig(
-                    dataset_name=row.dataset_name,
-                    market=Market(row.market),
-                    source_name=row.source_name,
-                    job_type=JobType(row.job_type),
-                    enabled=bool(row.enabled),
-                    timezone_semantics=TimezoneSemantics(row.timezone_semantics),
-                    runner_type=RunnerType(row.runner_type),
-                    watermark_strategy=WatermarkStrategy(row.watermark_strategy),
-                    budget_records_max=row.budget_records_max,
-                    budget_seconds_max=row.budget_seconds_max,
-                    metadata=eval(row.metadata) if row.metadata else {},
-                    description=row.description or "",
-                    created_at=row.created_at,
-                    updated_at=row.updated_at,
-                )
-                for row in rows
-            ]
+            return [self._row_to_config(row) for row in rows]
 
     def enable(self, dataset_name: str) -> bool:
         """Enable a dataset."""
@@ -195,7 +172,7 @@ class MidfreqDatasetRegistry:
                 text(
                     """
                     UPDATE ifa2.midfreq_datasets
-                    SET enabled = 1, updated_at = now()
+                    SET enabled = true, updated_at = now()
                     WHERE dataset_name = :dataset_name
                     """
                 ),
@@ -210,7 +187,7 @@ class MidfreqDatasetRegistry:
                 text(
                     """
                     UPDATE ifa2.midfreq_datasets
-                    SET enabled = 0, updated_at = now()
+                    SET enabled = false, updated_at = now()
                     WHERE dataset_name = :dataset_name
                     """
                 ),
