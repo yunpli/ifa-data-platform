@@ -64,10 +64,10 @@ class ScheduleMemory:
                         retry_count, last_status, last_run_time, created_at
                     )
                     VALUES (
-                        :window_type, :group_name, 1, 0, 'succeeded', now(), now()
+                        :window_type, :group_name, true, 0, 'succeeded', now(), now()
                     )
                     ON CONFLICT (window_type) DO UPDATE SET
-                        succeeded_today = 1,
+                        succeeded_today = true,
                         retry_count = 0,
                         last_status = 'succeeded',
                         last_run_time = now()

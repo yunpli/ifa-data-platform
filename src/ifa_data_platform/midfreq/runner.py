@@ -172,10 +172,13 @@ class MidfreqRunner:
                 source_name=self.source_name,
                 job_type=JobType.INCREMENTAL,
                 enabled=True,
-                # Note: SQL uses boolean but we pass 1 for INTEGER
                 timezone_semantics=TimezoneSemantics.CHINA_SHANGHAI,
                 runner_type=RunnerType.TUSHARE,
                 watermark_strategy=WatermarkStrategy.DATE_BASED,
+                metadata={
+                    "source_of_truth": self.source_name,
+                    "registered_by": "MidfreqRunner.register_datasets",
+                },
                 description=ds["description"],
             )
 
