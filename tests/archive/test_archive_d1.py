@@ -86,6 +86,51 @@ def test_config():
                 is_enabled=True,
                 description="Test precious archive",
             ),
+            ArchiveJobConfig(
+                job_name="test_stock_15min_archive",
+                dataset_name="test_stock_15min_history",
+                asset_type="stock",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test stock 15min archive",
+            ),
+            ArchiveJobConfig(
+                job_name="test_macro_15min_archive",
+                dataset_name="test_macro_15min_history",
+                asset_type="macro",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test macro 15min archive",
+            ),
+            ArchiveJobConfig(
+                job_name="test_futures_15min_archive",
+                dataset_name="test_futures_15min_history",
+                asset_type="futures",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test futures 15min archive",
+            ),
+            ArchiveJobConfig(
+                job_name="test_commodity_15min_archive",
+                dataset_name="test_commodity_15min_history",
+                asset_type="commodity",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test commodity 15min archive",
+            ),
+            ArchiveJobConfig(
+                job_name="test_precious_15min_archive",
+                dataset_name="test_precious_15min_history",
+                asset_type="precious_metal",
+                pool_name="test_pool",
+                scope_name="test_scope",
+                is_enabled=True,
+                description="Test precious 15min archive",
+            ),
         ],
     )
 
@@ -234,7 +279,7 @@ class TestArchiveFramework:
         summary = orchestrator.run_window("test_window_1", dry_run=False)
 
         assert summary is not None
-        assert summary.total_jobs >= 3
+        assert summary.total_jobs >= 8
         print(f"Executed: {summary.succeeded_jobs}/{summary.total_jobs} succeeded")
 
         checkpoint_store = ArchiveCheckpointStore()

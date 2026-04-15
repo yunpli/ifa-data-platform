@@ -177,14 +177,26 @@ class ArchiveOrchestrator:
         D2: Stock daily historical archive.
         Milestone A: commodity / precious_metal promoted into explicit runtime jobs.
         """
-        if asset_type == "stock":
+        if dataset_name == "stock_daily":
             return self._process_stock_job(dataset_name)
-        if asset_type == "futures":
+        if dataset_name == "stock_15min_history":
+            return self._process_generic_job(job_name, dataset_name, asset_type)
+        if dataset_name == "futures_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"futures"}, checkpoint_asset_type="futures")
-        if asset_type == "commodity":
+        if dataset_name == "futures_15min_history":
+            return self._process_generic_job(job_name, dataset_name, asset_type)
+        if dataset_name == "commodity_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, checkpoint_asset_type="commodity")
-        if asset_type == "precious_metal":
+        if dataset_name == "commodity_15min_history":
+            return self._process_generic_job(job_name, dataset_name, asset_type)
+        if dataset_name == "precious_metal_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"precious_metal"}, checkpoint_asset_type="precious_metal")
+        if dataset_name == "precious_metal_15min_history":
+            return self._process_generic_job(job_name, dataset_name, asset_type)
+        if dataset_name == "macro_15min_history":
+            return self._process_generic_job(job_name, dataset_name, asset_type)
+        if asset_type == "macro":
+            return self._process_generic_job(job_name, dataset_name, asset_type)
 
         return self._process_generic_job(job_name, dataset_name, asset_type)
 
@@ -235,8 +247,10 @@ class ArchiveOrchestrator:
         if checkpoint and checkpoint.get("last_completed_date"):
             last_date = checkpoint["last_completed_date"]
 
+        is_15min = dataset_name.endswith("15min_history")
+
         if last_date:
-            current_date = last_date + timedelta(days=1)
+            current_date = last_date + (timedelta(minutes=15) if is_15min else timedelta(days=1))
         else:
             current_date = date.today() - timedelta(days=365)
 
@@ -256,7 +270,7 @@ class ArchiveOrchestrator:
             records_processed += 1
             current_date += timedelta(days=1)
 
-            if batch_no >= 5:
+            if batch_no >= (8 if is_15min else 5):
                 break
 
         if records_processed > 0:
