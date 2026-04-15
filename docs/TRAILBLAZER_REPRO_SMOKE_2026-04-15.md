@@ -82,6 +82,13 @@ Important reproducibility caveat discovered during clean-clone execution:
 - midfreq adaptor emitted warnings when `TUSHARE_TOKEN` was not configured in the fresh clone environment
 - the dry-run path still completed and produced persisted runtime evidence, but a fully provisioned developer environment should set `TUSHARE_TOKEN` to avoid degraded adaptor warnings
 
-## Closure note
+## Final closure note
 
-This document is now a real clean-clone / init / migrate / smoke / validation evidence artifact, with one explicit environment caveat recorded: fresh-clone midfreq runs are materially cleaner when `TUSHARE_TOKEN` is configured.
+This document reflects the frozen final review state after the successful main-line push.
+
+Final-state markers:
+- final closure commit: `72d2def`
+- push to `origin/main` succeeded
+- no further implementation work is continuing right now
+
+This remains a real clean-clone / init / migrate / smoke / validation evidence artifact, with one explicit environment caveat recorded: fresh-clone midfreq runs are materially cleaner when `TUSHARE_TOKEN` is configured.

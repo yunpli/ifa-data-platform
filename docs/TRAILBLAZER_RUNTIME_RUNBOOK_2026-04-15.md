@@ -204,9 +204,14 @@ This is the current minimal closure path for:
 
 ---
 
-## Not yet closed
+## Frozen review-state note
 
-Still pending before final Trailblazer closure:
-- stronger non-dry-run unified worker execution semantics where appropriate
-- final troubleshooting / acceptance docs pack
-- final push-state confirmation in the evidence package
+This runbook now corresponds to the frozen main-line review state.
+
+Implementation status:
+- no further implementation work is continuing right now
+- final main-line closure commit is `72d2def`
+- remote push completed successfully to `origin/main`
+
+Known operational caveat retained for reviewers:
+- fresh-clone midfreq runs are materially cleaner when `TUSHARE_TOKEN` is configured
