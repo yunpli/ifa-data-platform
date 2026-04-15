@@ -692,16 +692,21 @@ class UnifiedRuntime:
     ) -> UnifiedRunResult:
         lane_items = [i for i in manifest.items if i.resolved_lane == lane]
         dataset_names = self._plan_lane_datasets(lane, lane_items)
-        dataset_results = [self._execute_lane_dataset(lane, dataset_name) for dataset_name in dataset_names]
+        execution_mode = self._lane_execution_mode(lane)
+        dataset_results = [
+            self._execute_lane_dataset(lane, dataset_name, dry_run=(execution_mode == "dry_run"))
+            for dataset_name in dataset_names
+        ]
         records_processed = sum(r.records_processed for r in dataset_results)
         failed = [r for r in dataset_results if r.status not in {"succeeded", "dry_run"}]
         succeeded = [r for r in dataset_results if r.status in {"succeeded", "dry_run"}]
         final_status = "failed" if failed and not succeeded else "partial" if failed else "succeeded"
-        worker_type = f"{lane}_dryrun_worker"
+        worker_type = f"{lane}_{execution_mode}_worker"
         summary = {
             "run_id": run_id,
             "lane": lane,
             "trigger_mode": trigger_mode,
+            "execution_mode": execution_mode,
             "manifest_id": manifest.manifest_id,
             "manifest_hash": manifest.manifest_hash,
             "manifest_snapshot_id": manifest_snapshot_id,
@@ -767,9 +772,14 @@ class UnifiedRuntime:
 
         return []
 
-    def _execute_lane_dataset(self, lane: str, dataset_name: str) -> DatasetExecutionResult:
+    def _lane_execution_mode(self, lane: str) -> str:
         if lane == "lowfreq":
-            result = self.lowfreq_runner.run(dataset_name, dry_run=True, run_type="unified_runtime")
+            return "real_run"
+        return "dry_run"
+
+    def _execute_lane_dataset(self, lane: str, dataset_name: str, dry_run: bool) -> DatasetExecutionResult:
+        if lane == "lowfreq":
+            result = self.lowfreq_runner.run(dataset_name, dry_run=dry_run, run_type="unified_runtime")
             return DatasetExecutionResult(
                 dataset_name=dataset_name,
                 status=getattr(result, "status", "unknown"),
@@ -778,7 +788,7 @@ class UnifiedRuntime:
                 error_message=getattr(result, "error_message", None),
             )
 
-        result = self.midfreq_runner.run(dataset_name, dry_run=True)
+        result = self.midfreq_runner.run(dataset_name, dry_run=dry_run)
         return DatasetExecutionResult(
             dataset_name=dataset_name,
             status=getattr(result, "status", "unknown"),
