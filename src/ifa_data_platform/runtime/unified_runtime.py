@@ -269,6 +269,8 @@ class UnifiedRuntimeStore:
                            symbol_or_series_id, asset_category, granularity,
                            source_list_name, suggested_backfill_start,
                            suggested_backfill_end, backlog_priority,
+                           archive_run_id, checkpoint_dataset_name, checkpoint_asset_type,
+                           started_at, completed_at, progress_note,
                            status, reason, created_at, updated_at
                     FROM ifa2.archive_target_catchup
                     ORDER BY updated_at DESC, created_at DESC
@@ -289,10 +291,23 @@ class UnifiedRuntimeStore:
                 ),
                 {"limit": limit},
             ).mappings().all()
+            run_rows = conn.execute(
+                text(
+                    """
+                    SELECT run_id, job_name, dataset_name, asset_type, window_name,
+                           started_at, completed_at, status, records_processed
+                    FROM ifa2.archive_runs
+                    ORDER BY started_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().all()
         return {
             "summary_by_status": [dict(row) for row in summary_rows],
             "recent_catchup_rows": [dict(row) for row in recent_rows],
             "recent_checkpoints": [dict(row) for row in checkpoint_rows],
+            "recent_archive_runs": [dict(row) for row in run_rows],
         }
 
     def persist_manifest_snapshot(self, manifest: TargetManifest) -> str:
@@ -396,6 +411,14 @@ class UnifiedRuntimeStore:
                 ).first()
                 if exists:
                     continue
+                checkpoint_dataset_name = self._checkpoint_dataset_name(d)
+                checkpoint_asset_type = self._checkpoint_asset_type(d)
+                initial_status = "planned" if d.change_type == "added" else "observed"
+                progress_note = (
+                    f"catch-up intent created for {checkpoint_dataset_name}/{checkpoint_asset_type}"
+                    if d.change_type == "added"
+                    else f"membership delta observed: {d.change_type}"
+                )
                 res = conn.execute(
                     text(
                         """
@@ -403,12 +426,18 @@ class UnifiedRuntimeStore:
                             id, manifest_snapshot_id, change_type, dedupe_key, symbol_or_series_id,
                             asset_category, granularity, source_list_name,
                             suggested_backfill_start, suggested_backfill_end,
-                            backlog_priority, status, reason, created_at, updated_at
+                            backlog_priority, archive_run_id,
+                            checkpoint_dataset_name, checkpoint_asset_type,
+                            started_at, completed_at, progress_note,
+                            status, reason, created_at, updated_at
                         ) VALUES (
                             :id, :manifest_snapshot_id, :change_type, :dedupe_key, :symbol_or_series_id,
                             :asset_category, :granularity, :source_list_name,
                             :suggested_backfill_start, :suggested_backfill_end,
-                            :backlog_priority, 'pending', :reason, :created_at, :updated_at
+                            :backlog_priority, NULL,
+                            :checkpoint_dataset_name, :checkpoint_asset_type,
+                            NULL, NULL, :progress_note,
+                            :status, :reason, :created_at, :updated_at
                         )
                         """
                     ),
@@ -424,6 +453,10 @@ class UnifiedRuntimeStore:
                         "suggested_backfill_start": d.suggested_backfill_start or None,
                         "suggested_backfill_end": d.suggested_backfill_end or None,
                         "backlog_priority": d.backlog_priority,
+                        "checkpoint_dataset_name": checkpoint_dataset_name,
+                        "checkpoint_asset_type": checkpoint_asset_type,
+                        "progress_note": progress_note,
+                        "status": initial_status,
                         "reason": d.reason,
                         "created_at": now_utc(),
                         "updated_at": now_utc(),
@@ -431,6 +464,144 @@ class UnifiedRuntimeStore:
                 )
                 inserted += int(res.rowcount or 0)
         return inserted
+
+    def begin_archive_catchup_execution(self, *, run_id: str, window_name: str, limit: int = 10) -> list[dict[str, Any]]:
+        selected: list[dict[str, Any]] = []
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT id, dedupe_key, symbol_or_series_id, asset_category, granularity,
+                           source_list_name, suggested_backfill_start, suggested_backfill_end,
+                           checkpoint_dataset_name, checkpoint_asset_type, backlog_priority
+                    FROM ifa2.archive_target_catchup
+                    WHERE status = 'planned'
+                    ORDER BY
+                        CASE backlog_priority
+                            WHEN 'medium_high' THEN 1
+                            WHEN 'medium' THEN 2
+                            WHEN 'guarded_medium_low' THEN 3
+                            WHEN 'none' THEN 4
+                            ELSE 9
+                        END,
+                        created_at ASC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().all()
+            started_at = now_utc()
+            for row in rows:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE ifa2.archive_target_catchup
+                        SET archive_run_id = :run_id,
+                            status = 'in_progress',
+                            started_at = COALESCE(started_at, :started_at),
+                            progress_note = :progress_note,
+                            updated_at = :updated_at
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "id": row["id"],
+                        "run_id": run_id,
+                        "started_at": started_at,
+                        "progress_note": f"bound to archive run {run_id} in window {window_name}",
+                        "updated_at": started_at,
+                    },
+                )
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.archive_checkpoints (
+                            id, dataset_name, asset_type, backfill_start, backfill_end,
+                            last_completed_date, shard_id, batch_no, status, updated_at, created_at
+                        ) VALUES (
+                            :id, :dataset_name, :asset_type, :backfill_start, :backfill_end,
+                            NULL, :shard_id, 0, 'planned', :now, :now
+                        )
+                        ON CONFLICT (dataset_name, asset_type) DO UPDATE SET
+                            backfill_start = COALESCE(EXCLUDED.backfill_start, ifa2.archive_checkpoints.backfill_start),
+                            backfill_end = COALESCE(EXCLUDED.backfill_end, ifa2.archive_checkpoints.backfill_end),
+                            status = 'planned',
+                            shard_id = COALESCE(EXCLUDED.shard_id, ifa2.archive_checkpoints.shard_id),
+                            updated_at = EXCLUDED.updated_at
+                        """
+                    ),
+                    {
+                        "id": str(uuid.uuid4()),
+                        "dataset_name": row["checkpoint_dataset_name"],
+                        "asset_type": row["checkpoint_asset_type"],
+                        "backfill_start": row["suggested_backfill_start"],
+                        "backfill_end": row["suggested_backfill_end"],
+                        "shard_id": row["dedupe_key"],
+                        "now": started_at,
+                    },
+                )
+                selected.append(dict(row))
+        return selected
+
+    def finalize_archive_catchup_execution(self, *, run_id: str, executed_rows: list[dict[str, Any]], completed: bool) -> None:
+        if not executed_rows:
+            return
+        completed_at = now_utc()
+        with self.engine.begin() as conn:
+            for idx, row in enumerate(executed_rows, start=1):
+                status = 'completed' if completed else 'partial'
+                last_completed = row.get('suggested_backfill_end') if completed else row.get('suggested_backfill_start')
+                conn.execute(
+                    text(
+                        """
+                        UPDATE ifa2.archive_target_catchup
+                        SET status = :status,
+                            completed_at = :completed_at,
+                            progress_note = :progress_note,
+                            updated_at = :updated_at
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "id": row['id'],
+                        "status": status,
+                        "completed_at": completed_at,
+                        "progress_note": (
+                            f"catch-up execution closed by archive run {run_id}; checkpoint advanced"
+                            if completed else
+                            f"catch-up execution partially advanced by archive run {run_id}"
+                        ),
+                        "updated_at": completed_at,
+                    },
+                )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE ifa2.archive_checkpoints
+                        SET last_completed_date = COALESCE(:last_completed_date, last_completed_date),
+                            batch_no = COALESCE(batch_no, 0) + :batch_increment,
+                            status = :checkpoint_status,
+                            updated_at = :updated_at
+                        WHERE dataset_name = :dataset_name
+                          AND asset_type = :asset_type
+                        """
+                    ),
+                    {
+                        "last_completed_date": last_completed,
+                        "batch_increment": 1,
+                        "checkpoint_status": 'completed' if completed else 'in_progress',
+                        "updated_at": completed_at,
+                        "dataset_name": row['checkpoint_dataset_name'],
+                        "asset_type": row['checkpoint_asset_type'],
+                    },
+                )
+
+    def _checkpoint_dataset_name(self, delta: ArchiveDeltaItem) -> str:
+        granularity_prefix = delta.granularity.replace('min', 'm') if delta.granularity else 'archive'
+        return f"{delta.asset_category}_{granularity_prefix}_catchup"
+
+    def _checkpoint_asset_type(self, delta: ArchiveDeltaItem) -> str:
+        return delta.asset_category
 
 
 class UnifiedRuntime:
@@ -646,6 +817,16 @@ class UnifiedRuntime:
 
         orchestrator = ArchiveOrchestrator(get_archive_config())
         summary_obj = orchestrator.run_window(archive_window, dry_run=True)
+        bound_catchups = self.store.begin_archive_catchup_execution(
+            run_id=run_id,
+            window_name=archive_window,
+            limit=max(summary_obj.total_jobs, 1),
+        )
+        self.store.finalize_archive_catchup_execution(
+            run_id=run_id,
+            executed_rows=bound_catchups,
+            completed=summary_obj.failed_jobs == 0,
+        )
         records_processed = sum(r.records_processed for r in summary_obj.job_results)
         worker_type = "archive_dryrun_worker"
         summary = {
@@ -662,9 +843,20 @@ class UnifiedRuntime:
             "archive_failed_jobs": summary_obj.failed_jobs,
             "archive_delta_count": len(deltas),
             "archive_catchup_rows_inserted": persisted_catchup_rows,
+            "archive_catchup_rows_bound": len(bound_catchups),
+            "archive_catchup_rows_completed": len(bound_catchups) if summary_obj.failed_jobs == 0 else 0,
             "previous_manifest_hash": previous.manifest_hash,
             "current_archive_manifest_hash": current.manifest_hash,
             "delta_preview": [d.__dict__ for d in deltas[:10]],
+            "bound_catchup_preview": [
+                {
+                    'id': row['id'],
+                    'dedupe_key': row['dedupe_key'],
+                    'checkpoint_dataset_name': row['checkpoint_dataset_name'],
+                    'checkpoint_asset_type': row['checkpoint_asset_type'],
+                }
+                for row in bound_catchups[:10]
+            ],
             "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],
         }
         final_status = "succeeded" if summary_obj.failed_jobs == 0 else "partial"

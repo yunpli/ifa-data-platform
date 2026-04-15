@@ -98,6 +98,8 @@ def test_unified_runtime_persists_manifest_snapshot_and_archive_catchup_rows():
         assert unified_run['status'] in {'succeeded', 'partial'}
         assert unified_run['manifest_hash'] == payload['manifest_hash']
         assert unified_run['summary']['archive_total_jobs'] == payload['archive_total_jobs']
+        assert 'archive_catchup_rows_bound' in unified_run['summary']
+        assert 'archive_catchup_rows_completed' in unified_run['summary']
 
 
 def test_unified_runtime_persists_runtime_audit_for_lowfreq_and_midfreq():
@@ -131,10 +133,44 @@ def test_run_status_cli_lists_recent_unified_runs():
 def test_archive_status_cli_returns_catchup_and_checkpoint_state():
     run_cli('run-once', '--lane', 'archive', '--owner-type', 'default', '--owner-id', 'default', '--list-type', 'archive_targets')
     payload = run_cli('archive-status', '--limit', '5')
-    assert {'summary_by_status', 'recent_catchup_rows', 'recent_checkpoints'} <= set(payload.keys())
+    assert {'summary_by_status', 'recent_catchup_rows', 'recent_checkpoints', 'recent_archive_runs'} <= set(payload.keys())
     assert isinstance(payload['summary_by_status'], list)
     assert isinstance(payload['recent_catchup_rows'], list)
     assert isinstance(payload['recent_checkpoints'], list)
+    assert isinstance(payload['recent_archive_runs'], list)
+
+
+def test_archive_catchup_state_progression_links_run_and_checkpoint():
+    payload = run_cli('run-once', '--lane', 'archive', '--owner-type', 'default', '--owner-id', 'default', '--list-type', 'archive_targets')
+    with engine().connect() as conn:
+        row = conn.execute(
+            text('''
+                select archive_run_id, checkpoint_dataset_name, checkpoint_asset_type,
+                       status, started_at, completed_at, progress_note
+                from ifa2.archive_target_catchup
+                where archive_run_id = :run_id
+                order by updated_at desc
+                limit 1
+            '''),
+            {'run_id': payload['run_id']},
+        ).mappings().first()
+        if row is not None:
+            assert row['archive_run_id'] == payload['run_id']
+            assert row['checkpoint_dataset_name'] is not None
+            assert row['checkpoint_asset_type'] is not None
+            assert row['status'] in {'in_progress', 'completed', 'partial'}
+            assert row['started_at'] is not None
+        checkpoint = conn.execute(
+            text('''
+                select dataset_name, asset_type, status, batch_no
+                from ifa2.archive_checkpoints
+                order by updated_at desc
+                limit 1
+            ''')
+        ).mappings().first()
+        if checkpoint is not None:
+            assert checkpoint['status'] in {'planned', 'in_progress', 'completed'}
+            assert checkpoint['batch_no'] is None or checkpoint['batch_no'] >= 0
 
 
 def test_schema_gap_tables_now_exist_after_migration():

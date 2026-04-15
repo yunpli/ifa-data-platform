@@ -149,11 +149,14 @@ Expected sections:
 - `summary_by_status`
 - `recent_catchup_rows`
 - `recent_checkpoints`
+- `recent_archive_runs`
 
 Use this to validate:
 - catch-up backlog visibility
 - per-row status distribution
 - checkpoint state visibility for resumable archive progress
+- archive run linkage into catch-up rows via `archive_run_id`
+- checkpoint linkage via `checkpoint_dataset_name` / `checkpoint_asset_type`
 
 ---
 
@@ -200,7 +203,6 @@ This is the current minimal closure path for:
 
 Still pending before final Trailblazer closure:
 - stronger non-dry-run unified worker execution semantics where appropriate
-- more explicit archive checkpoint progression tied to catch-up intent rows
 - profiling bundle for lowfreq / midfreq / archive core paths
 - final troubleshooting / acceptance docs pack
 - clean repo closure and final evidence packaging
