@@ -1,6 +1,6 @@
 """Trailblazer runtime artifacts
 
-Revision ID: 021_trailblazer_runtime_artifacts
+Revision ID: 021tb_runtime
 Revises: 020_futures_history
 Create Date: 2026-04-14 23:00:00
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = '021_trailblazer_runtime_artifacts'
+revision = '021tb_runtime'
 down_revision = '020_futures_history'
 branch_labels = None
 depends_on = None
