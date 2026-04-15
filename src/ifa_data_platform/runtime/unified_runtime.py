@@ -850,7 +850,7 @@ class UnifiedRuntime:
             "delta_preview": [d.__dict__ for d in deltas[:10]],
             "bound_catchup_preview": [
                 {
-                    'id': row['id'],
+                    'id': str(row['id']),
                     'dedupe_key': row['dedupe_key'],
                     'checkpoint_dataset_name': row['checkpoint_dataset_name'],
                     'checkpoint_asset_type': row['checkpoint_asset_type'],

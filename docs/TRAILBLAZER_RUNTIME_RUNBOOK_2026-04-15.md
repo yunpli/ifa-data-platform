@@ -97,6 +97,9 @@ python scripts/runtime_manifest_cli.py run-once \
   --owner-id default
 ```
 
+Note:
+- for clean fresh-clone execution, set `TUSHARE_TOKEN` in the environment or `.env` to avoid adaptor warnings during midfreq dry-run fetch attempts
+
 ### Archive
 ```bash
 python scripts/runtime_manifest_cli.py run-once \
@@ -193,9 +196,11 @@ This is the current minimal closure path for:
   - lowfreq/midfreq unified one-shot summaries with per-dataset planning/results
 - Milestone 5 advanced by:
   - archive catch-up visibility through CLI status surface
+  - persisted non-zero archive membership-delta proof with catch-up row insertion / binding / checkpoint linkage / status progression evidence
 - Milestone 6 advanced by:
   - reproducible command path in one document
   - canonical operator entrypoints
+  - fresh-clone init / migrate / smoke / validation evidence
 
 ---
 
@@ -203,6 +208,5 @@ This is the current minimal closure path for:
 
 Still pending before final Trailblazer closure:
 - stronger non-dry-run unified worker execution semantics where appropriate
-- profiling bundle for lowfreq / midfreq / archive core paths
 - final troubleshooting / acceptance docs pack
-- clean repo closure and final evidence packaging
+- final push-state confirmation in the evidence package

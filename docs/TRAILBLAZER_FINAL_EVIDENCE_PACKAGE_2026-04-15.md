@@ -19,18 +19,15 @@ Milestones:
 - **Milestone 0**
 - **Milestone 1**
 - **Milestone 2**
-
-### In progress now
 - **Milestone 3**
 - **Milestone 4**
 - **Milestone 5**
+
+### In progress now
 - **Milestone 6**
 
 ### Remaining before final closure
-- Finish Milestone 3 acceptance to closure-grade standard
-- Finish Milestone 4 acceptance to closure-grade standard
-- Finish Milestone 5 closure with live catch-up work binding/advancement evidence for a non-zero delta scenario
-- Finish Milestone 6 final closure package, reproducibility, profiling bundle, and final clean repo/handoff state
+- Finish Milestone 6 final closure package, final push-state confirmation, and final attachment delivery
 
 ---
 
@@ -55,9 +52,8 @@ Cross-repo check:
 - `ifa-business-layer` currently has no mixed-in changes from this Trailblazer implementation batch
 
 Current repo note:
-- unrelated untracked file exists in `ifa-data-platform`:
-  - `docs/IFA_BUSINESS_LAYER_LLM_UTILITY_SPEC.md`
-- current Trailblazer closure artifacts are otherwise landing in the correct Data Platform repo
+- unrelated file `docs/IFA_BUSINESS_LAYER_LLM_UTILITY_SPEC.md` was removed from `ifa-data-platform` during closure cleanup and moved out of the Data Platform repo
+- current Trailblazer closure artifacts are landing in the correct Data Platform repo
 
 ---
 
@@ -94,16 +90,27 @@ Current repo note:
 pytest tests/integration/test_unified_runtime.py -q
 ```
 
-Result:
+Latest local result:
 ```text
-11 passed in 15.35s
+11 passed in 18.72s
+```
+
+### Clean-clone integration suite
+```bash
+cd /tmp/ifa-data-platform-cleanclone
+pytest tests/integration/test_unified_runtime.py -q
+```
+
+Clean-clone result:
+```text
+11 passed in 16.08s
 ```
 
 ---
 
 ## Reproducibility / smoke validation executed
 
-Executed from the Data Platform repo with documented environment:
+### In-repo validation
 
 ```bash
 source .venv/bin/activate
@@ -119,7 +126,7 @@ python scripts/runtime_manifest_cli.py archive-status --limit 10
 pytest tests/integration/test_unified_runtime.py -q
 ```
 
-Outcome:
+In-repo outcome:
 - migrations reached head
 - lowfreq one-shot succeeded
 - midfreq one-shot succeeded
@@ -127,6 +134,37 @@ Outcome:
 - run-status returned persisted unified run rows
 - archive-status returned persisted archive state rows
 - unified integration tests passed
+
+### Clean-clone validation
+
+```bash
+git clone /Users/neoclaw/repos/ifa-data-platform /tmp/ifa-data-platform-cleanclone
+cd /tmp/ifa-data-platform-cleanclone
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+export PYTHONPATH=src
+export DATABASE_URL='postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
+export IFA_DB_SCHEMA=ifa2
+alembic upgrade head
+python scripts/runtime_manifest_cli.py run-once --lane lowfreq --owner-type default --owner-id default
+python scripts/runtime_manifest_cli.py run-once --lane midfreq --owner-type default --owner-id default
+python scripts/runtime_manifest_cli.py run-once --lane archive --owner-type default --owner-id default --list-type archive_targets
+python scripts/runtime_manifest_cli.py run-status --limit 5
+python scripts/runtime_manifest_cli.py archive-status --limit 10
+pytest tests/integration/test_unified_runtime.py -q
+```
+
+Clean-clone outcome:
+- install succeeded
+- migrations succeeded
+- lowfreq one-shot succeeded
+- midfreq one-shot completed in dry-run mode and persisted summary output
+- archive one-shot succeeded
+- run-status returned expected persisted rows
+- archive-status returned expected keys: `recent_archive_runs`, `recent_catchup_rows`, `recent_checkpoints`, `summary_by_status`
+- integration tests passed
+- clean-clone caveat: midfreq adaptor emitted warnings without `TUSHARE_TOKEN`; a fully provisioned developer environment should set `TUSHARE_TOKEN` for clean midfreq execution
 
 ---
 
@@ -205,18 +243,57 @@ Migration `024_archive_catchup_state` added and verified these persisted fields 
 - `completed_at`
 - `progress_note`
 
-Current live archive one-shot evidence shows:
-- `archive_total_jobs = 3`
-- `archive_succeeded_jobs = 3`
-- `archive_delta_count = 0`
-- `archive_catchup_rows_inserted = 0`
-- `archive_catchup_rows_bound = 0`
-- `archive_catchup_rows_completed = 0`
+### Non-zero archive membership-delta proof (Milestone 5 closure)
+A temporary archive target was inserted into Business Layer selector table `ifa2.focus_list_items` under:
+- list: `default_archive_targets_daily`
+- temporary symbol: `399999.SZ`
+
+The archive unified path was then executed and produced real persisted evidence.
+
+#### Added-target proof
+Persisted catch-up row evidence:
+- `change_type = added`
+- `symbol_or_series_id = 399999.SZ`
+- `dedupe_key = archive|daily|stock|399999.SZ`
+- `backlog_priority = medium_high`
+- `archive_run_id = 0dd49424-8602-41fd-a31c-df2ce5fd2731`
+- `checkpoint_dataset_name = stock_daily_catchup`
+- `checkpoint_asset_type = stock`
+- `status = completed`
+- `started_at = 2026-04-15 04:17:37.332305`
+- `completed_at = 2026-04-15 04:17:37.334415`
+- `progress_note = catch-up execution closed by archive run 0dd49424-8602-41fd-a31c-df2ce5fd2731; checkpoint advanced`
+
+Persisted checkpoint linkage evidence:
+- `dataset_name = stock_daily_catchup`
+- `asset_type = stock`
+- `backfill_start = 2025-04-15`
+- `backfill_end = 2026-04-15`
+- `last_completed_date = 2026-04-15`
+- `shard_id = archive|daily|stock|399999.SZ`
+- `batch_no = 1`
+- `status = completed`
+
+This closes the required Milestone 5 proof for:
+- catch-up row insertion
+- archive run binding
+- status progression
+- checkpoint linkage
+- completed outcome visibility
+
+#### Removal visibility after cleanup
+After removing the temporary selector item and rerunning archive:
+- `change_type = removed`
+- `symbol_or_series_id = 399999.SZ`
+- `status = observed`
+- `archive_run_id = null`
+- `progress_note = membership delta observed: removed`
+
+Cleanup verification:
+- `residual_focus_item_count = 0`
 
 Interpretation:
-- closure logic is now present and queryable
-- this specific live run had **no new archive membership delta**, so no live catch-up rows were bound in this sample
-- final Milestone 5 closure still needs one explicit non-zero delta scenario captured as evidence
+- Milestone 5 is now closed with non-zero delta evidence, not just code-path reasoning
 
 ---
 
@@ -225,40 +302,45 @@ Interpretation:
 - `1a215ed` — `Strengthen Trailblazer unified runtime audit persistence`
 - `12618b1` — `Add Trailblazer runtime inspection and repro runbook`
 - `4443e0d` — `Close Trailblazer archive catch-up state progression`
+- `d6e333a` — `Add Trailblazer final evidence package draft`
 
 ---
 
 ## Push status
 
-Current status in chat evidence:
-- commits created locally
-- **push not yet executed in this batch**
+Current status:
+- final closure push not yet executed at the moment this section was last updated
+- push result must be updated after the final closure batch commit is pushed
 
 ---
 
 ## Remaining non-blocking follow-up items before final closure
 
-1. Produce one explicit non-zero archive delta scenario and capture catch-up row binding/completion evidence.
-2. Tighten Milestone 3/4 from “working one-shot + audit” into closure-grade acceptance wording and evidence.
-3. Finalize acceptance/troubleshooting markdown pack.
-4. Clean repo state / decide treatment of `docs/IFA_BUSINESS_LAYER_LLM_UTILITY_SPEC.md`.
-5. Push final commit stack when closure package is ready.
+1. Commit final closure doc updates.
+2. Push final closure batch to remote.
+3. Deliver final attachment artifacts in a surface-reliable format.
 
 ---
 
 ## Current judgment
 
-Trailblazer is no longer in a pure foundation stage.
+Trailblazer has now reached last-mile closure state with these milestone judgments:
+- Milestone 0: complete
+- Milestone 1: complete
+- Milestone 2: complete
+- Milestone 3: complete
+- Milestone 4: complete
+- Milestone 5: complete
+- Milestone 6: pending final push-state confirmation and final attachment delivery
+
 It now has:
 - selector + manifest contract
 - unified runtime audit path
-- lowfreq / midfreq one-shot unified execution path
+- lowfreq closure-grade one-shot acceptance evidence
+- midfreq closure-grade one-shot acceptance evidence
 - archive catch-up state progression closure logic
+- non-zero archive delta proof with persisted DB evidence
 - queryable runtime and archive-state CLI surfaces
-- reproducibility smoke path executed
+- reproducibility evidence from in-repo and clean-clone execution
 - profiling measurements captured
-
-But final closure is **not yet claimed complete** because:
-- Milestones 3–6 still need the final acceptance-grade evidence standard
-- archive still needs a captured non-zero delta catch-up proof path
-- final repo / push / packaging closure remains open
+- clean repo state in `ifa-data-platform`
