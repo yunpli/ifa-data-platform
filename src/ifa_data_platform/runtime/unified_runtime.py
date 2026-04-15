@@ -1,10 +1,11 @@
 """Minimal unified runtime substrate.
 
-This first implementation batch provides:
+This implementation batch now provides:
 - one-shot manifest-driven lane execution
 - run-state/audit via job_runs
 - manifest snapshot persistence
 - archive catch-up evidence persistence
+- per-run execution summaries for lowfreq/midfreq/archive bounded rounds
 - a single entrypoint for lowfreq / midfreq / archive bounded rounds
 """
 
@@ -153,6 +154,24 @@ class UnifiedRuntimeStore:
         inserted = 0
         with self.engine.begin() as conn:
             for d in deltas:
+                exists = conn.execute(
+                    text(
+                        """
+                        select id from ifa2.archive_target_catchup
+                        where manifest_snapshot_id=:manifest_snapshot_id
+                          and dedupe_key=:dedupe_key
+                          and change_type=:change_type
+                        limit 1
+                        """
+                    ),
+                    {
+                        "manifest_snapshot_id": manifest_snapshot_id,
+                        "dedupe_key": d.dedupe_key,
+                        "change_type": d.change_type,
+                    },
+                ).first()
+                if exists:
+                    continue
                 res = conn.execute(
                     text(
                         """
@@ -265,7 +284,10 @@ class UnifiedRuntime:
         }
         dataset_name = dataset_map[lane]
         runner = worker_map[lane]
-        result = runner.run(dataset_name, dry_run=True, run_type="unified_runtime")
+        result = runner.run(dataset_name, dry_run=True, run_type="unified_runtime") if lane == 'lowfreq' else runner.run(dataset_name, dry_run=True)
+        runner_status = getattr(result, 'status', 'unknown')
+        records_processed = getattr(result, 'records_processed', 0)
+        watermark = getattr(result, 'watermark', None)
         summary = {
             "run_id": run_id,
             "lane": lane,
@@ -275,12 +297,13 @@ class UnifiedRuntime:
             "manifest_snapshot_id": manifest_snapshot_id,
             "manifest_item_count": len(lane_items),
             "dataset_name": dataset_name,
-            "runner_status": result.status,
-            "records_processed": result.records_processed,
+            "runner_status": runner_status,
+            "records_processed": records_processed,
+            "watermark": watermark,
             "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],
         }
-        final_status = "succeeded" if result.status == "succeeded" else result.status
-        self.store.finalize_run(run_id, final_status, result.records_processed, summary)
+        final_status = "succeeded" if runner_status in {"succeeded", "dry_run"} else runner_status
+        self.store.finalize_run(run_id, final_status, records_processed, summary)
         completed_at = now_utc().isoformat()
         return UnifiedRunResult(
             run_id=run_id,
@@ -292,7 +315,7 @@ class UnifiedRuntime:
             status=final_status,
             started_at=started_at,
             completed_at=completed_at,
-            records_processed=result.records_processed,
+            records_processed=records_processed,
             summary=summary,
         )
 

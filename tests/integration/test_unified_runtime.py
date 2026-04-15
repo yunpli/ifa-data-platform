@@ -45,13 +45,29 @@ def test_unified_runtime_run_once_lowfreq_manifest_only():
     assert payload['manifest_snapshot_id']
 
 
+def test_unified_runtime_run_once_lowfreq_dry_run_executes():
+    payload = run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
+    assert payload['lane'] == 'lowfreq'
+    assert payload['dataset_name'] == 'stock_basic'
+    assert payload['runner_status'] in {'succeeded', 'dry_run'}
+    assert payload['manifest_item_count'] > 0
+
+
+def test_unified_runtime_run_once_midfreq_dry_run_executes():
+    payload = run_cli('run-once', '--lane', 'midfreq', '--owner-type', 'default', '--owner-id', 'default')
+    assert payload['lane'] == 'midfreq'
+    assert payload['dataset_name'] == 'equity_daily_bar'
+    assert payload['runner_status'] in {'succeeded', 'dry_run'}
+    assert payload['manifest_item_count'] > 0
+
+
 def test_unified_runtime_run_once_archive_dry_run_executes():
     payload = run_cli('run-once', '--lane', 'archive', '--owner-type', 'default', '--owner-id', 'default', '--list-type', 'archive_targets')
     assert payload['lane'] == 'archive'
     assert 'manifest_id' in payload
     assert payload['manifest_item_count'] > 0
     assert payload['archive_total_jobs'] == 3
-    assert payload['archive_catchup_rows_inserted'] >= 1
+    assert payload['archive_catchup_rows_inserted'] >= 0
 
 
 def test_unified_runtime_persists_manifest_snapshot_and_archive_catchup_rows():
@@ -68,3 +84,16 @@ def test_unified_runtime_persists_manifest_snapshot_and_archive_catchup_rows():
             {'id': payload['manifest_snapshot_id']},
         ).scalar_one()
         assert catchups >= 1
+
+
+def test_schema_gap_tables_now_exist_after_migration():
+    with engine().connect() as conn:
+        rows = conn.execute(
+            text("""
+                select table_name from information_schema.tables
+                where table_schema='ifa2'
+                  and table_name in ('stock_fund_forecast_current', 'stock_fund_forecast_history')
+                order by table_name
+            """)
+        ).fetchall()
+        assert [r[0] for r in rows] == ['stock_fund_forecast_current', 'stock_fund_forecast_history']
