@@ -71,13 +71,17 @@ class HighfreqRunner:
             records = self.adaptor.fetch_proxy_1m()
             count = self.adaptor.persist_proxy_1m(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        elif dataset_name == "futures_commodity_pm_1m_ohlcv":
+            records = self.adaptor.fetch_futures_family_1m()
+            count = self.adaptor.persist_futures_family_1m(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         else:
             result = RunnerResult(
                 dataset_name=dataset_name,
                 status="deferred",
                 records_processed=0,
                 watermark=now,
-                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch3",
+                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch4",
             )
 
         if run_id:

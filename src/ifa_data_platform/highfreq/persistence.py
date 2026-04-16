@@ -249,3 +249,50 @@ class HighfreqProxy1mWorking:
                     },
                 )
         return len(records)
+
+
+class HighfreqFuturesMinuteWorking:
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def bulk_replace(self, records: list[dict], version_id: str) -> int:
+        if not records:
+            return 0
+        with self.engine.begin() as conn:
+            for rec in records:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.highfreq_futures_minute_working (
+                            id, version_id, ts_code, bucket, trade_time, open, high, low, close, vol, amount, oi
+                        ) VALUES (
+                            :id, :version_id, :ts_code, :bucket, :trade_time, :open, :high, :low, :close, :vol, :amount, :oi
+                        )
+                        ON CONFLICT (ts_code, trade_time) DO UPDATE SET
+                            version_id = EXCLUDED.version_id,
+                            bucket = EXCLUDED.bucket,
+                            open = EXCLUDED.open,
+                            high = EXCLUDED.high,
+                            low = EXCLUDED.low,
+                            close = EXCLUDED.close,
+                            vol = EXCLUDED.vol,
+                            amount = EXCLUDED.amount,
+                            oi = EXCLUDED.oi
+                        """
+                    ),
+                    {
+                        'id': str(uuid.uuid4()),
+                        'version_id': version_id,
+                        'ts_code': rec['ts_code'],
+                        'bucket': rec['bucket'],
+                        'trade_time': rec['trade_time'],
+                        'open': rec.get('open'),
+                        'high': rec.get('high'),
+                        'low': rec.get('low'),
+                        'close': rec.get('close'),
+                        'vol': rec.get('vol'),
+                        'amount': rec.get('amount'),
+                        'oi': rec.get('oi'),
+                    },
+                )
+        return len(records)

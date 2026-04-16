@@ -7,6 +7,7 @@ from datetime import datetime
 from ifa_data_platform.highfreq.persistence import (
     HighfreqAuctionWorking,
     HighfreqEventStreamWorking,
+    HighfreqFuturesMinuteWorking,
     HighfreqIndex1mWorking,
     HighfreqProxy1mWorking,
     HighfreqStock1mWorking,
@@ -22,6 +23,7 @@ class HighfreqTushareAdaptor:
         self.stock_1m = HighfreqStock1mWorking()
         self.index_1m = HighfreqIndex1mWorking()
         self.proxy_1m = HighfreqProxy1mWorking()
+        self.futures_1m = HighfreqFuturesMinuteWorking()
         self.open_auction = HighfreqAuctionWorking("highfreq_open_auction_working")
         self.close_auction = HighfreqAuctionWorking("highfreq_close_auction_working")
         self.event_stream = HighfreqEventStreamWorking()
@@ -178,4 +180,53 @@ class HighfreqTushareAdaptor:
         version_id = self.version_registry.create_version("highfreq_proxy_1m_working", "ths_proxy", run_id, watermark=watermark)
         count = self.proxy_1m.bulk_replace(records, version_id)
         self.version_registry.promote("highfreq_proxy_1m_working", version_id)
+        return count
+
+    def fetch_futures_family_1m(self) -> list[dict]:
+        roots = {
+            'precious_metal': [('SHFE', 'AU'), ('SHFE', 'AG')],
+            'commodity': [('DCE', 'I'), ('CZCE', 'TA'), ('INE', 'SC')],
+            'futures': [('SHFE', 'RB'), ('DCE', 'JM'), ('CZCE', 'FG')],
+        }
+        records = []
+        for bucket, pairs in roots.items():
+            for exchange, fut_code in pairs:
+                rows = self.client.query('fut_basic', {'exchange': exchange, 'fut_type': '1'}, timeout_sec=30, max_retries=2)
+                rows = [r for r in rows if r.get('fut_code') == fut_code and str(r.get('delist_date', '99999999')) >= '20260415']
+                rows = sorted(rows, key=lambda r: r.get('delist_date', ''))
+                if not rows:
+                    continue
+                ts_code = rows[0]['ts_code']
+                mins = self.client.query(
+                    'ft_mins',
+                    {
+                        'ts_code': ts_code,
+                        'freq': '1min',
+                        'start_date': '20260415 09:00:00',
+                        'end_date': '20260415 09:05:00',
+                    },
+                    timeout_sec=30,
+                    max_retries=2,
+                )
+                for row in mins:
+                    records.append(
+                        {
+                            'ts_code': row['ts_code'],
+                            'bucket': bucket,
+                            'trade_time': datetime.fromisoformat(str(row['trade_time'])),
+                            'open': row.get('open'),
+                            'high': row.get('high'),
+                            'low': row.get('low'),
+                            'close': row.get('close'),
+                            'vol': row.get('vol'),
+                            'amount': row.get('amount'),
+                            'oi': row.get('oi'),
+                        }
+                    )
+        return records
+
+    def persist_futures_family_1m(self, run_id: str, records: list[dict], watermark: str) -> int:
+        version_id = self.version_registry.create_version("highfreq_futures_minute_working", "tushare_ft_mins", run_id, watermark=watermark)
+        count = self.futures_1m.bulk_replace(records, version_id)
+        self.version_registry.promote("highfreq_futures_minute_working", version_id)
         return count
