@@ -1,6 +1,5 @@
 """Low-frequency daemon module."""
 
-from ifa_data_platform.lowfreq.daemon import main
 from ifa_data_platform.lowfreq.daemon_config import (
     DaemonConfig,
     GroupConfig,
@@ -19,7 +18,6 @@ from ifa_data_platform.lowfreq.daemon_orchestrator import (
 from ifa_data_platform.lowfreq.schedule_memory import ScheduleMemory, WindowState
 
 __all__ = [
-    "main",
     "DaemonConfig",
     "GroupConfig",
     "ScheduleWindow",
