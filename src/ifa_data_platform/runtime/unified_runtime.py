@@ -32,6 +32,8 @@ from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.runner import LowFreqRunner
 from ifa_data_platform.midfreq.registry import MidfreqDatasetRegistry
 from ifa_data_platform.midfreq.runner import MidfreqRunner
+from ifa_data_platform.highfreq.registry import HighfreqDatasetRegistry
+from ifa_data_platform.highfreq.runner import HighfreqRunner
 from ifa_data_platform.runtime.target_manifest import (
     SelectorScope,
     TargetManifest,
@@ -632,6 +634,16 @@ LOWFREQ_PROOFSET = [
     "pledge_stat",
 ]
 
+HIGHFREQ_PROOFSET = [
+    "stock_1m_ohlcv",
+    "index_1m_ohlcv",
+    "etf_sector_style_1m_ohlcv",
+    "futures_commodity_pm_1m_ohlcv",
+    "open_auction_snapshot",
+    "close_auction_snapshot",
+    "event_time_stream",
+]
+
 MIDFREQ_PROOFSET = [
     "equity_daily_bar",
     "index_daily_bar",
@@ -662,8 +674,10 @@ class UnifiedRuntime:
         self.store = UnifiedRuntimeStore()
         self.lowfreq_runner = LowFreqRunner()
         self.midfreq_runner = MidfreqRunner()
+        self.highfreq_runner = HighfreqRunner()
         self.lowfreq_registry = DatasetRegistry()
         self.midfreq_registry = MidfreqDatasetRegistry()
+        self.highfreq_registry = HighfreqDatasetRegistry()
         self._ensure_runtime_registries()
 
     def run_once(
@@ -674,7 +688,7 @@ class UnifiedRuntime:
         archive_window: str = "manual_archive",
         dry_run_manifest_only: bool = False,
     ) -> UnifiedRunResult:
-        if lane not in {"lowfreq", "midfreq", "archive"}:
+        if lane not in {"lowfreq", "midfreq", "archive", "highfreq"}:
             raise ValueError(f"Unsupported lane: {lane}")
 
         scope = scope or SelectorScope()
@@ -729,7 +743,7 @@ class UnifiedRuntime:
                 summary=summary,
             )
 
-        if lane in {"lowfreq", "midfreq"}:
+        if lane in {"lowfreq", "midfreq", "highfreq"}:
             return self._run_runtime_lane(run_id, lane, trigger_mode, manifest, manifest_snapshot_id, started_at)
         return self._run_archive_lane(run_id, trigger_mode, manifest, manifest_snapshot_id, started_at, archive_window)
 
@@ -755,8 +769,9 @@ class UnifiedRuntime:
             for dataset_name in runnable_dataset_names
         ]
         records_processed = sum(r.records_processed for r in dataset_results)
-        failed = [r for r in dataset_results if r.status not in {"succeeded", "dry_run"}]
-        succeeded = [r for r in dataset_results if r.status in {"succeeded", "dry_run"}]
+        accepted_statuses = {"succeeded", "dry_run", "skeleton_ready"}
+        failed = [r for r in dataset_results if r.status not in accepted_statuses]
+        succeeded = [r for r in dataset_results if r.status in accepted_statuses]
         final_status = "failed" if failed and not succeeded else "partial" if failed else "succeeded"
         worker_type = f"{lane}_{execution_mode}_worker"
         summary = {
@@ -824,6 +839,13 @@ class UnifiedRuntime:
                 return preferred
             return enabled or ["equity_daily_bar"]
 
+        if lane == "highfreq":
+            enabled = [d.dataset_name for d in self.highfreq_registry.list_enabled()]
+            preferred = [name for name in HIGHFREQ_PROOFSET if name in enabled]
+            if preferred:
+                return preferred
+            return enabled or ["stock_1m_ohlcv"]
+
         return []
 
     def _lane_execution_mode(self, lane: str) -> str:
@@ -831,6 +853,8 @@ class UnifiedRuntime:
             return "real_run"
         if lane == "midfreq":
             return "real_run"
+        if lane == "highfreq":
+            return "skeleton_ready"
         return "dry_run"
 
     def _ensure_runtime_registries(self) -> None:
@@ -882,7 +906,17 @@ class UnifiedRuntime:
                 error_message=getattr(result, "error_message", None),
             )
 
-        result = self.midfreq_runner.run(dataset_name, dry_run=dry_run)
+        if lane == "midfreq":
+            result = self.midfreq_runner.run(dataset_name, dry_run=dry_run)
+            return DatasetExecutionResult(
+                dataset_name=dataset_name,
+                status=getattr(result, "status", "unknown"),
+                records_processed=int(getattr(result, "records_processed", 0) or 0),
+                watermark=getattr(result, "watermark", None),
+                error_message=getattr(result, "error_message", None),
+            )
+
+        result = self.highfreq_runner.run(dataset_name, dry_run=dry_run)
         return DatasetExecutionResult(
             dataset_name=dataset_name,
             status=getattr(result, "status", "unknown"),

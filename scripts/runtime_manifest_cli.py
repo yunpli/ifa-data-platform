@@ -82,7 +82,7 @@ def main() -> None:
     p1.set_defaults(func=cmd_manifest)
 
     p2 = sub.add_parser('run-once')
-    p2.add_argument('--lane', choices=['lowfreq', 'midfreq', 'archive'], required=True)
+    p2.add_argument('--lane', choices=['lowfreq', 'midfreq', 'archive', 'highfreq'], required=True)
     p2.add_argument('--trigger-mode', default='manual_once')
     p2.add_argument('--owner-type', default='default')
     p2.add_argument('--owner-id', default='default')
@@ -103,7 +103,7 @@ def main() -> None:
 
     p4 = sub.add_parser('run-status')
     p4.add_argument('--run-id')
-    p4.add_argument('--lane', choices=['lowfreq', 'midfreq', 'archive'])
+    p4.add_argument('--lane', choices=['lowfreq', 'midfreq', 'archive', 'highfreq'])
     p4.add_argument('--limit', type=int, default=10)
     p4.set_defaults(func=cmd_run_status)
 
