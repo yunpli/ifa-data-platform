@@ -12,8 +12,11 @@ from zoneinfo import ZoneInfo
 
 from ifa_data_platform.highfreq.daemon_config import get_daemon_config
 from ifa_data_platform.highfreq.daemon_orchestrator import DaemonOrchestrator, GroupExecutionSummary
+from ifa_data_platform.highfreq.operator_report import OperatorReport
 from ifa_data_platform.highfreq.registry import HighfreqDatasetRegistry
+from ifa_data_platform.highfreq.retention import RetentionManager
 from ifa_data_platform.highfreq.schedule_memory import ScheduleMemory
+from ifa_data_platform.highfreq.scope_manager import ScopeManager
 from ifa_data_platform.highfreq.summary_persistence import DaemonWatchdog, ExecutionSummaryStore
 
 
@@ -42,6 +45,7 @@ def run_once(config, current_time_override=None) -> GroupExecutionSummary:
     orchestrator = DaemonOrchestrator(config)
     memory = ScheduleMemory()
     summary_store = ExecutionSummaryStore()
+    ScopeManager().rebuild()
     now = current_time_override or datetime.now(timezone.utc)
     current_time = now.astimezone(config.timezone)
     window = _match_window(config, current_time)
@@ -98,6 +102,7 @@ def health_payload(config) -> dict:
     enabled = [d.dataset_name for d in registry.list_enabled()]
     watchdog = DaemonWatchdog()
     health = watchdog.check_health()
+    scope_result = ScopeManager().rebuild()
     return {
         'daemon_name': 'highfreq_daemon',
         'status': health['status'],
@@ -117,6 +122,12 @@ def health_payload(config) -> dict:
             }
             for w in config.windows if w.is_enabled
         ],
+        'scope_status': {
+            'active_count': scope_result.active_count,
+            'dynamic_count': scope_result.dynamic_count,
+            'active_scope_status': scope_result.active_scope_status,
+            'dynamic_scope_status': scope_result.dynamic_scope_status,
+        },
         'groups': [
             {
                 'group_name': g.group_name,
@@ -137,6 +148,9 @@ def main() -> None:
     parser.add_argument('--config', type=str)
     parser.add_argument('--health', action='store_true')
     parser.add_argument('--watchdog', action='store_true')
+    parser.add_argument('--status', action='store_true')
+    parser.add_argument('--retention-run', action='store_true')
+    parser.add_argument('--keep-days', type=int, default=30)
     args = parser.parse_args()
 
     config = get_daemon_config(args.config)
@@ -147,6 +161,14 @@ def main() -> None:
 
     if args.watchdog:
         print(json.dumps(DaemonWatchdog().check_health(), ensure_ascii=False, indent=2, default=str))
+        return
+
+    if args.status:
+        print(json.dumps(OperatorReport().build(), ensure_ascii=False, indent=2, default=str))
+        return
+
+    if args.retention_run:
+        print(json.dumps(RetentionManager().apply(args.keep_days), ensure_ascii=False, indent=2, default=str))
         return
 
     if args.group:
