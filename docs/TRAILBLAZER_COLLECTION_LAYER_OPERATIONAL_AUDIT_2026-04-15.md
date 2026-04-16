@@ -1,5 +1,6 @@
 # Trailblazer Collection Layer Operational Audit
 
+> **Document status:** Historical/intermediate operational audit. Preserved for audit trail. Some runtime claims may be older than current HEAD truth and must not be treated as canonical current-state truth without cross-checking later canonical docs.
 _Date: 2026-04-15_
 
 ## Scope and method

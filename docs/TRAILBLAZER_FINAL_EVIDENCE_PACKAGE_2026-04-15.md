@@ -1,5 +1,9 @@
 # Trailblazer Final Evidence Package
 
+> **Canonical current-state status:** Canonical current-state document. Refreshed against current HEAD sanity evidence after doc normalization. Use this as current accepted evidence summary, not older batch records.
+
+> **Current truth snapshot:** lowfreq real-run = green for current proof set; midfreq real-run = green for current proof set; archive real-run = green for corrected supported scope (stock/futures/commodity/precious_metal daily+15min+minute; macro historical/daily only); highfreq remains deferred; stale archive operator/catch-up rows for old unsupported macro intraday assumptions still require cleanup/reclassification.
+
 _Date: 2026-04-15_
 
 ## Readiness-gap phase closure addendum (Milestones A-D)

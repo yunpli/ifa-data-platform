@@ -1,5 +1,6 @@
 # Trailblazer Upgrade Plan for iFA Data Platform
 
+> **Document status:** Historical baseline planning document. Superseded by later canonical current-state documents, especially TRAILBLAZER_FINAL_EVIDENCE_PACKAGE_2026-04-15.md, TRAILBLAZER_RUNTIME_RUNBOOK_2026-04-15.md, TRAILBLAZER_REPRO_SMOKE_2026-04-15.md, and TRAILBLAZER_COLLECTION_READINESS_GAP_CLOSURE_2026-04-15.md.
 _Date: 2026-04-14_
 
 ## 1. Background and why this upgrade is needed

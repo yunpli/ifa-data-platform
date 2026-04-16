@@ -1,5 +1,6 @@
 # Collection Layer Readiness Gap Closure Plan
 
+> **Document status:** Historical/intermediate readiness-gap planning document. Retained for audit trail only; not the canonical current-state source of truth.
 _Date: 2026-04-15_
 
 ## Document purpose

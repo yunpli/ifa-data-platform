@@ -1,5 +1,6 @@
 # Trailblazer Archive Scope Truth Alignment
 
+> **Document status:** Intermediate batch record. Preserved as a timestamped truth-alignment artifact. Superseded as current-state source by the refreshed canonical current-state docs after the latest sanity batch.
 _Date: 2026-04-15 22:46 _
 
 ## 1. Purpose of this batch

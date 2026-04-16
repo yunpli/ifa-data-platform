@@ -1,5 +1,9 @@
 # Collection Layer Operational Readiness Gap Closure Audit
 
+> **Canonical current-state status:** Canonical current-state document. Refreshed against current HEAD sanity evidence after doc normalization. This remains the current accepted readiness-gap closure report, with truth updated in place.
+
+> **Current truth snapshot:** archive is operationally green for corrected supported scope (stock/futures/commodity/precious_metal daily+15min+minute; macro historical/daily only); lowfreq and midfreq are operationally green for the currently proven proof sets; minute data is explicitly real only for supported archive categories above; highfreq remains deferred; remaining closure gap is operator-state cleanup/reclassification for stale macro intraday catch-up rows created under older assumptions.
+
 _Date: 2026-04-15_
 
 ## Final accepted phase judgments (Milestones A-C)

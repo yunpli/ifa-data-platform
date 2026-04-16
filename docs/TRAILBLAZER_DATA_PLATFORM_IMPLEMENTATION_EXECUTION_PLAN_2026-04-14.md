@@ -1,5 +1,6 @@
 # Trailblazer Implementation Execution Plan for iFA Data Platform
 
+> **Document status:** Historical baseline execution-plan document. Superseded as a current-state source by later canonical current-state documents and retained only as historical planning context.
 _Date: 2026-04-14_
 
 ## 1. Purpose of this document

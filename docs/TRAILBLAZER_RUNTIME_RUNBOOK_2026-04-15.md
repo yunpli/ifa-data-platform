@@ -1,5 +1,9 @@
 # Trailblazer Runtime Runbook
 
+> **Canonical current-state status:** Canonical current-state document. Refreshed against current HEAD sanity evidence after doc normalization. Use this as the current runtime/runbook source of truth.
+
+> **Current truth snapshot:** current supported runtime lanes validated at HEAD: lowfreq real-run, midfreq real-run, archive real-run. Archive active supported scope excludes macro intraday. If operator/archive-status still shows pending macro intraday catch-up rows, treat them as stale unsupported backlog requiring cleanup, not as active supported runtime work.
+
 _Date: 2026-04-15_
 
 ## Purpose

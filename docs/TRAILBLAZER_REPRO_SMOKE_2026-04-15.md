@@ -1,5 +1,9 @@
 # Trailblazer Repro Smoke Evidence
 
+> **Canonical current-state status:** Canonical current-state document. Refreshed against current HEAD sanity evidence after doc normalization. Use this as the current repro/smoke reference, not older intermediate batch docs.
+
+> **Current truth snapshot:** current HEAD sanity passes showed lowfreq real-run success, midfreq real-run success, archive real-run success for the corrected supported scope. Any residual non-green operator surface is currently from stale macro intraday archive backlog rows, not from active supported-path execution failure.
+
 _Date: 2026-04-15_
 
 ## Goal

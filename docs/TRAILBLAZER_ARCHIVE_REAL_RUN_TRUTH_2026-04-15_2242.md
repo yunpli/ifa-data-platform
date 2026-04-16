@@ -1,5 +1,6 @@
 # Trailblazer Archive Real-Run Truth Update
 
+> **Document status:** Intermediate batch record. Preserved as a timestamped implementation-truth batch artifact. Superseded as current-state source by the refreshed canonical current-state docs after the latest sanity batch.
 _Date: 2026-04-15 22:42 _
 
 ## 1. Purpose of this batch
