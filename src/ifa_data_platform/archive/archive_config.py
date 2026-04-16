@@ -181,8 +181,8 @@ def _get_default_config() -> ArchiveConfig:
                 asset_type="macro",
                 pool_name="default",
                 scope_name="cn_macro",
-                is_enabled=True,
-                description="Macro 15min archive",
+                is_enabled=False,
+                description="Macro 15min archive (disabled: no truthful source/storage path in current repo)",
             ),
             ArchiveJobConfig(
                 job_name="futures_15min_archive",
