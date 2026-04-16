@@ -77,6 +77,37 @@ Current explicit archive target lists in Business Layer:
 - `default_archive_targets_15min` (40 items)
 - `default_archive_targets_minute` (20 items)
 
+### Intended archive business rule (current source of truth)
+Archive has two responsibilities:
+1. forward archival of current-day collected data
+2. time-series archival of tradable objects across selected frequencies
+
+Current intended frequency policy:
+- daily:
+  - archive all main tradable categories where source/storage path exists
+- 60-minute:
+  - archive by default where source exists
+  - **currently not implemented** in this repo/runtime path
+- 15-minute:
+  - forward archive only
+  - for `key_focus` + `focus`
+- 1-minute:
+  - forward archive only
+  - for `key_focus` only
+
+Intraday backfill rule:
+- 1m / 15m do **not** do historical backfill now
+- they are forward-archive only from official system run/start
+
+Historical backfill rule:
+- daily / slower-changing data should backfill from `2023-01-01` policy anchor where implemented
+
+Target-change rule:
+- archived history stays
+- future archive behavior follows current active Business Layer membership
+- leaving `key_focus` can stop future 1m while preserving history
+- leaving `focus` can stop future intraday while preserving history
+
 Observed breakdown:
 - 15min:
   - stock 22
@@ -105,6 +136,20 @@ Observed checkpoint max dates are uneven:
 - precious_metal minute / 15min at `2025-06-16`
 
 Therefore archive should not be described as evenly advanced across all categories/frequencies.
+
+### Current implementation alignment status
+Already aligned or partially aligned:
+- archive runs under unified runtime daemon
+- archive checkpoint/catch-up truth is centralized
+- stock/futures/commodity/precious_metal intraday history tables exist
+- intraday archive code is now aligned to **forward-only** semantics in current code
+- archive intraday selection is now being aligned to focus/key_focus-style BL membership rather than generic historical breadth alone
+
+Still missing / deferred / unsupported:
+- 60-minute archive path is not implemented
+- small structured current-day output archive is not yet a first-class implemented archive layer
+- current non-equity BL list coverage is incomplete relative to desired target sizes
+- archive index coverage is still not explicitly present in current BL target definitions
 
 ## 4. Current Table-Level State
 

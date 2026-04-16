@@ -29,12 +29,16 @@ class FuturesIntradayArchiver:
             self._tushare_client = get_tushare_client()
         return self._tushare_client
 
-    def _target_contracts(self, category_filter: set[str]) -> list[dict]:
-        return [
+    def _target_contracts(self, category_filter: set[str], symbols: Optional[list[str]] = None) -> list[dict]:
+        contracts = [
             c
             for c in self.contract_archiver.get_active_contracts()
             if c.get("category") in category_filter
         ]
+        if not symbols:
+            return contracts
+        symbol_set = set(symbols)
+        return [c for c in contracts if c.get('symbol') in symbol_set or c.get('ts_code') in symbol_set]
 
     def _default_window(self, end_time: Optional[datetime]) -> tuple[datetime, datetime]:
         if end_time is None:
@@ -117,6 +121,7 @@ class FuturesIntradayArchiver:
         freq: str,
         end_time: Optional[datetime] = None,
         max_contracts: int = 8,
+        symbols: Optional[list[str]] = None,
     ) -> int:
         checkpoint = self.checkpoint_store.get_checkpoint(dataset_name, asset_type)
         default_start, resolved_end = self._default_window(end_time)
@@ -127,7 +132,10 @@ class FuturesIntradayArchiver:
         else:
             resolved_start = default_start
 
-        contracts = self._target_contracts(category_filter)[:max_contracts]
+        # Intraday archive is forward-only by business policy.
+        resolved_start = max(resolved_start, default_start)
+
+        contracts = self._target_contracts(category_filter, symbols=symbols)[:max_contracts]
         total_inserted = 0
         batch_no = 0
         watermark = None

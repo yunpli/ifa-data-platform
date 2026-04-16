@@ -13,6 +13,7 @@ class StockMinuteArchiver(Stock15MinArchiver):
         dataset_name: str = "stock_minute_history",
         end_time: datetime | None = None,
         limit_stocks: int = 5,
+        symbols: list[str] | None = None,
     ) -> int:
         checkpoint = self.get_checkpoint(dataset_name)
         default_start, resolved_end = self._default_window(end_time)
@@ -23,7 +24,10 @@ class StockMinuteArchiver(Stock15MinArchiver):
         else:
             resolved_start = default_start
 
-        stocks = self.fetch_stock_universe(limit=limit_stocks)
+        # Intraday 1min archive is forward-only by business policy. No historical backfill before official start.
+        resolved_start = max(resolved_start, default_start)
+
+        stocks = self.fetch_stock_universe(limit=limit_stocks if not symbols else len(symbols), symbols=symbols)
         total_inserted = 0
         batch_no = 0
         watermark = None

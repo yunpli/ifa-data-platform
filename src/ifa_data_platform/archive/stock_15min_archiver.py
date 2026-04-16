@@ -35,7 +35,9 @@ class Stock15MinArchiver:
             self._tushare_client = get_tushare_client()
         return self._tushare_client
 
-    def fetch_stock_universe(self, limit: int = 10) -> list[str]:
+    def fetch_stock_universe(self, limit: int = 10, symbols: Optional[list[str]] = None) -> list[str]:
+        if symbols:
+            return symbols[:limit] if limit else symbols
         try:
             with self.engine.connect() as conn:
                 rows = conn.execute(
@@ -152,6 +154,7 @@ class Stock15MinArchiver:
         dataset_name: str = "stock_15min_history",
         end_time: Optional[datetime] = None,
         limit_stocks: int = 5,
+        symbols: Optional[list[str]] = None,
     ) -> int:
         checkpoint = self.get_checkpoint(dataset_name)
         default_start, resolved_end = self._default_window(end_time)
@@ -162,7 +165,10 @@ class Stock15MinArchiver:
         else:
             resolved_start = default_start
 
-        stocks = self.fetch_stock_universe(limit=limit_stocks)
+        # Intraday 15min archive is forward-only by business policy. No historical backfill before official start.
+        resolved_start = max(resolved_start, default_start)
+
+        stocks = self.fetch_stock_universe(limit=limit_stocks if not symbols else len(symbols), symbols=symbols)
         total_inserted = 0
         batch_no = 0
         watermark: Optional[datetime] = None

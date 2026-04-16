@@ -230,18 +230,20 @@ class ArchiveOrchestrator:
             raise
 
     def _process_stock_15min_job(self, dataset_name: str) -> int:
-        """Process stock 15min archive job using real Tushare intraday bars."""
+        """Process stock 15min archive job using forward-only focus/key-focus policy."""
         from datetime import date, datetime, time, timedelta
         from ifa_data_platform.archive.stock_15min_archiver import Stock15MinArchiver
+        from ifa_data_platform.archive.archive_policy import archive_scope_symbols
 
         archiver = Stock15MinArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
+        symbols = archive_scope_symbols(("key_focus", "focus"))
 
         try:
             records = archiver.run_archive(
                 dataset_name=dataset_name,
                 end_time=end_time,
-                limit_stocks=5,
+                symbols=symbols,
             )
             logger.info(f"Stock 15min archive completed: {records} records")
             return records
@@ -250,16 +252,18 @@ class ArchiveOrchestrator:
             raise
 
     def _process_stock_minute_job(self, dataset_name: str) -> int:
-        """Process stock minute archive via Tushare stk_mins."""
+        """Process stock minute archive via forward-only key-focus policy."""
         from datetime import date, datetime, time, timedelta
         from ifa_data_platform.archive.stock_minute_archiver import StockMinuteArchiver
+        from ifa_data_platform.archive.archive_policy import archive_scope_symbols
 
         archiver = StockMinuteArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
+        symbols = archive_scope_symbols(("key_focus",))
         records = archiver.run_archive(
             dataset_name=dataset_name,
             end_time=end_time,
-            limit_stocks=5,
+            symbols=symbols,
         )
         logger.info(f"Stock minute archive completed: {records} records")
         return records
@@ -275,12 +279,23 @@ class ArchiveOrchestrator:
 
         archiver = FuturesIntradayArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
+        from ifa_data_platform.archive.archive_policy import archive_scope_symbols
+        list_types = {
+            ('futures', '15min'): ('futures_key_focus', 'futures_focus'),
+            ('futures', '1min'): ('futures_key_focus',),
+            ('commodity', '15min'): ('commodity_key_focus', 'commodity_focus'),
+            ('commodity', '1min'): ('commodity_key_focus',),
+            ('precious_metal', '15min'): ('precious_metal_key_focus', 'precious_metal_focus'),
+            ('precious_metal', '1min'): ('precious_metal_key_focus',),
+        }[(asset_type, freq)]
+        symbols = archive_scope_symbols(list_types)
         records = archiver.run_archive(
             dataset_name=dataset_name,
             asset_type=asset_type,
             category_filter=category_filter,
             freq=freq,
             end_time=end_time,
+            symbols=symbols,
             max_contracts=8,
         )
         logger.info(f"{dataset_name} archive completed: {records} records")
