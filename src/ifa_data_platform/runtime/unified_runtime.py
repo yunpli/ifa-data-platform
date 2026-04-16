@@ -623,9 +623,15 @@ MIDFREQ_PROOFSET = [
     "equity_daily_bar",
     "index_daily_bar",
     "etf_daily_bar",
+    "northbound_flow",
+    "limit_up_down_status",
     "margin_financing",
+    "southbound_flow",
+    "turnover_rate",
     "main_force_flow",
+    "sector_performance",
     "dragon_tiger_list",
+    "limit_up_detail",
 ]
 
 MIDFREQ_TUSHARE_REQUIRED = set(MIDFREQ_PROOFSET) | {

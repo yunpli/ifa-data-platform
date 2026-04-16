@@ -63,11 +63,16 @@ def test_unified_runtime_run_once_midfreq_real_run_executes():
     payload = run_cli('run-once', '--lane', 'midfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'midfreq'
     assert payload['execution_mode'] == 'real_run'
-    assert {'equity_daily_bar', 'index_daily_bar', 'etf_daily_bar', 'margin_financing', 'main_force_flow', 'dragon_tiger_list'} <= set(payload['planned_dataset_names'])
-    assert payload['executed_dataset_count'] >= 6
-    assert any(r['dataset_name'] == 'equity_daily_bar' for r in payload['dataset_results'])
-    assert any(r['dataset_name'] == 'index_daily_bar' for r in payload['dataset_results'])
-    assert any(r['dataset_name'] == 'etf_daily_bar' for r in payload['dataset_results'])
+    expected = {
+        'equity_daily_bar', 'index_daily_bar', 'etf_daily_bar', 'northbound_flow',
+        'limit_up_down_status', 'margin_financing', 'southbound_flow', 'turnover_rate',
+        'main_force_flow', 'sector_performance', 'dragon_tiger_list', 'limit_up_detail'
+    }
+    assert expected <= set(payload['planned_dataset_names'])
+    assert payload['executed_dataset_count'] >= 10
+    assert any(r['dataset_name'] == 'southbound_flow' for r in payload['dataset_results'])
+    assert any(r['dataset_name'] == 'turnover_rate' for r in payload['dataset_results'])
+    assert any(r['dataset_name'] == 'limit_up_detail' for r in payload['dataset_results'])
     assert all(r['status'] in {'succeeded', 'dry_run', 'failed'} for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
