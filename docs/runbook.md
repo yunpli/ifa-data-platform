@@ -56,23 +56,36 @@ with engine.begin() as conn:
 PY
 ```
 
-## 5. Runtime demo
+## 5. Official runtime entry
 
-Current minimal runtime demo is designed to prove:
-- scheduler skeleton exists
-- worker skeleton exists
-- job state can be written
-- health can be queried
+The official long-running production-style runtime entry is now:
 
-Run:
 ```bash
-python scripts/demo_runtime.py
+python -m ifa_data_platform.runtime.unified_daemon --loop
 ```
 
-Expected behavior:
-- dummy job transitions through lifecycle states
-- writes into `ifa2.job_runs`
-- prints health summary
+One-shot evaluation / operator inspection:
+```bash
+python -m ifa_data_platform.runtime.unified_daemon --once
+python -m ifa_data_platform.runtime.unified_daemon --status
+```
+
+Manual per-worker execution through the unified daemon:
+```bash
+python -m ifa_data_platform.runtime.unified_daemon --worker lowfreq --runtime-budget-sec 1800
+python -m ifa_data_platform.runtime.unified_daemon --worker midfreq --runtime-budget-sec 1800
+python -m ifa_data_platform.runtime.unified_daemon --worker highfreq --runtime-budget-sec 900
+python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600
+```
+
+Optional bounded validation mode:
+```bash
+python -m ifa_data_platform.runtime.unified_daemon --worker highfreq --dry-run-manifest-only
+```
+
+### Important runtime truth
+- `lowfreq.daemon`, `midfreq.daemon`, and `highfreq.daemon` still exist, but their long-running `--loop` path is no longer the official production runtime model.
+- They are compatibility/manual wrappers and should not be treated as equal alternatives to the unified daemon.
 
 ## 6. Tests
 
@@ -82,13 +95,15 @@ pytest
 
 ## 7. What this proves at current stage
 
-A successful run currently proves only the minimum closure needed for the backbone stage:
+A successful unified-daemon run proves:
 - database reachable
 - migrations applied
-- runtime/job loop can write/read state
-- schema and code path are aligned
+- unified schedule/runtime state path is aligned with code
+- centralized run evidence can be written to `ifa2.unified_runtime_runs`
+- centralized worker state can be written to `ifa2.runtime_worker_state`
+- worker execution can be dispatched through one official runtime entry
 
-It does **not** yet prove complete iFA 2.0 production readiness.
+It still does **not** by itself prove complete iFA 2.0 production readiness; coverage truth, Business Layer scope truth, source limitations, and archive/backfill depth must also be interpreted correctly.
 
 ## 8. When a run fails
 
@@ -185,7 +200,9 @@ pytest tests/ -m integration
 ## 12. Known limitations at this phase
 
 - provider integrations are not complete
-- Redis integration is reserved but not yet mandatory
+- some runtime summary tables are not yet fully trustworthy as operator evidence surfaces on their own (`midfreq_execution_summary` / `highfreq_execution_summary` may not materialize rows even when runtime reports them in `tables_updated`)
 - slot/material input serving is still minimal
 - report generation and delivery are not yet implemented here
-- the runtime demo proves backbone direction, not final production throughput
+- Business Layer scope is still incomplete for some asset/theme classes (for example commodity / precious_metal focus-style lists are not yet seeded)
+- archive backfill depth is uneven by category/frequency
+- acceptance-run data should not be mistaken for final production baseline data

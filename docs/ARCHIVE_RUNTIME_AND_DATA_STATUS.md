@@ -1,14 +1,19 @@
 # Archive Runtime and Data Status
 
-Last updated: 2026-04-14
+Last updated: 2026-04-16
 Repo: `/Users/neoclaw/repos/ifa-data-platform`
 
-## 1. Final Repaired Runtime State
+## 1. Current Archive Runtime Truth
 
-### Official runtime entry
-- Preferred CLI: `python -m ifa_data_platform.archive.daemon`
-- Canonical implementation: `src/ifa_data_platform/archive/archive_daemon.py`
-- Compatibility entrypoint: `src/ifa_data_platform/archive/daemon.py`
+### Official long-running runtime entry
+Archive is no longer documented as an independent official long-running daemon surface.
+The official long-running production runtime entry is now:
+- `python -m ifa_data_platform.runtime.unified_daemon --loop`
+
+Archive still remains directly runnable for manual/operator execution through the unified daemon:
+- `python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600`
+
+Canonical archive implementation still lives in the archive modules, but archive should be understood as a worker under the unified runtime daemon rather than a parallel official long-running runtime model.
 
 ### Runtime modes
 - `--once`
@@ -45,21 +50,61 @@ Historical cleanup snapshots showed repeated `stock_daily_archive` runs in the s
   - active polling near active window
   - long sleep until next official window after completion / outside window
 
-## 3. Archive Tables, Purpose, and Current Row Counts
+## 3. Archive Tables, Purpose, and Current Backfill Truth
 
-Row counts at audit time:
+Archive is now better understood as a mixed-scope history/catch-up layer with uneven advancement by category/frequency.
+Representative current row-count / progression truth from the 2026-04-16 clarification batch:
 
-| Table | Rows | Purpose |
+| Table | Current state / rows | Meaning |
 |---|---:|---|
-| `ifa2.archive_jobs` | 3 | Registered archive jobs (`stock_daily_archive`, `macro_archive`, `futures_archive`) |
-| `ifa2.archive_runs` | 3 | Per-job execution records for archive windows |
-| `ifa2.archive_summary_daily` | 1 | Per business-date + window execution summary |
-| `ifa2.archive_daemon_state` | 1 | Daemon liveness / loop / last-success state |
-| `ifa2.archive_checkpoints` | 3 | Unified resume/checkpoint status across archive datasets |
-| `ifa2.stock_history_checkpoint` | 1 | Stock-specific archive checkpoint (primary stock resume state) |
-| `ifa2.stock_daily_history` | 4819 | Archived stock daily history asset data |
-| `ifa2.macro_history` | 1223 | Archived macro history asset data |
-| `ifa2.futures_history` | 778 | Archived futures / commodity history asset data |
+| `ifa2.archive_runs` | runtime evidence grows by archive sub-job/window | archive execution evidence |
+| `ifa2.archive_summary_daily` | runtime summary rollup rows | archive window rollup |
+| `ifa2.archive_checkpoints` | 18 rows | central backfill/resume checkpoints across archive dataset families |
+| `ifa2.archive_target_catchup` | 8 rows | catch-up backlog / observed/completed state |
+| `ifa2.stock_history_checkpoint` | 2 rows | stock-specific checkpoint anchors |
+| `ifa2.stock_15min_history` | 1290 | stock 15min history store |
+| `ifa2.stock_minute_history` | 2410 | stock minute history store |
+| `ifa2.futures_15min_history` | 22912 | futures 15min history store |
+| `ifa2.futures_minute_history` | 32000 | futures minute history store |
+| `ifa2.commodity_15min_history` | 49456 | commodity 15min history store |
+| `ifa2.commodity_minute_history` | 56000 | commodity minute history store |
+| `ifa2.precious_metal_15min_history` | 16000 | precious metal 15min history store |
+| `ifa2.precious_metal_minute_history` | 16000 | precious metal minute history store |
+| `ifa2.macro_history` | 1223 | macro history store |
+
+### Archive coverage truth
+Current explicit archive target lists in Business Layer:
+- `default_archive_targets_15min` (40 items)
+- `default_archive_targets_minute` (20 items)
+
+Observed breakdown:
+- 15min:
+  - stock 22
+  - futures 2
+  - commodity 6
+  - precious_metal 2
+  - macro 8
+  - index 0 observed
+- minute:
+  - stock 10
+  - commodity 4
+  - precious_metal 2
+  - macro 4
+  - futures 0 observed
+  - index 0 observed
+
+No explicit archive daily target list is currently represented as a focus-list definition, although daily catch-up/progression state does exist.
+
+### Archive backfill advancement truth
+Observed checkpoint max dates are uneven:
+- stock minute / 15min advanced to `2026-04-15`
+- stock daily checkpointing currently lags (`stock_daily` at `2026-04-13`, with stock daily catch-up state at `2026-04-15`)
+- macro at `2026-04-16`
+- futures minute / 15min at `2025-09-12`
+- commodity minute / 15min at `2025-06-16`
+- precious_metal minute / 15min at `2025-06-16`
+
+Therefore archive should not be described as evenly advanced across all categories/frequencies.
 
 ## 4. Current Table-Level State
 
@@ -154,9 +199,11 @@ Not blocking this cleanup, but still worth tightening later:
 
 ## 9. Formal Boundary After Cleanup
 
-- archive is a **night-window historical accumulation line** only
+- archive is a **historical accumulation / catch-up worker** under the unified runtime daemon
 - archive is **not** the same-day report production path
-- archive should run through **one formal chain only**:
-  - `python -m ifa_data_platform.archive.daemon --once`
-  - `python -m ifa_data_platform.archive.daemon --loop`
-- archive should not coexist with ad-hoc duplicate loops or test windows in the live database
+- official long-running runtime chain is:
+  - `python -m ifa_data_platform.runtime.unified_daemon --loop`
+- direct archive manual run should use:
+  - `python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600`
+- archive should not coexist with ad-hoc duplicate loops or parallel alternative long-running runtime models in the live database
+- a zero-row follow-up archive run after a successful prior run can be a truthful checkpoint-continuation outcome rather than a failure

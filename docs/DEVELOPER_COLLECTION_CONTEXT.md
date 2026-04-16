@@ -1,6 +1,6 @@
 # Developer Collection Context
 
-Last updated: 2026-04-14
+Last updated: 2026-04-16
 Repo: `/Users/neoclaw/repos/ifa-data-platform`
 
 ## 1. Repo / Runtime Basics
@@ -64,39 +64,37 @@ Rule:
 - keep `.env` local-only
 - keep `config/runtime/*.env` gitignored
 
-## 4. Runtime Daemon / Archiver Positioning
+## 4. Runtime Positioning
 
-### lowfreq daemon
-- Module: `ifa_data_platform.lowfreq.daemon`
-- Purpose: low-frequency collection for daily-light / weekly-deep datasets
-- Official CLI:
-  - `python -m ifa_data_platform.lowfreq.daemon --once`
-  - `python -m ifa_data_platform.lowfreq.daemon --loop`
-  - `python -m ifa_data_platform.lowfreq.daemon --health`
-- Shell helper: `scripts/run_lowfreq_daemon.sh`
-- Current policy: **currently stopped intentionally** before next-stage collection upgrade
+### Unified runtime daemon (official)
+Official long-running runtime entry:
+- `python -m ifa_data_platform.runtime.unified_daemon --loop`
 
-### midfreq daemon
-- Module: `ifa_data_platform.midfreq.daemon`
-- Purpose: same-day / post-close collection windows
-- Official CLI:
-  - `python -m ifa_data_platform.midfreq.daemon --once`
-  - `python -m ifa_data_platform.midfreq.daemon --loop`
-  - `python -m ifa_data_platform.midfreq.daemon --health`
-  - `python -m ifa_data_platform.midfreq.daemon --watchdog`
-- Current runtime finding: a persistent midfreq daemon process exists and is the only live collection daemon process found during this cleanup
+Operator/manual entry surfaces:
+- `python -m ifa_data_platform.runtime.unified_daemon --once`
+- `python -m ifa_data_platform.runtime.unified_daemon --status`
+- `python -m ifa_data_platform.runtime.unified_daemon --worker lowfreq --runtime-budget-sec 1800`
+- `python -m ifa_data_platform.runtime.unified_daemon --worker midfreq --runtime-budget-sec 1800`
+- `python -m ifa_data_platform.runtime.unified_daemon --worker highfreq --runtime-budget-sec 900`
+- `python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600`
 
-### archive daemon / archiver
-- Canonical implementation: `ifa_data_platform.archive.archive_daemon`
-- CLI compatibility alias added: `ifa_data_platform.archive.daemon`
-- Purpose: night-window long-history accumulation / backfill; not same-day report production
-- Official windows (Asia/Shanghai):
-  - `21:30–22:30`
-  - `02:00–03:00`
-- Official modes:
-  - `--once` = one eligible window execution then exit
-  - `--loop` = wait for official windows and run at most once per window/date
-  - `--health` = state/summary/watchdog inspection
+Unified daemon currently owns:
+- schedule loading from `ifa2.runtime_worker_schedules`
+- trading-day classification from `ifa2.trade_cal_current`
+- central worker state via `ifa2.runtime_worker_state`
+- central run evidence via `ifa2.unified_runtime_runs`
+- worker dispatch across lowfreq/midfreq/highfreq/archive
+
+### Lane daemons (compatibility/manual wrappers)
+- `ifa_data_platform.lowfreq.daemon`
+- `ifa_data_platform.midfreq.daemon`
+- `ifa_data_platform.highfreq.daemon`
+
+These still exist for compatibility/manual use, but their long-running `--loop` role is no longer the official production runtime model.
+
+### Archive worker positioning
+Archive should now be understood as a worker under the unified daemon.
+Archive-specific code still exists under `archive/`, but official long-running operation should not be documented as a parallel independent runtime path.
 
 ## 5. Current Collection Layer Structure
 
@@ -107,38 +105,61 @@ Rule:
 - `docs/`: runbooks, framework docs, acceptance notes
 - `ops/snapshots/`: local cleanup snapshots; gitignored
 
-## 6. Current Runtime Status (post-cleanup baseline)
+## 6. Current Runtime/Data Truth (post-convergence)
 
-### lowfreq
-- Official chain: `python -m ifa_data_platform.lowfreq.daemon --loop`
-- Helper chain: `scripts/run_lowfreq_daemon.sh`
-- Current status: **not running**
-- Reason: intentionally stopped / held before upgrade work
-- DB state remains preserved (`lowfreq_*` tables retained)
+### Runtime truth
+- unified daemon is the official long-running runtime model
+- accepted runtime budgets:
+  - lowfreq: `1800 sec`
+  - midfreq: `1800 sec`
+  - highfreq: `900 sec`
+  - archive: `3600 sec`
+- schedule policy is day-type driven:
+  - `trading_day`
+  - `non_trading_weekday`
+  - `saturday`
+  - `sunday`
 
-### midfreq
-- Official chain: `python -m ifa_data_platform.midfreq.daemon --loop`
-- Current status: **running** as standalone process
-- PID observed during audit: `42398`
-- Latest DB state showed stale failure history in `ifa2.midfreq_daemon_state`; runtime owner should validate whether the live process should continue or be restarted cleanly in next phase
-- No stop performed in this cleanup because instruction only required stopping lowfreq and avoiding collateral damage
+### Business Layer truth relevant to runtime
+Present:
+- `default_key_focus`
+- `default_focus`
+- `default_archive_targets_15min`
+- `default_archive_targets_minute`
+- `default_tech_key_focus` (seeded later)
+- `default_tech_focus` (seeded later)
 
-### archive
-- Official chain after cleanup:
-  - `python -m ifa_data_platform.archive.daemon --once`
-  - `python -m ifa_data_platform.archive.daemon --loop`
-- Current status: **not running** at audit time
-- Official policy after repair:
-  - no out-of-window looping every 30 seconds
-  - no duplicate execution for same business date + window
-  - sleep until next enabled window when outside window or when current window already completed
+Missing / still not defined as of the latest clarification:
+- no explicit commodity key-focus/focus lists
+- no explicit precious_metal key-focus/focus lists
+- archive index coverage is not explicitly represented in current archive target lists
+
+### Archive backfill truth
+Archive progression is uneven:
+- stock minute / 15min relatively advanced to `2026-04-15`
+- macro relatively advanced to `2026-04-16`
+- futures minute / 15min only to `2025-09-12`
+- commodity minute / 15min only to `2025-06-16`
+- precious_metal minute / 15min only to `2025-06-16`
+
+A second-pass archive run producing 0 rows can be a truthful checkpoint-continuation result rather than a failure.
 
 ## 7. Formal vs Residual Runtime Chains
 
-### Formal chains
-- lowfreq: `python -m ifa_data_platform.lowfreq.daemon --loop`
-- midfreq: `python -m ifa_data_platform.midfreq.daemon --loop`
-- archive: `python -m ifa_data_platform.archive.daemon --loop` (compat alias) / implementation in `archive.archive_daemon`
+### Formal chain
+- unified production/runtime chain:
+  - `python -m ifa_data_platform.runtime.unified_daemon --loop`
+
+### Manual worker chain
+- `python -m ifa_data_platform.runtime.unified_daemon --worker <lowfreq|midfreq|highfreq|archive>`
+
+### Residual / compatibility chains
+- `lowfreq.daemon`
+- `midfreq.daemon`
+- `highfreq.daemon`
+- legacy archive-specific module paths
+
+These remain in the repo but are not the official long-running runtime model.
 
 ### Residual / historical items identified
 - root-level `ifa.db`: local stray sqlite artifact, not formal runtime DB

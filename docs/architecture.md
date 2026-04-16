@@ -141,20 +141,78 @@ This table/object is still only a minimal placeholder. The architectural meaning
 
 ## 7. Runtime/control implications
 
-Even in 2.0, report production is a timed system. Therefore the backend must be designed with eventual support for:
+Even in 2.0, report production is a timed system. Therefore the backend must be designed with support for:
 - run states
 - deadlines
 - retries
 - degradation rules
 - notification hooks
 - replay/backfill
+- schedule policy by market/business day type
+- operator-readable worker state and recent run evidence
 
-Current implementation only covers a minimal subset:
-- job state persistence through `job_runs`
-- scheduler/worker demo loop
-- health checks
+### Current runtime truth
+The repository has now converged to a **unified runtime daemon** as the official long-running entry:
+- `python -m ifa_data_platform.runtime.unified_daemon --loop`
 
-That is enough for the current skeleton stage, but not the final operating model.
+The unified daemon owns:
+- central schedule loading from `ifa2.runtime_worker_schedules`
+- Beijing/Shanghai business-time schedule semantics
+- trading-day classification via `ifa2.trade_cal_current`
+- worker dispatch for:
+  - `lowfreq`
+  - `midfreq`
+  - `highfreq`
+  - `archive`
+- centralized run evidence in `ifa2.unified_runtime_runs`
+- centralized worker state in `ifa2.runtime_worker_state`
+- runtime budget / overlap / timeout governance hooks
+
+Lane-specific `lowfreq` / `midfreq` / `highfreq` daemon modules still exist, but their long-running `--loop` role has been demoted to compatibility/manual-wrapper status rather than remaining primary operational entry points.
+
+## 7.1 Schedule policy truth
+Production schedule policy is now explicitly modeled by runtime day type:
+- `trading_day`
+- `non_trading_weekday`
+- `saturday`
+- `sunday`
+
+Trading-day truth is DB-backed through:
+- `ifa2.trade_cal_current`
+
+Current high-level schedule shape:
+- trading day:
+  - lowfreq pre-report refresh
+  - highfreq pre-open / intraday / close support
+  - midfreq midday / post-close support
+  - archive evening backlog/archive run
+- non-trading weekday:
+  - lowfreq reference refresh
+  - archive run
+- Saturday:
+  - lowfreq weekly-review support
+  - midfreq weekly-review support
+  - archive run
+- Sunday:
+  - lowfreq next-week preview support
+  - midfreq preview-support refresh
+  - archive run
+
+Highfreq is intentionally not scheduled as a normal weekend/non-trading-weekday lane.
+
+## 7.2 Business Layer influence on execution
+Business Layer truth now materially affects runtime scope:
+- `focus_lists`
+- `focus_list_items`
+- `focus_list_rules`
+
+Important current truth:
+- `default_key_focus` and `default_focus` exist and drive broad stock-oriented scope
+- `default_archive_targets_15min` and `default_archive_targets_minute` exist and drive archive target scope
+- `default_tech_key_focus` and `default_tech_focus` were later seeded to close a Business Layer gap in tech coverage
+- commodity / precious_metal focus-style lists still do not exist as first-class Business Layer definitions
+
+That means some coverage gaps can be Business Layer target-definition gaps rather than source/runtime failures.
 
 ## 8. OpenClaw boundary
 
