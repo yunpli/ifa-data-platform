@@ -6,6 +6,7 @@ from datetime import datetime
 
 from ifa_data_platform.highfreq.persistence import (
     HighfreqAuctionWorking,
+    HighfreqEventStreamWorking,
     HighfreqStock1mWorking,
 )
 from ifa_data_platform.lowfreq.version_persistence import DatasetVersionRegistry
@@ -19,6 +20,7 @@ class HighfreqTushareAdaptor:
         self.stock_1m = HighfreqStock1mWorking()
         self.open_auction = HighfreqAuctionWorking("highfreq_open_auction_working")
         self.close_auction = HighfreqAuctionWorking("highfreq_close_auction_working")
+        self.event_stream = HighfreqEventStreamWorking()
 
     def fetch_stock_1m(self, ts_code: str, start_time: str, end_time: str) -> list[dict]:
         rows = self.client.query(
@@ -78,4 +80,40 @@ class HighfreqTushareAdaptor:
         version_id = self.version_registry.create_version("highfreq_close_auction_working", "tushare", run_id, watermark=watermark)
         count = self.close_auction.bulk_replace(records, version_id)
         self.version_registry.promote("highfreq_close_auction_working", version_id)
+        return count
+
+    def fetch_event_stream(self, start_date: str, end_date: str) -> list[dict]:
+        records = []
+        major_news = self.client.query("major_news", {"start_date": start_date, "end_date": end_date}, timeout_sec=30, max_retries=2)
+        anns = self.client.query("anns_d", {"start_date": start_date, "end_date": end_date}, timeout_sec=30, max_retries=2)
+        for row in major_news[:200]:
+            records.append(
+                {
+                    'event_type': 'major_news',
+                    'symbol': None,
+                    'event_time': datetime.fromisoformat(str(row['pub_time'])),
+                    'title': row.get('title'),
+                    'source': row.get('src') or 'tushare',
+                    'url': row.get('url'),
+                    'payload': str(row),
+                }
+            )
+        for row in anns[:200]:
+            records.append(
+                {
+                    'event_type': 'announcement',
+                    'symbol': row.get('ts_code'),
+                    'event_time': datetime.strptime(str(row['ann_date']), '%Y%m%d'),
+                    'title': row.get('title'),
+                    'source': 'tushare_anns_d',
+                    'url': row.get('url'),
+                    'payload': str(row),
+                }
+            )
+        return records
+
+    def persist_event_stream(self, run_id: str, records: list[dict], watermark: str) -> int:
+        version_id = self.version_registry.create_version("highfreq_event_stream_working", "tushare_mix", run_id, watermark=watermark)
+        count = self.event_stream.bulk_insert(records, version_id)
+        self.version_registry.promote("highfreq_event_stream_working", version_id)
         return count

@@ -127,3 +127,37 @@ class HighfreqAuctionWorking:
                     },
                 )
         return len(records)
+
+
+class HighfreqEventStreamWorking:
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def bulk_insert(self, records: list[dict], version_id: str) -> int:
+        if not records:
+            return 0
+        with self.engine.begin() as conn:
+            for rec in records:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.highfreq_event_stream_working (
+                            id, version_id, event_type, symbol, event_time, title, source, url, payload
+                        ) VALUES (
+                            :id, :version_id, :event_type, :symbol, :event_time, :title, :source, :url, :payload
+                        )
+                        """
+                    ),
+                    {
+                        'id': str(uuid.uuid4()),
+                        'version_id': version_id,
+                        'event_type': rec['event_type'],
+                        'symbol': rec.get('symbol'),
+                        'event_time': rec['event_time'],
+                        'title': rec.get('title'),
+                        'source': rec.get('source', 'tushare'),
+                        'url': rec.get('url'),
+                        'payload': rec.get('payload'),
+                    },
+                )
+        return len(records)

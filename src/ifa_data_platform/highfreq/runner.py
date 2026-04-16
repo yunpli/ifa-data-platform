@@ -59,13 +59,17 @@ class HighfreqRunner:
             records = self.adaptor.fetch_close_auction("000001.SZ", "20260415")
             count = self.adaptor.persist_close_auction(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        elif dataset_name == "event_time_stream":
+            records = self.adaptor.fetch_event_stream("20260415", "20260416")
+            count = self.adaptor.persist_event_stream(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         else:
             result = RunnerResult(
                 dataset_name=dataset_name,
                 status="deferred",
                 records_processed=0,
                 watermark=now,
-                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch1",
+                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch2",
             )
 
         if run_id:
