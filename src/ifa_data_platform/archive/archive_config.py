@@ -63,6 +63,8 @@ class ArchiveConfig:
 
     timezone: ZoneInfo = field(default_factory=lambda: ZoneInfo("Asia/Shanghai"))
     loop_interval_sec: int = 60
+    backfill_anchor_date: str = "2023-01-01"
+    backfill_days: Optional[int] = None
     windows: list[ArchiveWindow] = field(default_factory=list)
     jobs: list[ArchiveJobConfig] = field(default_factory=list)
 
@@ -102,6 +104,8 @@ def _get_default_config() -> ArchiveConfig:
     return ArchiveConfig(
         timezone=ZoneInfo("Asia/Shanghai"),
         loop_interval_sec=60,
+        backfill_anchor_date="2023-01-01",
+        backfill_days=None,
         windows=[
             ArchiveWindow(
                 window_name="night_window_1",

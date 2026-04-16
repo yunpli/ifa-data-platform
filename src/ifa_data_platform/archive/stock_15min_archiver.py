@@ -155,6 +155,8 @@ class Stock15MinArchiver:
         end_time: Optional[datetime] = None,
         limit_stocks: int = 5,
         symbols: Optional[list[str]] = None,
+        backfill_anchor_date: Optional[date] = None,
+        backfill_days: Optional[int] = None,
     ) -> int:
         checkpoint = self.get_checkpoint(dataset_name)
         default_start, resolved_end = self._default_window(end_time)
@@ -167,6 +169,18 @@ class Stock15MinArchiver:
 
         # Intraday 15min archive is forward-only by business policy. No historical backfill before official start.
         resolved_start = max(resolved_start, default_start)
+
+        anchor = backfill_anchor_date
+        if backfill_days is not None:
+            anchor = (resolved_end - timedelta(days=backfill_days)).date()
+        if anchor is not None:
+            self.checkpoint_store.upsert_checkpoint(
+                dataset_name=dataset_name,
+                asset_type="stock",
+                backfill_start=anchor,
+                backfill_end=resolved_end.date(),
+                status="in_progress",
+            )
 
         stocks = self.fetch_stock_universe(limit=limit_stocks if not symbols else len(symbols), symbols=symbols)
         total_inserted = 0

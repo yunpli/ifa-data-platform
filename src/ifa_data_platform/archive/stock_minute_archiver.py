@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from ifa_data_platform.archive.stock_15min_archiver import Stock15MinArchiver
 
@@ -14,6 +14,8 @@ class StockMinuteArchiver(Stock15MinArchiver):
         end_time: datetime | None = None,
         limit_stocks: int = 5,
         symbols: list[str] | None = None,
+        backfill_anchor_date: date | None = None,
+        backfill_days: int | None = None,
     ) -> int:
         checkpoint = self.get_checkpoint(dataset_name)
         default_start, resolved_end = self._default_window(end_time)
@@ -26,6 +28,18 @@ class StockMinuteArchiver(Stock15MinArchiver):
 
         # Intraday 1min archive is forward-only by business policy. No historical backfill before official start.
         resolved_start = max(resolved_start, default_start)
+
+        anchor = backfill_anchor_date
+        if backfill_days is not None:
+            anchor = (resolved_end - timedelta(days=backfill_days)).date()
+        if anchor is not None:
+            self.checkpoint_store.upsert_checkpoint(
+                dataset_name=dataset_name,
+                asset_type="stock",
+                backfill_start=anchor,
+                backfill_end=resolved_end.date(),
+                status="in_progress",
+            )
 
         stocks = self.fetch_stock_universe(limit=limit_stocks if not symbols else len(symbols), symbols=symbols)
         total_inserted = 0

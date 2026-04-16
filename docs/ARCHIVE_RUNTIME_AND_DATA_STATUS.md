@@ -82,6 +82,11 @@ Archive has two responsibilities:
 1. forward archival of current-day collected data
 2. time-series archival of tradable objects across selected frequencies
 
+The current code-level policy surface is now represented in:
+- `src/ifa_data_platform/archive/archive_policy.py`
+- `ArchiveConfig.backfill_anchor_date`
+- `ArchiveConfig.backfill_days`
+
 Current intended frequency policy:
 - daily:
   - archive all main tradable categories where source/storage path exists
@@ -100,7 +105,11 @@ Intraday backfill rule:
 - they are forward-archive only from official system run/start
 
 Historical backfill rule:
-- daily / slower-changing data should backfill from `2023-01-01` policy anchor where implemented
+- daily / slower-changing data should backfill from a parameterized anchor where implemented
+- current default anchor in config: `2023-01-01`
+- code now supports:
+  - explicit anchor date via `backfill_anchor_date`
+  - bounded backfill horizon via `backfill_days`
 
 Target-change rule:
 - archived history stays
@@ -147,9 +156,21 @@ Already aligned or partially aligned:
 
 Still missing / deferred / unsupported:
 - 60-minute archive path is not implemented
-- small structured current-day output archive is not yet a first-class implemented archive layer
+- small structured current-day output archive is only partially implemented as a registry/service scaffold; not yet a full persistent archive layer
 - current non-equity BL list coverage is incomplete relative to desired target sizes
 - archive index coverage is still not explicitly present in current BL target definitions
+
+### Current-day structured output archive truth
+Current batch added a first explicit service/registry scaffold in:
+- `src/ifa_data_platform/archive/structured_output_archive.py`
+
+Truthful current state:
+- supported-as-archiveable examples are now explicitly enumerated:
+  - `dragon_tiger_list_current` -> `dragon_tiger_list_history`
+  - `limit_up_detail_current` -> `limit_up_detail_history`
+  - `limit_up_down_status_current` -> `limit_up_down_status_history`
+- event/timestamp summary outputs are still only partially supported because there is no dedicated archive table yet; current truth remains working-state only
+- this is therefore a partial implementation, not a completed structured-output archive subsystem
 
 ## 4. Current Table-Level State
 

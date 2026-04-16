@@ -122,6 +122,8 @@ class FuturesIntradayArchiver:
         end_time: Optional[datetime] = None,
         max_contracts: int = 8,
         symbols: Optional[list[str]] = None,
+        backfill_anchor_date: Optional[date] = None,
+        backfill_days: Optional[int] = None,
     ) -> int:
         checkpoint = self.checkpoint_store.get_checkpoint(dataset_name, asset_type)
         default_start, resolved_end = self._default_window(end_time)
@@ -134,6 +136,18 @@ class FuturesIntradayArchiver:
 
         # Intraday archive is forward-only by business policy.
         resolved_start = max(resolved_start, default_start)
+
+        anchor = backfill_anchor_date
+        if backfill_days is not None:
+            anchor = (resolved_end - timedelta(days=backfill_days)).date()
+        if anchor is not None:
+            self.checkpoint_store.upsert_checkpoint(
+                dataset_name=dataset_name,
+                asset_type=asset_type,
+                backfill_start=anchor,
+                backfill_end=resolved_end.date(),
+                status="in_progress",
+            )
 
         contracts = self._target_contracts(category_filter, symbols=symbols)[:max_contracts]
         total_inserted = 0

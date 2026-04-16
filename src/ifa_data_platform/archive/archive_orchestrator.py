@@ -238,12 +238,15 @@ class ArchiveOrchestrator:
         archiver = Stock15MinArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
         symbols = archive_scope_symbols(("key_focus", "focus"))
+        cfg = self.config
 
         try:
             records = archiver.run_archive(
                 dataset_name=dataset_name,
                 end_time=end_time,
                 symbols=symbols,
+                backfill_anchor_date=date.fromisoformat(cfg.backfill_anchor_date) if cfg.backfill_anchor_date else None,
+                backfill_days=cfg.backfill_days,
             )
             logger.info(f"Stock 15min archive completed: {records} records")
             return records
@@ -260,10 +263,13 @@ class ArchiveOrchestrator:
         archiver = StockMinuteArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
         symbols = archive_scope_symbols(("key_focus",))
+        cfg = self.config
         records = archiver.run_archive(
             dataset_name=dataset_name,
             end_time=end_time,
             symbols=symbols,
+            backfill_anchor_date=date.fromisoformat(cfg.backfill_anchor_date) if cfg.backfill_anchor_date else None,
+            backfill_days=cfg.backfill_days,
         )
         logger.info(f"Stock minute archive completed: {records} records")
         return records
@@ -289,6 +295,7 @@ class ArchiveOrchestrator:
             ('precious_metal', '1min'): ('precious_metal_key_focus',),
         }[(asset_type, freq)]
         symbols = archive_scope_symbols(list_types)
+        cfg = self.config
         records = archiver.run_archive(
             dataset_name=dataset_name,
             asset_type=asset_type,
@@ -297,6 +304,8 @@ class ArchiveOrchestrator:
             end_time=end_time,
             symbols=symbols,
             max_contracts=8,
+            backfill_anchor_date=date.fromisoformat(cfg.backfill_anchor_date) if cfg.backfill_anchor_date else None,
+            backfill_days=cfg.backfill_days,
         )
         logger.info(f"{dataset_name} archive completed: {records} records")
         return records
