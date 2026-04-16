@@ -11,11 +11,12 @@ OUT_DIR = Path('artifacts/archive_real_run')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 TABLES = [
     'archive_runs', 'archive_checkpoints', 'archive_target_catchup', 'archive_summary_daily',
+    'stock_60min_history', 'futures_60min_history', 'commodity_60min_history', 'precious_metal_60min_history',
     'stock_15min_history', 'stock_minute_history',
     'futures_15min_history', 'futures_minute_history',
     'commodity_15min_history', 'commodity_minute_history',
     'precious_metal_15min_history', 'precious_metal_minute_history',
-    'dragon_tiger_list_history', 'limit_up_detail_history', 'limit_up_down_status_history',
+    'dragon_tiger_list_history', 'limit_up_detail_history', 'limit_up_down_status_history', 'daily_structured_output_archive',
     'unified_runtime_runs', 'job_runs'
 ]
 

@@ -171,6 +171,15 @@ def _get_default_config() -> ArchiveConfig:
                 description="Precious metal historical archive",
             ),
             ArchiveJobConfig(
+                job_name="stock_60min_archive",
+                dataset_name="stock_60min_history",
+                asset_type="stock",
+                pool_name="default",
+                scope_name="focus",
+                is_enabled=True,
+                description="Stock 60min archive",
+            ),
+            ArchiveJobConfig(
                 job_name="stock_15min_archive",
                 dataset_name="stock_15min_history",
                 asset_type="stock",
@@ -189,6 +198,15 @@ def _get_default_config() -> ArchiveConfig:
                 description="Macro 15min archive (disabled: no truthful source/storage path in current repo)",
             ),
             ArchiveJobConfig(
+                job_name="futures_60min_archive",
+                dataset_name="futures_60min_history",
+                asset_type="futures",
+                pool_name="default",
+                scope_name="focus",
+                is_enabled=True,
+                description="Futures 60min archive",
+            ),
+            ArchiveJobConfig(
                 job_name="futures_15min_archive",
                 dataset_name="futures_15min_history",
                 asset_type="futures",
@@ -198,6 +216,15 @@ def _get_default_config() -> ArchiveConfig:
                 description="Futures 15min archive",
             ),
             ArchiveJobConfig(
+                job_name="commodity_60min_archive",
+                dataset_name="commodity_60min_history",
+                asset_type="commodity",
+                pool_name="default",
+                scope_name="focus",
+                is_enabled=True,
+                description="Commodity 60min archive",
+            ),
+            ArchiveJobConfig(
                 job_name="commodity_15min_archive",
                 dataset_name="commodity_15min_history",
                 asset_type="commodity",
@@ -205,6 +232,15 @@ def _get_default_config() -> ArchiveConfig:
                 scope_name="commodity_pool",
                 is_enabled=True,
                 description="Commodity 15min archive",
+            ),
+            ArchiveJobConfig(
+                job_name="precious_metal_60min_archive",
+                dataset_name="precious_metal_60min_history",
+                asset_type="precious_metal",
+                pool_name="default",
+                scope_name="focus",
+                is_enabled=True,
+                description="Precious metal 60min archive",
             ),
             ArchiveJobConfig(
                 job_name="precious_metal_15min_archive",

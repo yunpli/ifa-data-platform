@@ -90,6 +90,15 @@ class ArchiveOrchestrator:
                     f"Job {job_config.job_name} failed: {result.error_message}"
                 )
 
+        if not dry_run:
+            structured_records = self._archive_structured_outputs()
+            results.append(ArchiveJobResult(
+                job_name="structured_output_archive",
+                dataset_name="daily_structured_output_archive",
+                status="succeeded",
+                records_processed=structured_records,
+            ))
+
         completed_at = datetime.now(timezone.utc)
 
         succeeded = sum(1 for r in results if r.status == "succeeded")
@@ -183,24 +192,32 @@ class ArchiveOrchestrator:
             return self._process_stock_15min_job(dataset_name)
         if dataset_name == "stock_minute_history":
             return self._process_stock_minute_job(dataset_name)
+        if dataset_name == "stock_60min_history":
+            return self._process_60min_job(asset_type="stock", list_types=("key_focus", "focus"))
         if dataset_name == "futures_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"futures"}, checkpoint_asset_type="futures")
         if dataset_name == "futures_15min_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"metals"}, freq="15min")
         if dataset_name == "futures_minute_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"metals"}, freq="1min")
+        if dataset_name == "futures_60min_history":
+            return self._process_60min_job(asset_type="futures", list_types=("futures_key_focus", "futures_focus"))
         if dataset_name == "commodity_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, checkpoint_asset_type="commodity")
         if dataset_name == "commodity_15min_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, freq="15min")
         if dataset_name == "commodity_minute_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, freq="1min")
+        if dataset_name == "commodity_60min_history":
+            return self._process_60min_job(asset_type="commodity", list_types=("commodity_key_focus", "commodity_focus"))
         if dataset_name == "precious_metal_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"precious_metal"}, checkpoint_asset_type="precious_metal")
         if dataset_name == "precious_metal_15min_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="precious_metal", category_filter={"precious_metal"}, freq="15min")
         if dataset_name == "precious_metal_minute_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="precious_metal", category_filter={"precious_metal"}, freq="1min")
+        if dataset_name == "precious_metal_60min_history":
+            return self._process_60min_job(asset_type="precious_metal", list_types=("precious_metal_key_focus", "precious_metal_focus"))
         if dataset_name == "macro_15min_history":
             raise NotImplementedError("macro 15min archive has no real source/storage path in current repo")
         if dataset_name == "macro_minute_history":
@@ -309,6 +326,19 @@ class ArchiveOrchestrator:
         )
         logger.info(f"{dataset_name} archive completed: {records} records")
         return records
+
+    def _process_60min_job(self, asset_type: str, list_types: tuple[str, ...]) -> int:
+        from ifa_data_platform.archive.archive_60min_archiver import Archive60MinArchiver
+        from ifa_data_platform.archive.archive_policy import archive_scope_symbols
+        archiver = Archive60MinArchiver()
+        symbols = archive_scope_symbols(list_types)
+        return archiver.run_archive(asset_type=asset_type, symbols=symbols)
+
+    def _archive_structured_outputs(self) -> int:
+        from ifa_data_platform.archive.structured_output_archive import StructuredOutputArchiveService
+        service = StructuredOutputArchiveService()
+        summary = service.archive_supported_current_day_outputs()
+        return sum(item['rows_inserted'] for item in summary['supported_targets'])
 
     def _process_commodity_family_job(
         self, dataset_name: str, asset_type: set[str], checkpoint_asset_type: str

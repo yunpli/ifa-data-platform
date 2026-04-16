@@ -155,10 +155,55 @@ Already aligned or partially aligned:
 - archive intraday selection is now being aligned to focus/key_focus-style BL membership rather than generic historical breadth alone
 
 Still missing / deferred / unsupported:
-- 60-minute archive path is not implemented
-- small structured current-day output archive is only partially implemented as a registry/service scaffold; not yet a full persistent archive layer
 - current non-equity BL list coverage is incomplete relative to desired target sizes
 - archive index coverage is still not explicitly present in current BL target definitions
+- financial-futures 60m coverage remains effectively unsupported in practice because BL/source coverage is still empty for the approved futures roots
+
+### 60-minute archive truth
+60-minute archive is now implemented with explicit storage tables:
+- `stock_60min_history`
+- `futures_60min_history`
+- `commodity_60min_history`
+- `precious_metal_60min_history`
+
+Current implementation path:
+- derives 60m rows from available 15min history slices
+- uses BL-driven focus/key_focus-style selection where symbols are available
+
+Real run evidence (2026-04-16):
+- `stock_60min_history`: +60 rows
+- `futures_60min_history`: +250 rows
+- `commodity_60min_history`: +250 rows
+- `precious_metal_60min_history`: +250 rows
+
+Therefore 60m is no longer documentation-only or unsupported as a whole.
+However, category-specific coverage quality still depends on current upstream symbol/reference truth.
+
+### Current-day structured-output archive truth
+Current-day structured-output archive is now real at a generic archive-store level through:
+- `ifa2.daily_structured_output_archive`
+- code path: `src/ifa_data_platform/archive/structured_output_archive.py`
+
+Real run evidence (2026-04-16):
+- `daily_structured_output_archive`: 0 -> 890 rows
+
+Current supported source tables:
+- `dragon_tiger_list_current`
+- `limit_up_detail_current`
+- `limit_up_down_status_current`
+- `highfreq_event_stream_working`
+
+This means current-day structured-output archive is no longer scaffold-only.
+It is now partially real, but still generic:
+- real writes happen
+- yet category-specific dedicated archive tables for every summary family do not all exist yet
+
+### Known runtime truth issue
+A real archive run after 60m + structured-output implementation reported:
+- `Window manual_archive completed: 18/17 succeeded, 0 failed, 1700 records`
+
+That indicates a summary-count bug in orchestrator result accounting after adding extra archive jobs + structured-output archive result aggregation.
+The job-level evidence/tables are still usable, but the summary counter should be fixed in a later runtime bug-fix pass.
 
 ### Current-day structured output archive truth
 Current batch added a first explicit service/registry scaffold in:
