@@ -829,6 +829,81 @@ class MarginFinancingCurrent:
             ]
 
 
+class SouthboundFlowCurrent:
+    """Canonical current for southbound capital flow."""
+
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def upsert(
+        self,
+        trade_date: date,
+        south_money: Optional[float] = None,
+        south_bal: Optional[float] = None,
+        south_buy: Optional[float] = None,
+        south_sell: Optional[float] = None,
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> str:
+        record_id = str(uuid.uuid4())
+        version_id_value = (
+            None if version_id == CURRENT_VERSION_ID_SENTINEL else version_id
+        )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.southbound_flow_current (
+                        id, trade_date, south_money, south_bal, south_buy, south_sell,
+                        version_id, created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :trade_date, :south_money, :south_bal, :south_buy, :south_sell,
+                        :version_id, now(), now()
+                    )
+                    ON CONFLICT (trade_date) DO UPDATE SET
+                        south_money = EXCLUDED.south_money,
+                        south_bal = EXCLUDED.south_bal,
+                        south_buy = EXCLUDED.south_buy,
+                        south_sell = EXCLUDED.south_sell,
+                        version_id = EXCLUDED.version_id,
+                        updated_at = now()
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": record_id,
+                    "trade_date": trade_date,
+                    "south_money": south_money,
+                    "south_bal": south_bal,
+                    "south_buy": south_buy,
+                    "south_sell": south_sell,
+                    "version_id": version_id_value,
+                },
+            )
+        return record_id
+
+    def bulk_upsert(
+        self,
+        records: list[dict],
+        version_id: Optional[str] = CURRENT_VERSION_ID_SENTINEL,
+    ) -> int:
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.upsert(
+                trade_date=rec["trade_date"],
+                south_money=rec.get("south_money"),
+                south_bal=rec.get("south_bal"),
+                south_buy=rec.get("south_buy"),
+                south_sell=rec.get("south_sell"),
+                version_id=version_id,
+            )
+            count += 1
+        return count
+
+
 class LimitUpDetailCurrent:
     """Canonical current for limit up/down details."""
 
@@ -853,7 +928,7 @@ class LimitUpDetailCurrent:
                 text(
                     """
                     INSERT INTO ifa2.limit_up_detail_current (
-                        id, ts_code, trade_date, limit, pre_limit,
+                        id, ts_code, trade_date, limit_status, pre_limit_status,
                         version_id, created_at, updated_at
                     )
                     VALUES (
@@ -861,8 +936,8 @@ class LimitUpDetailCurrent:
                         :version_id, now(), now()
                     )
                     ON CONFLICT (ts_code, trade_date) DO UPDATE SET
-                        limit = EXCLUDED.limit,
-                        pre_limit = EXCLUDED.pre_limit,
+                        limit_status = EXCLUDED.limit_status,
+                        pre_limit_status = EXCLUDED.pre_limit_status,
                         version_id = EXCLUDED.version_id,
                         updated_at = now()
                     RETURNING id
@@ -903,7 +978,7 @@ class LimitUpDetailCurrent:
             if limit:
                 rows = conn.execute(
                     text(
-                        """SELECT id, ts_code, trade_date, limit, pre_limit
+                        """SELECT id, ts_code, trade_date, limit_status AS \"limit\", pre_limit_status AS pre_limit
                         FROM ifa2.limit_up_detail_current ORDER BY ts_code, trade_date LIMIT :limit"""
                     ),
                     {"limit": limit},
@@ -911,7 +986,7 @@ class LimitUpDetailCurrent:
             else:
                 rows = conn.execute(
                     text(
-                        """SELECT id, ts_code, trade_date, limit, pre_limit
+                        """SELECT id, ts_code, trade_date, limit_status AS \"limit\", pre_limit_status AS pre_limit
                         FROM ifa2.limit_up_detail_current ORDER BY ts_code, trade_date"""
                     ),
                 ).fetchall()

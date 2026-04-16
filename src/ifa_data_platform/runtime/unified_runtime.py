@@ -26,6 +26,7 @@ from ifa_data_platform.archive.archive_target_delta import (
     build_archive_manifest,
     diff_archive_manifests,
 )
+from ifa_data_platform.config.settings import get_settings
 from ifa_data_platform.db.engine import make_engine
 from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.runner import LowFreqRunner
@@ -606,6 +607,34 @@ class UnifiedRuntimeStore:
         return delta.asset_category
 
 
+LOWFREQ_PROOFSET = [
+    "trade_cal",
+    "stock_basic",
+    "index_basic",
+    "announcements",
+    "news",
+    "company_basic",
+]
+
+MIDFREQ_PROOFSET = [
+    "equity_daily_bar",
+    "index_daily_bar",
+    "etf_daily_bar",
+    "margin_financing",
+    "main_force_flow",
+    "dragon_tiger_list",
+]
+
+MIDFREQ_TUSHARE_REQUIRED = set(MIDFREQ_PROOFSET) | {
+    "northbound_flow",
+    "limit_up_down_status",
+    "limit_up_detail",
+    "turnover_rate",
+    "southbound_flow",
+    "sector_performance",
+}
+
+
 class UnifiedRuntime:
     def __init__(self) -> None:
         self.store = UnifiedRuntimeStore()
@@ -613,6 +642,7 @@ class UnifiedRuntime:
         self.midfreq_runner = MidfreqRunner()
         self.lowfreq_registry = DatasetRegistry()
         self.midfreq_registry = MidfreqDatasetRegistry()
+        self._ensure_runtime_registries()
 
     def run_once(
         self,
@@ -693,9 +723,14 @@ class UnifiedRuntime:
         lane_items = [i for i in manifest.items if i.resolved_lane == lane]
         dataset_names = self._plan_lane_datasets(lane, lane_items)
         execution_mode = self._lane_execution_mode(lane)
-        dataset_results = [
+        requirement_state = self._runtime_requirement_state(lane)
+        blocked = self._blocked_dataset_results(lane, dataset_names, requirement_state)
+        runnable_dataset_names = [
+            dataset_name for dataset_name in dataset_names if dataset_name not in {r.dataset_name for r in blocked}
+        ]
+        dataset_results = blocked + [
             self._execute_lane_dataset(lane, dataset_name, dry_run=(execution_mode == "dry_run"))
-            for dataset_name in dataset_names
+            for dataset_name in runnable_dataset_names
         ]
         records_processed = sum(r.records_processed for r in dataset_results)
         failed = [r for r in dataset_results if r.status not in {"succeeded", "dry_run"}]
@@ -716,6 +751,9 @@ class UnifiedRuntime:
             "asset_categories": sorted({i.asset_category for i in lane_items}),
             "dataset_results": [r.to_dict() for r in dataset_results],
             "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],
+            "requirements": requirement_state,
+            "blocked_dataset_count": len(blocked),
+            "blocked_dataset_names": [r.dataset_name for r in blocked],
         }
         self.store.finalize_run(
             run_id=run_id,
@@ -746,36 +784,70 @@ class UnifiedRuntime:
 
     def _plan_lane_datasets(self, lane: str, lane_items: list[TargetManifestItem]) -> list[str]:
         if lane == "lowfreq":
-            preferred = [
-                "trade_cal",
-                "stock_basic",
-                "index_basic",
-                "fund_basic_etf",
-                "sw_industry_mapping",
-                "news_basic",
+            enabled = [
+                d.dataset_name
+                for d in self.lowfreq_registry.list_enabled()
+                if not d.dataset_name.startswith("test_")
+                and d.dataset_name not in {"e2e_test_dataset", "china_a_share_daily"}
             ]
-            enabled = {d.dataset_name for d in self.lowfreq_registry.list_enabled()}
-            planned = [d for d in preferred if d in enabled]
-            return planned or ["stock_basic"]
+            preferred = [name for name in LOWFREQ_PROOFSET if name in enabled]
+            if preferred:
+                return preferred
+            return enabled or ["stock_basic"]
 
         if lane == "midfreq":
-            preferred = [
-                "equity_daily_bar",
-                "index_daily_bar",
-                "etf_daily_bar",
-                "northbound_flow",
-                "limit_up_down_status",
-            ]
-            enabled = {d.dataset_name for d in self.midfreq_registry.list_enabled()}
-            planned = [d for d in preferred if d in enabled]
-            return planned or ["equity_daily_bar"]
+            enabled = [d.dataset_name for d in self.midfreq_registry.list_enabled()]
+            preferred = [name for name in MIDFREQ_PROOFSET if name in enabled]
+            if preferred:
+                return preferred
+            return enabled or ["equity_daily_bar"]
 
         return []
 
     def _lane_execution_mode(self, lane: str) -> str:
         if lane == "lowfreq":
             return "real_run"
+        if lane == "midfreq":
+            return "real_run"
         return "dry_run"
+
+    def _ensure_runtime_registries(self) -> None:
+        """Bring runtime-critical registries to the expected minimum closure set."""
+        self.midfreq_runner.register_datasets()
+
+    def _runtime_requirement_state(self, lane: str) -> dict[str, Any]:
+        settings = get_settings()
+        token_configured = bool((settings.tushare_token or "").strip())
+        return {
+            "lane": lane,
+            "tushare_token_configured": token_configured,
+            "notes": [] if token_configured or lane != "midfreq" else [
+                "TUSHARE_TOKEN missing: token-backed midfreq datasets are failed fast instead of looping the full universe"
+            ],
+        }
+
+    def _blocked_dataset_results(
+        self,
+        lane: str,
+        dataset_names: list[str],
+        requirement_state: dict[str, Any],
+    ) -> list[DatasetExecutionResult]:
+        if lane != "midfreq" or requirement_state.get("tushare_token_configured"):
+            return []
+        blocked = []
+        for dataset_name in dataset_names:
+            if dataset_name not in MIDFREQ_TUSHARE_REQUIRED:
+                continue
+            blocked.append(
+                DatasetExecutionResult(
+                    dataset_name=dataset_name,
+                    status="failed",
+                    records_processed=0,
+                    watermark=None,
+                    error_message="missing requirement: TUSHARE_TOKEN is required for token-backed midfreq collection",
+                )
+            )
+        return blocked
 
     def _execute_lane_dataset(self, lane: str, dataset_name: str, dry_run: bool) -> DatasetExecutionResult:
         if lane == "lowfreq":

@@ -181,20 +181,30 @@ class ArchiveOrchestrator:
             return self._process_stock_job(dataset_name)
         if dataset_name == "stock_15min_history":
             return self._process_stock_15min_job(dataset_name)
+        if dataset_name == "stock_minute_history":
+            return self._process_stock_minute_job(dataset_name)
         if dataset_name == "futures_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"futures"}, checkpoint_asset_type="futures")
         if dataset_name == "futures_15min_history":
-            return self._process_generic_job(job_name, dataset_name, asset_type)
+            return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"metals"}, freq="15min")
+        if dataset_name == "futures_minute_history":
+            return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"metals"}, freq="1min")
         if dataset_name == "commodity_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, checkpoint_asset_type="commodity")
         if dataset_name == "commodity_15min_history":
-            return self._process_generic_job(job_name, dataset_name, asset_type)
+            return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, freq="15min")
+        if dataset_name == "commodity_minute_history":
+            return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, freq="1min")
         if dataset_name == "precious_metal_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"precious_metal"}, checkpoint_asset_type="precious_metal")
         if dataset_name == "precious_metal_15min_history":
-            return self._process_generic_job(job_name, dataset_name, asset_type)
+            return self._process_futures_intraday_job(dataset_name, asset_type="precious_metal", category_filter={"precious_metal"}, freq="15min")
+        if dataset_name == "precious_metal_minute_history":
+            return self._process_futures_intraday_job(dataset_name, asset_type="precious_metal", category_filter={"precious_metal"}, freq="1min")
         if dataset_name == "macro_15min_history":
-            return self._process_generic_job(job_name, dataset_name, asset_type)
+            raise NotImplementedError("macro 15min archive has no real source/storage path in current repo")
+        if dataset_name == "macro_minute_history":
+            raise NotImplementedError("macro minute archive has no real source/storage path in current repo")
         if asset_type == "macro":
             return self._process_generic_job(job_name, dataset_name, asset_type)
 
@@ -238,6 +248,43 @@ class ArchiveOrchestrator:
         except Exception as e:
             logger.error(f"Stock 15min archive failed: {e}")
             raise
+
+    def _process_stock_minute_job(self, dataset_name: str) -> int:
+        """Process stock minute archive via Tushare stk_mins."""
+        from datetime import date, datetime, time, timedelta
+        from ifa_data_platform.archive.stock_minute_archiver import StockMinuteArchiver
+
+        archiver = StockMinuteArchiver()
+        end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
+        records = archiver.run_archive(
+            dataset_name=dataset_name,
+            end_time=end_time,
+            limit_stocks=5,
+        )
+        logger.info(f"Stock minute archive completed: {records} records")
+        return records
+
+    def _process_futures_intraday_job(
+        self, dataset_name: str, asset_type: str, category_filter: set[str], freq: str
+    ) -> int:
+        """Process futures-family intraday archive job using ft_mins."""
+        from datetime import date, datetime, time, timedelta
+        from ifa_data_platform.archive.futures_intraday_archiver import (
+            FuturesIntradayArchiver,
+        )
+
+        archiver = FuturesIntradayArchiver()
+        end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
+        records = archiver.run_archive(
+            dataset_name=dataset_name,
+            asset_type=asset_type,
+            category_filter=category_filter,
+            freq=freq,
+            end_time=end_time,
+            max_contracts=8,
+        )
+        logger.info(f"{dataset_name} archive completed: {records} records")
+        return records
 
     def _process_commodity_family_job(
         self, dataset_name: str, asset_type: set[str], checkpoint_asset_type: str

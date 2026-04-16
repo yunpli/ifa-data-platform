@@ -154,6 +154,34 @@ class MidfreqRunner:
                 "dataset_name": "limit_up_down_status",
                 "description": "Limit up/down market status",
             },
+            {
+                "dataset_name": "margin_financing",
+                "description": "融资融券余额与成交",
+            },
+            {
+                "dataset_name": "turnover_rate",
+                "description": "个股换手率",
+            },
+            {
+                "dataset_name": "limit_up_detail",
+                "description": "涨跌停明细",
+            },
+            {
+                "dataset_name": "southbound_flow",
+                "description": "Southbound (CN->HK) capital flow",
+            },
+            {
+                "dataset_name": "main_force_flow",
+                "description": "主力资金流",
+            },
+            {
+                "dataset_name": "sector_performance",
+                "description": "申万行业表现",
+            },
+            {
+                "dataset_name": "dragon_tiger_list",
+                "description": "龙虎榜",
+            },
         ]
 
         for ds in datasets:
@@ -228,6 +256,19 @@ class MidfreqRunner:
         current_table, history_table = table_map[dataset_name]
 
         with engine.begin() as conn:
+            current_exists = conn.execute(
+                text("select to_regclass(:name)"),
+                {"name": f"ifa2.{current_table}"},
+            ).scalar()
+            history_exists = conn.execute(
+                text("select to_regclass(:name)"),
+                {"name": f"ifa2.{history_table}"},
+            ).scalar()
+            if not current_exists or not history_exists:
+                logger.warning(
+                    f"Skipping history persistence for {dataset_name}: current/history table missing"
+                )
+                return 0
             result = conn.execute(
                 text(f"""
                     INSERT INTO ifa2.{history_table} (id, version_id, 
@@ -251,7 +292,7 @@ class MidfreqRunner:
             "limit_up_down_status": "trade_date, limit_up_count, limit_down_count, limit_up_streak_high, limit_down_streak_high",
             "margin_financing": "ts_code, trade_date, rzye, rzmre, rzche, rzrqye, rqryl",
             "turnover_rate": "ts_code, trade_date, turnover_rate, turnover_rate_f",
-            "limit_up_detail": "ts_code, trade_date, limit, pre_limit",
+            "limit_up_detail": "ts_code, trade_date, \"limit\", pre_limit",
             "southbound_flow": "trade_date, south_money, south_bal, south_buy, south_sell",
             "main_force_flow": "ts_code, trade_date, main_force, main_force_pct",
             "sector_performance": "sector_code, trade_date, sector_name, close, pct_chg, turnover_rate",
@@ -260,5 +301,8 @@ class MidfreqRunner:
         return column_maps.get(dataset_name, "*")
 
     def _get_columns_for_insert(self, dataset_name: str) -> str:
-        """Get column list for history insert."""
-        return self._get_columns_for_history(dataset_name)
+        """Get SELECT column list from current table for history insert."""
+        current_column_maps = {
+            "limit_up_detail": 'ts_code, trade_date, limit_status AS "limit", pre_limit_status AS pre_limit',
+        }
+        return current_column_maps.get(dataset_name, self._get_columns_for_history(dataset_name))

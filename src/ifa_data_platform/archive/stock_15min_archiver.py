@@ -104,7 +104,11 @@ class Stock15MinArchiver:
         parsed.sort(key=lambda r: r["trade_time"])
         return parsed
 
-    def persist_records(self, records: list[dict]) -> int:
+    def persist_records(
+        self,
+        records: list[dict],
+        table_name: str = "stock_15min_history",
+    ) -> int:
         if not records:
             return 0
 
@@ -113,8 +117,8 @@ class Stock15MinArchiver:
             for rec in records:
                 result = conn.execute(
                     text(
-                        """
-                        INSERT INTO ifa2.stock_15min_history (
+                        f"""
+                        INSERT INTO ifa2.{table_name} (
                             id, ts_code, trade_time, open, high, low, close,
                             vol, amount, freq, source, created_at
                         ) VALUES (
@@ -136,6 +140,13 @@ class Stock15MinArchiver:
         start_time = datetime.combine(end_time.date(), time(9, 30, 0))
         return start_time, end_time
 
+    def _table_has_rows(self, table_name: str) -> bool:
+        with self.engine.connect() as conn:
+            return bool(
+                conn.execute(text(f"SELECT EXISTS (SELECT 1 FROM ifa2.{table_name} LIMIT 1)"))
+                .scalar_one()
+            )
+
     def run_archive(
         self,
         dataset_name: str = "stock_15min_history",
@@ -145,7 +156,8 @@ class Stock15MinArchiver:
         checkpoint = self.get_checkpoint(dataset_name)
         default_start, resolved_end = self._default_window(end_time)
 
-        if checkpoint and checkpoint.get("last_completed_at"):
+        checkpoint_usable = bool(checkpoint and checkpoint.get("last_completed_at")) and self._table_has_rows(dataset_name)
+        if checkpoint_usable:
             resolved_start = checkpoint["last_completed_at"] + timedelta(minutes=15)
         else:
             resolved_start = default_start

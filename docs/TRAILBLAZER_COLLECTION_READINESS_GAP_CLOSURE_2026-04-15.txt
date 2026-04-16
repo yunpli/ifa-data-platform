@@ -177,70 +177,62 @@ This means lowfreq has **substantial real framework/config surface**, not just a
 ## 1.2 What lowfreq categories are truly covered in real execution now?
 
 ### Manifest-level category presence
-The latest canonical lowfreq real-run evidence still shows manifest categories:
+The manual unified lowfreq run produced manifest categories:
 - `stock`
 - `futures`
 - `macro`
 - `commodity`
 - `precious_metal`
 
-### Actual manual collection execution evidence in the latest final state
-Latest canonical run inspected from `ifa2.unified_runtime_runs`:
+### Actual manual collection execution evidence in this phase
+Manual command:
 ```bash
-python scripts/runtime_manifest_cli.py run-once --lane lowfreq --owner-type default --owner-id default
+/usr/bin/time -l python scripts/runtime_manifest_cli.py run-once --lane lowfreq --owner-type default --owner-id default
 ```
 
-Returned fields from the latest canonical persisted row:
-- `run_id = 76192792-2641-4b1f-8f8a-b36c87bd50cd`
-- `execution_mode = real_run`
-- `planned_dataset_names = ["trade_cal", "stock_basic", "index_basic", "fund_basic_etf", "sw_industry_mapping", "news_basic"]`
-- `executed_dataset_count = 6`
-- dataset results:
-  - `trade_cal` → `succeeded` → `records_processed = 2297`
-  - `stock_basic` → `succeeded` → `records_processed = 5502`
-  - `index_basic` → `succeeded` → `records_processed = 8000`
-  - `fund_basic_etf` → `succeeded` → `records_processed = 10000`
-  - `sw_industry_mapping` → `succeeded` → `records_processed = 3000`
-  - `news_basic` → `succeeded` → `records_processed = 1500`
-- `records_processed = 30299`
+Returned fields:
+- `run_id = 64163d9b-6d95-4a70-8fef-22a9d25aaff8`
+- `planned_dataset_names = ["stock_basic"]`
+- `executed_dataset_count = 1`
+- dataset result:
+  - `dataset_name = stock_basic`
+  - `status = succeeded`
 
-### Actual lowfreq collection coverage proven by this latest run
-- **stock**: yes, proven by executed datasets `trade_cal`, `stock_basic`, `index_basic`, `fund_basic_etf`, `sw_industry_mapping`, `news_basic`
+### Actual lowfreq collection coverage proven by this run
+- **stock**: yes, proven by executed dataset `stock_basic`
 
-### Categories present in manifest logic but NOT separately proven collected by this latest run
-- **futures**: manifest-visible, not separately proven collected by a futures-specific lowfreq dataset in this run
-- **macro**: manifest-visible, not separately proven collected by a macro-specific lowfreq dataset in this run
-- **commodity**: manifest-visible, not separately proven collected by a commodity-specific lowfreq dataset in this run
-- **precious_metal**: manifest-visible, not separately proven collected by a precious-metal-specific lowfreq dataset in this run
+### Categories present in manifest logic but NOT proven collected by this manual runnable path
+- **futures**: manifest-visible, not proven collected in this run
+- **macro**: manifest-visible, not proven collected in this run
+- **commodity**: manifest-visible, not proven collected in this run
+- **precious_metal**: manifest-visible, not proven collected in this run
 
 ## 1.3 Readiness gap reality for lowfreq
 
-Lowfreq is materially stronger than the earlier narrower snapshot:
+Lowfreq is stronger than the previous audit made it sound in one dimension:
 - there is a real daemon
 - there are real registered datasets
 - there are real configured multi-dataset groups
-- the latest canonical unified/manual validation path now proves a six-dataset real-run proof set rather than only `stock_basic`
 
-The remaining operational-readiness gap is narrower than before:
-- the latest proved execution set is still strongest on the stock/reference-support slice
-- the existence of broader manifest/category coverage still does **not yet equal** operationally proven sustained collection coverage across every broader lowfreq category surface
+But the most important operational readiness gap remains:
+- the currently exercised unified/manual validation path still proves only **very narrow actual collection coverage** (`stock_basic`)
+- the existence of many registered/configured datasets does **not yet equal** operationally proven sustained collection coverage across the broader lowfreq category space
 
 ## 1.4 Lowfreq gap-closure conclusion
 
-**What is closed factually in the latest final state:**
+**What is closed factually in this phase:**
 - lowfreq is not merely selector-visible; it has real runnable daemon/config/registry depth
-- the dataset inventory and daemon groups prove a materially larger implemented surface than a toy path
-- the latest canonical persisted proof set widened to 6 successful real-run datasets with `30299` processed records
+- the dataset inventory and daemon groups prove a materially larger implemented surface than a one-dataset toy path
 
 **What remains open:**
-- broader lowfreq operational-readiness proof still needs category-specific execution evidence beyond the current accepted proof set
-- category presence in manifest is still ahead of category-specific executed proof
+- broader lowfreq operational-readiness proof still needs actual execution evidence across more than `stock_basic`
+- category presence in manifest is still ahead of category-level executed proof
 
-**Lowfreq judgment:** **accepted for this phase / partially ready beyond the accepted proof set**
+**Lowfreq judgment:** **partially ready**
 
 Reason:
-- the required proof set was materially closed in the latest accepted state
-- but broader category-level coverage beyond that accepted proof set should still not be overstated as fully proven sustained readiness
+- real daemon and many real datasets/groups exist
+- but actual manually proven collection coverage is still too narrow to honestly call the lane fully ready now
 
 ---
 
@@ -276,45 +268,42 @@ From `midfreq/daemon_config.py`:
   - `dragon_tiger_list`
 
 Important truth:
-- some datasets named in daemon config still do **not** appear fully aligned to the current proven registry/runtime reality (`southbound_flow`, `turnover_rate`, and others remain weaker paths)
-- so daemon-config ambition is still ahead of the fully proven registered/runtime state
+- some datasets named in daemon config do **not** appear in the current registry dump from this environment (`margin_financing`, `southbound_flow`, `turnover_rate`, `limit_up_detail`)
+- so daemon-config ambition is ahead of the registered dataset reality
 
 ## 2.2 Manual midfreq validation evidence
 
-Latest canonical persisted run inspected:
+Command:
 ```bash
-python scripts/runtime_manifest_cli.py run-once --lane midfreq --owner-type default --owner-id default
+/usr/bin/time -l python scripts/runtime_manifest_cli.py run-once --lane midfreq --owner-type default --owner-id default
 ```
 
-Returned fields from the latest canonical persisted row:
-- `run_id = 413b9f54-3f59-4c5d-b385-b345e2de867c`
-- `planned_dataset_names = ["equity_daily_bar", "index_daily_bar", "etf_daily_bar", "northbound_flow", "limit_up_down_status"]`
-- `executed_dataset_count = 5`
-- dataset results:
-  - `equity_daily_bar` → `dry_run` → `records_processed = 0`
-  - `index_daily_bar` → `dry_run` → `records_processed = 8`
-  - `etf_daily_bar` → `dry_run` → `records_processed = 12`
-  - `northbound_flow` → `dry_run` → `records_processed = 1`
-  - `limit_up_down_status` → `dry_run` → `records_processed = 1`
-- `records_processed = 22`
-- `execution_mode = dry_run`
+Returned fields:
+- `run_id = 40da7d95-8a74-4b03-b569-ebc590c29613`
+- `planned_dataset_names = ["equity_daily_bar"]`
+- `executed_dataset_count = 1`
+- dataset result:
+  - `dataset_name = equity_daily_bar`
+  - `status = dry_run`
+  - `watermark = 20260414`
 
-Actual executed scope in this latest run:
-- **stock-adjacent only**
-- widened from the earlier one-dataset snapshot to a five-dataset proof set
+Actual executed scope in this run:
+- **stock only**
+- specifically one stock dataset path: `equity_daily_bar`
 
 ## 2.3 Is midfreq still effectively stock-only / dry-run weighted?
 
-**Yes, even in the latest final state.**
+**Yes, based on current runnable evidence.**
 
 Why:
-- the latest real manual validation path widened materially, but all currently accepted proof remains stock-adjacent
-- the latest canonical persisted execution is still `dry_run`
-- this is materially stronger than the earlier one-dataset snapshot, but it is still not broad non-dry-run multi-category operational proof
+- the real manual validation path executed only `equity_daily_bar`
+- that is a stock dataset
+- the returned dataset result was `dry_run`
+- this is better than “not runnable”, but it is not yet broad multi-category operational proof
 
 ## 2.4 What role does `TUSHARE_TOKEN` play?
 
-Observed in clean-clone validation and still relevant operationally:
+Observed earlier in clean-clone validation and still relevant operationally:
 - the midfreq adaptor attempts Tushare-backed fetches
 - without `TUSHARE_TOKEN`, the environment emits adaptor warnings and the path degrades
 - the dry-run route can still complete and persist runtime evidence, but clean operational behavior depends on proper credential provisioning
@@ -325,21 +314,21 @@ Engineering interpretation:
 
 ## 2.5 Midfreq gap-closure conclusion
 
-**What is closed factually in the latest final state:**
-- midfreq is not merely stock-manifest scaffolding; there is a real daemon, registry, and a larger configured dataset surface than the earlier narrow snapshot implied
-- the latest accepted proof set widened to five datasets: `equity_daily_bar`, `index_daily_bar`, `etf_daily_bar`, `northbound_flow`, `limit_up_down_status`
-- the phase correctly exposes broader configured-set drift instead of hiding it
+**What is closed factually in this phase:**
+- midfreq is not merely stock-manifest scaffolding; there is a real daemon, registry, and a larger configured dataset surface than the prior summary implied
+- however, the current operationally proven runnable path remains narrow
 
 **What remains open:**
-- broader non-dry-run multi-dataset midfreq execution proof beyond the accepted proof set
-- proof that the weaker configured datasets are not just listed but truly runnable in the present environment
+- actual multi-dataset midfreq execution proof beyond `equity_daily_bar`
+- proof that registered/configured non-stock-adjacent datasets are not just listed but truly runnable in current environment
 - cleaner credentialed operation with `TUSHARE_TOKEN`
 
-**Midfreq judgment:** **accepted for this phase / partially ready beyond the accepted proof set**
+**Midfreq judgment:** **partially ready**
 
 Reason:
-- the mandatory proof set was materially widened and accepted for this phase
-- but actual validated execution remains dry-run weighted and should not be overstated as fully ready beyond that accepted scope
+- real daemon/framework/registry exist
+- actual validated execution remains stock-only and dry-run weighted
+- environment cleanliness depends on Tushare credentialing
 
 ---
 
@@ -548,13 +537,13 @@ Why:
 - clean operation still depends on `TUSHARE_TOKEN`
 
 ## Archive
-**Judgment: accepted for this phase / ready now for current implemented scope**
+**Judgment: ready now** for current implemented scope
 
 Why:
 - real daemon, real run-store, real summary-store, real checkpoints, real catch-up state visibility
-- latest inspected archive one-shot summary shows `archive_total_jobs = 10`, `archive_succeeded_jobs = 10`, `archive_failed_jobs = 0`
+- current implemented default job scope is clear and runnable: stock/macro/futures
 - we have real catch-up state progression proof
-- caveat: the fast one-shot observed in this phase was still low-work/no-op style, not heavy backfill volume
+- caveat: the fast one-shot observed in this phase was low-work/no-op style, not heavy backfill volume
 
 ---
 
@@ -583,4 +572,4 @@ Why:
 - **midfreq:** partially ready
 - **archive:** ready now
 
-That is the current operational truth, based on the reconciled latest repo state, current DB state, and real manual validation evidence — without over-claiming readiness from manifest or registry presence alone.
+That is the current operational truth, based on current code, current DB state, and real manual validation evidence — without over-claiming readiness from manifest or registry presence alone.

@@ -253,6 +253,12 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             )
 
             return TurnoverRateCurrent().bulk_upsert(records, version_id)
+        elif dataset_name == "southbound_flow":
+            from ifa_data_platform.midfreq.canonical_persistence import (
+                SouthboundFlowCurrent,
+            )
+
+            return SouthboundFlowCurrent().bulk_upsert(records, version_id)
         elif dataset_name == "limit_up_detail":
             from ifa_data_platform.midfreq.canonical_persistence import (
                 LimitUpDetailCurrent,
@@ -267,6 +273,11 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             return DragonTigerListCurrent().bulk_upsert(records, version_id)
 
         return 0
+
+    def _normalize_equity_ts_code(self, ts_code: str) -> str:
+        if ts_code.endswith('.SZ') or ts_code.endswith('.SH'):
+            return ts_code
+        return f"{ts_code}.SZ" if ts_code.startswith('0') or ts_code.startswith('3') else f"{ts_code}.SH"
 
     def _fetch_equity_daily_bar(
         self, trade_date: Optional[str] = None
@@ -284,11 +295,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         failures = []
 
         for ts_code in symbols:
-            full_code = (
-                f"{ts_code}.SZ"
-                if ts_code.startswith("0") or ts_code.startswith("3")
-                else f"{ts_code}.SH"
-            )
+            full_code = self._normalize_equity_ts_code(ts_code)
             try:
                 records = self.client.query(
                     "daily",
@@ -573,11 +580,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         start_date = start_date_dt.strftime("%Y%m%d")
 
         for ts_code in symbols:
-            full_code = (
-                f"{ts_code}.SZ"
-                if ts_code.startswith("0") or ts_code.startswith("3")
-                else f"{ts_code}.SH"
-            )
+            full_code = self._normalize_equity_ts_code(ts_code)
             try:
                 records = self.client.query(
                     "margin",
@@ -676,7 +679,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
     def _fetch_turnover_rate(
         self, trade_date: Optional[str] = None
     ) -> tuple[list[dict], str]:
-        """Fetch turnover rate."""
+        """Fetch turnover rate from Tushare daily_basic."""
         if not trade_date:
             trade_date = self._get_last_trading_day()
             if not trade_date:
@@ -688,14 +691,10 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         parsed_records = []
 
         for ts_code in symbols:
-            full_code = (
-                f"{ts_code}.SZ"
-                if ts_code.startswith("0") or ts_code.startswith("3")
-                else f"{ts_code}.SH"
-            )
+            full_code = self._normalize_equity_ts_code(ts_code)
             try:
                 records = self.client.query(
-                    "daily",
+                    "daily_basic",
                     {"ts_code": full_code, "trade_date": trade_date},
                     timeout_sec=30,
                     max_retries=2,

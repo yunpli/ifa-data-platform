@@ -1,0 +1,544 @@
+Trailblazer Unified Readiness-Gap Audit
+Date: 2026-04-15
+Repo: /Users/neoclaw/repos/ifa-data-platform
+Branch/remote state reviewed: main @ 0b88b16 (origin/main aligned)
+
+Purpose
+- This is one consolidated end-to-end audit of the completed readiness-gap phase.
+- Source of truth used here: repository files, migrations, tests, docs, commit history, and current DB/runtime evidence.
+- This is an audit/sanity review only. No new implementation work is claimed in this document.
+
+Executive summary
+- Milestone A/B/C/D as finally accepted were:
+  - A = archive readiness-gap closure
+  - B = lowfreq readiness-gap closure
+  - C = midfreq readiness-gap closure
+  - D = final readiness-gap packaging / evidence / handoff docs
+- The readiness-gap phase did not implement minute archive ingestion. Minute remained present in Business Layer target definitions, but was intentionally deferred from this approved phase plan.
+- Current repo state DOES contain archive runtime expansion beyond the earlier 3-job state. Final repo/runtime truth is a 10-job archive configuration covering:
+  - daily: stock, macro, futures, commodity, precious_metal
+  - 15min: stock, macro, futures, commodity, precious_metal
+- Current repo state does NOT contain a real minute archive ingestion/storage/checkpoint path.
+- Collection readiness final truth:
+  - lowfreq: accepted for this phase, but only partially complete relative to broader category ambition
+  - midfreq: accepted for this phase at strongest truthful level reached, but still partial beyond accepted proof set
+  - archive: accepted for this phase for daily + 15min scope reached in repo/runtime; minute explicitly deferred
+  - highfreq: explicitly deferred / not done
+
+Important reconciliation note
+- The repository contains older audit text reflecting an earlier archive state with only 3 jobs, and later final-state docs/code reflecting a 10-job archive state.
+- Current source-of-truth code and DB/runtime evidence align with the later 10-job state, not the earlier 3-job state.
+- Therefore this unified audit treats the later state as final accepted reality and calls the earlier 3-job references historical/intermediate, not final.
+
+======================================================================
+1. Milestone-by-milestone audit
+======================================================================
+
+Milestone A — Archive
+Objective
+- Close the archive readiness gap against Business Layer targets as far as approved for this phase.
+- Specifically: move archive beyond earlier under-alignment, add required daily/15min runtime coverage for the approved scope, preserve truthful residual-gap classification, and avoid over-claiming minute readiness.
+
+What was actually implemented
+- Archive runtime configuration expanded from earlier narrower default scope to explicit jobs for:
+  - stock_daily_archive -> stock_daily
+  - macro_archive -> macro_history
+  - futures_archive -> futures_history
+  - commodity_archive -> commodity_history
+  - precious_metal_archive -> precious_metal_history
+  - stock_15min_archive -> stock_15min_history
+  - macro_15min_archive -> macro_15min_history
+  - futures_15min_archive -> futures_15min_history
+  - commodity_15min_archive -> commodity_15min_history
+  - precious_metal_15min_archive -> precious_metal_15min_history
+- Archive orchestrator routes were extended to:
+  - process stock daily via real stock archiver
+  - process stock 15min via real stock_15min archiver
+  - process commodity-family daily jobs via commodity archiver with category filters
+  - process macro/futures/commodity/precious_metal 15min jobs through generic checkpointed path
+- Real schema/storage addition landed for stock 15min only:
+  - migration 025_stock_15min_history.py
+  - new ifa2.stock_15min_history table
+  - archive_checkpoints.last_completed_at added
+  - stock_15min_archiver.py added for real ingestion/upsert/checkpoint behavior
+- Minute archive was not implemented.
+
+Sanity tests / validation actually done
+- Repo docs and final evidence package claim Milestone A accepted with:
+  - daily archive runtime coverage across required categories
+  - 15min archive runtime coverage across required categories
+  - one real 15min ingest/storage/checkpoint closure path for 15min + stock
+- DB/runtime evidence inspected now shows current archive runs for all 10 configured jobs, including:
+  - stock_daily_archive
+  - macro_archive
+  - futures_archive
+  - commodity_archive
+  - precious_metal_archive
+  - stock_15min_archive
+  - macro_15min_archive
+  - futures_15min_archive
+  - commodity_15min_archive
+  - precious_metal_15min_archive
+- Archive one-shot validations in docs were executed.
+- Catch-up/checkpoint closure proof exists from final evidence package for temporary selector delta handling (399999.SZ case).
+- No evidence found that minute archive one-shot/ingest/storage/checkpoint path was executed, because minute was not implemented.
+
+DB/runtime evidence that exists
+- Current DB/runtime state inspected:
+  - archive_runs = 344
+  - archive_checkpoints = 9
+  - archive_target_catchup = 8
+  - archive_summary_daily = 4
+  - latest unified archive runs have worker_type = archive_dryrun_worker
+  - latest archive job rows include all 10 daily/15min jobs above
+- archive_checkpoints currently include a real stock_15min_history checkpoint row:
+  - dataset_name = stock_15min_history
+  - asset_type = stock
+  - last_completed_date = 2026-04-14
+  - last_completed_at = 2026-04-14 15:00:00
+  - batch_no = 5
+  - status = completed
+- archive_target_catchup schema contains:
+  - change_type
+  - dedupe_key
+  - symbol_or_series_id
+  - asset_category
+  - granularity
+  - archive_run_id
+  - checkpoint_dataset_name
+  - checkpoint_asset_type
+  - started_at
+  - completed_at
+  - progress_note
+- Earlier final evidence package also records real catch-up row insertion/binding/completion evidence for stock_daily_catchup.
+
+Commits belonging to Milestone A
+- f6442d6 — Expand archive runtime coverage for commodity and precious metals
+- 9680b93 — Add 15min archive runtime coverage for required categories
+- 5ce9dbb — Add real stock 15min archive storage and checkpoints
+
+Final truthful judgment accepted for Milestone A
+- Accepted for this phase at the strongest truthful level reached.
+- Truthful accepted state is:
+  - daily archive runtime coverage exists for stock/macro/futures/commodity/precious_metal
+  - 15min archive runtime coverage exists for stock/macro/futures/commodity/precious_metal
+  - real ingest/storage/checkpoint closure is actually implemented and evidenced for stock 15min
+  - non-stock 15min paths are runtime-covered but not equally strong ingestion/storage closures
+  - minute archive is not implemented and was not part of accepted closure for this phase
+
+
+Milestone B — Lowfreq
+Objective
+- Close the lowfreq readiness gap enough to replace underpowered single-dataset proof with a materially broader, evidence-backed proof set.
+- Ensure accepted proof uses truthful runtime semantics and includes service-mode smoke on the lowfreq daemon path.
+
+What was actually implemented
+- Unified runtime lowfreq planning was changed to run a broader accepted proof set instead of collapsing to the earlier narrower path.
+- Final accepted proof set in docs/runtime evidence is:
+  - trade_cal
+  - stock_basic
+  - index_basic
+  - fund_basic_etf
+  - sw_industry_mapping
+  - news_basic
+- Unified runtime lowfreq mode was corrected to real_run rather than forced dry-run.
+- Test expectations were updated to reflect the broader lowfreq proof set and real_run semantics.
+
+Sanity tests / validation actually done
+- Integration tests updated and run.
+- Final docs claim service-mode smoke was proven on the lowfreq daemon path.
+- Manual unified runtime run-once lowfreq validations were executed.
+- Current DB/runtime evidence includes repeated latest lowfreq real_run entries with the accepted 6-dataset proof set and 30299 processed records.
+
+DB/runtime evidence that exists
+- Current latest unified lowfreq rows include:
+  - worker_type = lowfreq_real_run_worker
+  - execution_mode = real_run
+  - planned_dataset_names = [trade_cal, stock_basic, index_basic, fund_basic_etf, sw_industry_mapping, news_basic]
+  - records_processed = 30299
+- Tests include explicit assertion for lowfreq real_run behavior:
+  - tests/integration/test_unified_runtime.py
+- Lowfreq daemon/service-related tests exist:
+  - tests/integration/test_lowfreq_daemon.py
+  - lowfreq daemon state / already_succeeded_today paths in code/tests
+
+Commits belonging to Milestone B
+- 3bc0883 — Run lowfreq unified runtime in real execution mode
+- 7f0be62 — Align unified runtime tests with real lowfreq execution
+- 4b8b445 — Refresh unified runtime integration expectations
+
+Final truthful judgment accepted for Milestone B
+- Accepted for this phase.
+- Truthful accepted state is:
+  - the required proof set was materially closed with real non-dry-run evidence
+  - lowfreq real_run semantics are now truthful in unified runtime evidence
+  - lowfreq has real daemon/config/registry depth and service-smoke evidence
+  - lowfreq should still not be overstated as fully complete across all broader category ambition just because manifest categories are wider
+
+
+Milestone C — Midfreq
+Objective
+- Close the midfreq readiness gap to the strongest truthful point reachable in this phase.
+- Reconcile registry/runtime truth, establish a broader mandatory proof set, capture service-mode smoke, and document residual blockers instead of hand-waving them.
+
+What was actually implemented
+- Midfreq registry/runtime truth was reconciled.
+- Midfreq daemon-state handling bug around succeeded_today was fixed.
+- Unified runtime / integration expectations were refreshed to the accepted proof set.
+- Final accepted mandatory proof set is:
+  - equity_daily_bar
+  - index_daily_bar
+  - etf_daily_bar
+  - northbound_flow
+  - limit_up_down_status
+- Docs state safe non-dry-run proof was established for:
+  - northbound_flow
+  - limit_up_down_status
+  - index_daily_bar
+- Residual schema/runtime blocker called out explicitly:
+  - southbound_flow missing ifa2.southbound_flow_history
+
+Sanity tests / validation actually done
+- Integration tests updated and run.
+- Manual unified runtime run-once midfreq validations were executed.
+- Clean-clone reproduction was executed and documented, with caveat that TUSHARE_TOKEN absence degrades midfreq cleanliness.
+- Service-mode smoke is claimed in the final docs as having exposed broader configured-set drift.
+
+DB/runtime evidence that exists
+- Current latest unified midfreq row inspected:
+  - worker_type = midfreq_dry_run_worker
+  - records_processed = 22
+  - planned_dataset_names = [equity_daily_bar, index_daily_bar, etf_daily_bar, northbound_flow, limit_up_down_status]
+- Midfreq code still references southbound_flow current/history mapping in runner, but final docs explicitly record missing history-table blocker.
+- Code paths for midfreq schedule memory / daemon state exist and were part of the reconciliation.
+
+Commits belonging to Milestone C
+- 4a8b779 — Reconcile midfreq registry truth and daemon state handling
+- 4b8b445 — Refresh unified runtime integration expectations
+- 7f0be62 — Align unified runtime tests with real lowfreq execution (shared integration expectation refresh around final accepted runtime behavior; primary lowfreq-facing but part of the same closure window)
+
+Final truthful judgment accepted for Milestone C
+- Accepted for this phase at the strongest truthful level reached.
+- Truthful accepted state is:
+  - mandatory proof-set runnable evidence exists
+  - midfreq remains partial beyond that accepted proof set
+  - residual configured-set/schema drift is explicit, especially southbound_flow_history absence
+  - midfreq should not be overstated as broadly complete or uniformly non-dry-run
+
+
+Milestone D — Final readiness-gap closure packaging
+Objective
+- Produce the final reviewable packaging for the readiness-gap phase: closure audit, repro smoke, runtime runbook, evidence package, and final handoff-quality docs.
+
+What was actually implemented
+- Final readiness-gap closure documentation set was added/refreshed, including:
+  - docs/TRAILBLAZER_COLLECTION_READINESS_GAP_CLOSURE_2026-04-15.md
+  - docs/TRAILBLAZER_FINAL_EVIDENCE_PACKAGE_2026-04-15.md
+  - docs/TRAILBLAZER_REPRO_SMOKE_2026-04-15.md
+  - docs/TRAILBLAZER_RUNTIME_RUNBOOK_2026-04-15.md
+  - docs/TRAILBLAZER_COLLECTION_LAYER_OPERATIONAL_AUDIT_2026-04-15.md
+  - docs/TRAILBLAZER_COLLECTION_READINESS_GAP_CLOSURE_PLAN_2026-04-15.md
+- Final source review state was pushed/aligned to main @ 0b88b16.
+
+Sanity tests / validation actually done
+- Integration tests executed and recorded.
+- Clean-clone repro executed and recorded.
+- Profiling/timing measurements recorded.
+- Runtime/DB evidence queries captured in docs.
+
+DB/runtime evidence that exists
+- Docs record persisted unified_runtime_runs, job_runs, target_manifest_snapshots, archive_target_catchup, archive_checkpoints, archive_runs, archive_summary_daily.
+- Current live counts still exist and are queryable.
+
+Commits belonging to Milestone D
+- bca8fd4 — Finalize readiness-gap closure packaging and handoff docs
+- 0b88b16 — Add readiness-gap audit and plan docs to final review set
+
+Final truthful judgment accepted for Milestone D
+- Complete as documentation/evidence packaging.
+- Milestone D is not implementation closure of new runtime behavior; it is packaging/freeze/review closure.
+
+======================================================================
+2. Minute archive history — strict answer
+======================================================================
+
+Q1. Does Business Layer currently define minute archive targets or not?
+Answer: Yes.
+- Current DB focus list evidence shows:
+  - default_archive_targets_minute
+  - frequency_type = minute
+  - item_count = 20
+- Current category distribution in minute targets:
+  - stock = 10
+  - macro = 4
+  - commodity = 4
+  - precious_metal = 2
+  - futures = 0
+
+Q2. Was minute intentionally deferred in the approved phase plan or not?
+Answer: Yes, intentionally deferred.
+- The approved readiness-gap phase plan explicitly says under archive fixed target matrix:
+  - Required in this phase: daily, 15min
+  - Explicitly deferred from this phase: minute
+- Reason in the plan:
+  - minute is larger-volume and should not be mixed into this phase if the goal is to close archive gaps before highfreq without exploding scope.
+
+Q3. Does the current repo contain any actual implemented minute archive ingestion/storage/checkpoint path or not?
+Answer: No.
+- Repo grep found minute in business-layer/archive-target planning docs only.
+- No minute archive implementation surfaces were found such as:
+  - stock_minute_history
+  - macro_minute_history
+  - futures_minute_history
+  - commodity_minute_history
+  - precious_metal_minute_history
+  - minute archive jobs in archive_config.py
+  - minute-specific minute archiver classes
+  - minute-specific migrations/tables/checkpoints
+
+Q4. If not, why not?
+Answer: Because minute was intentionally excluded by scope control in the approved readiness-gap plan.
+- This was not an accidental omission in the final accepted scope.
+- The plan explicitly narrowed archive closure to daily + 15min and deferred minute.
+
+Q5. Was it omitted because of scope control, source/storage limitations, implementation choice, or some other reason?
+Answer: Primary reason = scope control.
+- The approved plan explicitly deferred minute to prevent scope explosion before highfreq.
+- Secondary practical reasons are also implied by repo reality:
+  - no minute-specific storage schema landed
+  - no minute-specific archiver landed
+  - no minute-specific checkpoint path landed
+  - no minute-specific validation evidence landed
+- So the truthful classification is:
+  - intentionally deferred by scope control
+  - with supporting implementation/storage non-delivery because it was out of scope
+
+Q6. If there is any partial scaffolding for minute archive in code or config, show it explicitly.
+Answer: Only Business Layer / planning-level scaffolding exists.
+Present:
+- minute target list exists in DB/business-layer data and related docs
+- planning docs mention minute as part of business reality and as deferred archive scope
+Not present:
+- no minute archive job configs in archive_config.py
+- no minute archive orchestrator route
+- no minute archive migration/table
+- no minute archive run evidence
+- no minute archive checkpoint row
+
+Bottom line on minute archive
+- Business Layer defines it.
+- The approved readiness-gap phase intentionally deferred it.
+- The current repo does not implement minute archive ingestion/storage/checkpointing.
+- Therefore minute archive is NOT done.
+
+======================================================================
+3. Done vs not done — collection readiness
+======================================================================
+
+lowfreq
+- Complete for this phase:
+  - accepted proof set closed
+  - real_run semantics landed
+  - integration expectations updated
+  - service-mode smoke claimed/proven in final docs
+  - current runtime evidence shows 6-dataset real_run proof set
+- Partial:
+  - broader category ambition still exceeds concrete executed proof
+  - manifest category presence should not be confused with full category collection closure
+- Explicitly deferred / not claimed:
+  - full category-complete lowfreq readiness across every broader manifest/business category
+
+midfreq
+- Complete for this phase:
+  - accepted mandatory proof set established
+  - registry/runtime truth reconciliation landed
+  - daemon state bug fix landed
+  - service-mode smoke claimed/proven in final docs
+  - clean-clone repro recorded with caveat
+- Partial:
+  - broader configured-set remains uneven
+  - southbound_flow still blocked by missing history table
+  - midfreq evidence remains weaker beyond accepted proof set
+- Explicitly deferred / not claimed:
+  - broader schema completion / complete production-runnable closure across all configured midfreq datasets
+
+archive
+- Complete for this phase:
+  - final repo/runtime contains daily + 15min archive jobs across required categories
+  - stock 15min real storage/checkpoint path landed
+  - archive runtime and DB evidence exist
+  - catch-up/checkpoint evidence exists
+- Partial:
+  - non-stock 15min paths are not equally strong ingestion/storage closures
+  - many recent archive runs shown are dryrun/zero-record cycles, so throughput/backfill strength should not be overstated
+- Explicitly deferred:
+  - minute archive implementation
+
+highfreq
+- Not done
+- Explicitly deferred out of this phase
+- No highfreq implementation expansion was performed
+
+======================================================================
+4. Sanity-test summary — one place
+======================================================================
+
+A. Manual runs actually executed
+Recorded in docs/runbook/evidence package:
+- python scripts/runtime_manifest_cli.py run-once --lane lowfreq --owner-type default --owner-id default
+- python scripts/runtime_manifest_cli.py run-once --lane midfreq --owner-type default --owner-id default
+- python scripts/runtime_manifest_cli.py run-once --lane archive --owner-type default --owner-id default --list-type archive_targets
+- python scripts/runtime_manifest_cli.py run-status --limit N
+- python scripts/runtime_manifest_cli.py archive-status --limit N
+- direct runner probes were also recorded in docs for lowfreq/midfreq during closure analysis
+
+B. Service-mode smoke validations actually executed
+Evidence present in final docs, but important nuance:
+- lowfreq: final docs explicitly say service-mode smoke was proven on the lowfreq daemon path
+- midfreq: final docs explicitly say service-mode smoke exposed broader configured-set drift instead of hiding it
+- archive: readiness-gap plan required service-mode smoke; final docs package archive as accepted for the phase, but the strongest direct concrete evidence surfaced in the package is run-once + archive-status + archive runtime state, not a separately detailed long-running transcript
+Truthful audit wording:
+- lowfreq service-mode smoke: yes, explicitly claimed/proven in docs
+- midfreq service-mode smoke: yes, explicitly claimed/proven in docs
+- archive service-mode smoke: implied by accepted packaging and runtime evidence, but documented evidence is less explicit/less detailed than lowfreq and midfreq
+
+C. Clean-clone / repro validations actually executed
+Yes.
+- Clean clone path recorded at /tmp/ifa-data-platform-cleanclone
+- Documented sequence includes:
+  - git clone
+  - venv creation
+  - pip install -e .[dev]
+  - alembic upgrade head
+  - lowfreq run-once
+  - midfreq run-once
+  - archive run-once
+  - run-status
+  - archive-status
+  - pytest tests/integration/test_unified_runtime.py -q
+- Recorded clean-clone outcome:
+  - install succeeded
+  - migrations succeeded
+  - lowfreq one-shot succeeded
+  - midfreq one-shot completed with TUSHARE_TOKEN caveat
+  - archive one-shot succeeded
+  - integration tests passed
+
+D. Integration tests actually executed
+Yes.
+- Recorded test command:
+  - pytest tests/integration/test_unified_runtime.py -q
+- Recorded results in docs:
+  - 11 passed in 18.72s (in-repo final evidence package)
+  - 11 passed in 16.08s (clean clone repro)
+- Additional integration/unit/archive tests exist in repo, but the audit evidence specifically records the unified runtime integration suite as the executed acceptance suite.
+
+E. Profiling/timing evidence actually collected
+Yes.
+Recorded in final evidence package:
+- lowfreq one-shot:
+  - wall time ~0.44s
+  - memory figures recorded
+- midfreq one-shot:
+  - wall time ~8.62s
+  - memory figures recorded
+- archive one-shot:
+  - wall time ~0.41s
+  - memory figures recorded
+- unified runtime integration test suite:
+  - wall time ~15.55s
+  - memory figures recorded
+Truthful caveat:
+- archive profiling evidence mostly reflects light/no-op cycles, not proven heavy backfill throughput.
+
+======================================================================
+5. Final accepted state
+======================================================================
+
+What the final accepted state really is
+- The readiness-gap phase accepted state is not “everything in collection is fully complete.”
+- The final accepted state is:
+  - lowfreq accepted for this phase with broader real-run proof set and service-smoke evidence
+  - midfreq accepted for this phase at strongest truthful level reached, with residual blockers explicitly retained
+  - archive accepted for this phase for daily + 15min closure achieved in repo/runtime, with stock 15min real storage/checkpoint implementation and with minute deferred
+  - highfreq explicitly deferred
+
+What Milestones A/B/C/D actually did in one line each
+- A: expanded archive from earlier under-aligned state to final daily+15min category coverage, with real stock 15min storage/checkpoint path
+- B: widened lowfreq from underpowered proof to accepted 6-dataset real_run proof set
+- C: reconciled midfreq truth and accepted a broader but still partial proof set with explicit residual blockers
+- D: froze the readiness-gap phase into reviewable docs/evidence/repro packaging
+
+======================================================================
+6. Strict answers to the user’s four collection-readiness buckets
+======================================================================
+
+lowfreq
+- Truly complete: accepted proof set for this phase
+- Truly partial: broader category-complete collection readiness
+- Truly deferred: anything beyond accepted proof closure not evidenced
+
+midfreq
+- Truly complete: accepted mandatory proof set / reconciliation / packaging for this phase
+- Truly partial: broader configured dataset surface and production-strength completeness
+- Truly deferred: unresolved schema additions such as southbound_flow_history and broader non-dry-run closure
+
+archive
+- Truly complete: daily + 15min runtime/config closure for required categories in the final repo state; stock 15min real storage/checkpoint implementation
+- Truly partial: non-stock 15min ingestion/storage strength and heavy backfill proof
+- Truly deferred: minute archive
+
+highfreq
+- Truly complete: nothing
+- Truly partial: nothing meaningful claimed
+- Truly deferred: all of it
+
+======================================================================
+7. Evidence references used in this audit
+======================================================================
+
+Key docs
+- docs/TRAILBLAZER_COLLECTION_READINESS_GAP_CLOSURE_PLAN_2026-04-15.md
+- docs/TRAILBLAZER_COLLECTION_READINESS_GAP_CLOSURE_2026-04-15.md
+- docs/TRAILBLAZER_FINAL_EVIDENCE_PACKAGE_2026-04-15.md
+- docs/TRAILBLAZER_REPRO_SMOKE_2026-04-15.md
+- docs/TRAILBLAZER_RUNTIME_RUNBOOK_2026-04-15.md
+- docs/TRAILBLAZER_BUSINESS_LAYER_ARCHIVE_AND_COLLECTION_CLOSURE_2026-04-15.md
+- docs/TRAILBLAZER_COLLECTION_LAYER_OPERATIONAL_AUDIT_2026-04-15.md
+
+Key code / migration surfaces
+- src/ifa_data_platform/archive/archive_config.py
+- src/ifa_data_platform/archive/archive_orchestrator.py
+- src/ifa_data_platform/archive/stock_15min_archiver.py
+- alembic/versions/025_stock_15min_history.py
+- src/ifa_data_platform/runtime/unified_runtime.py
+- src/ifa_data_platform/midfreq/runner.py
+- src/ifa_data_platform/midfreq/schedule_memory.py
+- tests/integration/test_unified_runtime.py
+- tests/archive/test_archive_d1.py
+
+Key commits
+- f6442d6
+- 9680b93
+- 5ce9dbb
+- 3bc0883
+- 7f0be62
+- 4b8b445
+- 4a8b779
+- bca8fd4
+- 0b88b16
+
+======================================================================
+8. Final bottom-line answer
+======================================================================
+
+- Milestones A/B/C/D did real work and were finalized as archive / lowfreq / midfreq / packaging respectively.
+- The final accepted state is not “all collection done”; it is a scoped readiness-gap closure with explicit residuals.
+- The minute archive requirement was NOT implemented. Business Layer defines minute targets, but minute was intentionally deferred in the approved phase plan and there is no real minute archive ingestion/storage/checkpoint path in the repo.
+- The final truthful readiness call is:
+  - lowfreq: complete for accepted proof scope, partial overall
+  - midfreq: complete for accepted proof scope, partial overall
+  - archive: complete for approved daily+15min phase scope, minute deferred
+  - highfreq: deferred / not done
+
+End of audit.

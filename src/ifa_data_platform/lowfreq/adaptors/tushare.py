@@ -12,18 +12,22 @@ from ifa_data_platform.lowfreq.canonical_persistence import (
     AnnouncementsCurrent,
     CompanyBasicCurrent,
     EtfDailyBasicCurrent,
+    ForecastCurrent,
     FundBasicEtfCurrent,
     IndexBasicCurrent,
     IndexWeightCurrent,
     InvestorQaCurrent,
+    MarginCurrent,
     NameChangeCurrent,
     NewShareCurrent,
     NewsCurrent,
+    NorthSouthFlowCurrent,
     ResearchReportsCurrent,
     ShareFloatCurrent,
     StkHoldernumberCurrent,
     StkManagersCurrent,
     StockBasicCurrent,
+    StockFundForecastCurrent,
     SwIndustryMappingCurrent,
     Top10FloatholdersCurrent,
     Top10HoldersCurrent,
@@ -80,6 +84,10 @@ class TushareAdaptor(BaseAdaptor):
         self._top10_holders = Top10HoldersCurrent()
         self._top10_floatholders = Top10FloatholdersCurrent()
         self._pledge_stat = PledgeStatCurrent()
+        self._forecast = ForecastCurrent()
+        self._stock_fund_forecast = StockFundForecastCurrent()
+        self._margin = MarginCurrent()
+        self._north_south_flow = NorthSouthFlowCurrent()
         self.engine = make_engine()
 
     @property

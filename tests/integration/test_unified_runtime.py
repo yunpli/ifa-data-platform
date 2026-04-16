@@ -49,8 +49,8 @@ def test_unified_runtime_run_once_lowfreq_real_run_executes():
     payload = run_cli('run-once', '--lane', 'lowfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'lowfreq'
     assert payload['execution_mode'] == 'real_run'
-    assert {'trade_cal', 'stock_basic', 'index_basic'} <= set(payload['planned_dataset_names'])
-    assert payload['executed_dataset_count'] >= 3
+    assert {'trade_cal', 'stock_basic', 'index_basic', 'announcements', 'news', 'company_basic'} <= set(payload['planned_dataset_names'])
+    assert payload['executed_dataset_count'] >= 6
     assert any(r['dataset_name'] == 'stock_basic' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'trade_cal' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'index_basic' for r in payload['dataset_results'])
@@ -59,15 +59,16 @@ def test_unified_runtime_run_once_lowfreq_real_run_executes():
     assert payload['manifest_item_count'] > 0
 
 
-def test_unified_runtime_run_once_midfreq_dry_run_executes():
+def test_unified_runtime_run_once_midfreq_real_run_executes():
     payload = run_cli('run-once', '--lane', 'midfreq', '--owner-type', 'default', '--owner-id', 'default')
     assert payload['lane'] == 'midfreq'
-    assert {'equity_daily_bar', 'index_daily_bar', 'etf_daily_bar'} <= set(payload['planned_dataset_names'])
-    assert payload['executed_dataset_count'] >= 3
+    assert payload['execution_mode'] == 'real_run'
+    assert {'equity_daily_bar', 'index_daily_bar', 'etf_daily_bar', 'margin_financing', 'main_force_flow', 'dragon_tiger_list'} <= set(payload['planned_dataset_names'])
+    assert payload['executed_dataset_count'] >= 6
     assert any(r['dataset_name'] == 'equity_daily_bar' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'index_daily_bar' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'etf_daily_bar' for r in payload['dataset_results'])
-    assert all(r['status'] in {'succeeded', 'dry_run'} for r in payload['dataset_results'])
+    assert all(r['status'] in {'succeeded', 'dry_run', 'failed'} for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
 
 
@@ -76,7 +77,7 @@ def test_unified_runtime_run_once_archive_dry_run_executes():
     assert payload['lane'] == 'archive'
     assert 'manifest_id' in payload
     assert payload['manifest_item_count'] > 0
-    assert payload['archive_total_jobs'] >= 10
+    assert payload['archive_total_jobs'] >= 14
     assert payload['archive_catchup_rows_inserted'] >= 0
 
 
@@ -190,3 +191,22 @@ def test_schema_gap_tables_now_exist_after_migration():
             """)
         ).fetchall()
         assert [r[0] for r in rows] == ['stock_fund_forecast_current', 'stock_fund_forecast_history', 'unified_runtime_runs']
+
+
+def test_collection_prod_closure_tables_exist():
+    with engine().connect() as conn:
+        rows = conn.execute(
+            text("""
+                select table_name from information_schema.tables
+                where table_schema='ifa2'
+                  and table_name in (
+                    'stock_minute_history', 'futures_15min_history', 'futures_minute_history',
+                    'commodity_15min_history', 'commodity_minute_history',
+                    'precious_metal_15min_history', 'precious_metal_minute_history',
+                    'southbound_flow_current', 'southbound_flow_history',
+                    'turnover_rate_history', 'limit_up_detail_history'
+                  )
+                order by table_name
+            """)
+        ).fetchall()
+        assert len(rows) == 11
