@@ -63,13 +63,21 @@ class HighfreqRunner:
             records = self.adaptor.fetch_event_stream("20260415", "20260416")
             count = self.adaptor.persist_event_stream(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        elif dataset_name == "index_1m_ohlcv":
+            records = self.adaptor.fetch_index_1m("000001.SH", "20260415 09:30:00", "20260415 09:35:00")
+            count = self.adaptor.persist_index_1m(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        elif dataset_name == "etf_sector_style_1m_ohlcv":
+            records = self.adaptor.fetch_proxy_1m()
+            count = self.adaptor.persist_proxy_1m(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         else:
             result = RunnerResult(
                 dataset_name=dataset_name,
                 status="deferred",
                 records_processed=0,
                 watermark=now,
-                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch2",
+                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch3",
             )
 
         if run_id:

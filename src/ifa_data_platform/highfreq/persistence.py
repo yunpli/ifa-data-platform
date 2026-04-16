@@ -161,3 +161,91 @@ class HighfreqEventStreamWorking:
                     },
                 )
         return len(records)
+
+
+class HighfreqIndex1mWorking:
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def bulk_replace(self, records: list[dict], version_id: str) -> int:
+        if not records:
+            return 0
+        with self.engine.begin() as conn:
+            for rec in records:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.highfreq_index_1m_working (
+                            id, version_id, ts_code, trade_time, open, high, low, close, vol, amount
+                        ) VALUES (
+                            :id, :version_id, :ts_code, :trade_time, :open, :high, :low, :close, :vol, :amount
+                        )
+                        ON CONFLICT (ts_code, trade_time) DO UPDATE SET
+                            version_id = EXCLUDED.version_id,
+                            open = EXCLUDED.open,
+                            high = EXCLUDED.high,
+                            low = EXCLUDED.low,
+                            close = EXCLUDED.close,
+                            vol = EXCLUDED.vol,
+                            amount = EXCLUDED.amount
+                        """
+                    ),
+                    {
+                        'id': str(uuid.uuid4()),
+                        'version_id': version_id,
+                        'ts_code': rec['ts_code'],
+                        'trade_time': rec['trade_time'],
+                        'open': rec.get('open'),
+                        'high': rec.get('high'),
+                        'low': rec.get('low'),
+                        'close': rec.get('close'),
+                        'vol': rec.get('vol'),
+                        'amount': rec.get('amount'),
+                    },
+                )
+        return len(records)
+
+
+class HighfreqProxy1mWorking:
+    def __init__(self) -> None:
+        self.engine = make_engine()
+
+    def bulk_replace(self, records: list[dict], version_id: str) -> int:
+        if not records:
+            return 0
+        with self.engine.begin() as conn:
+            for rec in records:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO ifa2.highfreq_proxy_1m_working (
+                            id, version_id, proxy_code, proxy_type, trade_time, open, high, low, close, vol, amount
+                        ) VALUES (
+                            :id, :version_id, :proxy_code, :proxy_type, :trade_time, :open, :high, :low, :close, :vol, :amount
+                        )
+                        ON CONFLICT (proxy_code, trade_time) DO UPDATE SET
+                            version_id = EXCLUDED.version_id,
+                            proxy_type = EXCLUDED.proxy_type,
+                            open = EXCLUDED.open,
+                            high = EXCLUDED.high,
+                            low = EXCLUDED.low,
+                            close = EXCLUDED.close,
+                            vol = EXCLUDED.vol,
+                            amount = EXCLUDED.amount
+                        """
+                    ),
+                    {
+                        'id': str(uuid.uuid4()),
+                        'version_id': version_id,
+                        'proxy_code': rec['proxy_code'],
+                        'proxy_type': rec['proxy_type'],
+                        'trade_time': rec['trade_time'],
+                        'open': rec.get('open'),
+                        'high': rec.get('high'),
+                        'low': rec.get('low'),
+                        'close': rec.get('close'),
+                        'vol': rec.get('vol'),
+                        'amount': rec.get('amount'),
+                    },
+                )
+        return len(records)
