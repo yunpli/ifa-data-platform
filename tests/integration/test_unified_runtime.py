@@ -72,9 +72,10 @@ def test_unified_runtime_run_once_midfreq_real_run_executes():
     assert payload['manifest_item_count'] > 0
 
 
-def test_unified_runtime_run_once_archive_dry_run_executes():
+def test_unified_runtime_run_once_archive_real_run_executes():
     payload = run_cli('run-once', '--lane', 'archive', '--owner-type', 'default', '--owner-id', 'default', '--list-type', 'archive_targets')
     assert payload['lane'] == 'archive'
+    assert payload['execution_mode'] == 'real_run'
     assert 'manifest_id' in payload
     assert payload['manifest_item_count'] > 0
     assert payload['archive_total_jobs'] >= 14
@@ -104,6 +105,7 @@ def test_unified_runtime_persists_manifest_snapshot_and_archive_catchup_rows():
         assert unified_run['lane'] == 'archive'
         assert unified_run['status'] in {'succeeded', 'partial'}
         assert unified_run['manifest_hash'] == payload['manifest_hash']
+        assert unified_run['summary']['execution_mode'] == 'real_run'
         assert unified_run['summary']['archive_total_jobs'] == payload['archive_total_jobs']
         assert 'archive_catchup_rows_bound' in unified_run['summary']
         assert 'archive_catchup_rows_completed' in unified_run['summary']

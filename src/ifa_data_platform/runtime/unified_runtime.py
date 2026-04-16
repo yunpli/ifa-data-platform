@@ -904,7 +904,7 @@ class UnifiedRuntime:
         persisted_catchup_rows = self.store.persist_archive_deltas(manifest_snapshot_id, deltas)
 
         orchestrator = ArchiveOrchestrator(get_archive_config())
-        summary_obj = orchestrator.run_window(archive_window, dry_run=True)
+        summary_obj = orchestrator.run_window(archive_window, dry_run=False)
         bound_catchups = self.store.begin_archive_catchup_execution(
             run_id=run_id,
             window_name=archive_window,
@@ -916,7 +916,7 @@ class UnifiedRuntime:
             completed=summary_obj.failed_jobs == 0,
         )
         records_processed = sum(r.records_processed for r in summary_obj.job_results)
-        worker_type = "archive_dryrun_worker"
+        worker_type = "archive_real_run_worker"
         summary = {
             "run_id": run_id,
             "lane": "archive",
@@ -926,6 +926,7 @@ class UnifiedRuntime:
             "manifest_snapshot_id": manifest_snapshot_id,
             "manifest_item_count": len(lane_items),
             "window_name": archive_window,
+            "execution_mode": "real_run",
             "archive_total_jobs": summary_obj.total_jobs,
             "archive_succeeded_jobs": summary_obj.succeeded_jobs,
             "archive_failed_jobs": summary_obj.failed_jobs,
