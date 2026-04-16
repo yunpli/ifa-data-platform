@@ -1,0 +1,770 @@
+{
+  "business_layer": {
+    "lists": [
+      {
+        "name": "default_archive_targets_15min",
+        "list_type": "archive_targets",
+        "asset_type": "multi_asset",
+        "frequency_type": "15min",
+        "item_count": 40
+      },
+      {
+        "name": "default_archive_targets_minute",
+        "list_type": "archive_targets",
+        "asset_type": "multi_asset",
+        "frequency_type": "minute",
+        "item_count": 20
+      },
+      {
+        "name": "default_focus",
+        "list_type": "focus",
+        "asset_type": "multi_asset",
+        "frequency_type": "none",
+        "item_count": 100
+      },
+      {
+        "name": "default_key_focus",
+        "list_type": "key_focus",
+        "asset_type": "multi_asset",
+        "frequency_type": "none",
+        "item_count": 20
+      }
+    ],
+    "rules": [
+      {
+        "name": "default_archive_targets_15min",
+        "rule_key": "granularity",
+        "rule_value": "15min"
+      },
+      {
+        "name": "default_archive_targets_15min",
+        "rule_key": "target_size",
+        "rule_value": "40"
+      },
+      {
+        "name": "default_archive_targets_minute",
+        "rule_key": "granularity",
+        "rule_value": "minute"
+      },
+      {
+        "name": "default_archive_targets_minute",
+        "rule_key": "target_size",
+        "rule_value": "20"
+      },
+      {
+        "name": "default_focus",
+        "rule_key": "owner_scope",
+        "rule_value": "default"
+      },
+      {
+        "name": "default_focus",
+        "rule_key": "target_size",
+        "rule_value": "100"
+      },
+      {
+        "name": "default_key_focus",
+        "rule_key": "owner_scope",
+        "rule_value": "default"
+      },
+      {
+        "name": "default_key_focus",
+        "rule_key": "target_size",
+        "rule_value": "20"
+      }
+    ]
+  },
+  "workers": {
+    "lowfreq": {
+      "latest_run": {
+        "id": "4356a7a3-afe2-4db2-b51d-126f85fd16d7",
+        "lane": "lowfreq",
+        "trigger_mode": "manual",
+        "status": "succeeded",
+        "governance_state": "ok",
+        "runtime_budget_sec": 1800,
+        "started_at": "2026-04-16 08:34:28.609452",
+        "completed_at": "2026-04-16 08:37:03.902566",
+        "duration_ms": 155354,
+        "tasks_executed": [
+          "trade_cal",
+          "stock_basic",
+          "index_basic",
+          "fund_basic_etf",
+          "sw_industry_mapping",
+          "announcements",
+          "news",
+          "research_reports",
+          "investor_qa",
+          "index_weight",
+          "etf_daily_basic",
+          "share_float",
+          "company_basic",
+          "stk_managers",
+          "new_share",
+          "name_change",
+          "top10_holders",
+          "top10_floatholders",
+          "pledge_stat"
+        ],
+        "tables_updated": [
+          "ifa2.job_runs",
+          "ifa2.unified_runtime_runs"
+        ],
+        "summary": {
+          "lane": "lowfreq",
+          "run_id": "4356a7a3-afe2-4db2-b51d-126f85fd16d7",
+          "purpose": null,
+          "day_type": null,
+          "manifest_id": "64e345b232cde5ce",
+          "worker_type": "lowfreq",
+          "requirements": {
+            "lane": "lowfreq",
+            "notes": [],
+            "tushare_token_configured": true
+          },
+          "trigger_mode": "manual",
+          "manifest_hash": "64e345b232cde5ce466231270d45a72fe55cc619940b8e13dedc2f29d1b2dae5",
+          "execution_mode": "real_run",
+          "automatic_entry": false,
+          "dataset_results": [
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "trade_cal",
+              "error_message": null,
+              "records_processed": 2298
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "stock_basic",
+              "error_message": null,
+              "records_processed": 5505
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "index_basic",
+              "error_message": null,
+              "records_processed": 8000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "fund_basic_etf",
+              "error_message": null,
+              "records_processed": 10000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "sw_industry_mapping",
+              "error_message": null,
+              "records_processed": 3000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "announcements",
+              "error_message": null,
+              "records_processed": 3041
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "news",
+              "error_message": null,
+              "records_processed": 1500
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "research_reports",
+              "error_message": null,
+              "records_processed": 54
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "investor_qa",
+              "error_message": null,
+              "records_processed": 564
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20240116",
+              "dataset_name": "index_weight",
+              "error_message": null,
+              "records_processed": 4664
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20250410",
+              "dataset_name": "etf_daily_basic",
+              "error_message": null,
+              "records_processed": 5000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "share_float",
+              "error_message": null,
+              "records_processed": 6000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "company_basic",
+              "error_message": null,
+              "records_processed": 6272
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "stk_managers",
+              "error_message": null,
+              "records_processed": 4000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "new_share",
+              "error_message": null,
+              "records_processed": 2000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "full_snapshot",
+              "dataset_name": "name_change",
+              "error_message": null,
+              "records_processed": 10000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "top10_holders",
+              "error_message": null,
+              "records_processed": 5000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "top10_floatholders",
+              "error_message": null,
+              "records_processed": 5000
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260416",
+              "dataset_name": "pledge_stat",
+              "error_message": null,
+              "records_processed": 5000
+            }
+          ],
+          "asset_categories": [
+            "commodity",
+            "futures",
+            "macro",
+            "precious_metal",
+            "stock"
+          ],
+          "runtime_budget_sec": 1800,
+          "manifest_item_count": 240,
+          "manifest_snapshot_id": "302a0e0d-e5a9-4793-b10a-f05232d30c10",
+          "blocked_dataset_count": 0,
+          "blocked_dataset_names": [],
+          "planned_dataset_names": [
+            "trade_cal",
+            "stock_basic",
+            "index_basic",
+            "fund_basic_etf",
+            "sw_industry_mapping",
+            "announcements",
+            "news",
+            "research_reports",
+            "investor_qa",
+            "index_weight",
+            "etf_daily_basic",
+            "share_float",
+            "company_basic",
+            "stk_managers",
+            "new_share",
+            "name_change",
+            "top10_holders",
+            "top10_floatholders",
+            "pledge_stat"
+          ],
+          "executed_dataset_count": 19,
+          "manifest_preview_symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000063.SZ",
+            "000333.SZ",
+            "000651.SZ",
+            "000725.SZ",
+            "000977.SZ",
+            "002230.SZ",
+            "002415.SZ",
+            "002594.SZ"
+          ]
+        }
+      },
+      "table_counts": {
+        "unified_runtime_runs": 4,
+        "runtime_worker_state": 4,
+        "job_runs": 4,
+        "lowfreq_runs": 19,
+        "trade_cal_current": 2298,
+        "trade_cal_history": 124006,
+        "stock_basic_current": 5507,
+        "stock_basic_history": 291690,
+        "index_basic_current": 8000,
+        "index_basic_history": 424018,
+        "fund_basic_etf_current": 15003,
+        "fund_basic_etf_history": 380006,
+        "sw_industry_mapping_current": 3016,
+        "sw_industry_mapping_history": 78005,
+        "announcements_current": 25655,
+        "announcements_history": 117548,
+        "news_current": 26242,
+        "news_history": 49501,
+        "research_reports_current": 178,
+        "research_reports_history": 577,
+        "investor_qa_current": 1620,
+        "investor_qa_history": 7570,
+        "index_weight_current": 4664,
+        "index_weight_history": 102608,
+        "etf_daily_basic_current": 21559,
+        "etf_daily_basic_history": 120000,
+        "share_float_current": 632,
+        "share_float_history": 84000,
+        "company_basic_current": 6281,
+        "company_basic_history": 263340,
+        "stk_managers_current": 7785,
+        "stk_managers_history": 56000,
+        "new_share_current": 2002,
+        "new_share_history": 40000,
+        "name_change_current": 10147,
+        "name_change_history": 260000,
+        "top10_holders_current": 93004,
+        "top10_holders_history": 80000,
+        "top10_floatholders_current": 21932,
+        "top10_floatholders_history": 30000,
+        "pledge_stat_current": 20278,
+        "pledge_stat_history": 30000
+      }
+    },
+    "midfreq": {
+      "latest_run": {
+        "id": "1b8a1d4e-f933-4a89-b0f6-f59fb65dfce8",
+        "lane": "midfreq",
+        "trigger_mode": "manual",
+        "status": "succeeded",
+        "governance_state": "ok",
+        "runtime_budget_sec": 1800,
+        "started_at": "2026-04-16 08:34:31.542058",
+        "completed_at": "2026-04-16 08:35:22.663905",
+        "duration_ms": 51173,
+        "tasks_executed": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "tables_updated": [
+          "ifa2.job_runs",
+          "ifa2.unified_runtime_runs",
+          "ifa2.midfreq_execution_summary"
+        ],
+        "summary": {
+          "lane": "midfreq",
+          "run_id": "1b8a1d4e-f933-4a89-b0f6-f59fb65dfce8",
+          "purpose": null,
+          "day_type": null,
+          "manifest_id": "8a6d730f46000372",
+          "worker_type": "midfreq",
+          "requirements": {
+            "lane": "midfreq",
+            "notes": [],
+            "tushare_token_configured": true
+          },
+          "trigger_mode": "manual",
+          "manifest_hash": "8a6d730f460003724624ecbc16e03103cb2c460faeaff19cb8104295617648d0",
+          "execution_mode": "real_run",
+          "automatic_entry": false,
+          "dataset_results": [
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "equity_daily_bar",
+              "error_message": null,
+              "records_processed": 20
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "index_daily_bar",
+              "error_message": null,
+              "records_processed": 8
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "etf_daily_bar",
+              "error_message": null,
+              "records_processed": 12
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "northbound_flow",
+              "error_message": null,
+              "records_processed": 1
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "limit_up_down_status",
+              "error_message": null,
+              "records_processed": 1
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "margin_financing",
+              "error_message": null,
+              "records_processed": 360
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "southbound_flow",
+              "error_message": null,
+              "records_processed": 1
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "turnover_rate",
+              "error_message": null,
+              "records_processed": 20
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "main_force_flow",
+              "error_message": null,
+              "records_processed": 20
+            },
+            {
+              "status": "succeeded",
+              "watermark": null,
+              "dataset_name": "sector_performance",
+              "error_message": null,
+              "records_processed": 0
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "dragon_tiger_list",
+              "error_message": null,
+              "records_processed": 79
+            },
+            {
+              "status": "succeeded",
+              "watermark": "20260415",
+              "dataset_name": "limit_up_detail",
+              "error_message": null,
+              "records_processed": 7542
+            }
+          ],
+          "asset_categories": [
+            "stock"
+          ],
+          "runtime_budget_sec": 1800,
+          "manifest_item_count": 210,
+          "manifest_snapshot_id": "6848f019-3bc2-433c-b5f2-adb14778bdcf",
+          "blocked_dataset_count": 0,
+          "blocked_dataset_names": [],
+          "planned_dataset_names": [
+            "equity_daily_bar",
+            "index_daily_bar",
+            "etf_daily_bar",
+            "northbound_flow",
+            "limit_up_down_status",
+            "margin_financing",
+            "southbound_flow",
+            "turnover_rate",
+            "main_force_flow",
+            "sector_performance",
+            "dragon_tiger_list",
+            "limit_up_detail"
+          ],
+          "executed_dataset_count": 12,
+          "manifest_preview_symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000063.SZ",
+            "000333.SZ",
+            "000651.SZ",
+            "000725.SZ",
+            "000977.SZ",
+            "002230.SZ",
+            "002415.SZ",
+            "002594.SZ"
+          ]
+        }
+      },
+      "table_counts": {
+        "unified_runtime_runs": 4,
+        "runtime_worker_state": 4,
+        "job_runs": 4,
+        "midfreq_execution_summary": 0,
+        "equity_daily_bar_current": 22,
+        "equity_daily_bar_history": 340,
+        "index_daily_bar_current": 17,
+        "index_daily_bar_history": 215,
+        "etf_daily_bar_current": 25,
+        "etf_daily_bar_history": 312,
+        "northbound_flow_current": 3,
+        "northbound_flow_history": 11,
+        "limit_up_down_status_current": 5,
+        "limit_up_down_status_history": 12,
+        "margin_financing_current": 260,
+        "margin_financing_history": 3000,
+        "southbound_flow_current": 1,
+        "southbound_flow_history": 7,
+        "turnover_rate_current": 20,
+        "turnover_rate_history": 160,
+        "main_force_flow_current": 59,
+        "main_force_flow_history": 539,
+        "sector_performance_current": 0,
+        "sector_performance_history": 0,
+        "dragon_tiger_list_current": 214,
+        "dragon_tiger_list_history": 1918,
+        "limit_up_detail_current": 7542,
+        "limit_up_detail_history": 52794
+      }
+    },
+    "highfreq": {
+      "latest_run": {
+        "id": "ccc9fae1-f38e-4bb3-93b5-ba2f9f15379f",
+        "lane": "highfreq",
+        "trigger_mode": "manual",
+        "status": "succeeded",
+        "governance_state": "ok",
+        "runtime_budget_sec": 900,
+        "started_at": "2026-04-16 08:34:34.951907",
+        "completed_at": "2026-04-16 08:34:45.788832",
+        "duration_ms": 10872,
+        "tasks_executed": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "tables_updated": [
+          "ifa2.job_runs",
+          "ifa2.unified_runtime_runs",
+          "ifa2.highfreq_execution_summary"
+        ],
+        "summary": {
+          "lane": "highfreq",
+          "run_id": "ccc9fae1-f38e-4bb3-93b5-ba2f9f15379f",
+          "purpose": null,
+          "day_type": null,
+          "manifest_id": "c7a9121f41b620ff",
+          "worker_type": "highfreq",
+          "requirements": {
+            "lane": "highfreq",
+            "notes": [],
+            "tushare_token_configured": true
+          },
+          "trigger_mode": "manual",
+          "manifest_hash": "c7a9121f41b620fff42f5dd4718d6ba74308429195847cfcc10f47a206617732",
+          "execution_mode": "partial_real_run",
+          "automatic_entry": false,
+          "dataset_results": [
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:34.952852+00:00",
+              "dataset_name": "stock_1m_ohlcv",
+              "error_message": null,
+              "records_processed": 6
+            },
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:36.946898+00:00",
+              "dataset_name": "index_1m_ohlcv",
+              "error_message": null,
+              "records_processed": 6
+            },
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:37.154668+00:00",
+              "dataset_name": "etf_sector_style_1m_ohlcv",
+              "error_message": null,
+              "records_processed": 1
+            },
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:37.374334+00:00",
+              "dataset_name": "futures_commodity_pm_1m_ohlcv",
+              "error_message": null,
+              "records_processed": 40
+            },
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:43.853984+00:00",
+              "dataset_name": "open_auction_snapshot",
+              "error_message": null,
+              "records_processed": 1
+            },
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:44.076204+00:00",
+              "dataset_name": "close_auction_snapshot",
+              "error_message": null,
+              "records_processed": 1
+            },
+            {
+              "status": "succeeded",
+              "watermark": "2026-04-16T15:34:44.721921+00:00",
+              "dataset_name": "event_time_stream",
+              "error_message": null,
+              "records_processed": 400
+            }
+          ],
+          "asset_categories": [],
+          "runtime_budget_sec": 900,
+          "manifest_item_count": 0,
+          "manifest_snapshot_id": "cce9e604-17b4-42db-ba3d-9b52ac17dd39",
+          "blocked_dataset_count": 0,
+          "blocked_dataset_names": [],
+          "planned_dataset_names": [
+            "stock_1m_ohlcv",
+            "index_1m_ohlcv",
+            "etf_sector_style_1m_ohlcv",
+            "futures_commodity_pm_1m_ohlcv",
+            "open_auction_snapshot",
+            "close_auction_snapshot",
+            "event_time_stream"
+          ],
+          "executed_dataset_count": 7,
+          "manifest_preview_symbols": []
+        }
+      },
+      "table_counts": {
+        "unified_runtime_runs": 4,
+        "runtime_worker_state": 4,
+        "job_runs": 4,
+        "highfreq_execution_summary": 0,
+        "highfreq_runs": 7,
+        "highfreq_stock_1m_working": 6,
+        "highfreq_index_1m_working": 6,
+        "highfreq_proxy_1m_working": 1,
+        "highfreq_futures_minute_working": 40,
+        "highfreq_open_auction_working": 1,
+        "highfreq_close_auction_working": 1,
+        "highfreq_event_stream_working": 400,
+        "highfreq_sector_breadth_working": 0,
+        "highfreq_sector_heat_working": 0,
+        "highfreq_leader_candidate_working": 0,
+        "highfreq_intraday_signal_state_working": 0,
+        "highfreq_limit_event_stream_working": 0,
+        "highfreq_active_scope": 0,
+        "highfreq_dynamic_candidate": 0
+      }
+    },
+    "archive": {
+      "latest_run": {
+        "id": "59b14181-2b15-4dd6-b2c1-74cdc133eab3",
+        "lane": "archive",
+        "trigger_mode": "manual",
+        "status": "succeeded",
+        "governance_state": "ok",
+        "runtime_budget_sec": 3600,
+        "started_at": "2026-04-16 08:34:38.084547",
+        "completed_at": "2026-04-16 08:35:35.558591",
+        "duration_ms": 57522,
+        "tasks_executed": [
+          "archive"
+        ],
+        "tables_updated": [
+          "ifa2.archive_runs",
+          "ifa2.archive_checkpoints",
+          "ifa2.archive_target_catchup"
+        ],
+        "summary": {
+          "lane": "archive",
+          "run_id": "59b14181-2b15-4dd6-b2c1-74cdc133eab3",
+          "purpose": null,
+          "day_type": null,
+          "manifest_id": "544e9f9afeab4b62",
+          "window_name": "manual_archive",
+          "worker_type": "archive",
+          "trigger_mode": "manual",
+          "delta_preview": [],
+          "manifest_hash": "544e9f9afeab4b629f2654f8ae8565f997c5a7d5c6de104364934207b8b999f7",
+          "execution_mode": "real_run",
+          "automatic_entry": false,
+          "archive_total_jobs": 13,
+          "runtime_budget_sec": 3600,
+          "archive_delta_count": 0,
+          "archive_failed_jobs": 0,
+          "manifest_item_count": 260,
+          "manifest_snapshot_id": "78426d3e-b394-4ca2-afe1-44746186d912",
+          "bound_catchup_preview": [],
+          "archive_succeeded_jobs": 13,
+          "previous_manifest_hash": "c7a9121f41b620fff42f5dd4718d6ba74308429195847cfcc10f47a206617732",
+          "manifest_preview_symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000063.SZ",
+            "000333.SZ",
+            "000651.SZ",
+            "000725.SZ",
+            "000977.SZ",
+            "002230.SZ",
+            "002415.SZ",
+            "002594.SZ"
+          ],
+          "archive_catchup_rows_bound": 0,
+          "archive_catchup_rows_inserted": 0,
+          "current_archive_manifest_hash": "6cee73a39db0cd6be80d39dfd2a613ed1be49df2bff1a31cccdda9626d4be653",
+          "archive_catchup_rows_completed": 0
+        }
+      },
+      "table_counts": {
+        "unified_runtime_runs": 4,
+        "runtime_worker_state": 4,
+        "archive_runs": 13,
+        "archive_checkpoints": 18,
+        "archive_target_catchup": 8,
+        "archive_summary_daily": 1,
+        "stock_15min_history": 1290,
+        "stock_minute_history": 2410,
+        "futures_15min_history": 22912,
+        "futures_minute_history": 32000,
+        "commodity_15min_history": 49456,
+        "commodity_minute_history": 56000,
+        "precious_metal_15min_history": 16000,
+        "precious_metal_minute_history": 16000,
+        "futures_history": 778,
+        "stock_daily_history": 4846,
+        "macro_history": 1223
+      }
+    }
+  }
+}
