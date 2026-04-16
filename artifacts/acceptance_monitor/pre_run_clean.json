@@ -1,0 +1,77 @@
+{
+  "label": "pre_run_clean",
+  "captured_at_utc": "2026-04-16T15:34:23.657487+00:00",
+  "workers": {
+    "lowfreq": {
+      "runtime": null,
+      "worker_state": {
+        "worker_type": "lowfreq",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-16 16:20:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "lowfreq_runs": 0,
+        "job_runs": 0,
+        "unified_runtime_runs": 0
+      }
+    },
+    "midfreq": {
+      "runtime": null,
+      "worker_state": {
+        "worker_type": "midfreq",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-16 20:45:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "midfreq_execution_summary": 0,
+        "job_runs": 0,
+        "unified_runtime_runs": 0
+      }
+    },
+    "highfreq": {
+      "runtime": null,
+      "worker_state": {
+        "worker_type": "highfreq",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-16 18:15:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "highfreq_execution_summary": 0,
+        "highfreq_runs": 0,
+        "job_runs": 0,
+        "unified_runtime_runs": 0
+      }
+    },
+    "archive": {
+      "runtime": null,
+      "worker_state": {
+        "worker_type": "archive",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-17 06:30:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "archive_runs": 0,
+        "archive_checkpoints": 18,
+        "archive_target_catchup": 8,
+        "archive_summary_daily": 0,
+        "unified_runtime_runs": 0
+      }
+    }
+  }
+}

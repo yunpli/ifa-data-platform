@@ -1,0 +1,117 @@
+{
+  "label": "t_plus_5m",
+  "captured_at_utc": "2026-04-16T15:35:25.954454+00:00",
+  "workers": {
+    "lowfreq": {
+      "runtime": {
+        "lane": "lowfreq",
+        "trigger_mode": "manual",
+        "status": "running",
+        "governance_state": null,
+        "runtime_budget_sec": null,
+        "started_at": "2026-04-16 08:34:28.609452",
+        "completed_at": null,
+        "duration_ms": null,
+        "error_count": 0
+      },
+      "worker_state": {
+        "worker_type": "lowfreq",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-16 16:20:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "lowfreq_runs": 13,
+        "job_runs": 4,
+        "unified_runtime_runs": 4
+      }
+    },
+    "midfreq": {
+      "runtime": {
+        "lane": "midfreq",
+        "trigger_mode": "manual",
+        "status": "succeeded",
+        "governance_state": "ok",
+        "runtime_budget_sec": 1800,
+        "started_at": "2026-04-16 08:34:31.542058",
+        "completed_at": "2026-04-16 08:35:22.663905",
+        "duration_ms": 51173,
+        "error_count": 0
+      },
+      "worker_state": {
+        "worker_type": "midfreq",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-16 20:45:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "midfreq_execution_summary": 0,
+        "job_runs": 4,
+        "unified_runtime_runs": 4
+      }
+    },
+    "highfreq": {
+      "runtime": {
+        "lane": "highfreq",
+        "trigger_mode": "manual",
+        "status": "succeeded",
+        "governance_state": "ok",
+        "runtime_budget_sec": 900,
+        "started_at": "2026-04-16 08:34:34.951907",
+        "completed_at": "2026-04-16 08:34:45.788832",
+        "duration_ms": 10872,
+        "error_count": 0
+      },
+      "worker_state": {
+        "worker_type": "highfreq",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-16 18:15:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "highfreq_execution_summary": 0,
+        "highfreq_runs": 7,
+        "job_runs": 4,
+        "unified_runtime_runs": 4
+      }
+    },
+    "archive": {
+      "runtime": {
+        "lane": "archive",
+        "trigger_mode": "manual",
+        "status": "running",
+        "governance_state": null,
+        "runtime_budget_sec": null,
+        "started_at": "2026-04-16 08:34:38.084547",
+        "completed_at": null,
+        "duration_ms": null,
+        "error_count": 0
+      },
+      "worker_state": {
+        "worker_type": "archive",
+        "last_trigger_mode": "manual",
+        "last_status": "succeeded",
+        "active_run_id": null,
+        "active_started_at": null,
+        "next_due_at_utc": "2026-04-17 06:30:00",
+        "last_error": null
+      },
+      "table_counts": {
+        "archive_runs": 12,
+        "archive_checkpoints": 18,
+        "archive_target_catchup": 8,
+        "archive_summary_daily": 0,
+        "unified_runtime_runs": 4
+      }
+    }
+  }
+}
