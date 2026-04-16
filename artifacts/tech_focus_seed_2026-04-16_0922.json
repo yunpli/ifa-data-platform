@@ -1,0 +1,468 @@
+{
+  "lists": [
+    {
+      "list_name": "default_tech_key_focus",
+      "list_type": "tech_key_focus",
+      "inserted_count": 20,
+      "inserted": [
+        {
+          "name": "寒武纪",
+          "symbol": "688256",
+          "priority": 1
+        },
+        {
+          "name": "海光信息",
+          "symbol": "688041",
+          "priority": 2
+        },
+        {
+          "name": "中际旭创",
+          "symbol": "300308",
+          "priority": 3
+        },
+        {
+          "name": "新易盛",
+          "symbol": "300502",
+          "priority": 4
+        },
+        {
+          "name": "天孚通信",
+          "symbol": "300394",
+          "priority": 5
+        },
+        {
+          "name": "润泽科技",
+          "symbol": "300442",
+          "priority": 6
+        },
+        {
+          "name": "中科曙光",
+          "symbol": "603019",
+          "priority": 7
+        },
+        {
+          "name": "浪潮信息",
+          "symbol": "000977",
+          "priority": 8
+        },
+        {
+          "name": "工业富联",
+          "symbol": "601138",
+          "priority": 9
+        },
+        {
+          "name": "沪电股份",
+          "symbol": "002463",
+          "priority": 10
+        },
+        {
+          "name": "生益科技",
+          "symbol": "600183",
+          "priority": 11
+        },
+        {
+          "name": "兆易创新",
+          "symbol": "603986",
+          "priority": 12
+        },
+        {
+          "name": "中微公司",
+          "symbol": "688012",
+          "priority": 13
+        },
+        {
+          "name": "北方华创",
+          "symbol": "002371",
+          "priority": 14
+        },
+        {
+          "name": "拓荆科技",
+          "symbol": "688072",
+          "priority": 15
+        },
+        {
+          "name": "澜起科技",
+          "symbol": "688008",
+          "priority": 16
+        },
+        {
+          "name": "芯原股份",
+          "symbol": "688521",
+          "priority": 17
+        },
+        {
+          "name": "佰维存储",
+          "symbol": "688525",
+          "priority": 18
+        },
+        {
+          "name": "三花智控",
+          "symbol": "002050",
+          "priority": 19
+        },
+        {
+          "name": "奥比中光-UW",
+          "symbol": "688322",
+          "priority": 20
+        }
+      ],
+      "unresolved_count": 0,
+      "unresolved": []
+    },
+    {
+      "list_name": "default_tech_focus",
+      "list_type": "tech_focus",
+      "inserted_count": 65,
+      "inserted": [
+        {
+          "name": "寒武纪",
+          "symbol": "688256",
+          "priority": 1
+        },
+        {
+          "name": "海光信息",
+          "symbol": "688041",
+          "priority": 2
+        },
+        {
+          "name": "中际旭创",
+          "symbol": "300308",
+          "priority": 3
+        },
+        {
+          "name": "新易盛",
+          "symbol": "300502",
+          "priority": 4
+        },
+        {
+          "name": "天孚通信",
+          "symbol": "300394",
+          "priority": 5
+        },
+        {
+          "name": "润泽科技",
+          "symbol": "300442",
+          "priority": 6
+        },
+        {
+          "name": "中科曙光",
+          "symbol": "603019",
+          "priority": 7
+        },
+        {
+          "name": "浪潮信息",
+          "symbol": "000977",
+          "priority": 8
+        },
+        {
+          "name": "工业富联",
+          "symbol": "601138",
+          "priority": 9
+        },
+        {
+          "name": "沪电股份",
+          "symbol": "002463",
+          "priority": 10
+        },
+        {
+          "name": "生益科技",
+          "symbol": "600183",
+          "priority": 11
+        },
+        {
+          "name": "兆易创新",
+          "symbol": "603986",
+          "priority": 12
+        },
+        {
+          "name": "中微公司",
+          "symbol": "688012",
+          "priority": 13
+        },
+        {
+          "name": "北方华创",
+          "symbol": "002371",
+          "priority": 14
+        },
+        {
+          "name": "拓荆科技",
+          "symbol": "688072",
+          "priority": 15
+        },
+        {
+          "name": "澜起科技",
+          "symbol": "688008",
+          "priority": 16
+        },
+        {
+          "name": "芯原股份",
+          "symbol": "688521",
+          "priority": 17
+        },
+        {
+          "name": "佰维存储",
+          "symbol": "688525",
+          "priority": 18
+        },
+        {
+          "name": "三花智控",
+          "symbol": "002050",
+          "priority": 19
+        },
+        {
+          "name": "奥比中光-UW",
+          "symbol": "688322",
+          "priority": 20
+        },
+        {
+          "name": "源杰科技",
+          "symbol": "688498",
+          "priority": 21
+        },
+        {
+          "name": "东山精密",
+          "symbol": "002384",
+          "priority": 22
+        },
+        {
+          "name": "胜宏科技",
+          "symbol": "300476",
+          "priority": 23
+        },
+        {
+          "name": "协创数据",
+          "symbol": "300857",
+          "priority": 24
+        },
+        {
+          "name": "宏景科技",
+          "symbol": "301396",
+          "priority": 25
+        },
+        {
+          "name": "光环新网",
+          "symbol": "300383",
+          "priority": 26
+        },
+        {
+          "name": "数据港",
+          "symbol": "603881",
+          "priority": 27
+        },
+        {
+          "name": "网宿科技",
+          "symbol": "300017",
+          "priority": 28
+        },
+        {
+          "name": "芯源微",
+          "symbol": "688037",
+          "priority": 29
+        },
+        {
+          "name": "安集科技",
+          "symbol": "688019",
+          "priority": 30
+        },
+        {
+          "name": "江丰电子",
+          "symbol": "300666",
+          "priority": 31
+        },
+        {
+          "name": "雅克科技",
+          "symbol": "002409",
+          "priority": 32
+        },
+        {
+          "name": "鼎龙股份",
+          "symbol": "300054",
+          "priority": 33
+        },
+        {
+          "name": "伟测科技",
+          "symbol": "688372",
+          "priority": 34
+        },
+        {
+          "name": "联动科技",
+          "symbol": "301369",
+          "priority": 35
+        },
+        {
+          "name": "怡合达",
+          "symbol": "301029",
+          "priority": 36
+        },
+        {
+          "name": "埃斯顿",
+          "symbol": "002747",
+          "priority": 37
+        },
+        {
+          "name": "汇川技术",
+          "symbol": "300124",
+          "priority": 38
+        },
+        {
+          "name": "绿的谐波",
+          "symbol": "688017",
+          "priority": 39
+        },
+        {
+          "name": "中大力德",
+          "symbol": "002896",
+          "priority": 40
+        },
+        {
+          "name": "柯力传感",
+          "symbol": "603662",
+          "priority": 41
+        },
+        {
+          "name": "鸣志电器",
+          "symbol": "603728",
+          "priority": 42
+        },
+        {
+          "name": "机器人",
+          "symbol": "300024",
+          "priority": 43
+        },
+        {
+          "name": "博众精工",
+          "symbol": "688097",
+          "priority": 44
+        },
+        {
+          "name": "思源电气",
+          "symbol": "002028",
+          "priority": 45
+        },
+        {
+          "name": "海兴电力",
+          "symbol": "603556",
+          "priority": 46
+        },
+        {
+          "name": "中国动力",
+          "symbol": "600482",
+          "priority": 47
+        },
+        {
+          "name": "东方电气",
+          "symbol": "600875",
+          "priority": 48
+        },
+        {
+          "name": "应流股份",
+          "symbol": "603308",
+          "priority": 49
+        },
+        {
+          "name": "万泽股份",
+          "symbol": "000534",
+          "priority": 50
+        },
+        {
+          "name": "固德威",
+          "symbol": "688390",
+          "priority": 51
+        },
+        {
+          "name": "阳光电源",
+          "symbol": "300274",
+          "priority": 52
+        },
+        {
+          "name": "中科江南",
+          "symbol": "301153",
+          "priority": 53
+        },
+        {
+          "name": "深信服",
+          "symbol": "300454",
+          "priority": 54
+        },
+        {
+          "name": "用友网络",
+          "symbol": "600588",
+          "priority": 55
+        },
+        {
+          "name": "金山办公",
+          "symbol": "688111",
+          "priority": 56
+        },
+        {
+          "name": "中科星图",
+          "symbol": "688568",
+          "priority": 57
+        },
+        {
+          "name": "中国软件",
+          "symbol": "600536",
+          "priority": 58
+        },
+        {
+          "name": "拓尔思",
+          "symbol": "300229",
+          "priority": 59
+        },
+        {
+          "name": "科大讯飞",
+          "symbol": "002230",
+          "priority": 60
+        },
+        {
+          "name": "虹软科技",
+          "symbol": "688088",
+          "priority": 61
+        },
+        {
+          "name": "万兴科技",
+          "symbol": "300624",
+          "priority": 62
+        },
+        {
+          "name": "德明利",
+          "symbol": "001309",
+          "priority": 63
+        },
+        {
+          "name": "芯朋微",
+          "symbol": "688508",
+          "priority": 64
+        },
+        {
+          "name": "圣邦股份",
+          "symbol": "300661",
+          "priority": 65
+        }
+      ],
+      "unresolved_count": 2,
+      "unresolved": [
+        {
+          "name": "金海通",
+          "matches": []
+        },
+        {
+          "name": "三星医疗",
+          "matches": []
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "list_name": "default_tech_focus",
+      "name": "金海通",
+      "matches": []
+    },
+    {
+      "list_name": "default_tech_focus",
+      "name": "三星医疗",
+      "matches": []
+    }
+  ]
+}

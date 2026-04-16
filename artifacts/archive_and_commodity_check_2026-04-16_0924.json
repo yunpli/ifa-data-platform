@@ -1,0 +1,248 @@
+{
+  "archive_lists": [
+    {
+      "name": "default_archive_targets_15min",
+      "list_type": "archive_targets",
+      "asset_type": "multi_asset",
+      "frequency_type": "15min",
+      "item_count": 40
+    },
+    {
+      "name": "default_archive_targets_minute",
+      "list_type": "archive_targets",
+      "asset_type": "multi_asset",
+      "frequency_type": "minute",
+      "item_count": 20
+    }
+  ],
+  "archive_breakdown": [
+    {
+      "name": "default_archive_targets_15min",
+      "asset_category": "commodity",
+      "item_count": 6
+    },
+    {
+      "name": "default_archive_targets_15min",
+      "asset_category": "futures",
+      "item_count": 2
+    },
+    {
+      "name": "default_archive_targets_15min",
+      "asset_category": "macro",
+      "item_count": 8
+    },
+    {
+      "name": "default_archive_targets_15min",
+      "asset_category": "precious_metal",
+      "item_count": 2
+    },
+    {
+      "name": "default_archive_targets_15min",
+      "asset_category": "stock",
+      "item_count": 22
+    },
+    {
+      "name": "default_archive_targets_minute",
+      "asset_category": "commodity",
+      "item_count": 4
+    },
+    {
+      "name": "default_archive_targets_minute",
+      "asset_category": "macro",
+      "item_count": 4
+    },
+    {
+      "name": "default_archive_targets_minute",
+      "asset_category": "precious_metal",
+      "item_count": 2
+    },
+    {
+      "name": "default_archive_targets_minute",
+      "asset_category": "stock",
+      "item_count": 10
+    }
+  ],
+  "archive_checkpoints": [
+    {
+      "dataset_name": "commodity_15min_history",
+      "asset_type": "commodity",
+      "min_date": "2025-06-16",
+      "max_date": "2025-06-16",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "commodity_history",
+      "asset_type": "commodity",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "commodity_minute_history",
+      "asset_type": "commodity",
+      "min_date": "2025-06-16",
+      "max_date": "2025-06-16",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "futures_15min_history",
+      "asset_type": "futures",
+      "min_date": "2025-09-12",
+      "max_date": "2025-09-12",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "futures_history",
+      "asset_type": "futures",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "futures_minute_history",
+      "asset_type": "futures",
+      "min_date": "2025-09-12",
+      "max_date": "2025-09-12",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "macro_history",
+      "asset_type": "macro",
+      "min_date": "2026-04-16",
+      "max_date": "2026-04-16",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "precious_metal_15min_history",
+      "asset_type": "precious_metal",
+      "min_date": "2025-06-16",
+      "max_date": "2025-06-16",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "precious_metal_history",
+      "asset_type": "precious_metal",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "precious_metal_minute_history",
+      "asset_type": "precious_metal",
+      "min_date": "2025-06-16",
+      "max_date": "2025-06-16",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "stock_15min_history",
+      "asset_type": "stock",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "stock_daily",
+      "asset_type": "stock",
+      "min_date": "2026-04-13",
+      "max_date": "2026-04-13",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "stock_daily_catchup",
+      "asset_type": "stock",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "stock_minute_history",
+      "asset_type": "stock",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "test_commodity_history",
+      "asset_type": "commodity",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "test_precious_history",
+      "asset_type": "precious_metal",
+      "min_date": "2026-04-15",
+      "max_date": "2026-04-15",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "test_resume_dataset",
+      "asset_type": "stock",
+      "min_date": "2025-06-16",
+      "max_date": "2025-06-16",
+      "checkpoint_rows": 1
+    },
+    {
+      "dataset_name": "test_stock_daily",
+      "asset_type": "stock",
+      "min_date": "2025-06-20",
+      "max_date": "2025-06-20",
+      "checkpoint_rows": 1
+    }
+  ],
+  "archive_catchup": [
+    {
+      "asset_category": "macro",
+      "granularity": "minute",
+      "status": "pending",
+      "rows": 6
+    },
+    {
+      "asset_category": "stock",
+      "granularity": "daily",
+      "status": "completed",
+      "rows": 1
+    },
+    {
+      "asset_category": "stock",
+      "granularity": "daily",
+      "status": "observed",
+      "rows": 1
+    }
+  ],
+  "history_counts": [
+    {
+      "table_name": "stock_15min_history",
+      "rows": 1290
+    },
+    {
+      "table_name": "stock_minute_history",
+      "rows": 2410
+    },
+    {
+      "table_name": "futures_15min_history",
+      "rows": 22912
+    },
+    {
+      "table_name": "futures_minute_history",
+      "rows": 32000
+    },
+    {
+      "table_name": "commodity_15min_history",
+      "rows": 49456
+    },
+    {
+      "table_name": "commodity_minute_history",
+      "rows": 56000
+    },
+    {
+      "table_name": "precious_metal_15min_history",
+      "rows": 16000
+    },
+    {
+      "table_name": "precious_metal_minute_history",
+      "rows": 16000
+    }
+  ],
+  "pm_commodity_lists": []
+}
