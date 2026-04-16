@@ -244,13 +244,22 @@ def main() -> None:
         return
 
     if args.watchdog:
-        from ifa_data_platform.midfreq.summary_persistence import DaemonWatchdog
-
-        watchdog = DaemonWatchdog()
-        health = watchdog.check_health()
         import json
 
-        print(json.dumps(health, indent=2, default=str))
+        health = get_daemon_health()
+        print(
+            json.dumps(
+                {
+                    "status": health.status,
+                    "message": health.message,
+                    "last_heartbeat": health.last_heartbeat,
+                    "group_states": health.group_states,
+                    "recent_windows": health.recent_windows[:5],
+                },
+                indent=2,
+                default=str,
+            )
+        )
         return
 
     if args.group:

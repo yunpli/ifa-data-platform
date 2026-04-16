@@ -133,11 +133,19 @@ def get_daemon_health(config: DaemonConfig) -> DaemonHealth:
             last_loop = max(candidate_times)
 
     status = "ok"
+    now = now_utc()
     if last_loop:
-        now = now_utc()
-        if (now - last_loop).total_seconds() > 3600:
+        if last_loop.tzinfo is None:
+            last_loop = last_loop.replace(tzinfo=timezone.utc)
+        elapsed_seconds = (now - last_loop).total_seconds()
+        any_degraded = any(s.last_status in {"failed", "degraded", "retrying"} for s in group_statuses.values())
+        if any_degraded:
+            status = "degraded"
+        elif elapsed_seconds > 3600 * 24:
             status = "stale"
-    elif daemon_state.get("last_success_at_utc"):
+        else:
+            status = "ok"
+    elif daemon_state.get("last_success_at_utc") or any_group_activity:
         status = "stale"
     else:
         status = "no_runs"
