@@ -187,31 +187,38 @@ From live `ifa2.focus_list_rules`:
 ## 1.3 Compare Business Layer targets vs current archive implementation
 
 ### Current actual archive implementation (code/runtime truth)
-From `archive_config.py`, current enabled default archive jobs are exactly:
-- `stock_daily_archive` → dataset `stock_daily` → asset `stock`
-- `macro_archive` → dataset `macro_history` → asset `macro`
-- `futures_archive` → dataset `futures_history` → asset `futures`
+From current `archive_config.py`, enabled default archive jobs now include:
+- daily: `stock_daily_archive`, `macro_archive`, `futures_archive`, `commodity_archive`, `precious_metal_archive`
+- 15min: `stock_15min_archive`, `macro_15min_archive`, `futures_15min_archive`, `commodity_15min_archive`, `precious_metal_15min_archive`
+- minute: `stock_minute_archive`, `futures_minute_archive`, `commodity_minute_archive`, `precious_metal_minute_archive`
 
-Current manual archive one-shot result:
-- `archive_total_jobs = 3`
-- `archive_succeeded_jobs = 3`
-- `archive_failed_jobs = 0`
-- `window_name = manual_archive`
+Current unified archive real-run result after the latest patch:
+- `archive_total_jobs = 14`
+- `archive_succeeded_jobs = 13`
+- `archive_failed_jobs = 1`
+- `worker_type = archive_real_run_worker`
+- `execution_mode = real_run`
+- failing path: `macro_15min_archive`
 
 ### Strict coverage answer
 #### Truly covered by current archive daemon/runtime now
-- **daily-ish stock archive**: yes
-- **macro history archive**: yes
-- **futures history archive**: yes
+- **daily stock archive**: yes
+- **daily macro archive**: yes
+- **daily futures archive**: yes
+- **daily commodity archive**: yes
+- **daily precious_metal archive**: yes
+- **15min stock archive**: yes
+- **15min futures archive**: yes
+- **15min commodity archive**: yes
+- **15min precious_metal archive**: yes
+- **minute stock archive**: yes
+- **minute futures archive**: yes
+- **minute commodity archive**: yes
+- **minute precious_metal archive**: yes
 
-#### Present in Business Layer selector data but not actually implemented as separate current archive collection
-- **minute granularity archive**: present in Business Layer, not operationally implemented in current archive runtime
-- **15min granularity archive**: present in Business Layer, not operationally implemented in current archive runtime
-- **commodity as a distinct current archive job**: present in Business Layer targets, not separately implemented in current default archive runtime
-- **precious_metal as a distinct current archive job**: present in Business Layer targets, not separately implemented in current default archive runtime
-
-#### Partially represented but not fully runnable
-- **futures/commodity/precious_metal** are partially represented because `futures_history` may conceptually span some derivative-history space, but the current default runtime exposes only one concrete `futures` job, not explicit minute/15min/daily per-category jobs for all Business Layer target groups.
+#### Present in Business Layer selector data but not truthfully supported in current runtime/source reality
+- **15min macro archive**: listed structurally through `macro_15min_archive`, but not supported by a real source/storage path and fails truthfully
+- any unsupported category/frequency pair must be classified by real source/runtime truth, not by selector presence alone
 
 ## 1.4 Reality judgment on archive target completeness vs implementation
 
@@ -237,9 +244,11 @@ Why:
   - `futures_history`
 
 ### Final strict answer
-**No, the current archive daemon does not actually collect everything that the Business Layer archive targets are asking for now.**
+**Still no, the current archive runtime does not yet satisfy every Business Layer archive target/frequency ask.**
 
-It covers only a subset of the requested target reality.
+But the truthful gap is now narrower and more specific:
+- the archive runtime materially covers stock / futures / commodity / precious_metal daily+15min+minute paths
+- the remaining explicit mismatch is `macro` at `15min` granularity, which does not currently have a real source/storage/runtime path
 
 ---
 

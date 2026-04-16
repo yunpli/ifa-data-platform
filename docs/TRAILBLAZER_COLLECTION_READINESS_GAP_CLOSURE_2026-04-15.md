@@ -5,19 +5,17 @@ _Date: 2026-04-15_
 ## Final accepted phase judgments (Milestones A-C)
 
 ### Archive (Milestone A)
-**Accepted for this phase** at the strongest truthful level achieved.
+**Accepted for this phase** at the strongest truthful level achieved, but the current repo/runtime truth is now stronger and more specific than this earlier frozen wording.
 
-Closed in this phase:
-- daily archive runtime coverage across required categories
-- 15min archive runtime coverage across required categories
-- real `archive_runs` evidence for all five required 15min combinations
-- one real 15min ingest/storage/checkpoint closure path for `15min + stock`
+Current truthful state after later validation:
+- unified archive lane now executes implemented archive jobs in `real_run` mode
+- implemented archive window currently contains 14 jobs, not the older smaller review-state count
+- real execution is present for implemented daily / 15min / minute jobs across stock / futures / commodity / precious_metal, plus daily macro
+- the current truthful failing path is `macro_15min_archive`, which raises `NotImplementedError` because no real source/storage path exists in the current repo
 
-Explicit residuals retained for future work:
-- `15min + commodity` — runtime-covered only; blocker mix includes source limitation, schema/storage limitation, and implementation limitation
-- `15min + futures` — runtime-covered only; blocker mix includes source limitation, schema/storage limitation, and implementation limitation
-- `15min + precious_metal` — runtime-covered only; blocker mix includes source limitation, schema/storage limitation, and implementation limitation
-- `15min + macro` — runtime-covered only; blocker is fundamentally source limitation under current source set, plus missing dedicated storage/archiver path
+Current residuals retained for future work:
+- `macro_15min_archive` — not truthfully supported in current source/storage/runtime reality
+- any category/frequency pair without a real source/storage/runtime path must be classified explicitly rather than treated as implicitly supported
 
 ### Lowfreq (Milestone B)
 **Accepted for this phase** with the required proof set materially closed.
@@ -352,25 +350,26 @@ Manual command:
 /usr/bin/time -l python scripts/runtime_manifest_cli.py run-once --lane archive --owner-type default --owner-id default --list-type archive_targets
 ```
 
-Returned fields:
-- `run_id = a75fbd5f-e369-434e-a8f7-b63129e04557`
-- `window_name = manual_archive`
-- `archive_total_jobs = 3`
-- `archive_succeeded_jobs = 3`
-- `archive_failed_jobs = 0`
-- `archive_delta_count = 0`
-- `archive_catchup_rows_inserted = 0`
-- `archive_catchup_rows_bound = 0`
-- `archive_catchup_rows_completed = 0`
+Later current-head validation after switching the unified archive lane to real execution produced:
+- unified run id: `5132d412-78dd-4635-b74b-1b84a6d17c4b`
+- `worker_type = archive_real_run_worker`
+- `execution_mode = real_run`
+- `archive_total_jobs = 14`
+- `archive_succeeded_jobs = 13`
+- `archive_failed_jobs = 1`
+- failing path: `macro_15min_archive`
+- archive result status: `partial`
 
 ## 3.2 Implemented archive jobs that exist now
 
-From `archive_config.py`, current enabled default jobs are exactly:
-- `stock_daily_archive` → `stock_daily` → asset `stock`
-- `macro_archive` → `macro_history` → asset `macro`
-- `futures_archive` → `futures_history` → asset `futures`
+From current `archive_config.py`, enabled default archive jobs now include:
+- daily: `stock_daily_archive`, `macro_archive`, `futures_archive`, `commodity_archive`, `precious_metal_archive`
+- 15min: `stock_15min_archive`, `macro_15min_archive`, `futures_15min_archive`, `commodity_15min_archive`, `precious_metal_15min_archive`
+- minute: `stock_minute_archive`, `futures_minute_archive`, `commodity_minute_archive`, `precious_metal_minute_archive`
 
-This is the current real implemented default archive scope.
+Important truthful distinction:
+- implemented and executed now: stock / futures / commodity / precious_metal daily+15min+minute, plus daily macro
+- implemented but not truthfully supported: `macro_15min_archive`
 
 ## 3.3 Is the current fast archive one-shot doing meaningful historical update or mostly orchestration/status work?
 
@@ -465,7 +464,13 @@ Interpretation:
 **What remains open:**
 - no evidence yet in this phase of a meaningfully heavy backfill workload with substantial record volume / long runtime
 
-**Archive judgment:** **ready now** for current implemented operational scope, **with the explicit caveat** that the observed fast one-shot was low-work and should not be misread as proof of heavy backfill throughput
+**Archive judgment:** **partially operational in the current unified real-run path**.
+
+Why:
+- the unified archive lane is now truthfully executing implemented jobs in real-run mode
+- implemented stock / futures / commodity / precious_metal daily+15min+minute paths are exercised
+- `macro_15min_archive` remains an explicit truthful failure because no real source/storage path exists
+- therefore the honest current state is not `fully ready`; it is `real and materially stronger`, but still `partial` until unsupported category/frequency pairs are either implemented or explicitly removed from claimed support
 
 ---
 
