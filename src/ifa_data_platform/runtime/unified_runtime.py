@@ -765,7 +765,7 @@ class UnifiedRuntime:
             dataset_name for dataset_name in dataset_names if dataset_name not in {r.dataset_name for r in blocked}
         ]
         dataset_results = blocked + [
-            self._execute_lane_dataset(lane, dataset_name, dry_run=(execution_mode == "dry_run"))
+            self._execute_lane_dataset(lane, dataset_name, dry_run=(execution_mode == "dry_run"), run_id=run_id)
             for dataset_name in runnable_dataset_names
         ]
         records_processed = sum(r.records_processed for r in dataset_results)
@@ -854,7 +854,7 @@ class UnifiedRuntime:
         if lane == "midfreq":
             return "real_run"
         if lane == "highfreq":
-            return "skeleton_ready"
+            return "partial_real_run"
         return "dry_run"
 
     def _ensure_runtime_registries(self) -> None:
@@ -895,7 +895,7 @@ class UnifiedRuntime:
             )
         return blocked
 
-    def _execute_lane_dataset(self, lane: str, dataset_name: str, dry_run: bool) -> DatasetExecutionResult:
+    def _execute_lane_dataset(self, lane: str, dataset_name: str, dry_run: bool, run_id: str) -> DatasetExecutionResult:
         if lane == "lowfreq":
             result = self.lowfreq_runner.run(dataset_name, dry_run=dry_run, run_type="unified_runtime")
             return DatasetExecutionResult(
@@ -916,7 +916,7 @@ class UnifiedRuntime:
                 error_message=getattr(result, "error_message", None),
             )
 
-        result = self.highfreq_runner.run(dataset_name, dry_run=dry_run)
+        result = self.highfreq_runner.run(dataset_name, dry_run=dry_run, run_id=run_id)
         return DatasetExecutionResult(
             dataset_name=dataset_name,
             status=getattr(result, "status", "unknown"),

@@ -1,4 +1,4 @@
-"""Highfreq runner skeleton for milestone 1."""
+"""Highfreq runner for milestone 2 raw-layer landing."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from ifa_data_platform.highfreq.adaptor_tushare import HighfreqTushareAdaptor
+from ifa_data_platform.highfreq.persistence import HighfreqRunStore
 from ifa_data_platform.highfreq.registry import HighfreqDatasetRegistry
 
 
@@ -21,21 +23,51 @@ class RunnerResult:
 class HighfreqRunner:
     def __init__(self) -> None:
         self.registry = HighfreqDatasetRegistry()
+        self.adaptor = HighfreqTushareAdaptor()
+        self.run_store = HighfreqRunStore()
 
-    def run(self, dataset_name: str, dry_run: bool = False) -> RunnerResult:
+    def run(self, dataset_name: str, dry_run: bool = False, run_id: Optional[str] = None) -> RunnerResult:
         now = datetime.now(timezone.utc).isoformat()
         enabled = {d.dataset_name for d in self.registry.list_enabled()}
         if dataset_name not in enabled:
-            return RunnerResult(
+            result = RunnerResult(
                 dataset_name=dataset_name,
                 status="unsupported",
                 records_processed=0,
                 watermark=now,
                 error_message="dataset_not_enabled_or_not_verified",
             )
-        return RunnerResult(
-            dataset_name=dataset_name,
-            status="skeleton_ready" if dry_run else "skeleton_ready",
-            records_processed=0,
-            watermark=now,
-        )
+            if run_id:
+                self.run_store.record(run_id, dataset_name, result.status, result.records_processed, result.watermark, result.error_message)
+            return result
+
+        if dry_run:
+            result = RunnerResult(dataset_name=dataset_name, status="dry_run", records_processed=0, watermark=now)
+            if run_id:
+                self.run_store.record(run_id, dataset_name, result.status, result.records_processed, result.watermark, result.error_message)
+            return result
+
+        if dataset_name == "stock_1m_ohlcv":
+            records = self.adaptor.fetch_stock_1m("000001.SZ", "20260415 09:30:00", "20260415 09:35:00")
+            count = self.adaptor.persist_stock_1m(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        elif dataset_name == "open_auction_snapshot":
+            records = self.adaptor.fetch_open_auction("000001.SZ", "20260415")
+            count = self.adaptor.persist_open_auction(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        elif dataset_name == "close_auction_snapshot":
+            records = self.adaptor.fetch_close_auction("000001.SZ", "20260415")
+            count = self.adaptor.persist_close_auction(run_id or "highfreq-local", records, now)
+            result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
+        else:
+            result = RunnerResult(
+                dataset_name=dataset_name,
+                status="deferred",
+                records_processed=0,
+                watermark=now,
+                error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch1",
+            )
+
+        if run_id:
+            self.run_store.record(run_id, dataset_name, result.status, result.records_processed, result.watermark, result.error_message)
+        return result
