@@ -614,9 +614,22 @@ LOWFREQ_PROOFSET = [
     "trade_cal",
     "stock_basic",
     "index_basic",
+    "fund_basic_etf",
+    "sw_industry_mapping",
     "announcements",
     "news",
+    "research_reports",
+    "investor_qa",
+    "index_weight",
+    "etf_daily_basic",
+    "share_float",
     "company_basic",
+    "stk_managers",
+    "new_share",
+    "name_change",
+    "top10_holders",
+    "top10_floatholders",
+    "pledge_stat",
 ]
 
 MIDFREQ_PROOFSET = [
