@@ -254,12 +254,14 @@ class UnifiedRuntimeStore:
             return [dict(row) for row in rows]
 
     def archive_catchup_status(self, limit: int = 20) -> dict[str, Any]:
+        excluded_condition = "(asset_category = 'macro' AND granularity IN ('minute', '15min') AND status IN ('pending', 'planned', 'in_progress'))"
         with self.engine.begin() as conn:
             summary_rows = conn.execute(
                 text(
-                    """
+                    f"""
                     SELECT status, count(*) AS row_count
                     FROM ifa2.archive_target_catchup
+                    WHERE NOT {excluded_condition}
                     GROUP BY status
                     ORDER BY status
                     """
@@ -267,7 +269,7 @@ class UnifiedRuntimeStore:
             ).mappings().all()
             recent_rows = conn.execute(
                 text(
-                    """
+                    f"""
                     SELECT id, manifest_snapshot_id, change_type, dedupe_key,
                            symbol_or_series_id, asset_category, granularity,
                            source_list_name, suggested_backfill_start,
@@ -276,6 +278,7 @@ class UnifiedRuntimeStore:
                            started_at, completed_at, progress_note,
                            status, reason, created_at, updated_at
                     FROM ifa2.archive_target_catchup
+                    WHERE NOT {excluded_condition}
                     ORDER BY updated_at DESC, created_at DESC
                     LIMIT :limit
                     """
