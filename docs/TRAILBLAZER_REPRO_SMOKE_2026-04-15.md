@@ -1,6 +1,8 @@
 # Trailblazer Repro Smoke Evidence
 
 > **Canonical current-state status:** Canonical current-state document. Refreshed against current HEAD sanity evidence after doc normalization. Use this as the current repro/smoke reference, not older intermediate batch docs.
+> **Final accepted truth refresh:** final repro/smoke truth is now the unified manual acceptance batch at current HEAD: lowfreq succeeded across the widened 19-dataset scope, midfreq succeeded across the widened 12-dataset scope, archive succeeded across the corrected 13-job supported scope.
+
 
 > **Current truth snapshot:** current HEAD sanity passes showed lowfreq real-run success, midfreq real-run success, archive real-run success for the corrected supported scope. Any residual non-green operator surface is currently from stale macro intraday archive backlog rows, not from active supported-path execution failure.
 

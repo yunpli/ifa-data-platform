@@ -1,6 +1,8 @@
 # Trailblazer Final Evidence Package
 
 > **Canonical current-state status:** Canonical current-state document. Refreshed against current HEAD sanity evidence after doc normalization. Use this as current accepted evidence summary, not older batch records.
+> **Final accepted truth refresh:** final unified manual acceptance completed at current HEAD. Accepted lowfreq scope = 19 datasets; accepted midfreq scope = 12 datasets; accepted archive scope = 13 jobs (stock/futures/commodity/precious_metal daily+15min+minute; macro historical/daily only). Highfreq remains deferred. Midfreq daemon health may still report degraded when heartbeat is old, but this is now a truthful current-state signal rather than a surface inconsistency.
+
 
 > **Current truth snapshot:** lowfreq real-run = green for current proof set; midfreq real-run = green for current proof set; archive real-run = green for corrected supported scope (stock/futures/commodity/precious_metal daily+15min+minute; macro historical/daily only); highfreq remains deferred; stale archive operator/catch-up rows for old unsupported macro intraday assumptions still require cleanup/reclassification.
 
