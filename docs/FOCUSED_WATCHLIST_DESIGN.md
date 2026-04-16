@@ -1,13 +1,31 @@
 # Focused Watchlist / 关注清单 Design
 
-Last updated: 2026-04-14
+Last updated: 2026-04-16
 Repo: `/Users/neoclaw/repos/ifa-data-platform`
 
 ## 1. Goal
 
-Provide a formal, queryable "重点关注 / 关注清单" layer that can be consumed consistently by lowfreq, midfreq, and archive without hardcoding ad-hoc symbol lists into each runner.
+Provide a formal, queryable "重点关注 / 关注清单" layer that can be consumed consistently by lowfreq, midfreq, highfreq scope planning, and archive without hardcoding ad-hoc symbol lists into each runner.
 
-This doc defines the implementation plan. It does **not** require full implementation in this cleanup pass.
+## 1.1 Current truth
+This is no longer a pure proposal-only document.
+A Business Layer list model is now already present in the repo/database through:
+- `ifa2.focus_lists`
+- `ifa2.focus_list_items`
+- `ifa2.focus_list_rules`
+
+Current known list families include:
+- `default_key_focus`
+- `default_focus`
+- `default_tech_key_focus`
+- `default_tech_focus`
+- `default_archive_targets_15min`
+- `default_archive_targets_minute`
+
+So the correct interpretation is:
+- the repository already has a first-class focus-list / watchlist control plane
+- this doc should describe how that current model relates to the original design intent
+- not all desired list families are complete yet (for example commodity / precious_metal focus lists still do not exist)
 
 ## 2. Design Principle
 
@@ -15,67 +33,66 @@ This doc defines the implementation plan. It does **not** require full implement
 - focused-watchlist is a **policy / selection layer**, not a replacement for universe
 - each collection layer consumes the watchlist differently according to frequency and objective
 
-## 3. Recommended Layer Placement
+## 3. Current Layer Placement
 
-Implement as a shared collection-control layer in DB, adjacent to runtime control tables.
+The shared collection-control layer is now already placed in the DB, adjacent to runtime control tables, in schema `ifa2`.
 
-Recommended schema placement:
-- same `ifa2` schema
-- separate control tables, not mixed into asset history tables
+Current schema placement:
+- `focus_lists`
+- `focus_list_items`
+- `focus_list_rules`
 
-Reason:
-- lowfreq / midfreq / archive all need to consume it
-- should be centrally queryable and auditable
-- should support human curation + future generated scoring
+Reason remains the same:
+- lowfreq / midfreq / archive all consume or can consume it
+- it is centrally queryable and auditable
+- it supports human curation and later dynamic/scored expansion
 
-## 4. Proposed Tables
+## 4. Current Tables and Remaining Extensions
 
-### 4.1 `ifa2.watchlists`
-Purpose: define a named watchlist.
+### 4.1 Current implemented tables
+#### `ifa2.focus_lists`
+Purpose: define a named focus/watchlist.
 
-Suggested columns:
-- `id` UUID PK
-- `watchlist_name` TEXT UNIQUE
-- `watchlist_type` TEXT  
-  - examples: `focus`, `priority`, `event_driven`, `theme`, `archive_backfill`
-- `description` TEXT
-- `owner` TEXT
-- `is_active` BOOLEAN
-- `created_at`
-- `updated_at`
+Current semantic fields observed in use:
+- `id`
+- `owner_type`
+- `owner_id`
+- `list_type`
+- `name`
+- `asset_type`
+- `frequency_type`
+- `description`
+- `is_active`
+- timestamps
 
-### 4.2 `ifa2.watchlist_symbols`
-Purpose: map symbols into a watchlist.
+#### `ifa2.focus_list_items`
+Purpose: map symbols into a focus/watchlist.
 
-Suggested columns:
-- `id` UUID PK
-- `watchlist_id` UUID FK -> `watchlists.id`
-- `symbol` TEXT
-- `priority` INTEGER
-- `reason_code` TEXT
-- `reason_text` TEXT
-- `effective_from`
-- `effective_to`
-- `is_active` BOOLEAN
-- `created_at`
-- `updated_at`
+Current semantic fields observed in use:
+- `id`
+- `list_id`
+- `symbol`
+- `name`
+- `asset_category`
+- `priority`
+- `source`
+- `notes`
+- `is_active`
+- timestamps
 
-Constraints:
-- unique active tuple on `(watchlist_id, symbol, effective_from)` or equivalent dedupe policy
+#### `ifa2.focus_list_rules`
+Purpose: attach control rules to a focus/watchlist.
 
-### 4.3 `ifa2.watchlist_materializations` (optional but recommended)
-Purpose: persist per-run resolved watchlist snapshot for audit / replay.
+Current semantic fields observed in use:
+- `id`
+- `list_id`
+- `rule_key`
+- `rule_value`
+- timestamps
 
-Suggested columns:
-- `id` UUID PK
-- `watchlist_name` TEXT
-- `runtime_layer` TEXT (`lowfreq` / `midfreq` / `archive`)
-- `window_name` TEXT nullable
-- `run_id` TEXT nullable
-- `business_date` DATE
-- `symbol_count` INTEGER
-- `payload_json` JSONB
-- `created_at`
+### 4.2 Remaining optional extension
+A per-run materialization/snapshot table is still conceptually useful, but it is not required to claim the watchlist layer exists.
+The current repo instead often captures resolved runtime scope through manifest snapshots and unified runtime evidence.
 
 ## 5. Relationship with `symbol_universe`
 
@@ -168,13 +185,22 @@ Phase 3:
 - add dynamic scoring / event-driven promotion rules
 - add expiration and owner workflows
 
-## 10. Recommended Initial Named Lists
+## 10. Current Named Lists and Remaining Gaps
 
-- `focus_core`
-- `focus_event_driven`
-- `midfreq_priority`
-- `archive_backfill_priority`
-- `manual_temp_override`
+Current known named lists:
+- `default_key_focus`
+- `default_focus`
+- `default_tech_key_focus`
+- `default_tech_focus`
+- `default_archive_targets_15min`
+- `default_archive_targets_minute`
+
+Important remaining gaps:
+- no explicit commodity key-focus list
+- no explicit commodity focus list
+- no explicit precious_metal key-focus list
+- no explicit precious_metal focus list
+- no explicit archive index target list observed
 
 ## 11. Non-Goals for This Cleanup Pass
 
@@ -186,10 +212,15 @@ Not required right now:
 
 ## 12. Final Recommendation
 
-Implement focused-watchlist as a **shared control-plane selection layer** in `ifa2`, separate from `symbol_universe` but joined to it.
+Treat the current `focus_lists` / `focus_list_items` / `focus_list_rules` model as the shared control-plane selection layer in `ifa2`, separate from `symbol_universe` but joined to it.
 
-This gives:
+This already gives:
 - clear semantics
 - runtime auditability
 - lowfreq / midfreq / archive reuse
 - no more ad-hoc symbol subsets hidden in per-layer code paths
+
+Next-step recommendation is not to invent a second watchlist schema, but to:
+- continue seeding missing list families into the current focus-list model
+- document list taxonomy clearly
+- add any needed materialization/snapshot helpers on top of the current model rather than replacing it

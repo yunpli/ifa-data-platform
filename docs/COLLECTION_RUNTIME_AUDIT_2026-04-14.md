@@ -13,6 +13,8 @@ Target was **not** feature expansion. Target was to:
 - perform minimal necessary DB cleanup
 - write formal operator docs and status snapshot
 
+> Historical note: this document captures the 2026-04-14 audit state only. It is no longer the current canonical runtime model after the 2026-04-16 unified-daemon convergence. For current truth, see `docs/runbook.md`, `docs/architecture.md`, and `docs/DEVELOPER_COLLECTION_CONTEXT.md`.
+
 ## 2. Runtime Audit Result
 
 ### lowfreq
