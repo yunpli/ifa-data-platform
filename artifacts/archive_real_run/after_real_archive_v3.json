@@ -1,0 +1,229 @@
+{
+  "label": "after_real_archive_v3",
+  "tables": {
+    "archive_runs": 73,
+    "archive_checkpoints": 18,
+    "archive_target_catchup": 8,
+    "archive_summary_daily": 2,
+    "stock_60min_history": 60,
+    "futures_60min_history": 250,
+    "commodity_60min_history": 250,
+    "precious_metal_60min_history": 250,
+    "stock_15min_history": 1290,
+    "stock_minute_history": 2410,
+    "futures_15min_history": 22912,
+    "futures_minute_history": 32000,
+    "commodity_15min_history": 49456,
+    "commodity_minute_history": 56000,
+    "precious_metal_15min_history": 16000,
+    "precious_metal_minute_history": 16000,
+    "dragon_tiger_list_history": 1989,
+    "limit_up_detail_history": 60336,
+    "limit_up_down_status_history": 13,
+    "daily_structured_output_archive": 890,
+    "unified_runtime_runs": 14,
+    "job_runs": 14
+  },
+  "archive_jobs": [
+    {
+      "job_name": "precious_metal_minute_archive",
+      "dataset_name": "precious_metal_minute_history",
+      "asset_type": "precious_metal",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:57:10.446898",
+      "completed_at": "2026-04-16 17:57:13.866507"
+    },
+    {
+      "job_name": "commodity_minute_archive",
+      "dataset_name": "commodity_minute_history",
+      "asset_type": "commodity",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:57:00.800884",
+      "completed_at": "2026-04-16 17:57:10.446521"
+    },
+    {
+      "job_name": "futures_minute_archive",
+      "dataset_name": "futures_minute_history",
+      "asset_type": "futures",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:55.061192",
+      "completed_at": "2026-04-16 17:57:00.800484"
+    },
+    {
+      "job_name": "stock_minute_archive",
+      "dataset_name": "stock_minute_history",
+      "asset_type": "stock",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:53.487409",
+      "completed_at": "2026-04-16 17:56:55.059900"
+    },
+    {
+      "job_name": "precious_metal_15min_archive",
+      "dataset_name": "precious_metal_15min_history",
+      "asset_type": "precious_metal",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:49.899728",
+      "completed_at": "2026-04-16 17:56:53.487031"
+    },
+    {
+      "job_name": "precious_metal_60min_archive",
+      "dataset_name": "precious_metal_60min_history",
+      "asset_type": "precious_metal",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:49.876600",
+      "completed_at": "2026-04-16 17:56:49.899430"
+    },
+    {
+      "job_name": "commodity_15min_archive",
+      "dataset_name": "commodity_15min_history",
+      "asset_type": "commodity",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:40.583638",
+      "completed_at": "2026-04-16 17:56:49.876230"
+    },
+    {
+      "job_name": "commodity_60min_archive",
+      "dataset_name": "commodity_60min_history",
+      "asset_type": "commodity",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:40.559493",
+      "completed_at": "2026-04-16 17:56:40.583337"
+    },
+    {
+      "job_name": "futures_15min_archive",
+      "dataset_name": "futures_15min_history",
+      "asset_type": "futures",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:35.597810",
+      "completed_at": "2026-04-16 17:56:40.559111"
+    },
+    {
+      "job_name": "futures_60min_archive",
+      "dataset_name": "futures_60min_history",
+      "asset_type": "futures",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:35.512445",
+      "completed_at": "2026-04-16 17:56:35.596712"
+    },
+    {
+      "job_name": "stock_15min_archive",
+      "dataset_name": "stock_15min_history",
+      "asset_type": "stock",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:33.587518",
+      "completed_at": "2026-04-16 17:56:35.509702"
+    },
+    {
+      "job_name": "stock_60min_archive",
+      "dataset_name": "stock_60min_history",
+      "asset_type": "stock",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:33.519702",
+      "completed_at": "2026-04-16 17:56:33.585982"
+    },
+    {
+      "job_name": "precious_metal_archive",
+      "dataset_name": "precious_metal_history",
+      "asset_type": "precious_metal",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:31.956663",
+      "completed_at": "2026-04-16 17:56:33.518119"
+    },
+    {
+      "job_name": "commodity_archive",
+      "dataset_name": "commodity_history",
+      "asset_type": "commodity",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:27.004416",
+      "completed_at": "2026-04-16 17:56:31.954711"
+    },
+    {
+      "job_name": "futures_archive",
+      "dataset_name": "futures_history",
+      "asset_type": "futures",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:27.002404",
+      "completed_at": "2026-04-16 17:56:27.004098"
+    },
+    {
+      "job_name": "macro_archive",
+      "dataset_name": "macro_history",
+      "asset_type": "macro",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:27.001350",
+      "completed_at": "2026-04-16 17:56:27.002082"
+    },
+    {
+      "job_name": "stock_daily_archive",
+      "dataset_name": "stock_daily",
+      "asset_type": "stock",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 17:56:26.993364",
+      "completed_at": "2026-04-16 17:56:27.000718"
+    },
+    {
+      "job_name": "precious_metal_minute_archive",
+      "dataset_name": "precious_metal_minute_history",
+      "asset_type": "precious_metal",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 10:39:58.857110",
+      "completed_at": "2026-04-16 10:40:22.826191"
+    },
+    {
+      "job_name": "commodity_minute_archive",
+      "dataset_name": "commodity_minute_history",
+      "asset_type": "commodity",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 10:39:46.294461",
+      "completed_at": "2026-04-16 10:39:58.856716"
+    },
+    {
+      "job_name": "futures_minute_archive",
+      "dataset_name": "futures_minute_history",
+      "asset_type": "futures",
+      "window_name": "manual_archive",
+      "status": "succeeded",
+      "records_processed": 0,
+      "started_at": "2026-04-16 10:39:40.519413",
+      "completed_at": "2026-04-16 10:39:46.293790"
+    }
+  ]
+}

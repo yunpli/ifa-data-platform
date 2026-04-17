@@ -109,7 +109,7 @@ class ArchiveOrchestrator:
             window_name=window_name,
             started_at=started_at,
             completed_at=completed_at,
-            total_jobs=len(enabled_jobs),
+            total_jobs=len(results),
             succeeded_jobs=succeeded,
             failed_jobs=failed,
             job_results=results,
@@ -122,7 +122,7 @@ class ArchiveOrchestrator:
         self.daemon_store.update_loop(last_job, last_status)
 
         logger.info(
-            f"Window {window_name} completed: {succeeded}/{len(enabled_jobs)} succeeded, "
+            f"Window {window_name} completed: {succeeded}/{len(results)} succeeded, "
             f"{failed} failed, {total_records} records"
         )
 
