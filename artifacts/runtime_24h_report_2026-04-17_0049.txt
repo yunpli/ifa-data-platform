@@ -1,0 +1,47 @@
+Collection Layer Runtime Report (Last 24 Hours)
+Report generated: 2026-04-17 07:48:44 UTC
+Time range: 2026-04-16 07:48:44 UTC -> 2026-04-17 07:48:44 UTC
+
+1. Unified daemon summary
+- Total unified runs: 0
+- No unified runtime runs in window
+
+2. lowfreq summary
+- No runs in window
+
+3. midfreq summary
+- No runs in window
+
+4. highfreq summary
+- No runs in window
+
+5. archive summary
+- No runs in window
+
+6. Major table/archive progression summary
+- No archive jobs in window
+
+7. Current worker state snapshot
+- archive: last_status=succeeded active_run_id=- last_completed=2026-04-16 23:33:37 UTC next_due=2026-04-17 06:30:00 UTC
+- highfreq: last_status=succeeded active_run_id=- last_completed=2026-04-16 23:32:45 UTC next_due=2026-04-19 18:15:00 UTC
+- lowfreq: last_status=succeeded active_run_id=- last_completed=2026-04-16 23:34:57 UTC next_due=2026-04-17 18:00:00 UTC
+- midfreq: last_status=succeeded active_run_id=- last_completed=2026-04-16 23:33:07 UTC next_due=2026-04-17 19:30:00 UTC
+
+8. Current archive checkpoint snapshot
+- commodity_15min_history / commodity: last_completed_date=2025-06-16 status=completed
+- commodity_history / commodity: last_completed_date=2026-04-15 status=completed
+- commodity_minute_history / commodity: last_completed_date=2025-06-16 status=completed
+- futures_15min_history / futures: last_completed_date=2025-09-12 status=completed
+- futures_history / futures: last_completed_date=2026-04-15 status=completed
+- futures_minute_history / futures: last_completed_date=2025-09-12 status=completed
+- macro_history / macro: last_completed_date=2026-04-16 status=completed
+- precious_metal_15min_history / precious_metal: last_completed_date=2025-06-16 status=completed
+- precious_metal_history / precious_metal: last_completed_date=2026-04-15 status=completed
+- precious_metal_minute_history / precious_metal: last_completed_date=2025-06-16 status=completed
+- stock_15min_history / stock: last_completed_date=2026-04-15 status=in_progress
+- stock_daily / stock: last_completed_date=2026-04-13 status=completed
+
+9. Overall judgment
+- No unified runtime activity observed in the last 24 hours.
+- Watchdog/governance exists at DB/operator layer (timeout/overlap/stale visibility).
+- External hard-kill/restart supervisor still does not exist yet.
