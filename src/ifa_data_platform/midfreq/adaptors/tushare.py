@@ -190,8 +190,12 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                 }
 
             elif dataset_name == "sector_performance":
-                raw_records, new_watermark = [], watermark
-                request_params = {}
+                raw_records, new_watermark = self._fetch_sector_performance(watermark)
+                request_params = {
+                    "api_name": "ths_daily",
+                    "trade_date": new_watermark,
+                    "source_path": "ths_index(exchange='A', type='N') -> ths_daily(ts_code='<.TI>', trade_date=...)",
+                }
 
             elif dataset_name == "dragon_tiger_list":
                 raw_records, new_watermark = self._fetch_dragon_tiger_list(watermark)
@@ -820,7 +824,14 @@ class MidfreqTushareAdaptor(BaseAdaptor):
     def _fetch_sector_performance(
         self, trade_date: Optional[str] = None
     ) -> tuple[list[dict], str]:
-        """Fetch sector (SW行业) daily performance."""
+        """Fetch sector/theme daily performance from the usable THS TI path.
+
+        Active source path:
+        - ths_index(exchange='A', type='N')
+        - ths_daily(ts_code='<.TI>', trade_date=...)
+
+        This replaces the previously inactive SW .SI -> index_daily path.
+        """
         if not trade_date:
             trade_date = self._get_last_trading_day()
             if not trade_date:
@@ -831,47 +842,48 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         parsed_records = []
         try:
             sectors = self.client.query(
-                "index_classify",
-                {"market": "SW"},
+                "ths_index",
+                {"exchange": "A", "type": "N"},
                 timeout_sec=30,
                 max_retries=2,
             )
         except Exception as e:
-            logger.warning(f"sector_performance query failed: {e}")
+            logger.warning(f"sector_performance ths_index query failed: {e}")
             return [], trade_date
 
         for sector in sectors:
-            index_code = sector.get("index_code", "")
-            if not index_code:
+            index_code = sector.get("ts_code", "")
+            if not index_code or not str(index_code).endswith('.TI'):
                 continue
             try:
                 records = self.client.query(
-                    "index_daily",
+                    "ths_daily",
                     {"ts_code": index_code, "trade_date": trade_date},
                     timeout_sec=30,
                     max_retries=2,
                 )
-                if records:
-                    rec = records[0]
-                    td_str = rec.get("trade_date", "")
-                    trade_date_val = None
-                    if td_str:
-                        try:
-                            trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
-                        except ValueError:
-                            continue
-                    if trade_date_val:
-                        parsed_records.append(
-                            {
-                                "sector_code": index_code,
-                                "trade_date": trade_date_val,
-                                "sector_name": sector.get("industry_name"),
-                                "close": rec.get("close"),
-                                "pct_chg": rec.get("pct_chg"),
-                                "turnover_rate": None,
-                            }
-                        )
-            except Exception as e:
+                if not records:
+                    continue
+                rec = records[0]
+                td_str = rec.get("trade_date", "")
+                trade_date_val = None
+                if td_str:
+                    try:
+                        trade_date_val = datetime.strptime(td_str, "%Y%m%d").date()
+                    except ValueError:
+                        continue
+                if trade_date_val:
+                    parsed_records.append(
+                        {
+                            "sector_code": index_code,
+                            "trade_date": trade_date_val,
+                            "sector_name": sector.get("name"),
+                            "close": rec.get("close"),
+                            "pct_chg": rec.get("pct_change"),
+                            "turnover_rate": rec.get("turnover_rate"),
+                        }
+                    )
+            except Exception:
                 continue
 
         return parsed_records, trade_date
