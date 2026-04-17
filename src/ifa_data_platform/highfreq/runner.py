@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from ifa_data_platform.highfreq.adaptor_tushare import HighfreqTushareAdaptor
+from ifa_data_platform.highfreq.derived_signals import DerivedSignalBuilder
 from ifa_data_platform.highfreq.persistence import HighfreqRunStore
 from ifa_data_platform.highfreq.registry import HighfreqDatasetRegistry
 
@@ -24,6 +25,7 @@ class HighfreqRunner:
     def __init__(self) -> None:
         self.registry = HighfreqDatasetRegistry()
         self.adaptor = HighfreqTushareAdaptor()
+        self.derived_builder = DerivedSignalBuilder()
         self.run_store = HighfreqRunStore()
 
     def run(self, dataset_name: str, dry_run: bool = False, run_id: Optional[str] = None) -> RunnerResult:
@@ -84,6 +86,27 @@ class HighfreqRunner:
                 error_message="source_not_verified_or_storage_not_landed_in_milestone2_batch4",
             )
 
+        if run_id:
+            self.run_store.record(run_id, dataset_name, result.status, result.records_processed, result.watermark, result.error_message)
+        return result
+
+    def build_derived_state(self, dry_run: bool = False, run_id: Optional[str] = None) -> RunnerResult:
+        now = datetime.now(timezone.utc).isoformat()
+        dataset_name = "derived_signal_state"
+        if dry_run:
+            result = RunnerResult(dataset_name=dataset_name, status="dry_run", records_processed=0, watermark=now)
+            if run_id:
+                self.run_store.record(run_id, dataset_name, result.status, result.records_processed, result.watermark, result.error_message)
+            return result
+
+        summary = self.derived_builder.build()
+        records_processed = int(
+            1
+            + int(summary.get("leader_candidate_count", 0) or 0)
+            + int(summary.get("limit_event_count", 0) or 0)
+            + 2
+        )
+        result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=records_processed, watermark=now)
         if run_id:
             self.run_store.record(run_id, dataset_name, result.status, result.records_processed, result.watermark, result.error_message)
         return result

@@ -917,13 +917,23 @@ class UnifiedRuntime:
             )
 
         result = self.highfreq_runner.run(dataset_name, dry_run=dry_run, run_id=run_id)
-        return DatasetExecutionResult(
+        highfreq_result = DatasetExecutionResult(
             dataset_name=dataset_name,
             status=getattr(result, "status", "unknown"),
             records_processed=int(getattr(result, "records_processed", 0) or 0),
             watermark=getattr(result, "watermark", None),
             error_message=getattr(result, "error_message", None),
         )
+        if dataset_name == "event_time_stream" and highfreq_result.status in {"succeeded", "dry_run"}:
+            derived = self.highfreq_runner.build_derived_state(dry_run=dry_run, run_id=run_id)
+            return DatasetExecutionResult(
+                dataset_name=f"{dataset_name}+derived_signal_state",
+                status=getattr(derived, "status", "unknown"),
+                records_processed=highfreq_result.records_processed + int(getattr(derived, "records_processed", 0) or 0),
+                watermark=getattr(derived, "watermark", None) or highfreq_result.watermark,
+                error_message=getattr(derived, "error_message", None),
+            )
+        return highfreq_result
 
     def _run_archive_lane(
         self,
