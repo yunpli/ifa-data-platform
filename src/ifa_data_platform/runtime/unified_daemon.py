@@ -397,6 +397,38 @@ class UnifiedRuntimeDaemon:
         now = now_utc()
         day_type = self.calendar.get_runtime_day_type(now, exchange="SSE")
         trading_status = self.calendar.get_day_status(now.astimezone(BJ_TZ).date(), exchange="SSE")
+        worker_states = self.store.list_worker_states()
+        watchdog = []
+        for ws in worker_states:
+            active_started = ws.get("active_started_at")
+            if active_started and getattr(active_started, 'tzinfo', None) is None:
+                active_started = active_started.replace(tzinfo=timezone.utc)
+            last_heartbeat = ws.get("last_heartbeat_at")
+            if last_heartbeat and getattr(last_heartbeat, 'tzinfo', None) is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+            schedules = [s for s in self.store.list_schedules(enabled_only=True) if s["worker_type"] == ws["worker_type"]]
+            budget = max([int(s.get("runtime_budget_sec") or self._default_budget(ws["worker_type"])) for s in schedules] or [self._default_budget(ws["worker_type"])])
+            state = "idle"
+            note = "no active run"
+            if ws.get("active_run_id") and active_started:
+                elapsed = int((now - active_started).total_seconds())
+                if elapsed > budget:
+                    state = "stale_active_timeout_exceeded"
+                    note = f"active run age {elapsed}s exceeded budget {budget}s"
+                else:
+                    state = "active_within_budget"
+                    note = f"active run age {elapsed}s within budget {budget}s"
+            elif last_heartbeat:
+                elapsed = int((now - last_heartbeat).total_seconds())
+                state = "healthy_recent_heartbeat" if elapsed <= 2 * 60 * 60 else "stale_heartbeat"
+                note = f"last heartbeat age {elapsed}s"
+            watchdog.append({
+                "worker_type": ws["worker_type"],
+                "state": state,
+                "budget_sec": budget,
+                "active_run_id": str(ws["active_run_id"]) if ws.get("active_run_id") else None,
+                "note": note,
+            })
         return {
             "daemon_name": "unified_runtime_daemon",
             "official_long_running_entry": "python3 -m ifa_data_platform.runtime.unified_daemon --loop",
@@ -411,7 +443,8 @@ class UnifiedRuntimeDaemon:
                 "source": trading_status.source,
             },
             "schedules": self.store.list_schedules(enabled_only=False),
-            "worker_states": self.store.list_worker_states(),
+            "worker_states": worker_states,
+            "watchdog": watchdog,
             "recent_runs": self.store.recent_runs(limit=20),
         }
 
@@ -479,6 +512,8 @@ class UnifiedRuntimeDaemon:
                     "governance_state": "overlap_conflict",
                 }
 
+        provisional_run_id = str(uuid.uuid4())
+        self.store.mark_worker_running(worker_type=worker_type, run_id=provisional_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
         result = self.adapter.run(
             worker_type,
             trigger_mode=trigger_mode,
@@ -486,9 +521,11 @@ class UnifiedRuntimeDaemon:
             group_name=(schedule_row or {}).get("group_name"),
             dry_run_manifest_only=dry_run_manifest_only,
         )
-        self.store.mark_worker_running(worker_type=worker_type, run_id=result["run_id"], schedule_key=schedule_key, trigger_mode=trigger_mode)
+        effective_run_id = result.get("run_id") or provisional_run_id
+        if effective_run_id != provisional_run_id:
+            self.store.mark_worker_running(worker_type=worker_type, run_id=effective_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
         self.store.update_unified_run_governance(
-            run_id=result["run_id"],
+            run_id=effective_run_id,
             schedule_key=schedule_key,
             beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
             runtime_budget_sec=runtime_budget_sec,
@@ -508,7 +545,7 @@ class UnifiedRuntimeDaemon:
         )
         self.store.mark_worker_finished(
             worker_type=worker_type,
-            run_id=result["run_id"],
+            run_id=effective_run_id,
             status=result["status"],
             error=None if result["error_count"] == 0 else "see unified_runtime_runs.summary",
             next_due_at_utc=self._next_due_at_utc(worker_type, start),

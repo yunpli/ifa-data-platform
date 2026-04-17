@@ -1,0 +1,129 @@
+Collection Layer Production Bring-up Handoff
+Date: 2026-04-17 00:43
+Repo: /Users/neoclaw/repos/ifa-data-platform
+Venv: /Users/neoclaw/repos/ifa-data-platform/.venv
+
+1. Watchdog / anti-hang status
+- Exists now at DB-governance/operator-visible level.
+- Unified daemon enforces runtime-budget-aware overlap handling and timeout marking.
+- Worker state is stored in ifa2.runtime_worker_state.
+- Central run/governance evidence is stored in ifa2.unified_runtime_runs.
+- Status surface now exposes watchdog states such as:
+  - active_within_budget
+  - stale_active_timeout_exceeded
+  - healthy_recent_heartbeat
+  - stale_heartbeat
+- Important truthful limitation:
+  - there is NOT yet an external OS-level hard-kill watchdog/supervisor that forcibly kills a truly hung inline worker from outside the daemon process.
+
+2. What was cleaned before production bring-up
+- unified runtime run evidence from validation/sanity batches
+- job run evidence from validation/sanity batches
+- lowfreq/highfreq worker-run evidence residue
+- target manifest snapshots from validation
+- lowfreq raw fetch residue
+- highfreq working and derived-state working rows from testing
+- recent archive evidence/output residue from repeated validation batches
+
+Kept intact:
+- Business Layer truth/config tables
+- runtime schedule/policy tables
+- trade calendar truth tables
+- long-term reference/history truth
+- archive checkpoints / catch-up anchors
+
+3. How the daemon was started
+Command:
+./.venv/bin/python -m ifa_data_platform.runtime.unified_daemon --loop --loop-interval-sec 60
+
+Current live background exec session:
+fast-dune
+
+Official long-running runtime entry:
+python3 -m ifa_data_platform.runtime.unified_daemon --loop
+
+4. How the 24x7 runtime is structured now
+Single official long-running daemon covers four worker domains:
+- lowfreq
+- midfreq
+- highfreq
+- archive
+
+Schedules are DB-backed in ifa2.runtime_worker_schedules.
+Worker live/last state is DB-backed in ifa2.runtime_worker_state.
+
+Business-time semantics are Asia/Shanghai.
+
+5. How to inspect runtime status
+Command:
+./.venv/bin/python -m ifa_data_platform.runtime.unified_daemon --status
+
+Useful inspection tables:
+- ifa2.runtime_worker_schedules
+- ifa2.runtime_worker_state
+- ifa2.unified_runtime_runs
+- ifa2.job_runs
+- ifa2.archive_runs
+- ifa2.archive_checkpoints
+- ifa2.archive_target_catchup
+- ifa2.archive_summary_daily
+
+6. What each worker writes
+lowfreq:
+- slow/reference/fundamental/news/calendar data
+- examples: trade calendar, stock/index/fund basics, announcements, news, research reports, investor QA, holdings/pledge/reference truth
+
+midfreq:
+- daily/post-session market-structure data
+- examples: equity/index/ETF daily bars, flows, turnover, limit-up detail, dragon tiger list, sector performance
+
+highfreq:
+- intraday working data
+- examples: stock/index/proxy 1m working, futures minute working, auction snapshots, event stream
+- derived working: breadth, heat, leader candidates, signal state, limit-event state
+
+archive:
+- archive runs/checkpoints/catch-up state
+- retained history layers
+- structured archive output snapshots
+
+7. What the key tables mean
+current tables:
+- latest canonical state for a dataset
+history tables:
+- retained time-series / historical preservation path
+working tables:
+- highfreq operational/intraday working state, not long-term truth-of-record
+checkpoint/catch-up tables:
+- archive progression/control truth
+runtime tables:
+- schedule, worker state, run evidence, governance/watchdog truth
+
+8. Whether watchdog exists and what it actually does
+What exists:
+- timeout-aware overlap governance
+- timeout marking
+- stale active-run / stale heartbeat visibility
+- operator-readable watchdog state in unified daemon status
+
+What does not yet exist:
+- separate external process supervisor that force-kills a hung inline worker process
+- separate restart daemon/reaper for zombie subprocesses
+
+So the truthful statement is:
+- watchdog/governance EXISTS at the DB/operator layer
+- hard external process recovery does NOT yet exist
+
+9. Remaining truthful limitations
+- no external hard-kill supervisor yet
+- 1m/15m archive remains practical forward-only behavior
+- sector_performance is now usable, but as a post-close daily midfreq dataset
+- status command logs midfreq dataset registration noise on startup
+
+10. Most important operator command
+./.venv/bin/python -m ifa_data_platform.runtime.unified_daemon --status
+
+11. Bring-up artifact docs
+- docs/COLLECTION_LAYER_PRODUCTION_BRINGUP_2026-04-17_0042.md
+- artifacts/unified_daemon_status_after_bringup_2026-04-17_0040.json
+- artifacts/final_production_cleanup_2026-04-17_0039.json

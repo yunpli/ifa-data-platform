@@ -1,0 +1,106 @@
+{
+  "deleted": {
+    "unified_runtime_runs": {
+      "before": 4,
+      "after": 0
+    },
+    "job_runs": {
+      "before": 4,
+      "after": 0
+    },
+    "lowfreq_runs": {
+      "before": 19,
+      "after": 0
+    },
+    "highfreq_runs": {
+      "before": 8,
+      "after": 0
+    },
+    "midfreq_execution_summary": {
+      "before": 0,
+      "after": 0
+    },
+    "highfreq_execution_summary": {
+      "before": 0,
+      "after": 0
+    },
+    "target_manifest_snapshots": {
+      "before": 4,
+      "after": 0
+    },
+    "lowfreq_raw_fetch": {
+      "before": 19,
+      "after": 0
+    },
+    "highfreq_close_auction_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_event_stream_working": {
+      "before": 400,
+      "after": 0
+    },
+    "highfreq_futures_minute_working": {
+      "before": 40,
+      "after": 0
+    },
+    "highfreq_index_1m_working": {
+      "before": 6,
+      "after": 0
+    },
+    "highfreq_intraday_signal_state_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_leader_candidate_working": {
+      "before": 6,
+      "after": 0
+    },
+    "highfreq_limit_event_stream_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_open_auction_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_proxy_1m_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_sector_breadth_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_sector_heat_working": {
+      "before": 1,
+      "after": 0
+    },
+    "highfreq_stock_1m_working": {
+      "before": 6,
+      "after": 0
+    },
+    "highfreq_active_scope": {
+      "before": 0,
+      "after": 0
+    },
+    "highfreq_dynamic_candidate": {
+      "before": 0,
+      "after": 0
+    }
+  },
+  "recent_archive_deleted": {
+    "archive_runs": {
+      "before": 17,
+      "after": 0
+    },
+    "archive_summary_daily": {
+      "before": 1,
+      "after": 0
+    },
+    "daily_structured_output_archive": {
+      "before": 950,
+      "after": 0
+    }
+  }
+}
