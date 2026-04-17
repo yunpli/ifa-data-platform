@@ -38,6 +38,13 @@ def main():
             order by started_at desc
         """), {'since': since}).mappings().all()
         worker_states = conn.execute(text("select * from ifa2.runtime_worker_state order by worker_type")).mappings().all()
+        job_runs = conn.execute(text("""
+            select job_name, status, started_at, completed_at, records_processed
+            from ifa2.job_runs
+            where started_at >= :since
+            order by started_at desc
+            limit 200
+        """), {'since': since}).mappings().all()
         archive_runs = conn.execute(text("""
             select job_name, dataset_name, asset_type, status, records_processed, started_at, completed_at
             from ifa2.archive_runs
@@ -61,8 +68,20 @@ def main():
     lines.append(f'Time range: {fmt_ts(since)} -> {fmt_ts(now)}')
     lines.append('')
 
+    recent_worker_activity = []
+    for ws in worker_states:
+        lc = ws.get('last_completed_at')
+        if lc is not None:
+            if getattr(lc, 'tzinfo', None) is None:
+                lc = lc.replace(tzinfo=timezone.utc)
+            if lc >= since:
+                recent_worker_activity.append((ws['worker_type'], lc, ws.get('last_status')))
+
     lines.append('1. Unified daemon summary')
     lines.append(f'- Total unified runs: {len(runs)}')
+    lines.append(f'- Job-run rows in window: {len(job_runs)}')
+    lines.append(f'- Archive-run rows in window: {len(archive_runs)}')
+    lines.append(f'- Worker-state completions in window: {len(recent_worker_activity)}')
     if runs:
         ok = sum(1 for r in runs if r['status'] == 'succeeded')
         partial = sum(1 for r in runs if r['status'] == 'partial')
@@ -70,8 +89,19 @@ def main():
         lines.append(f'- Succeeded: {ok}')
         lines.append(f'- Partial: {partial}')
         lines.append(f'- Other/non-success: {failed}')
+        lines.append('- Interpretation: unified runtime rows exist for the window.')
+    elif recent_worker_activity or job_runs or archive_runs:
+        lines.append('- No unified_runtime_runs rows found in window.')
+        lines.append('- But other evidence shows recent runtime activity exists in the window.')
+        if recent_worker_activity:
+            for wt, lc, st in recent_worker_activity:
+                lines.append(f'- Worker-state evidence: {wt} last_completed={fmt_ts(lc)} status={st}')
+        lines.append('- Interpretation: recent execution evidence exists, but unified run-row evidence is absent/missing for this window.')
     else:
-        lines.append('- No unified runtime runs in window')
+        lines.append('- No unified_runtime_runs rows found in window.')
+        lines.append('- No worker-state completion evidence in window.')
+        lines.append('- No job/archive evidence in window.')
+        lines.append('- Interpretation: no observed runtime activity in the last 24 hours.')
     lines.append('')
 
     for lane in ['lowfreq', 'midfreq', 'highfreq', 'archive']:
@@ -129,9 +159,13 @@ def main():
 
     lines.append('9. Overall judgment')
     if runs:
-        lines.append('- Unified runtime has run within the last 24 hours and DB-backed operator evidence exists.')
+        lines.append('- Unified runtime rows exist in the last 24 hours; runtime activity is directly evidenced in unified_runtime_runs.')
+    elif recent_worker_activity or job_runs or archive_runs:
+        lines.append('- No unified_runtime_runs rows were found in the last 24 hours, but other evidence sources show recent runtime activity in the window.')
+        lines.append('- This is an evidence mismatch/alignment issue, not a truthful "no activity" case.')
     else:
-        lines.append('- No unified runtime activity observed in the last 24 hours.')
+        lines.append('- No unified_runtime_runs rows, no worker-state completions, and no job/archive evidence were observed in the last 24 hours.')
+        lines.append('- This is the only case that should be interpreted as no observed activity in the window.')
     lines.append('- Watchdog/governance exists at DB/operator layer (timeout/overlap/stale visibility).')
     lines.append('- External hard-kill/restart supervisor still does not exist yet.')
 
