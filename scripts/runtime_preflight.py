@@ -1,0 +1,139 @@
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy import create_engine, text
+
+engine = create_engine('postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp')
+
+
+@dataclass
+class Finding:
+    kind: str
+    action: str
+    detail: dict[str, Any]
+
+
+def _utc(v):
+    if v is None:
+        return None
+    if getattr(v, 'tzinfo', None) is None:
+        return v.replace(tzinfo=timezone.utc)
+    return v.astimezone(timezone.utc)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--repair', action='store_true')
+    ap.add_argument('--out', type=str)
+    ap.add_argument('--runtime-stale-min', type=int, default=120)
+    ap.add_argument('--checkpoint-stale-hours', type=int, default=12)
+    ap.add_argument('--catchup-stale-hours', type=int, default=24)
+    args = ap.parse_args()
+
+    now = datetime.now(timezone.utc)
+    findings: list[Finding] = []
+
+    with engine.begin() as conn:
+        worker_states = conn.execute(text("select * from ifa2.runtime_worker_state order by worker_type")).mappings().all()
+        for ws in worker_states:
+            active_run_id = ws.get('active_run_id')
+            active_started_at = _utc(ws.get('active_started_at'))
+            if active_run_id and active_started_at:
+                age_min = (now - active_started_at).total_seconds() / 60.0
+                if age_min >= args.runtime_stale_min:
+                    action = 'auto_clear_active_runtime_state' if args.repair else 'would_clear_active_runtime_state'
+                    findings.append(Finding('runtime_worker_state_stale_active', action, {
+                        'worker_type': ws['worker_type'],
+                        'active_run_id': str(active_run_id),
+                        'active_started_at': active_started_at.isoformat(),
+                        'age_min': round(age_min, 1),
+                    }))
+                    if args.repair:
+                        conn.execute(text("""
+                            update ifa2.runtime_worker_state
+                            set active_run_id = null,
+                                active_schedule_key = null,
+                                active_started_at = null,
+                                last_error = coalesce(last_error, 'cleared by runtime_preflight after abnormal termination'),
+                                updated_at = now()
+                            where worker_type = :worker_type
+                        """), {'worker_type': ws['worker_type']})
+
+        cps = conn.execute(text("select * from ifa2.archive_checkpoints where status = 'in_progress' order by dataset_name, asset_type")).mappings().all()
+        for cp in cps:
+            updated_at = _utc(cp.get('updated_at'))
+            age_h = (now - updated_at).total_seconds() / 3600.0 if updated_at else None
+            stale = age_h is not None and age_h >= args.checkpoint_stale_hours
+            action = 'report_only_in_progress_checkpoint'
+            if stale and args.repair:
+                action = 'mark_checkpoint_abandoned'
+                conn.execute(text("""
+                    update ifa2.archive_checkpoints
+                    set status = 'abandoned',
+                        updated_at = now()
+                    where id = :id
+                """), {'id': str(cp['id'])})
+            elif stale:
+                action = 'would_mark_checkpoint_abandoned'
+            findings.append(Finding('archive_checkpoint_in_progress', action, {
+                'id': str(cp['id']),
+                'dataset_name': cp['dataset_name'],
+                'asset_type': cp['asset_type'],
+                'last_completed_date': str(cp['last_completed_date']) if cp.get('last_completed_date') else None,
+                'updated_at': updated_at.isoformat() if updated_at else None,
+                'age_h': round(age_h, 2) if age_h is not None else None,
+                'stale': stale,
+            }))
+
+        catchups = conn.execute(text("""
+            select * from ifa2.archive_target_catchup
+            where status in ('pending','observed')
+            order by updated_at desc nulls last, created_at desc
+        """)).mappings().all()
+        for c in catchups:
+            updated_at = _utc(c.get('updated_at') or c.get('created_at'))
+            age_h = (now - updated_at).total_seconds() / 3600.0 if updated_at else None
+            stale = age_h is not None and age_h >= args.catchup_stale_hours
+            findings.append(Finding('archive_target_catchup_pending_or_observed', 'report_only' if not stale else 'report_stale_pending_or_observed', {
+                'id': str(c['id']),
+                'asset_category': c['asset_category'],
+                'granularity': c['granularity'],
+                'symbol_or_series_id': c['symbol_or_series_id'],
+                'status': c['status'],
+                'checkpoint_dataset_name': c.get('checkpoint_dataset_name'),
+                'updated_at': updated_at.isoformat() if updated_at else None,
+                'age_h': round(age_h, 2) if age_h is not None else None,
+                'stale': stale,
+                'reason': c.get('reason'),
+                'progress_note': c.get('progress_note'),
+            }))
+
+    payload = {
+        'generated_at': now.isoformat(),
+        'repair': args.repair,
+        'runtime_stale_min': args.runtime_stale_min,
+        'checkpoint_stale_hours': args.checkpoint_stale_hours,
+        'catchup_stale_hours': args.catchup_stale_hours,
+        'findings': [asdict(f) for f in findings],
+        'summary': {
+            'total_findings': len(findings),
+            'stale_runtime_active': sum(1 for f in findings if f.kind == 'runtime_worker_state_stale_active'),
+            'in_progress_checkpoints': sum(1 for f in findings if f.kind == 'archive_checkpoint_in_progress'),
+            'catchup_pending_or_observed': sum(1 for f in findings if f.kind == 'archive_target_catchup_pending_or_observed'),
+        }
+    }
+    if args.out:
+        Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(args.out)
+    else:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

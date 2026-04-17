@@ -1,0 +1,160 @@
+{
+  "generated_at": "2026-04-17T23:56:47.828563+00:00",
+  "repair": true,
+  "runtime_stale_min": 120,
+  "checkpoint_stale_hours": 12,
+  "catchup_stale_hours": 24,
+  "findings": [
+    {
+      "kind": "archive_checkpoint_in_progress",
+      "action": "mark_checkpoint_abandoned",
+      "detail": {
+        "id": "85c6af10-2fb6-42b5-aaf0-ff2fd52d4c1c",
+        "dataset_name": "stock_15min_history",
+        "asset_type": "stock",
+        "last_completed_date": "2026-04-15",
+        "updated_at": "2026-04-16T23:32:50.909158+00:00",
+        "age_h": 24.4,
+        "stale": true
+      }
+    },
+    {
+      "kind": "archive_checkpoint_in_progress",
+      "action": "mark_checkpoint_abandoned",
+      "detail": {
+        "id": "6e8c2ba5-69da-4006-8d0c-0adc9cb902cf",
+        "dataset_name": "test_resume_dataset",
+        "asset_type": "stock",
+        "last_completed_date": "2025-06-16",
+        "updated_at": "2026-04-15T08:39:01.325603+00:00",
+        "age_h": 63.3,
+        "stale": true
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "b0138dde-f994-462d-b90c-4c42fcf8a023",
+        "asset_category": "stock",
+        "granularity": "daily",
+        "symbol_or_series_id": "399999.SZ",
+        "status": "observed",
+        "checkpoint_dataset_name": "stock_daily_catchup",
+        "updated_at": "2026-04-15T04:19:01.144541+00:00",
+        "age_h": 67.63,
+        "stale": true,
+        "reason": "target removed from archive membership; preserve history, stop future incremental work",
+        "progress_note": "membership delta observed: removed"
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "f6f8231f-4bc7-461b-b05d-83d735f9f9d5",
+        "asset_category": "macro",
+        "granularity": "minute",
+        "symbol_or_series_id": "CN_M2",
+        "status": "pending",
+        "checkpoint_dataset_name": null,
+        "updated_at": "2026-04-15T02:07:40.548266+00:00",
+        "age_h": 69.82,
+        "stale": true,
+        "reason": "new archive target -> create minute catch-up intent",
+        "progress_note": null
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "69578f45-51bc-4d25-a3d2-22fdbdbbf7fb",
+        "asset_category": "macro",
+        "granularity": "minute",
+        "symbol_or_series_id": "CN_M2",
+        "status": "pending",
+        "checkpoint_dataset_name": null,
+        "updated_at": "2026-04-15T02:07:40.148688+00:00",
+        "age_h": 69.82,
+        "stale": true,
+        "reason": "new archive target -> create minute catch-up intent",
+        "progress_note": null
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "4884d4af-9b11-479c-9b16-dbfcc2fdb616",
+        "asset_category": "macro",
+        "granularity": "minute",
+        "symbol_or_series_id": "CN_M2",
+        "status": "pending",
+        "checkpoint_dataset_name": null,
+        "updated_at": "2026-04-15T01:06:11.536357+00:00",
+        "age_h": 70.84,
+        "stale": true,
+        "reason": "new archive target -> create minute catch-up intent",
+        "progress_note": null
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "635c4f9b-d670-424c-8ae0-749bf7429104",
+        "asset_category": "macro",
+        "granularity": "minute",
+        "symbol_or_series_id": "CN_M2",
+        "status": "pending",
+        "checkpoint_dataset_name": null,
+        "updated_at": "2026-04-15T01:06:11.142049+00:00",
+        "age_h": 70.84,
+        "stale": true,
+        "reason": "new archive target -> create minute catch-up intent",
+        "progress_note": null
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "4d28c1c1-a0d8-4afc-aac2-dc13b8f5e6ba",
+        "asset_category": "macro",
+        "granularity": "minute",
+        "symbol_or_series_id": "CN_M2",
+        "status": "pending",
+        "checkpoint_dataset_name": null,
+        "updated_at": "2026-04-14T23:00:43.899309+00:00",
+        "age_h": 72.93,
+        "stale": true,
+        "reason": "new archive target -> create minute catch-up intent",
+        "progress_note": null
+      }
+    },
+    {
+      "kind": "archive_target_catchup_pending_or_observed",
+      "action": "report_stale_pending_or_observed",
+      "detail": {
+        "id": "560736b8-82ee-41f9-9f83-12a5f704d0f1",
+        "asset_category": "macro",
+        "granularity": "minute",
+        "symbol_or_series_id": "CN_M2",
+        "status": "pending",
+        "checkpoint_dataset_name": null,
+        "updated_at": "2026-04-14T23:00:43.508729+00:00",
+        "age_h": 72.93,
+        "stale": true,
+        "reason": "new archive target -> create minute catch-up intent",
+        "progress_note": null
+      }
+    }
+  ],
+  "summary": {
+    "total_findings": 9,
+    "stale_runtime_active": 0,
+    "in_progress_checkpoints": 2,
+    "catchup_pending_or_observed": 7
+  }
+}

@@ -67,7 +67,13 @@ Rule:
 ## 4. Runtime Positioning
 
 ### Unified runtime daemon (official)
-Official long-running runtime entry:
+Production-safe bring-up path:
+- `zsh scripts/unified_daemon_service.sh preflight`
+- `zsh scripts/unified_daemon_service.sh start`
+- `zsh scripts/unified_daemon_service.sh status`
+- `zsh scripts/unified_daemon_service.sh stop`
+
+Official long-running runtime entry used by the service wrapper:
 - `python -m ifa_data_platform.runtime.unified_daemon --loop`
 
 Operator/manual entry surfaces:
@@ -77,6 +83,12 @@ Operator/manual entry surfaces:
 - `python -m ifa_data_platform.runtime.unified_daemon --worker midfreq --runtime-budget-sec 1800`
 - `python -m ifa_data_platform.runtime.unified_daemon --worker highfreq --runtime-budget-sec 900`
 - `python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600`
+
+Preflight/repair truth before service start:
+- auto-clears stale active runtime markers older than threshold if found
+- auto-marks stale archive checkpoints stuck in `in_progress` as `abandoned`
+- reports stale `pending/observed` catch-up rows without destructive cleanup
+- writes operator-visible JSON under `artifacts/service/runtime_preflight_latest.json`
 
 Unified daemon currently owns:
 - schedule loading from `ifa2.runtime_worker_schedules`
@@ -129,15 +141,22 @@ Present:
 - `default_tech_key_focus` (seeded later)
 - `default_tech_focus` (seeded later)
 
-Missing / still not defined as of the latest clarification:
-- no explicit commodity key-focus/focus lists
-- no explicit precious_metal key-focus/focus lists
+Missing / still not fully defined or populated as of the latest clarification:
+- financial-futures coverage should not be assumed from the current non-equity bucket
+- non-equity Business Layer now explicitly uses:
+  - commodity
+  - metal
+  - precious_metal
+  - black_chain
+- category-family coverage is still incomplete in places (for example precious_metal remains small; financial-futures roots are still absent from current accessible source truth)
 - archive index coverage is not explicitly represented in current archive target lists
 
 ### Archive backfill truth
 Archive progression is uneven:
 - stock minute / 15min relatively advanced to `2026-04-15`
 - macro relatively advanced to `2026-04-16`
+- current practical non-equity intraday bucket is a mixed industrial/commodity/metals/precious-metal source universe
+- this should not be read as financial-futures coverage
 - futures minute / 15min only to `2025-09-12`
 - commodity minute / 15min only to `2025-06-16`
 - precious_metal minute / 15min only to `2025-06-16`
