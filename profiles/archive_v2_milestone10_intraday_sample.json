@@ -1,0 +1,19 @@
+{
+  "profile_name": "archive_v2_milestone10_intraday_sample",
+  "mode": "single_day",
+  "include_daily": false,
+  "include_60m": true,
+  "include_15m": true,
+  "include_1m": true,
+  "include_business_families": false,
+  "include_tradable_families": true,
+  "include_signal_families": false,
+  "broad_market": true,
+  "family_groups": [],
+  "start_date": "2026-04-15",
+  "repair_incomplete": false,
+  "dry_run": false,
+  "write_enabled": true,
+  "symbol_limit": 3,
+  "notes": "Milestone 10 bounded intraday Archive V2 validation profile"
+}

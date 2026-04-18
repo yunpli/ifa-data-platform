@@ -27,6 +27,9 @@ class SelectorScope:
     owner_type: str = "default"
     owner_id: str = "default"
     list_names: tuple[str, ...] = ()
+    # list_types are Business Layer selection families. For non-equity scope these may now include
+    # commodity / metal / precious_metal / black_chain families, and should not be interpreted as
+    # implying financial-futures coverage unless such source truth actually exists.
     list_types: tuple[str, ...] = ()
     include_inactive: bool = False
 

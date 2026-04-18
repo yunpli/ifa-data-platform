@@ -2,74 +2,67 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone, timedelta, date
+from datetime import datetime, timezone, timedelta, date, time
 from decimal import Decimal
+from typing import Any
 
-from ifa_data_platform.tushare.client import TushareClient
 from sqlalchemy import text
 
 from ifa_data_platform.archive_v2.db import engine, ensure_schema
 from ifa_data_platform.archive_v2.operator import build_repair_state
 from ifa_data_platform.archive_v2.profile import ArchiveProfile, load_profile, validate_profile
-
-SUPPORTED_DAILY_FAMILIES = {
-    'equity_daily', 'index_daily', 'etf_daily', 'non_equity_daily', 'macro_daily',
-    'announcements_daily', 'news_daily', 'research_reports_daily', 'investor_qa_daily',
-    'dragon_tiger_daily', 'limit_up_detail_daily', 'limit_up_down_status_daily', 'sector_performance_daily',
-    'highfreq_signal_daily',
-    'highfreq_event_stream_daily',
-    'highfreq_limit_event_stream_daily',
-    'highfreq_sector_breadth_daily',
-    'highfreq_sector_heat_daily',
-    'highfreq_leader_candidate_daily',
-    'highfreq_intraday_signal_state_daily',
-    'generic_structured_output_daily',
-}
-
-IMPLEMENTED_FAMILIES = {
-    'equity_daily', 'index_daily', 'etf_daily', 'non_equity_daily', 'macro_daily',
-    'announcements_daily', 'news_daily', 'research_reports_daily', 'investor_qa_daily',
-    'dragon_tiger_daily', 'limit_up_detail_daily', 'limit_up_down_status_daily', 'sector_performance_daily',
-    'highfreq_event_stream_daily',
-    'highfreq_limit_event_stream_daily',
-    'highfreq_sector_breadth_daily',
-    'highfreq_sector_heat_daily',
-    'highfreq_leader_candidate_daily',
-    'highfreq_intraday_signal_state_daily',
-}
-
-NOT_IMPLEMENTED_NOTES = {
-    'highfreq_signal_daily': 'legacy placeholder only; superseded by explicit Milestone 4 highfreq archive-v2 families',
-    'generic_structured_output_daily': 'generic structured-output catch-all is not archive-v2 worthy because it collapses unrelated finalized truths into one lossy bucket',
-}
+from ifa_data_platform.tushare.client import TushareClient
 
 NON_COMPLETED_STATUSES = {'partial', 'incomplete', 'retry_needed', 'missing'}
-REPAIR_QUEUE_PENDING_STATUSES = {'pending', 'retry_needed'}
+REPAIR_QUEUE_PENDING_STATUSES = {'pending', 'retry_needed', 'claimed'}
 TARGET_POLICY_ALL = 'all'
 TARGET_POLICY_GAPS = 'gaps'
 TARGET_POLICY_REPAIR = 'repair'
 
-MARKET_CALENDAR_FAMILIES = {
-    'equity_daily', 'index_daily', 'etf_daily', 'non_equity_daily', 'macro_daily',
+DAILY_TRADABLE_FAMILIES = ['equity_daily', 'index_daily', 'etf_daily', 'non_equity_daily', 'macro_daily']
+DAILY_BUSINESS_FAMILIES = [
     'announcements_daily', 'news_daily', 'research_reports_daily', 'investor_qa_daily',
     'dragon_tiger_daily', 'limit_up_detail_daily', 'limit_up_down_status_daily', 'sector_performance_daily',
+]
+DAILY_SIGNAL_FAMILIES = [
+    'highfreq_event_stream_daily', 'highfreq_limit_event_stream_daily', 'highfreq_sector_breadth_daily',
+    'highfreq_sector_heat_daily', 'highfreq_leader_candidate_daily', 'highfreq_intraday_signal_state_daily',
+    'highfreq_signal_daily', 'generic_structured_output_daily',
+]
+INTRADAY_TRADABLE_FAMILIES = {
+    '60m': ['equity_60m', 'index_60m'],
+    '15m': ['equity_15m', 'index_15m'],
+    '1m': ['equity_1m', 'index_1m'],
 }
 
-FAMILY_DATE_SOURCE = {
-    'announcements_daily': ('announcements_history', 'ann_date', False),
-    'news_daily': ('news_history', 'datetime', True),
-    'research_reports_daily': ('research_reports_history', 'trade_date', False),
-    'investor_qa_daily': ('investor_qa_history', 'trade_date', False),
-    'dragon_tiger_daily': ('dragon_tiger_list_history', 'trade_date', False),
-    'limit_up_detail_daily': ('limit_up_detail_history', 'trade_date', False),
-    'limit_up_down_status_daily': ('limit_up_down_status_history', 'trade_date', False),
-    'sector_performance_daily': ('sector_performance_history', 'trade_date', False),
-    'highfreq_event_stream_daily': ('highfreq_event_stream_working', 'event_time', True),
-    'highfreq_limit_event_stream_daily': ('highfreq_limit_event_stream_working', 'trade_time', True),
-    'highfreq_sector_breadth_daily': ('highfreq_sector_breadth_working', 'trade_time', True),
-    'highfreq_sector_heat_daily': ('highfreq_sector_heat_working', 'trade_time', True),
-    'highfreq_leader_candidate_daily': ('highfreq_leader_candidate_working', 'trade_time', True),
-    'highfreq_intraday_signal_state_daily': ('highfreq_intraday_signal_state_working', 'trade_time', True),
+ALL_FAMILY_META: dict[str, dict[str, Any]] = {
+    'equity_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'tushare_daily'},
+    'index_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'history_daily', 'source_table': 'index_daily_bar_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_index_daily', 'key_col': 'ts_code', 'note': 'index daily archive written from retained final history truth'},
+    'etf_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'tushare_etf'},
+    'non_equity_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'tushare_non_equity'},
+    'macro_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'macro_daily'},
+    'announcements_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'multi_key_daily', 'source_table': 'announcements_history', 'date_col': 'ann_date', 'dest_table': 'ifa_archive_announcements_daily', 'keys': ['ts_code', 'title'], 'note': 'daily finalized announcements archived from retained history truth'},
+    'news_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'news_daily', 'source_table': 'news_history', 'date_col': 'datetime', 'date_via_ts': True, 'dest_table': 'ifa_archive_news_daily'},
+    'research_reports_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'multi_key_daily', 'source_table': 'research_reports_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_research_reports_daily', 'keys': ['ts_code', 'title'], 'note': 'daily finalized research reports archived from retained history truth'},
+    'investor_qa_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'investor_qa_daily', 'source_table': 'investor_qa_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_investor_qa_daily'},
+    'dragon_tiger_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'dragon_tiger_list_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_dragon_tiger_daily', 'key_col': 'ts_code', 'note': 'daily finalized dragon tiger list archived from retained history truth'},
+    'limit_up_detail_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'limit_up_detail_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_limit_up_detail_daily', 'key_col': 'ts_code', 'note': 'daily finalized limit-up detail archived from retained history truth'},
+    'limit_up_down_status_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'singleton_daily', 'source_table': 'limit_up_down_status_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_limit_up_down_status_daily', 'note': 'daily finalized market-wide limit status archived from retained history truth'},
+    'sector_performance_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'sector_performance_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_sector_performance_daily', 'key_col': 'sector_code', 'note': 'daily finalized sector performance archived from retained history truth'},
+    'highfreq_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_event_stream_working', 'date_col': 'event_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_event_stream_daily', 'time_col': 'event_time', 'note': 'daily finalized highfreq event stream archived with event-semantics retention'},
+    'highfreq_limit_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_limit_event_stream_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_limit_event_stream_daily', 'time_col': 'trade_time', 'note': 'daily finalized highfreq limit-event stream archived with event-semantics retention'},
+    'highfreq_sector_breadth_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_breadth_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_breadth_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq sector breadth archived as latest per-sector snapshot'},
+    'highfreq_sector_heat_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_heat_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_heat_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq sector heat archived as latest per-sector snapshot'},
+    'highfreq_leader_candidate_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_leader_candidate_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_leader_candidate_daily', 'keys': ['symbol'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq leader candidates archived as latest per-symbol state'},
+    'highfreq_intraday_signal_state_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_intraday_signal_state_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_intraday_signal_state_daily', 'keys': ['scope_key'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq signal state archived as latest per-scope state'},
+    'highfreq_signal_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': False, 'kind': 'not_implemented', 'note': 'legacy placeholder only; superseded by explicit highfreq Archive V2 families'},
+    'generic_structured_output_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': False, 'kind': 'not_implemented', 'note': 'generic structured-output catch-all is not archive-v2 worthy because it collapses unrelated finalized truths into one lossy bucket'},
+    'equity_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_60m', 'instrument_key': 'ts_code', 'note': 'Archive V2 60m equity bars archived from retained stock_60min_history truth'},
+    'index_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 60, 'dest_table': 'ifa_archive_index_60m', 'instrument_key': 'ts_code', 'note': 'Archive V2 60m index bars archived via explicit 1m→60m rollup from highfreq_index_1m_working'},
+    'equity_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_15min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_15m', 'instrument_key': 'ts_code', 'note': 'Archive V2 15m equity bars archived from retained stock_15min_history truth'},
+    'index_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 15, 'dest_table': 'ifa_archive_index_15m', 'instrument_key': 'ts_code', 'note': 'Archive V2 15m index bars archived via explicit 1m→15m rollup from highfreq_index_1m_working'},
+    'equity_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_minute_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_1m', 'instrument_key': 'ts_code', 'note': 'Archive V2 1m equity bars archived from retained stock_minute_history truth'},
+    'index_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_index_1m', 'instrument_key': 'ts_code', 'note': 'Archive V2 1m index bars archived from retained highfreq_index_1m_working truth'},
 }
 
 IDENTITY_POLICY_BY_FAMILY = {
@@ -92,7 +85,17 @@ IDENTITY_POLICY_BY_FAMILY = {
     'highfreq_sector_heat_daily': '(business_date, sector_code)',
     'highfreq_leader_candidate_daily': '(business_date, symbol)',
     'highfreq_intraday_signal_state_daily': '(business_date, scope_key)',
+    'equity_60m': '(business_date, ts_code, bar_time)',
+    'index_60m': '(business_date, ts_code, bar_time)',
+    'equity_15m': '(business_date, ts_code, bar_time)',
+    'index_15m': '(business_date, ts_code, bar_time)',
+    'equity_1m': '(business_date, ts_code, bar_time)',
+    'index_1m': '(business_date, ts_code, bar_time)',
 }
+
+SUPPORTED_FAMILIES = set(ALL_FAMILY_META.keys())
+IMPLEMENTED_FAMILIES = {family for family, meta in ALL_FAMILY_META.items() if meta.get('implemented')}
+MARKET_CALENDAR_FAMILIES = {family for family, meta in ALL_FAMILY_META.items() if meta['bucket'] in {'tradable', 'business'} and meta['frequency'] == 'daily'}
 
 
 class ArchiveV2Runner:
@@ -101,6 +104,7 @@ class ArchiveV2Runner:
         self.profile: ArchiveProfile = load_profile(profile_path)
         self.run_id = uuid.uuid4()
         self.client = TushareClient()
+        self._column_cache: dict[str, list[str]] = {}
 
     def run(self) -> dict:
         return self.run_with_context()
@@ -136,17 +140,43 @@ class ArchiveV2Runner:
             raise
 
     def _dispatch(self) -> dict:
-        family_groups = self.profile.family_groups or sorted(SUPPORTED_DAILY_FAMILIES)
+        families = self._resolve_requested_families()
         if self.profile.mode == 'single_day':
-            return self._run_dates([self.profile.start_date], family_groups, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
+            return self._run_dates([self.profile.start_date], families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
         if self.profile.mode == 'date_range':
-            return self._run_dates(self._expand_date_range(), family_groups, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
+            return self._run_dates(self._expand_date_range(), families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
         if self.profile.mode == 'backfill':
-            return self._run_dates(self._resolve_backfill_dates(family_groups), family_groups, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_GAPS)
+            return self._run_dates(self._resolve_backfill_dates(families), families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_GAPS)
         if self.profile.mode == 'delete':
             self._write_item('archive_delete_scope', 'daily', None, 'partial', 0, [], notes='delete mode skeleton only; no family deletion implemented yet')
-            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 5 batch'}
+            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in current batch'}
         return {'status': 'failed', 'error_text': f'unsupported mode {self.profile.mode}'}
+
+    def _resolve_requested_families(self) -> list[str]:
+        if self.profile.family_groups:
+            return list(self.profile.family_groups)
+        families: list[str] = []
+        if self.profile.include_daily:
+            if self.profile.include_tradable_families:
+                families.extend(DAILY_TRADABLE_FAMILIES)
+            if self.profile.include_business_families:
+                families.extend(DAILY_BUSINESS_FAMILIES)
+            if self.profile.include_signal_families:
+                families.extend(DAILY_SIGNAL_FAMILIES)
+        if self.profile.include_60m and self.profile.include_tradable_families:
+            families.extend(INTRADAY_TRADABLE_FAMILIES['60m'])
+        if self.profile.include_15m and self.profile.include_tradable_families:
+            families.extend(INTRADAY_TRADABLE_FAMILIES['15m'])
+        if self.profile.include_1m and self.profile.include_tradable_families:
+            families.extend(INTRADAY_TRADABLE_FAMILIES['1m'])
+        # preserve order + dedupe
+        seen = set()
+        out = []
+        for f in families:
+            if f not in seen:
+                seen.add(f)
+                out.append(f)
+        return out
 
     def _expand_date_range(self) -> list[str]:
         start = datetime.fromisoformat(self.profile.start_date).date()
@@ -158,71 +188,81 @@ class ArchiveV2Runner:
             cur += timedelta(days=1)
         return days
 
-    def _resolve_backfill_dates(self, family_groups: list[str]) -> list[str]:
+    def _resolve_backfill_dates(self, families: list[str]) -> list[str]:
         anchor = datetime.fromisoformat(self.profile.end_date).date() if self.profile.end_date else datetime.now(timezone.utc).date()
         candidate_dates: set[date] = set()
         fetch_limit = max(int(self.profile.backfill_days or 0) * 4, 12)
-        for family in family_groups:
+        for family in families:
             candidate_dates.update(self._available_dates_for_family(family, anchor, fetch_limit))
         ordered = sorted([d for d in candidate_dates if d <= anchor], reverse=True)
         selected = ordered[: int(self.profile.backfill_days or 0)]
         return [d.isoformat() for d in sorted(selected)]
 
     def _available_dates_for_family(self, family: str, anchor: date, limit: int) -> list[date]:
+        meta = ALL_FAMILY_META.get(family)
+        if not meta:
+            return []
         if family in MARKET_CALENDAR_FAMILIES:
             sql = "select distinct trade_date as d from ifa2.index_daily_bar_history where trade_date <= :anchor order by d desc limit :limit"
             with engine.begin() as conn:
                 return [r['d'] for r in conn.execute(text(sql), {'anchor': anchor, 'limit': limit}).mappings().all()]
-        if family in FAMILY_DATE_SOURCE:
-            table, col, is_ts = FAMILY_DATE_SOURCE[family]
-            date_expr = f'date({col})' if is_ts else col
-            sql = f"select distinct {date_expr} as d from ifa2.{table} where {date_expr} <= :anchor order by d desc limit :limit"
+        if meta['kind'] in {'intraday_bars', 'intraday_rollup'}:
+            table = meta['source_table']
+            date_expr = self._intraday_date_expr(meta)
             with engine.begin() as conn:
-                return [r['d'] for r in conn.execute(text(sql), {'anchor': anchor, 'limit': limit}).mappings().all()]
+                return [r['d'] for r in conn.execute(text(f"select distinct {date_expr} as d from ifa2.{table} where {date_expr} <= :anchor order by d desc limit :limit"), {'anchor': anchor, 'limit': limit}).mappings().all()]
+        table = meta.get('source_table')
+        date_col = meta.get('date_col')
+        if table and date_col:
+            expr = f'date({date_col})' if meta.get('date_via_ts') else date_col
+            with engine.begin() as conn:
+                return [r['d'] for r in conn.execute(text(f"select distinct {expr} as d from ifa2.{table} where {expr} <= :anchor order by d desc limit :limit"), {'anchor': anchor, 'limit': limit}).mappings().all()]
         return []
 
-    def _run_dates(self, dates: list[str], family_groups: list[str], target_policy: str) -> dict:
+    def _run_dates(self, dates: list[str], families: list[str], target_policy: str) -> dict:
         final_status = 'completed'
-        notes = []
+        notes: list[str] = []
         executed_targets = 0
         skipped_targets = 0
         if not dates:
             return {'status': 'completed', 'notes': 'no eligible dates resolved for requested bounded execution'}
 
-        for d in dates:
-            for family in family_groups:
-                if family not in SUPPORTED_DAILY_FAMILIES:
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 5 batch')
-                    self._upsert_completeness(d, family, 'daily', self._coverage_scope(), 'incomplete', 0, 'unsupported family group in Milestone 5 batch')
+        for business_date in dates:
+            for family in families:
+                meta = ALL_FAMILY_META.get(family)
+                if family not in SUPPORTED_FAMILIES or not meta:
+                    self._write_item(family, 'daily', business_date, 'incomplete', 0, [], notes='unsupported family group in current batch')
+                    self._upsert_completeness(business_date, family, 'daily', self._coverage_scope(), 'incomplete', 0, 'unsupported family group in current batch')
                     final_status = 'partial'
                     continue
 
-                decision, decision_note = self._target_decision(d, family, target_policy)
+                frequency = meta['frequency']
+                decision, decision_note = self._target_decision(business_date, family, frequency, target_policy)
                 if decision == 'skip':
-                    self._write_item(family, 'daily', d, 'superseded', 0, [], notes=decision_note)
+                    self._write_item(family, frequency, business_date, 'superseded', 0, [], notes=decision_note)
                     skipped_targets += 1
                     continue
 
                 if family not in IMPLEMENTED_FAMILIES:
-                    note = self._decorate_note(family, NOT_IMPLEMENTED_NOTES.get(family, 'family scaffold only; execution not implemented in current batch'))
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes=note)
-                    self._upsert_completeness(d, family, 'daily', self._coverage_scope(), 'incomplete', 0, note)
+                    note = self._decorate_note(family, meta.get('note') or 'family scaffold only; execution not implemented in current batch')
+                    self._write_item(family, frequency, business_date, 'incomplete', 0, [], notes=note)
+                    self._upsert_completeness(business_date, family, frequency, self._coverage_scope(), 'incomplete', 0, note)
                     final_status = 'partial'
                     executed_targets += 1
                     continue
 
-                rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, d)
+                rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, business_date)
                 effective_note = self._decorate_note(family, item_notes)
-                self._write_item(family, 'daily', d, item_status, rows_written, tables_touched, notes=effective_note, error_text=item_error)
-                self._upsert_completeness(d, family, 'daily', self._coverage_scope(), item_status, rows_written, item_error or effective_note if item_status != 'completed' else None)
+                self._write_item(family, frequency, business_date, item_status, rows_written, tables_touched, notes=effective_note, error_text=item_error)
+                self._upsert_completeness(business_date, family, frequency, self._coverage_scope(), item_status, rows_written, item_error or (effective_note if item_status != 'completed' else None))
                 if item_status != 'completed':
                     final_status = 'partial'
                 executed_targets += 1
 
         if final_status == 'partial':
-            notes.append('Archive V2 multi-date execution ran with truthful non-complete states preserved where families/dates were missing, unstable, or intentionally unarchived')
+            notes.append('Archive V2 execution ran with truthful non-complete states preserved where families/frequencies/dates were missing, unstable, or intentionally unarchived')
         else:
-            notes.append('Archive V2 multi-date execution completed for the eligible requested scope')
+            notes.append('Archive V2 execution completed for the eligible requested scope')
         notes.append(f'dates={len(dates)} executed_targets={executed_targets} skipped_targets={skipped_targets} target_policy={target_policy}')
         return {'status': final_status, 'notes': '; '.join(notes)}
 
@@ -235,149 +275,161 @@ class ArchiveV2Runner:
         for target in targets:
             business_date = str(target['business_date'])
             family = target['family_name']
+            meta = ALL_FAMILY_META.get(family, {})
+            frequency = meta.get('frequency', target.get('frequency', 'daily'))
             selection_note = (
                 f"repair_batch selected priority={target.get('priority')} urgency={target.get('urgency')} "
                 f"actionability={target.get('actionability')} reason_code={target.get('reason_code')}"
             )
             if family not in IMPLEMENTED_FAMILIES:
                 note = self._decorate_note(family, f'{selection_note} | family execution not implemented in current batch')
-                self._write_item(family, 'daily', business_date, 'incomplete', 0, [], notes=note)
-                self._upsert_completeness(business_date, family, 'daily', self._coverage_scope(), 'incomplete', 0, note)
+                self._write_item(family, frequency, business_date, 'incomplete', 0, [], notes=note)
+                self._upsert_completeness(business_date, family, frequency, self._coverage_scope(), 'incomplete', 0, note)
                 final_status = 'partial'
                 executed_targets += 1
                 continue
 
             rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, business_date)
             effective_note = self._decorate_note(family, f'{selection_note} | {item_notes}' if item_notes else selection_note)
-            self._write_item(family, 'daily', business_date, item_status, rows_written, tables_touched, notes=effective_note, error_text=item_error)
-            self._upsert_completeness(business_date, family, 'daily', self._coverage_scope(), item_status, rows_written, item_error or effective_note if item_status != 'completed' else None)
+            self._write_item(family, frequency, business_date, item_status, rows_written, tables_touched, notes=effective_note, error_text=item_error)
+            self._upsert_completeness(business_date, family, frequency, self._coverage_scope(), item_status, rows_written, item_error or (effective_note if item_status != 'completed' else None))
             if item_status != 'completed':
                 final_status = 'partial'
             executed_targets += 1
 
-        return {
-            'status': final_status,
-            'selected_targets': executed_targets,
-            'notes': f'operator repair batch executed selected_targets={executed_targets}'
-        }
+        return {'status': final_status, 'selected_targets': executed_targets, 'notes': f'operator repair batch executed selected_targets={executed_targets}'}
 
-    def _target_decision(self, business_date: str, family: str, target_policy: str) -> tuple[str, str | None]:
+    def _target_decision(self, business_date: str, family: str, frequency: str, target_policy: str) -> tuple[str, str | None]:
         if target_policy == TARGET_POLICY_ALL:
             return 'run', None
-
-        completeness = self._get_completeness(business_date, family)
-        queue_row = self._get_repair_queue_row(business_date, family)
-
+        completeness = self._get_completeness(business_date, family, frequency)
+        queue_row = self._get_repair_queue_row(business_date, family, frequency)
         if target_policy == TARGET_POLICY_GAPS:
             if completeness is None:
                 return 'run', 'bounded backfill targeting missing completeness state'
             if completeness['status'] in NON_COMPLETED_STATUSES:
                 return 'run', f"bounded backfill targeting non-complete state={completeness['status']}"
             return 'skip', 'already completed; skipped by bounded backfill gap policy'
-
         if target_policy == TARGET_POLICY_REPAIR:
             if queue_row and queue_row['status'] in REPAIR_QUEUE_PENDING_STATUSES:
                 return 'run', f"repair queue requested retry status={queue_row['status']}"
             if completeness and completeness['status'] in NON_COMPLETED_STATUSES:
                 return 'run', f"repair mode targeting completeness status={completeness['status']}"
             return 'skip', 'not in repair scope; skipped by repair/retry policy'
-
         return 'run', None
 
-    def _get_completeness(self, business_date: str, family: str):
+    def _get_completeness(self, business_date: str, family: str, frequency: str):
         with engine.begin() as conn:
             return conn.execute(text("""
                 select status, row_count, last_error, last_run_id
                 from ifa2.ifa_archive_completeness
                 where business_date = :business_date
                   and family_name = :family_name
-                  and frequency = 'daily'
+                  and frequency = :frequency
                   and coverage_scope = :coverage_scope
-            """), {
-                'business_date': business_date,
-                'family_name': family,
-                'coverage_scope': self._coverage_scope(),
-            }).mappings().first()
+            """), {'business_date': business_date, 'family_name': family, 'frequency': frequency, 'coverage_scope': self._coverage_scope()}).mappings().first()
 
-    def _get_repair_queue_row(self, business_date: str, family: str):
+    def _get_repair_queue_row(self, business_date: str, family: str, frequency: str):
         with engine.begin() as conn:
             return conn.execute(text("""
                 select status, reason, reason_code, actionability, priority, urgency, retry_count, retry_after, claim_id, claimed_by, claim_expires_at, last_run_id
                 from ifa2.ifa_archive_repair_queue
                 where business_date = :business_date
                   and family_name = :family_name
-                  and frequency = 'daily'
+                  and frequency = :frequency
                   and coverage_scope = :coverage_scope
-            """), {
-                'business_date': business_date,
-                'family_name': family,
-                'coverage_scope': self._coverage_scope(),
-            }).mappings().first()
+            """), {'business_date': business_date, 'family_name': family, 'frequency': frequency, 'coverage_scope': self._coverage_scope()}).mappings().first()
 
     def _execute_family(self, family: str, business_date: str):
+        meta = ALL_FAMILY_META[family]
         trade_date = business_date.replace('-', '')
-        if family == 'equity_daily':
+        kind = meta['kind']
+        if kind == 'tushare_daily':
             rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             return self._write_json_rows('ifa_archive_equity_daily', business_date, rows, 'ts_code')
-        if family == 'index_daily':
-            rows = self._fetch_history_rows('index_daily_bar_history', 'trade_date', business_date)
-            return self._write_json_rows('ifa_archive_index_daily', business_date, rows, 'ts_code', note='index daily archive written from retained final history truth')
-        if family == 'etf_daily':
+        if kind == 'tushare_etf':
             rows = self.client.query('fund_daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             return self._write_json_rows('ifa_archive_etf_daily', business_date, rows, 'ts_code')
-        if family == 'non_equity_daily':
+        if kind == 'tushare_non_equity':
             rows = self.client.query('fut_daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             if not rows:
                 return 0, ['ifa_archive_non_equity_daily'], 'incomplete', 'source returned no non-equity daily rows for sample date', None
             return self._write_non_equity_rows('ifa_archive_non_equity_daily', business_date, rows)
-        if family == 'macro_daily':
+        if kind == 'macro_daily':
             rows = self._fetch_macro_rows(business_date)
             if not rows:
                 return 0, ['ifa_archive_macro_daily'], 'incomplete', 'no macro snapshot rows available on or before business_date', None
             return self._write_macro_rows('ifa_archive_macro_daily', business_date, rows)
-        if family == 'announcements_daily':
-            rows = self._fetch_history_rows('announcements_history', 'ann_date', business_date)
-            return self._write_multi_key_rows('ifa_archive_announcements_daily', business_date, rows, ['ts_code', 'title'], note='daily finalized announcements archived from retained history truth')
-        if family == 'news_daily':
-            rows = self._fetch_history_rows_by_date('news_history', 'datetime', business_date)
-            return self._write_news_rows('ifa_archive_news_daily', business_date, rows)
-        if family == 'research_reports_daily':
-            rows = self._fetch_history_rows('research_reports_history', 'trade_date', business_date)
-            return self._write_multi_key_rows('ifa_archive_research_reports_daily', business_date, rows, ['ts_code', 'title'], note='daily finalized research reports archived from retained history truth')
-        if family == 'investor_qa_daily':
-            rows = self._fetch_history_rows('investor_qa_history', 'trade_date', business_date)
-            return self._write_investor_qa_rows('ifa_archive_investor_qa_daily', business_date, rows)
-        if family == 'dragon_tiger_daily':
-            rows = self._fetch_history_rows('dragon_tiger_list_history', 'trade_date', business_date)
-            return self._write_json_rows('ifa_archive_dragon_tiger_daily', business_date, rows, 'ts_code', note='daily finalized dragon tiger list archived from retained history truth')
-        if family == 'limit_up_detail_daily':
-            rows = self._fetch_history_rows('limit_up_detail_history', 'trade_date', business_date)
-            return self._write_json_rows('ifa_archive_limit_up_detail_daily', business_date, rows, 'ts_code', note='daily finalized limit-up detail archived from retained history truth')
-        if family == 'limit_up_down_status_daily':
-            rows = self._fetch_history_rows('limit_up_down_status_history', 'trade_date', business_date)
-            return self._write_singleton_rows('ifa_archive_limit_up_down_status_daily', business_date, rows, note='daily finalized market-wide limit status archived from retained history truth')
-        if family == 'sector_performance_daily':
-            rows = self._fetch_history_rows('sector_performance_history', 'trade_date', business_date)
-            return self._write_json_rows('ifa_archive_sector_performance_daily', business_date, rows, 'sector_code', note='daily finalized sector performance archived from retained history truth')
-        if family == 'highfreq_event_stream_daily':
-            rows = self._fetch_history_rows_by_date('highfreq_event_stream_working', 'event_time', business_date)
-            return self._write_event_rows('ifa_archive_highfreq_event_stream_daily', business_date, rows, 'event_time', note='daily finalized highfreq event stream archived with event-semantics retention')
-        if family == 'highfreq_limit_event_stream_daily':
-            rows = self._fetch_history_rows_by_date('highfreq_limit_event_stream_working', 'trade_time', business_date)
-            return self._write_event_rows('ifa_archive_highfreq_limit_event_stream_daily', business_date, rows, 'trade_time', note='daily finalized highfreq limit-event stream archived with event-semantics retention')
-        if family == 'highfreq_sector_breadth_daily':
-            rows = self._fetch_latest_daily_rows('highfreq_sector_breadth_working', business_date, ['sector_code'], 'trade_time')
-            return self._write_snapshot_rows('ifa_archive_highfreq_sector_breadth_daily', business_date, rows, ['sector_code'], 'snapshot_time', 'trade_time', note='daily finalized highfreq sector breadth archived as latest per-sector snapshot')
-        if family == 'highfreq_sector_heat_daily':
-            rows = self._fetch_latest_daily_rows('highfreq_sector_heat_working', business_date, ['sector_code'], 'trade_time')
-            return self._write_snapshot_rows('ifa_archive_highfreq_sector_heat_daily', business_date, rows, ['sector_code'], 'snapshot_time', 'trade_time', note='daily finalized highfreq sector heat archived as latest per-sector snapshot')
-        if family == 'highfreq_leader_candidate_daily':
-            rows = self._fetch_latest_daily_rows('highfreq_leader_candidate_working', business_date, ['symbol'], 'trade_time')
-            return self._write_snapshot_rows('ifa_archive_highfreq_leader_candidate_daily', business_date, rows, ['symbol'], 'snapshot_time', 'trade_time', note='daily finalized highfreq leader candidates archived as latest per-symbol state')
-        if family == 'highfreq_intraday_signal_state_daily':
-            rows = self._fetch_latest_daily_rows('highfreq_intraday_signal_state_working', business_date, ['scope_key'], 'trade_time')
-            return self._write_snapshot_rows('ifa_archive_highfreq_intraday_signal_state_daily', business_date, rows, ['scope_key'], 'snapshot_time', 'trade_time', note='daily finalized highfreq signal state archived as latest per-scope state')
+        if kind == 'history_daily':
+            rows = self._fetch_history_rows(meta['source_table'], meta['date_col'], business_date)
+            return self._write_json_rows(meta['dest_table'], business_date, rows, meta['key_col'], note=meta.get('note', 'history-backed archive written'))
+        if kind == 'multi_key_daily':
+            rows = self._fetch_history_rows(meta['source_table'], meta['date_col'], business_date)
+            return self._write_multi_key_rows(meta['dest_table'], business_date, rows, meta['keys'], note=meta.get('note', 'history-backed archive written'))
+        if kind == 'news_daily':
+            rows = self._fetch_history_rows_by_date(meta['source_table'], meta['date_col'], business_date)
+            return self._write_news_rows(meta['dest_table'], business_date, rows)
+        if kind == 'investor_qa_daily':
+            rows = self._fetch_history_rows(meta['source_table'], meta['date_col'], business_date)
+            return self._write_investor_qa_rows(meta['dest_table'], business_date, rows)
+        if kind == 'singleton_daily':
+            rows = self._fetch_history_rows(meta['source_table'], meta['date_col'], business_date)
+            return self._write_singleton_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'singleton archive written'))
+        if kind == 'event_daily':
+            rows = self._fetch_history_rows_by_date(meta['source_table'], meta['date_col'], business_date)
+            return self._write_event_rows(meta['dest_table'], business_date, rows, meta['time_col'], note=meta.get('note', 'event archive written'))
+        if kind == 'snapshot_daily':
+            rows = self._fetch_latest_daily_rows(meta['source_table'], business_date, meta['keys'], meta['time_col'])
+            return self._write_snapshot_rows(meta['dest_table'], business_date, rows, meta['keys'], 'snapshot_time', meta['time_col'], note=meta.get('note', 'snapshot archive written'))
+        if kind == 'intraday_bars':
+            rows = self._fetch_intraday_rows(meta, business_date)
+            return self._write_intraday_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'intraday bars archived'))
+        if kind == 'intraday_rollup':
+            rows = self._fetch_intraday_rollup_rows(meta, business_date)
+            return self._write_intraday_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'intraday bars archived'))
         return 0, [], 'incomplete', 'family execution not implemented', None
+
+    def _intraday_time_col(self, meta: dict[str, Any]) -> str:
+        return meta.get('source_time_col') or self._resolve_source_time_col(meta['source_table'])
+
+    def _intraday_symbol_col(self, meta: dict[str, Any]) -> str:
+        if meta.get('source_symbol_col'):
+            return meta['source_symbol_col']
+        cols = self._source_columns(meta['source_table'])
+        return 'ts_code' if 'ts_code' in cols else 'symbol'
+
+    def _intraday_date_expr(self, meta: dict[str, Any]) -> str:
+        if meta.get('source_date_expr'):
+            return meta['source_date_expr']
+        date_col = meta.get('source_date_col')
+        if date_col:
+            return date_col
+        return f"date({self._intraday_time_col(meta)})"
+
+    def _source_columns(self, table: str) -> list[str]:
+        if table not in self._column_cache:
+            with engine.begin() as conn:
+                self._column_cache[table] = conn.execute(text("""
+                    select column_name
+                    from information_schema.columns
+                    where table_schema='ifa2' and table_name=:t
+                    order by ordinal_position
+                """), {'t': table}).scalars().all()
+        return self._column_cache[table]
+
+    def _resolve_source_date_col(self, table: str) -> str:
+        cols = self._source_columns(table)
+        for candidate in ['trade_date', 'business_date', 'biz_date', 'date']:
+            if candidate in cols:
+                return candidate
+        raise ValueError(f'could not resolve date column for {table}')
+
+    def _resolve_source_time_col(self, table: str) -> str:
+        cols = self._source_columns(table)
+        for candidate in ['trade_time', 'bar_time', 'datetime', 'event_time', 'ts', 'timestamp']:
+            if candidate in cols:
+                return candidate
+        raise ValueError(f'could not resolve time column for {table}')
 
     def _fetch_history_rows(self, table: str, date_col: str, business_date: str):
         with engine.begin() as conn:
@@ -389,10 +441,14 @@ class ArchiveV2Runner:
 
     def _fetch_latest_daily_rows(self, table: str, business_date: str, key_cols: list[str], ts_col: str):
         partition = ', '.join(key_cols)
+        order_cols = [ts_col]
+        if 'created_at' in self._source_columns(table):
+            order_cols.append('created_at')
+        order_expr = ', '.join([f'{c} desc nulls last' for c in order_cols])
         sql = f"""
             select *
             from (
-                select *, row_number() over (partition by {partition} order by {ts_col} desc, created_at desc nulls last) as rn
+                select *, row_number() over (partition by {partition} order by {order_expr}) as rn
                 from ifa2.{table}
                 where date({ts_col}) = :d
             ) ranked
@@ -405,12 +461,108 @@ class ArchiveV2Runner:
         with engine.begin() as conn:
             return [self._normalize_record(dict(r)) for r in conn.execute(text("select macro_series, report_date, value, source from ifa2.macro_history where report_date = (select max(report_date) from ifa2.macro_history where report_date <= :d)"), {'d': business_date}).mappings().all()]
 
+    def _fetch_intraday_rows(self, meta: dict[str, Any], business_date: str) -> list[dict]:
+        table = meta['source_table']
+        date_expr = self._intraday_date_expr(meta)
+        time_col = self._intraday_time_col(meta)
+        symbol_col = self._intraday_symbol_col(meta)
+        params: dict[str, Any] = {'d': business_date}
+        symbol_filter = ''
+        qualified_date_expr = date_expr.replace(time_col, f't.{time_col}') if time_col in date_expr else date_expr
+        qualified_date_expr = qualified_date_expr.replace(symbol_col, f't.{symbol_col}') if symbol_col in qualified_date_expr else qualified_date_expr
+        if self.profile.symbol_allowlist:
+            params['symbols'] = self.profile.symbol_allowlist
+            symbol_filter = f' and {symbol_col} = any(:symbols)'
+        elif self.profile.symbol_limit:
+            params['symbol_limit'] = self.profile.symbol_limit
+            sql = f"""
+                with picked as (
+                    select distinct {symbol_col}
+                    from ifa2.{table}
+                    where {date_expr} = :d
+                    order by {symbol_col}
+                    limit :symbol_limit
+                )
+                select t.*
+                from ifa2.{table} t
+                join picked p on t.{symbol_col} = p.{symbol_col}
+                where {qualified_date_expr} = :d
+                order by t.{symbol_col}, t.{time_col}
+            """
+            with engine.begin() as conn:
+                rows = conn.execute(text(sql), params).mappings().all()
+                normalized = []
+                for row in rows:
+                    rec = self._normalize_record(dict(row))
+                    rec['bar_time'] = rec.get(time_col)
+                    rec['instrument_code'] = rec.get(symbol_col)
+                    normalized.append(rec)
+                return normalized
+        sql = f"select * from ifa2.{table} where {date_expr} = :d{symbol_filter} order by {symbol_col}, {time_col}"
+        with engine.begin() as conn:
+            rows = conn.execute(text(sql), params).mappings().all()
+            normalized = []
+            for row in rows:
+                rec = self._normalize_record(dict(row))
+                rec['bar_time'] = rec.get(time_col)
+                rec['instrument_code'] = rec.get(symbol_col)
+                normalized.append(rec)
+            return normalized
+
+    def _fetch_intraday_rollup_rows(self, meta: dict[str, Any], business_date: str) -> list[dict]:
+        base_rows = self._fetch_intraday_rows(meta, business_date)
+        bucket_minutes = int(meta['bucket_minutes'])
+        grouped: dict[tuple[str, str], dict[str, Any]] = {}
+        ordered_rows = sorted(base_rows, key=lambda r: (str(r.get('instrument_code') or ''), str(r['bar_time'])))
+        for row in ordered_rows:
+            trade_dt = datetime.fromisoformat(str(row['bar_time'])) if isinstance(row['bar_time'], str) else row['bar_time']
+            bucket_time = self._bucket_intraday_time(trade_dt, bucket_minutes)
+            instrument_code = row.get('instrument_code') or row.get('ts_code')
+            bucket_key = (str(instrument_code), bucket_time.isoformat())
+            current = grouped.get(bucket_key)
+            if current is None:
+                grouped[bucket_key] = {
+                    'instrument_code': instrument_code,
+                    'ts_code': instrument_code,
+                    'bar_time': bucket_time.isoformat(),
+                    'trade_time': bucket_time.isoformat(),
+                    'open': row.get('open'),
+                    'high': row.get('high'),
+                    'low': row.get('low'),
+                    'close': row.get('close'),
+                    'vol': row.get('vol') or 0,
+                    'amount': row.get('amount') or 0,
+                    'source_table': meta['source_table'],
+                    'source_frequency': '1m',
+                    'rollup_frequency': meta['frequency'],
+                    'source_row_count': 1,
+                }
+                continue
+            current['high'] = max(current.get('high') if current.get('high') is not None else row.get('high'), row.get('high'))
+            current['low'] = min(current.get('low') if current.get('low') is not None else row.get('low'), row.get('low'))
+            current['close'] = row.get('close')
+            current['vol'] = (current.get('vol') or 0) + (row.get('vol') or 0)
+            current['amount'] = (current.get('amount') or 0) + (row.get('amount') or 0)
+            current['source_row_count'] = int(current.get('source_row_count') or 0) + 1
+        return list(grouped.values())
+
+    def _bucket_intraday_time(self, trade_dt: datetime, bucket_minutes: int) -> datetime:
+        market_anchor = datetime.combine(trade_dt.date(), time(9, 30))
+        if trade_dt >= market_anchor:
+            delta_minutes = int((trade_dt - market_anchor).total_seconds() // 60)
+            bucket_start_minutes = (delta_minutes // bucket_minutes) * bucket_minutes
+            return market_anchor + timedelta(minutes=bucket_start_minutes)
+        midnight_anchor = datetime.combine(trade_dt.date(), time(0, 0))
+        delta_minutes = int((trade_dt - midnight_anchor).total_seconds() // 60)
+        bucket_start_minutes = (delta_minutes // bucket_minutes) * bucket_minutes
+        return midnight_anchor + timedelta(minutes=bucket_start_minutes)
+
     def _normalize_record(self, record: dict):
         out = {}
         for k, v in record.items():
             if isinstance(v, Decimal):
                 out[k] = float(v)
-            elif isinstance(v, (datetime, )):
+            elif isinstance(v, datetime):
                 out[k] = v.isoformat()
             else:
                 out[k] = v
@@ -422,11 +574,7 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, {key_col}, payload) values (:business_date, :key, CAST(:payload as jsonb)) on conflict (business_date, {key_col}) do update set payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'key': r[key_col],
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, {key_col}, payload) values (:business_date, :key, CAST(:payload as jsonb)) on conflict (business_date, {key_col}) do update set payload=excluded.payload"), {'business_date': business_date, 'key': r[key_col], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', note, None
 
     def _write_multi_key_rows(self, table: str, business_date: str, rows: list[dict], keys: list[str], note: str):
@@ -435,12 +583,7 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, {keys[0]}, {keys[1]}, payload) values (:business_date, :k1, :k2, CAST(:payload as jsonb)) on conflict (business_date, {keys[0]}, {keys[1]}) do update set payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'k1': r[keys[0]],
-                        'k2': r[keys[1]],
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, {keys[0]}, {keys[1]}, payload) values (:business_date, :k1, :k2, CAST(:payload as jsonb)) on conflict (business_date, {keys[0]}, {keys[1]}) do update set payload=excluded.payload"), {'business_date': business_date, 'k1': r[keys[0]], 'k2': r[keys[1]], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', note, None
 
     def _write_news_rows(self, table: str, business_date: str, rows: list[dict]):
@@ -449,12 +592,7 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, news_time, title, payload) values (:business_date, :news_time, :title, CAST(:payload as jsonb)) on conflict (business_date, news_time, title) do update set payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'news_time': r['datetime'],
-                        'title': r['title'],
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, news_time, title, payload) values (:business_date, :news_time, :title, CAST(:payload as jsonb)) on conflict (business_date, news_time, title) do update set payload=excluded.payload"), {'business_date': business_date, 'news_time': r['datetime'], 'title': r['title'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', 'daily finalized news archived from retained history truth', None
 
     def _write_investor_qa_rows(self, table: str, business_date: str, rows: list[dict]):
@@ -463,12 +601,7 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, ts_code, pub_time, payload) values (:business_date, :ts_code, :pub_time, CAST(:payload as jsonb)) on conflict (business_date, ts_code, pub_time) do update set payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'ts_code': r['ts_code'],
-                        'pub_time': r['pub_time'],
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, ts_code, pub_time, payload) values (:business_date, :ts_code, :pub_time, CAST(:payload as jsonb)) on conflict (business_date, ts_code, pub_time) do update set payload=excluded.payload"), {'business_date': business_date, 'ts_code': r['ts_code'], 'pub_time': r['pub_time'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', 'daily finalized investor QA archived from retained history truth', None
 
     def _write_singleton_rows(self, table: str, business_date: str, rows: list[dict], note: str):
@@ -477,10 +610,7 @@ class ArchiveV2Runner:
         row = rows[0]
         if self.profile.write_enabled:
             with engine.begin() as conn:
-                conn.execute(text(f"insert into ifa2.{table}(business_date, payload) values (:business_date, CAST(:payload as jsonb)) on conflict (business_date) do update set payload=excluded.payload"), {
-                    'business_date': business_date,
-                    'payload': json.dumps(row, ensure_ascii=False, default=str),
-                })
+                conn.execute(text(f"insert into ifa2.{table}(business_date, payload) values (:business_date, CAST(:payload as jsonb)) on conflict (business_date) do update set payload=excluded.payload"), {'business_date': business_date, 'payload': json.dumps(row, ensure_ascii=False, default=str)})
         return 1, [table], 'completed', note, None
 
     def _write_non_equity_rows(self, table: str, business_date: str, rows: list[dict]):
@@ -489,12 +619,7 @@ class ArchiveV2Runner:
                 for r in rows:
                     ts_code = r.get('ts_code')
                     family_code = (ts_code.split('.')[1] if ts_code and '.' in ts_code else 'futures')
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, family_code, ts_code, payload) values (:business_date, :family_code, :ts_code, CAST(:payload as jsonb)) on conflict (business_date, family_code, ts_code) do update set payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'family_code': family_code,
-                        'ts_code': ts_code,
-                        'payload': json.dumps(r, ensure_ascii=False),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, family_code, ts_code, payload) values (:business_date, :family_code, :ts_code, CAST(:payload as jsonb)) on conflict (business_date, family_code, ts_code) do update set payload=excluded.payload"), {'business_date': business_date, 'family_code': family_code, 'ts_code': ts_code, 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', 'source-aligned non-equity daily archive written without forcing business over-split', None
 
     def _write_event_rows(self, table: str, business_date: str, rows: list[dict], time_col: str, note: str):
@@ -504,24 +629,11 @@ class ArchiveV2Runner:
             with engine.begin() as conn:
                 for r in rows:
                     row_key = self._build_event_row_key(r, time_col)
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, {time_col}, event_type, symbol, payload) values (:business_date, :row_key, :event_time, :event_type, :symbol, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set {time_col}=excluded.{time_col}, event_type=excluded.event_type, symbol=excluded.symbol, payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'row_key': row_key,
-                        'event_time': r[time_col],
-                        'event_type': r.get('event_type'),
-                        'symbol': r.get('symbol'),
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, {time_col}, event_type, symbol, payload) values (:business_date, :row_key, :event_time, :event_type, :symbol, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set {time_col}=excluded.{time_col}, event_type=excluded.event_type, symbol=excluded.symbol, payload=excluded.payload"), {'business_date': business_date, 'row_key': row_key, 'event_time': r[time_col], 'event_type': r.get('event_type'), 'symbol': r.get('symbol'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', note, None
 
     def _build_event_row_key(self, row: dict, time_col: str) -> str:
-        return '|'.join([
-            str(row.get(time_col) or ''),
-            str(row.get('event_type') or ''),
-            str(row.get('symbol') or ''),
-            str(row.get('source') or ''),
-            str(row.get('title') or ''),
-        ])
+        return '|'.join([str(row.get(time_col) or ''), str(row.get('event_type') or ''), str(row.get('symbol') or ''), str(row.get('source') or ''), str(row.get('title') or '')])
 
     def _write_snapshot_rows(self, table: str, business_date: str, rows: list[dict], key_cols: list[str], snapshot_col: str, source_time_col: str, note: str):
         if not rows:
@@ -529,11 +641,7 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    params = {
-                        'business_date': business_date,
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                        'snapshot_time': r[source_time_col],
-                    }
+                    params = {'business_date': business_date, 'payload': json.dumps(r, ensure_ascii=False, default=str), 'snapshot_time': r[source_time_col]}
                     for key in key_cols:
                         params[key] = r[key]
                     key_columns = ', '.join(key_cols)
@@ -547,12 +655,17 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, macro_series, payload) values (:business_date, :macro_series, CAST(:payload as jsonb)) on conflict (business_date, macro_series) do update set payload=excluded.payload"), {
-                        'business_date': business_date,
-                        'macro_series': r['macro_series'],
-                        'payload': json.dumps(r, ensure_ascii=False, default=str),
-                    })
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, macro_series, payload) values (:business_date, :macro_series, CAST(:payload as jsonb)) on conflict (business_date, macro_series) do update set payload=excluded.payload"), {'business_date': business_date, 'macro_series': r['macro_series'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', 'macro daily snapshot archived from retained source-side truth boundary', None
+
+    def _write_intraday_rows(self, table: str, business_date: str, rows: list[dict], note: str):
+        if not rows:
+            return 0, [table], 'incomplete', 'source/history returned no intraday rows', None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, ts_code, bar_time, payload) values (:business_date, :ts_code, :bar_time, CAST(:payload as jsonb)) on conflict (business_date, ts_code, bar_time) do update set payload=excluded.payload"), {'business_date': business_date, 'ts_code': r.get('instrument_code') or r.get('ts_code'), 'bar_time': r['bar_time'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], 'completed', note, None
 
     def _persist_profile(self):
         with engine.begin() as conn:
@@ -561,26 +674,14 @@ class ArchiveV2Runner:
                 values (:name, :path, CAST(:profile_json as jsonb), now())
                 on conflict (profile_name)
                 do update set profile_path=excluded.profile_path, profile_json=excluded.profile_json, updated_at=now()
-            """), {
-                'name': self.profile.profile_name,
-                'path': self.profile_path,
-                'profile_json': json.dumps(self.profile.__dict__, ensure_ascii=False),
-            })
+            """), {'name': self.profile.profile_name, 'path': self.profile_path, 'profile_json': json.dumps(self.profile.__dict__, ensure_ascii=False)})
 
     def _create_run(self, status: str, trigger_source: str = 'manual_profile', notes: str | None = None):
         with engine.begin() as conn:
             conn.execute(text("""
                 insert into ifa2.ifa_archive_runs(run_id, trigger_source, profile_name, profile_path, mode, start_time, status, notes)
                 values (:run_id, :trigger_source, :profile_name, :profile_path, :mode, now(), :status, :notes)
-            """), {
-                'run_id': str(self.run_id),
-                'trigger_source': trigger_source,
-                'profile_name': self.profile.profile_name,
-                'profile_path': self.profile_path,
-                'mode': self.profile.mode,
-                'status': status,
-                'notes': notes or self.profile.notes,
-            })
+            """), {'run_id': str(self.run_id), 'trigger_source': trigger_source, 'profile_name': self.profile.profile_name, 'profile_path': self.profile_path, 'mode': self.profile.mode, 'status': status, 'notes': notes or self.profile.notes})
 
     def _finish_run(self, status: str, notes: str | None = None, error_text: str | None = None):
         with engine.begin() as conn:
@@ -599,19 +700,7 @@ class ArchiveV2Runner:
             conn.execute(text("""
                 insert into ifa2.ifa_archive_run_items(id, run_id, family_name, frequency, coverage_scope, business_date, status, rows_written, tables_touched, notes, error_text)
                 values (:id, :run_id, :family_name, :frequency, :coverage_scope, :business_date, :status, :rows_written, CAST(:tables_touched as jsonb), :notes, :error_text)
-            """), {
-                'id': str(uuid.uuid4()),
-                'run_id': str(self.run_id),
-                'family_name': family_name,
-                'frequency': frequency,
-                'coverage_scope': self._coverage_scope(),
-                'business_date': business_date,
-                'status': status,
-                'rows_written': rows_written,
-                'tables_touched': json.dumps(tables_touched),
-                'notes': notes,
-                'error_text': error_text,
-            })
+            """), {'id': str(uuid.uuid4()), 'run_id': str(self.run_id), 'family_name': family_name, 'frequency': frequency, 'coverage_scope': self._coverage_scope(), 'business_date': business_date, 'status': status, 'rows_written': rows_written, 'tables_touched': json.dumps(tables_touched), 'notes': notes, 'error_text': error_text})
 
     def _upsert_completeness(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, row_count: int, detail_text: str | None = None):
         with engine.begin() as conn:
@@ -620,23 +709,11 @@ class ArchiveV2Runner:
                 values (:id, :business_date, :family_name, :frequency, :coverage_scope, :status, :source_mode, :last_run_id, :row_count, :retry_after, :last_error, now())
                 on conflict (business_date, family_name, frequency, coverage_scope)
                 do update set status=excluded.status, source_mode=excluded.source_mode, last_run_id=excluded.last_run_id, row_count=excluded.row_count, retry_after=excluded.retry_after, last_error=excluded.last_error, updated_at=now()
-            """), {
-                'id': str(uuid.uuid4()),
-                'business_date': business_date,
-                'family_name': family_name,
-                'frequency': frequency,
-                'coverage_scope': coverage_scope,
-                'status': status,
-                'source_mode': self.profile.mode,
-                'last_run_id': str(self.run_id),
-                'row_count': row_count,
-                'retry_after': None,
-                'last_error': None if status == 'completed' else detail_text,
-            })
+            """), {'id': str(uuid.uuid4()), 'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope, 'status': status, 'source_mode': self.profile.mode, 'last_run_id': str(self.run_id), 'row_count': row_count, 'retry_after': None, 'last_error': None if status == 'completed' else detail_text})
         self._sync_repair_queue(business_date, family_name, frequency, coverage_scope, status, detail_text)
 
     def _sync_repair_queue(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, detail_text: str | None):
-        existing = self._get_repair_queue_row(business_date, family_name)
+        existing = self._get_repair_queue_row(business_date, family_name, frequency)
         if status in NON_COMPLETED_STATUSES:
             reason = detail_text or f'auto-enqueued because completeness status={status}'
             policy = build_repair_state(existing, family_name, status, reason)
@@ -645,12 +722,14 @@ class ArchiveV2Runner:
                     insert into ifa2.ifa_archive_repair_queue(
                       id, business_date, family_name, frequency, coverage_scope, status, reason, reason_code, actionability,
                       priority, urgency, retry_count, retry_after, first_seen_at, last_attempt_at,
-                      last_observed_status, escalation_level, last_error, last_run_id, updated_at
+                      last_observed_status, escalation_level, last_error, last_run_id, updated_at,
+                      claim_id, claimed_at, claimed_by, claim_expires_at
                     )
                     values (
                       :id, :business_date, :family_name, :frequency, :coverage_scope, 'pending', :reason, :reason_code, :actionability,
                       :priority, :urgency, :retry_count, :retry_after, now(), now(),
-                      :last_observed_status, :escalation_level, :last_error, :last_run_id, now()
+                      :last_observed_status, :escalation_level, :last_error, :last_run_id, now(),
+                      null, null, null, null
                     )
                     on conflict (business_date, family_name, frequency, coverage_scope)
                     do update set status='pending', reason=excluded.reason, reason_code=excluded.reason_code, actionability=excluded.actionability,
@@ -659,43 +738,15 @@ class ArchiveV2Runner:
                       last_attempt_at=excluded.last_attempt_at,
                       last_observed_status=excluded.last_observed_status, escalation_level=excluded.escalation_level,
                       last_error=excluded.last_error, last_run_id=excluded.last_run_id, updated_at=now()
-                """), {
-                    'id': str(uuid.uuid4()),
-                    'business_date': business_date,
-                    'family_name': family_name,
-                    'frequency': frequency,
-                    'coverage_scope': coverage_scope,
-                    'reason': reason,
-                    'reason_code': policy['reason_code'],
-                    'actionability': policy['actionability'],
-                    'priority': policy['priority'],
-                    'urgency': policy['urgency'],
-                    'retry_count': policy['retry_count'],
-                    'retry_after': policy['retry_after'],
-                    'last_observed_status': status,
-                    'escalation_level': policy['escalation_level'],
-                    'last_error': policy['last_error'],
-                    'last_run_id': str(self.run_id),
-                })
+                """), {'id': str(uuid.uuid4()), 'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope, 'reason': reason, 'reason_code': policy['reason_code'], 'actionability': policy['actionability'], 'priority': policy['priority'], 'urgency': policy['urgency'], 'retry_count': policy['retry_count'], 'retry_after': policy['retry_after'], 'last_observed_status': status, 'escalation_level': policy['escalation_level'], 'last_error': policy['last_error'], 'last_run_id': str(self.run_id)})
                 conn.execute(text("""
                     update ifa2.ifa_archive_completeness
                     set retry_after = :retry_after,
                         last_error = :last_error,
                         updated_at = now()
-                    where business_date = :business_date
-                      and family_name = :family_name
-                      and frequency = :frequency
-                      and coverage_scope = :coverage_scope
-                """), {
-                    'retry_after': policy['retry_after'],
-                    'last_error': reason,
-                    'business_date': business_date,
-                    'family_name': family_name,
-                    'frequency': frequency,
-                    'coverage_scope': coverage_scope,
-                })
+                    where business_date = :business_date and family_name = :family_name and frequency = :frequency and coverage_scope = :coverage_scope
+                """), {'retry_after': policy['retry_after'], 'last_error': reason, 'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope})
             return
-
         with engine.begin() as conn:
             conn.execute(text("""
                 update ifa2.ifa_archive_repair_queue
@@ -714,43 +765,21 @@ class ArchiveV2Runner:
                     last_error = null,
                     last_run_id = :last_run_id,
                     updated_at = now()
-                where business_date = :business_date
-                  and family_name = :family_name
-                  and frequency = :frequency
-                  and coverage_scope = :coverage_scope
-            """), {
-                'business_date': business_date,
-                'family_name': family_name,
-                'frequency': frequency,
-                'coverage_scope': coverage_scope,
-                'reason': 'repaired/completed by latest Archive V2 run',
-                'last_observed_status': status,
-                'last_run_id': str(self.run_id),
-            })
+                where business_date = :business_date and family_name = :family_name and frequency = :frequency and coverage_scope = :coverage_scope
+            """), {'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope, 'reason': 'repaired/completed by latest Archive V2 run', 'last_observed_status': status, 'last_run_id': str(self.run_id)})
             conn.execute(text("""
                 update ifa2.ifa_archive_completeness
                 set retry_after = null,
                     last_error = null,
                     updated_at = now()
-                where business_date = :business_date
-                  and family_name = :family_name
-                  and frequency = :frequency
-                  and coverage_scope = :coverage_scope
-                  and status = 'completed'
-            """), {
-                'business_date': business_date,
-                'family_name': family_name,
-                'frequency': frequency,
-                'coverage_scope': coverage_scope,
-            })
+                where business_date = :business_date and family_name = :family_name and frequency = :frequency and coverage_scope = :coverage_scope and status = 'completed'
+            """), {'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope})
 
     def _decorate_note(self, family_name: str, note: str | None) -> str | None:
         identity = IDENTITY_POLICY_BY_FAMILY.get(family_name)
         if not identity:
             return note
-        if note:
-            return f'{note} | identity={identity}'
-        return f'identity={identity}'
+        return f'{note} | identity={identity}' if note else f'identity={identity}'
 
     def _coverage_scope(self) -> str:
         return 'broad_market' if self.profile.broad_market else 'profile_scope'

@@ -363,6 +363,66 @@ DDL = [
     )
     """,
     """
+    create table if not exists ifa2.ifa_archive_equity_60m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_index_60m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_equity_15m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_index_15m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_equity_1m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_index_1m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
     drop view if exists ifa2.ifa_archive_operator_claimed_backlog_v
     """,
     """

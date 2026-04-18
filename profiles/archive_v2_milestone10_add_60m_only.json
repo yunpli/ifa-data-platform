@@ -1,0 +1,19 @@
+{
+  "profile_name": "archive_v2_milestone10_add_60m_only",
+  "mode": "single_day",
+  "include_daily": false,
+  "include_60m": true,
+  "include_15m": false,
+  "include_1m": false,
+  "include_business_families": false,
+  "include_tradable_families": true,
+  "include_signal_families": false,
+  "broad_market": true,
+  "family_groups": ["index_60m"],
+  "start_date": "2026-04-15",
+  "repair_incomplete": false,
+  "dry_run": false,
+  "write_enabled": true,
+  "symbol_limit": 3,
+  "notes": "Milestone 10 additive-frequency 60m-only profile"
+}
