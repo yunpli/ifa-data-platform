@@ -9,6 +9,7 @@ from ifa_data_platform.tushare.client import TushareClient
 from sqlalchemy import text
 
 from ifa_data_platform.archive_v2.db import engine, ensure_schema
+from ifa_data_platform.archive_v2.operator import build_repair_state
 from ifa_data_platform.archive_v2.profile import ArchiveProfile, load_profile, validate_profile
 
 SUPPORTED_DAILY_FAMILIES = {
@@ -248,7 +249,7 @@ class ArchiveV2Runner:
     def _get_repair_queue_row(self, business_date: str, family: str):
         with engine.begin() as conn:
             return conn.execute(text("""
-                select status, reason, last_run_id
+                select status, reason, reason_code, priority, urgency, retry_count, retry_after, last_run_id
                 from ifa2.ifa_archive_repair_queue
                 where business_date = :business_date
                   and family_name = :family_name
@@ -576,20 +577,34 @@ class ArchiveV2Runner:
                 'source_mode': self.profile.mode,
                 'last_run_id': str(self.run_id),
                 'row_count': row_count,
-                'retry_after': datetime.now(timezone.utc) if status in NON_COMPLETED_STATUSES else None,
+                'retry_after': None,
                 'last_error': None if status == 'completed' else detail_text,
             })
         self._sync_repair_queue(business_date, family_name, frequency, coverage_scope, status, detail_text)
 
     def _sync_repair_queue(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, detail_text: str | None):
+        existing = self._get_repair_queue_row(business_date, family_name)
         if status in NON_COMPLETED_STATUSES:
             reason = detail_text or f'auto-enqueued because completeness status={status}'
+            policy = build_repair_state(existing, family_name, status, reason)
             with engine.begin() as conn:
                 conn.execute(text("""
-                    insert into ifa2.ifa_archive_repair_queue(id, business_date, family_name, frequency, coverage_scope, status, reason, retry_after, last_run_id, updated_at)
-                    values (:id, :business_date, :family_name, :frequency, :coverage_scope, 'pending', :reason, now(), :last_run_id, now())
+                    insert into ifa2.ifa_archive_repair_queue(
+                      id, business_date, family_name, frequency, coverage_scope, status, reason, reason_code,
+                      priority, urgency, retry_count, retry_after, first_seen_at, last_attempt_at,
+                      last_observed_status, escalation_level, last_error, last_run_id, updated_at
+                    )
+                    values (
+                      :id, :business_date, :family_name, :frequency, :coverage_scope, 'pending', :reason, :reason_code,
+                      :priority, :urgency, :retry_count, :retry_after, now(), now(),
+                      :last_observed_status, :escalation_level, :last_error, :last_run_id, now()
+                    )
                     on conflict (business_date, family_name, frequency, coverage_scope)
-                    do update set status='pending', reason=excluded.reason, retry_after=excluded.retry_after, last_run_id=excluded.last_run_id, updated_at=now()
+                    do update set status='pending', reason=excluded.reason, reason_code=excluded.reason_code,
+                      priority=excluded.priority, urgency=excluded.urgency, retry_count=excluded.retry_count,
+                      retry_after=excluded.retry_after, last_attempt_at=excluded.last_attempt_at,
+                      last_observed_status=excluded.last_observed_status, escalation_level=excluded.escalation_level,
+                      last_error=excluded.last_error, last_run_id=excluded.last_run_id, updated_at=now()
                 """), {
                     'id': str(uuid.uuid4()),
                     'business_date': business_date,
@@ -597,7 +612,32 @@ class ArchiveV2Runner:
                     'frequency': frequency,
                     'coverage_scope': coverage_scope,
                     'reason': reason,
+                    'reason_code': policy['reason_code'],
+                    'priority': policy['priority'],
+                    'urgency': policy['urgency'],
+                    'retry_count': policy['retry_count'],
+                    'retry_after': policy['retry_after'],
+                    'last_observed_status': status,
+                    'escalation_level': policy['escalation_level'],
+                    'last_error': policy['last_error'],
                     'last_run_id': str(self.run_id),
+                })
+                conn.execute(text("""
+                    update ifa2.ifa_archive_completeness
+                    set retry_after = :retry_after,
+                        last_error = :last_error,
+                        updated_at = now()
+                    where business_date = :business_date
+                      and family_name = :family_name
+                      and frequency = :frequency
+                      and coverage_scope = :coverage_scope
+                """), {
+                    'retry_after': policy['retry_after'],
+                    'last_error': reason,
+                    'business_date': business_date,
+                    'family_name': family_name,
+                    'frequency': frequency,
+                    'coverage_scope': coverage_scope,
                 })
             return
 
@@ -606,7 +646,12 @@ class ArchiveV2Runner:
                 update ifa2.ifa_archive_repair_queue
                 set status = 'completed',
                     reason = :reason,
+                    reason_code = 'resolved',
+                    urgency = 'low',
                     retry_after = null,
+                    last_attempt_at = now(),
+                    last_observed_status = :last_observed_status,
+                    last_error = null,
                     last_run_id = :last_run_id,
                     updated_at = now()
                 where business_date = :business_date
@@ -619,7 +664,24 @@ class ArchiveV2Runner:
                 'frequency': frequency,
                 'coverage_scope': coverage_scope,
                 'reason': 'repaired/completed by latest Archive V2 run',
+                'last_observed_status': status,
                 'last_run_id': str(self.run_id),
+            })
+            conn.execute(text("""
+                update ifa2.ifa_archive_completeness
+                set retry_after = null,
+                    last_error = null,
+                    updated_at = now()
+                where business_date = :business_date
+                  and family_name = :family_name
+                  and frequency = :frequency
+                  and coverage_scope = :coverage_scope
+                  and status = 'completed'
+            """), {
+                'business_date': business_date,
+                'family_name': family_name,
+                'frequency': frequency,
+                'coverage_scope': coverage_scope,
             })
 
     def _decorate_note(self, family_name: str, note: str | None) -> str | None:

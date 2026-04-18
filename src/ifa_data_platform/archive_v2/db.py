@@ -82,6 +82,54 @@ DDL = [
       on ifa2.ifa_archive_repair_queue (business_date, family_name, frequency, coverage_scope)
     """,
     """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists reason_code text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists priority integer not null default 50
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists urgency text not null default 'normal'
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists retry_count integer not null default 0
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists first_seen_at timestamptz not null default now()
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists last_attempt_at timestamptz
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists last_observed_status text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists escalation_level integer not null default 0
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists last_error text
+    """,
+    """
+    create index if not exists ix_ifa_archive_repair_queue_priority
+      on ifa2.ifa_archive_repair_queue (status, priority desc, retry_after, updated_at)
+    """,
+    """
+    create index if not exists ix_ifa_archive_completeness_status_date
+      on ifa2.ifa_archive_completeness (status, business_date desc, family_name)
+    """,
+    """
+    update ifa2.ifa_archive_repair_queue
+       set reason_code = case
+         when reason_code is not null then reason_code
+         when reason ilike '%not archive-v2 worthy%' then 'not_archive_worthy'
+         when reason ilike '%source returned no rows%' or reason ilike '%source/history returned no rows%' then 'source_empty'
+         when status = 'retry_needed' then 'retry_needed'
+         when status = 'pending' then 'legacy_pending'
+         else 'unknown'
+       end,
+           last_observed_status = coalesce(last_observed_status, status)
+     where reason_code is null or last_observed_status is null
+    """,
+    """
     create table if not exists ifa2.ifa_archive_equity_daily (
       business_date date not null,
       ts_code text not null,
@@ -264,6 +312,125 @@ DDL = [
       created_at timestamptz not null default now(),
       primary key (business_date, scope_key)
     )
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_gap_summary_v as
+    select
+      c.business_date,
+      c.family_name,
+      c.frequency,
+      c.coverage_scope,
+      c.status as completeness_status,
+      c.row_count,
+      c.retry_after,
+      c.last_error,
+      q.status as repair_status,
+      coalesce(q.reason_code,
+        case
+          when q.reason ilike '%not archive-v2 worthy%' then 'not_archive_worthy'
+          when q.reason ilike '%source returned no rows%' or q.reason ilike '%source/history returned no rows%' then 'source_empty'
+          when q.status = 'retry_needed' then 'retry_needed'
+          when q.status = 'pending' then 'legacy_pending'
+          else 'unknown'
+        end) as reason_code,
+      q.reason,
+      q.priority,
+      q.urgency,
+      q.retry_count,
+      q.escalation_level,
+      q.last_attempt_at,
+      q.last_run_id as repair_last_run_id
+    from ifa2.ifa_archive_completeness c
+    left join ifa2.ifa_archive_repair_queue q
+      on q.business_date = c.business_date
+     and q.family_name = c.family_name
+     and q.frequency = c.frequency
+     and q.coverage_scope = c.coverage_scope
+    where c.status in ('partial', 'incomplete', 'retry_needed', 'missing')
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_repair_backlog_v as
+    select
+      q.business_date,
+      q.family_name,
+      q.frequency,
+      q.coverage_scope,
+      q.status as repair_status,
+      coalesce(q.reason_code,
+        case
+          when q.reason ilike '%not archive-v2 worthy%' then 'not_archive_worthy'
+          when q.reason ilike '%source returned no rows%' or q.reason ilike '%source/history returned no rows%' then 'source_empty'
+          when q.status = 'retry_needed' then 'retry_needed'
+          when q.status = 'pending' then 'legacy_pending'
+          else 'unknown'
+        end) as reason_code,
+      q.reason,
+      q.priority,
+      q.urgency,
+      q.retry_count,
+      q.escalation_level,
+      q.retry_after,
+      q.first_seen_at,
+      q.last_attempt_at,
+      q.updated_at,
+      q.last_observed_status,
+      q.last_error,
+      c.status as completeness_status,
+      c.row_count,
+      c.last_run_id as completeness_last_run_id
+    from ifa2.ifa_archive_repair_queue q
+    left join ifa2.ifa_archive_completeness c
+      on q.business_date = c.business_date
+     and q.family_name = c.family_name
+     and q.frequency = c.frequency
+     and q.coverage_scope = c.coverage_scope
+    where q.status in ('pending', 'retry_needed')
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_recent_runs_v as
+    select
+      r.run_id,
+      r.profile_name,
+      r.mode,
+      r.status,
+      r.start_time,
+      r.end_time,
+      r.duration_ms,
+      r.notes,
+      count(i.id) as item_count,
+      count(*) filter (where i.status = 'completed') as completed_items,
+      count(*) filter (where i.status = 'incomplete') as incomplete_items,
+      count(*) filter (where i.status = 'partial') as partial_items,
+      count(*) filter (where i.status = 'superseded') as superseded_items,
+      count(*) filter (where i.status = 'failed') as failed_items
+    from ifa2.ifa_archive_runs r
+    left join ifa2.ifa_archive_run_items i on i.run_id = r.run_id
+    group by r.run_id, r.profile_name, r.mode, r.status, r.start_time, r.end_time, r.duration_ms, r.notes
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_family_health_v as
+    select
+      family_name,
+      frequency,
+      count(*) as total_dates,
+      count(*) filter (where status = 'completed') as completed_dates,
+      count(*) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as non_completed_dates,
+      max(business_date) as latest_business_date,
+      max(business_date) filter (where status = 'completed') as latest_completed_date,
+      max(business_date) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as latest_problem_date,
+      round((100.0 * count(*) filter (where status = 'completed') / greatest(count(*), 1))::numeric, 2) as completion_ratio
+    from ifa2.ifa_archive_completeness
+    group by family_name, frequency
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_date_health_v as
+    select
+      business_date,
+      count(*) as families_observed,
+      count(*) filter (where status = 'completed') as completed_families,
+      count(*) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as non_completed_families
+    from ifa2.ifa_archive_completeness
+    group by business_date
     """,
 ]
 

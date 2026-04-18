@@ -1,0 +1,28 @@
+{
+  "profile_name": "archive_v2_milestone6_broad_range_history_write_sample",
+  "mode": "date_range",
+  "include_daily": true,
+  "include_60m": false,
+  "include_15m": false,
+  "include_1m": false,
+  "include_business_families": true,
+  "include_tradable_families": true,
+  "include_signal_families": false,
+  "broad_market": true,
+  "family_groups": [
+    "index_daily",
+    "announcements_daily",
+    "news_daily",
+    "research_reports_daily",
+    "investor_qa_daily",
+    "dragon_tiger_daily",
+    "limit_up_detail_daily",
+    "limit_up_down_status_daily"
+  ],
+  "start_date": "2026-04-15",
+  "end_date": "2026-04-17",
+  "repair_incomplete": false,
+  "dry_run": false,
+  "write_enabled": true,
+  "notes": "Milestone 6 broader bounded history-family replay validation profile"
+}

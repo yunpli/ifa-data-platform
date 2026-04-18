@@ -1,0 +1,20 @@
+{
+  "profile_name": "archive_v2_milestone6_incomplete_policy_sample",
+  "mode": "single_day",
+  "include_daily": true,
+  "include_60m": false,
+  "include_15m": false,
+  "include_1m": false,
+  "include_business_families": true,
+  "include_tradable_families": false,
+  "include_signal_families": false,
+  "broad_market": true,
+  "family_groups": [
+    "sector_performance_daily"
+  ],
+  "start_date": "2026-04-15",
+  "repair_incomplete": false,
+  "dry_run": false,
+  "write_enabled": true,
+  "notes": "Milestone 6 operator backlog / retry policy validation profile"
+}
