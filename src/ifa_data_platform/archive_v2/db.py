@@ -123,6 +123,80 @@ DDL = [
       primary key (business_date, macro_series)
     )
     """,
+    """
+    create table if not exists ifa2.ifa_archive_announcements_daily (
+      business_date date not null,
+      ts_code text not null,
+      title text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, title)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_news_daily (
+      business_date date not null,
+      news_time timestamptz not null,
+      title text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, news_time, title)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_research_reports_daily (
+      business_date date not null,
+      ts_code text not null,
+      title text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, title)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_investor_qa_daily (
+      business_date date not null,
+      ts_code text not null,
+      pub_time timestamptz not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, pub_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_dragon_tiger_daily (
+      business_date date not null,
+      ts_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_limit_up_detail_daily (
+      business_date date not null,
+      ts_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_limit_up_down_status_daily (
+      business_date date primary key,
+      payload jsonb not null,
+      created_at timestamptz not null default now()
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_sector_performance_daily (
+      business_date date not null,
+      sector_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, sector_code)
+    )
+    """,
 ]
 
 

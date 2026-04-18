@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 from ifa_data_platform.tushare.client import TushareClient
 from sqlalchemy import text
 
@@ -16,7 +17,11 @@ SUPPORTED_DAILY_FAMILIES = {
     'highfreq_signal_daily',
 }
 
-IMPLEMENTED_FAMILIES = {'equity_daily', 'etf_daily', 'non_equity_daily', 'macro_daily'}
+IMPLEMENTED_FAMILIES = {
+    'equity_daily', 'index_daily', 'etf_daily', 'non_equity_daily', 'macro_daily',
+    'announcements_daily', 'news_daily', 'research_reports_daily', 'investor_qa_daily',
+    'dragon_tiger_daily', 'limit_up_detail_daily', 'limit_up_down_status_daily', 'sector_performance_daily',
+}
 
 
 class ArchiveV2Runner:
@@ -54,11 +59,11 @@ class ArchiveV2Runner:
                 cur += timedelta(days=1)
             return self._run_dates(days)
         if self.profile.mode == 'backfill':
-            days = [datetime.now(timezone.utc).date() - timedelta(days=i+1) for i in range(int(self.profile.backfill_days or 0))]
+            days = [datetime.now(timezone.utc).date() - timedelta(days=i + 1) for i in range(int(self.profile.backfill_days or 0))]
             return self._run_dates([d.isoformat() for d in days])
         if self.profile.mode == 'delete':
             self._write_item('archive_delete_scope', 'daily', None, 'partial', 0, [], notes='delete mode skeleton only; no family deletion implemented yet')
-            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 2'}
+            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 3 batch'}
         return {'status': 'failed', 'error_text': f'unsupported mode {self.profile.mode}'}
 
     def _run_dates(self, dates: list[str]) -> dict:
@@ -68,12 +73,12 @@ class ArchiveV2Runner:
         for d in dates:
             for family in family_groups:
                 if family not in SUPPORTED_DAILY_FAMILIES:
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 2')
+                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 3 batch')
                     final_status = 'partial'
                     continue
                 if family not in IMPLEMENTED_FAMILIES:
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='family scaffold only; execution not implemented in Milestone 2')
-                    self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', 'incomplete', 0, 'family not yet implemented in Milestone 2')
+                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='family scaffold only; execution not implemented in current batch')
+                    self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', 'incomplete', 0, 'family not yet implemented in current batch')
                     final_status = 'partial'
                     continue
                 rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, d)
@@ -82,9 +87,9 @@ class ArchiveV2Runner:
                 if item_status != 'completed':
                     final_status = 'partial'
         if final_status == 'partial':
-            notes.append('Milestone 2 ran with real implemented daily families plus truthful incomplete families')
+            notes.append('Milestone 2 tail closed and Milestone 3 business families ran with truthful incomplete status only for still-unimplemented families')
         else:
-            notes.append('Milestone 2 completed')
+            notes.append('Milestone 2 tail closed and Milestone 3 completed for the selected families')
         return {'status': final_status, 'notes': '; '.join(notes)}
 
     def _execute_family(self, family: str, business_date: str):
@@ -92,6 +97,9 @@ class ArchiveV2Runner:
         if family == 'equity_daily':
             rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             return self._write_json_rows('ifa_archive_equity_daily', business_date, rows, 'ts_code')
+        if family == 'index_daily':
+            rows = self._fetch_history_rows('index_daily_bar_history', 'trade_date', business_date)
+            return self._write_json_rows('ifa_archive_index_daily', business_date, rows, 'ts_code', note='index daily archive written from retained final history truth')
         if family == 'etf_daily':
             rows = self.client.query('fund_daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             return self._write_json_rows('ifa_archive_etf_daily', business_date, rows, 'ts_code')
@@ -101,15 +109,60 @@ class ArchiveV2Runner:
                 return 0, ['ifa_archive_non_equity_daily'], 'incomplete', 'source returned no non-equity daily rows for sample date', None
             return self._write_non_equity_rows('ifa_archive_non_equity_daily', business_date, rows)
         if family == 'macro_daily':
-            rows = []
-            with engine.begin() as conn:
-                rows = [dict(r) for r in conn.execute(text("select macro_series, report_date, value, source from ifa2.macro_history where report_date = (select max(report_date) from ifa2.macro_history where report_date <= :d)"), {'d': business_date}).mappings().all()]
+            rows = self._fetch_macro_rows(business_date)
             if not rows:
                 return 0, ['ifa_archive_macro_daily'], 'incomplete', 'no macro snapshot rows available on or before business_date', None
             return self._write_macro_rows('ifa_archive_macro_daily', business_date, rows)
+        if family == 'announcements_daily':
+            rows = self._fetch_history_rows('announcements_history', 'ann_date', business_date)
+            return self._write_multi_key_rows('ifa_archive_announcements_daily', business_date, rows, ['ts_code', 'title'], note='daily finalized announcements archived from retained history truth')
+        if family == 'news_daily':
+            rows = self._fetch_history_rows_by_date('news_history', 'datetime', business_date)
+            return self._write_news_rows('ifa_archive_news_daily', business_date, rows)
+        if family == 'research_reports_daily':
+            rows = self._fetch_history_rows('research_reports_history', 'trade_date', business_date)
+            return self._write_multi_key_rows('ifa_archive_research_reports_daily', business_date, rows, ['ts_code', 'title'], note='daily finalized research reports archived from retained history truth')
+        if family == 'investor_qa_daily':
+            rows = self._fetch_history_rows('investor_qa_history', 'trade_date', business_date)
+            return self._write_investor_qa_rows('ifa_archive_investor_qa_daily', business_date, rows)
+        if family == 'dragon_tiger_daily':
+            rows = self._fetch_history_rows('dragon_tiger_list_history', 'trade_date', business_date)
+            return self._write_json_rows('ifa_archive_dragon_tiger_daily', business_date, rows, 'ts_code', note='daily finalized dragon tiger list archived from retained history truth')
+        if family == 'limit_up_detail_daily':
+            rows = self._fetch_history_rows('limit_up_detail_history', 'trade_date', business_date)
+            return self._write_json_rows('ifa_archive_limit_up_detail_daily', business_date, rows, 'ts_code', note='daily finalized limit-up detail archived from retained history truth')
+        if family == 'limit_up_down_status_daily':
+            rows = self._fetch_history_rows('limit_up_down_status_history', 'trade_date', business_date)
+            return self._write_singleton_rows('ifa_archive_limit_up_down_status_daily', business_date, rows, note='daily finalized market-wide limit status archived from retained history truth')
+        if family == 'sector_performance_daily':
+            rows = self._fetch_history_rows('sector_performance_history', 'trade_date', business_date)
+            return self._write_json_rows('ifa_archive_sector_performance_daily', business_date, rows, 'sector_code', note='daily finalized sector performance archived from retained history truth')
         return 0, [], 'incomplete', 'family execution not implemented', None
 
-    def _write_json_rows(self, table: str, business_date: str, rows: list[dict], key_col: str):
+    def _fetch_history_rows(self, table: str, date_col: str, business_date: str):
+        with engine.begin() as conn:
+            return [self._normalize_record(dict(r)) for r in conn.execute(text(f"select * from ifa2.{table} where {date_col} = :d"), {'d': business_date}).mappings().all()]
+
+    def _fetch_history_rows_by_date(self, table: str, ts_col: str, business_date: str):
+        with engine.begin() as conn:
+            return [self._normalize_record(dict(r)) for r in conn.execute(text(f"select * from ifa2.{table} where date({ts_col}) = :d"), {'d': business_date}).mappings().all()]
+
+    def _fetch_macro_rows(self, business_date: str):
+        with engine.begin() as conn:
+            return [self._normalize_record(dict(r)) for r in conn.execute(text("select macro_series, report_date, value, source from ifa2.macro_history where report_date = (select max(report_date) from ifa2.macro_history where report_date <= :d)"), {'d': business_date}).mappings().all()]
+
+    def _normalize_record(self, record: dict):
+        out = {}
+        for k, v in record.items():
+            if isinstance(v, Decimal):
+                out[k] = float(v)
+            elif isinstance(v, (datetime, )):
+                out[k] = v.isoformat()
+            else:
+                out[k] = v
+        return out
+
+    def _write_json_rows(self, table: str, business_date: str, rows: list[dict], key_col: str, note: str = 'source-side direct daily pull archived'):
         if not rows:
             return 0, [table], 'incomplete', 'source returned no rows', None
         if self.profile.write_enabled:
@@ -118,9 +171,63 @@ class ArchiveV2Runner:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, {key_col}, payload) values (:business_date, :key, CAST(:payload as jsonb)) on conflict (business_date, {key_col}) do update set payload=excluded.payload"), {
                         'business_date': business_date,
                         'key': r[key_col],
-                        'payload': json.dumps(r, ensure_ascii=False),
+                        'payload': json.dumps(r, ensure_ascii=False, default=str),
                     })
-        return len(rows), [table], 'completed', 'source-side direct daily pull archived', None
+        return len(rows), [table], 'completed', note, None
+
+    def _write_multi_key_rows(self, table: str, business_date: str, rows: list[dict], keys: list[str], note: str):
+        if not rows:
+            return 0, [table], 'incomplete', 'source/history returned no rows', None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, {keys[0]}, {keys[1]}, payload) values (:business_date, :k1, :k2, CAST(:payload as jsonb)) on conflict (business_date, {keys[0]}, {keys[1]}) do update set payload=excluded.payload"), {
+                        'business_date': business_date,
+                        'k1': r[keys[0]],
+                        'k2': r[keys[1]],
+                        'payload': json.dumps(r, ensure_ascii=False, default=str),
+                    })
+        return len(rows), [table], 'completed', note, None
+
+    def _write_news_rows(self, table: str, business_date: str, rows: list[dict]):
+        if not rows:
+            return 0, [table], 'incomplete', 'source/history returned no news rows', None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, news_time, title, payload) values (:business_date, :news_time, :title, CAST(:payload as jsonb)) on conflict (business_date, news_time, title) do update set payload=excluded.payload"), {
+                        'business_date': business_date,
+                        'news_time': r['datetime'],
+                        'title': r['title'],
+                        'payload': json.dumps(r, ensure_ascii=False, default=str),
+                    })
+        return len(rows), [table], 'completed', 'daily finalized news archived from retained history truth', None
+
+    def _write_investor_qa_rows(self, table: str, business_date: str, rows: list[dict]):
+        if not rows:
+            return 0, [table], 'incomplete', 'source/history returned no investor QA rows', None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, ts_code, pub_time, payload) values (:business_date, :ts_code, :pub_time, CAST(:payload as jsonb)) on conflict (business_date, ts_code, pub_time) do update set payload=excluded.payload"), {
+                        'business_date': business_date,
+                        'ts_code': r['ts_code'],
+                        'pub_time': r['pub_time'],
+                        'payload': json.dumps(r, ensure_ascii=False, default=str),
+                    })
+        return len(rows), [table], 'completed', 'daily finalized investor QA archived from retained history truth', None
+
+    def _write_singleton_rows(self, table: str, business_date: str, rows: list[dict], note: str):
+        if not rows:
+            return 0, [table], 'incomplete', 'source/history returned no rows', None
+        row = rows[0]
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                conn.execute(text(f"insert into ifa2.{table}(business_date, payload) values (:business_date, CAST(:payload as jsonb)) on conflict (business_date) do update set payload=excluded.payload"), {
+                    'business_date': business_date,
+                    'payload': json.dumps(row, ensure_ascii=False, default=str),
+                })
+        return 1, [table], 'completed', note, None
 
     def _write_non_equity_rows(self, table: str, business_date: str, rows: list[dict]):
         if self.profile.write_enabled:
