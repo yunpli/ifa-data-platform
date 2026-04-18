@@ -67,16 +67,34 @@ Rule:
 ## 4. Runtime Positioning
 
 ### Unified runtime daemon (official)
-Production-safe bring-up path:
-- `zsh scripts/unified_daemon_service.sh preflight`
-- `zsh scripts/unified_daemon_service.sh start`
-- `zsh scripts/unified_daemon_service.sh status`
-- `zsh scripts/unified_daemon_service.sh stop`
+Official production path is now the repo-owned launchd-managed service artifacts on macOS.
 
-Official long-running runtime entry used by the service wrapper:
+Prepared service artifacts:
+- `scripts/unified_daemon_launchd.sh`
+- `scripts/unified_daemon_launchd_boot.sh`
+- plist path: `~/Library/LaunchAgents/ai.ifa.unified-runtime.plist`
+
+Important execution-context rule:
+- the final `launchctl bootstrap` / install step must be executed from a proper local logged-in user terminal/session context
+- do **not** treat the agent/harness shell as the final trusted bootstrap environment for LaunchAgent installation
+
+Exact operator install/start/stop/status flow (from a real local terminal):
+- `zsh scripts/unified_daemon_launchd.sh install`
+- `zsh scripts/unified_daemon_launchd.sh start`
+- `zsh scripts/unified_daemon_launchd.sh status`
+- `zsh scripts/unified_daemon_launchd.sh stop`
+- `zsh scripts/unified_daemon_launchd.sh restart`
+
+Useful direct launchctl commands (from local terminal context):
+- `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.ifa.unified-runtime.plist`
+- `launchctl kickstart -k gui/$(id -u)/ai.ifa.unified-runtime`
+- `launchctl print gui/$(id -u)/ai.ifa.unified-runtime`
+- `launchctl bootout gui/$(id -u)/ai.ifa.unified-runtime`
+
+Official long-running runtime entry launched by the service boot script:
 - `python -m ifa_data_platform.runtime.unified_daemon --loop`
 
-Operator/manual entry surfaces:
+Operator/manual entry surfaces for manual/debug use:
 - `python -m ifa_data_platform.runtime.unified_daemon --once`
 - `python -m ifa_data_platform.runtime.unified_daemon --status`
 - `python -m ifa_data_platform.runtime.unified_daemon --worker lowfreq --runtime-budget-sec 1800`
@@ -85,10 +103,16 @@ Operator/manual entry surfaces:
 - `python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600`
 
 Preflight/repair truth before service start:
+- executed by `scripts/unified_daemon_launchd_boot.sh`
 - auto-clears stale active runtime markers older than threshold if found
 - auto-marks stale archive checkpoints stuck in `in_progress` as `abandoned`
 - reports stale `pending/observed` catch-up rows without destructive cleanup
 - writes operator-visible JSON under `artifacts/service/runtime_preflight_latest.json`
+
+Logs / service evidence paths:
+- `artifacts/service/unified_daemon.launchd.out.log`
+- `artifacts/service/unified_daemon.launchd.err.log`
+- `artifacts/service/runtime_preflight_latest.json`
 
 Unified daemon currently owns:
 - schedule loading from `ifa2.runtime_worker_schedules`
