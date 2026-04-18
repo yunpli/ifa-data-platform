@@ -21,6 +21,7 @@ from sqlalchemy import text
 
 from ifa_data_platform.archive.archive_config import get_archive_config
 from ifa_data_platform.archive.archive_orchestrator import ArchiveOrchestrator
+from ifa_data_platform.archive_v2.production import run_nightly_production
 from ifa_data_platform.archive.archive_target_delta import (
     ArchiveDeltaItem,
     build_archive_manifest,
@@ -688,7 +689,7 @@ class UnifiedRuntime:
         archive_window: str = "manual_archive",
         dry_run_manifest_only: bool = False,
     ) -> UnifiedRunResult:
-        if lane not in {"lowfreq", "midfreq", "archive", "highfreq"}:
+        if lane not in {"lowfreq", "midfreq", "archive", "archive_v2", "highfreq"}:
             raise ValueError(f"Unsupported lane: {lane}")
 
         scope = scope or SelectorScope()
@@ -745,6 +746,8 @@ class UnifiedRuntime:
 
         if lane in {"lowfreq", "midfreq", "highfreq"}:
             return self._run_runtime_lane(run_id, lane, trigger_mode, manifest, manifest_snapshot_id, started_at)
+        if lane == "archive_v2":
+            return self._run_archive_v2_lane(run_id, trigger_mode, manifest, manifest_snapshot_id, started_at, archive_window)
         return self._run_archive_lane(run_id, trigger_mode, manifest, manifest_snapshot_id, started_at, archive_window)
 
     def _run_runtime_lane(
@@ -1039,5 +1042,64 @@ class UnifiedRuntime:
             started_at=started_at,
             completed_at=completed_at,
             records_processed=records_processed,
+            summary=summary,
+        )
+
+    def _run_archive_v2_lane(
+        self,
+        run_id: str,
+        trigger_mode: str,
+        manifest: TargetManifest,
+        manifest_snapshot_id: str,
+        started_at: str,
+        archive_window: str,
+    ) -> UnifiedRunResult:
+        lane_items = [i for i in manifest.items if i.resolved_lane == "archive"]
+        result = run_nightly_production(trigger_source="runtime_archive_v2_nightly")
+        final_status = "succeeded" if result["status"] == "completed" else result["status"]
+        summary = {
+            "run_id": run_id,
+            "lane": "archive_v2",
+            "trigger_mode": trigger_mode,
+            "manifest_id": manifest.manifest_id,
+            "manifest_hash": manifest.manifest_hash,
+            "manifest_snapshot_id": manifest_snapshot_id,
+            "manifest_item_count": len(lane_items),
+            "execution_mode": "real_run",
+            "profile_name": result.get("profile_name"),
+            "profile_path": result.get("profile_path"),
+            "business_date": result.get("business_date"),
+            "archive_v2_run_id": result.get("run_id"),
+            "archive_v2_status": result.get("status"),
+            "archive_v2_notes": result.get("notes"),
+            "legacy_archive_superseded_for_nightly": True,
+            "legacy_archive_status": "legacy_manual_fallback_only",
+            "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],
+            "planned_dataset_names": [i.display_name for i in lane_items[:10]],
+        }
+        self.store.finalize_run(
+            run_id=run_id,
+            lane="archive_v2",
+            worker_type="archive_v2_production_worker",
+            trigger_mode=trigger_mode,
+            manifest_id=manifest.manifest_id,
+            manifest_hash=manifest.manifest_hash,
+            manifest_snapshot_id=manifest_snapshot_id,
+            status=final_status,
+            records_processed=0,
+            summary=summary,
+        )
+        completed_at = now_utc().isoformat()
+        return UnifiedRunResult(
+            run_id=run_id,
+            lane="archive_v2",
+            worker_type="archive_v2_production_worker",
+            trigger_mode=trigger_mode,
+            manifest_id=manifest.manifest_id,
+            manifest_hash=manifest.manifest_hash,
+            status=final_status,
+            started_at=started_at,
+            completed_at=completed_at,
+            records_processed=0,
             summary=summary,
         )

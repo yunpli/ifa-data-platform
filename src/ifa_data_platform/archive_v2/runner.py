@@ -103,12 +103,15 @@ class ArchiveV2Runner:
         self.client = TushareClient()
 
     def run(self) -> dict:
+        return self.run_with_context()
+
+    def run_with_context(self, trigger_source: str = 'manual_profile', notes: str | None = None) -> dict:
         ensure_schema()
         errors = validate_profile(self.profile)
         if errors:
             return {'ok': False, 'errors': errors}
         self._persist_profile()
-        self._create_run('running')
+        self._create_run('running', trigger_source=trigger_source, notes=notes)
         try:
             result = self._dispatch()
             self._finish_run(result['status'], result.get('notes'), result.get('error_text'))

@@ -27,20 +27,24 @@ DEFAULT_SCHEDULE_POLICY: list[SchedulePolicyRow] = [
     SchedulePolicyRow("highfreq", "trading_day", "highfreq:trade_day_pre_open", "09:15", "pre-open/auction support for trading-day early report", True, 900, max_retries=1, group_name="pre_open_core"),
     SchedulePolicyRow("highfreq", "trading_day", "highfreq:trade_day_intraday_midday", "11:25", "intraday support approaching midday report", True, 900, max_retries=1, group_name="intraday_core"),
     SchedulePolicyRow("highfreq", "trading_day", "highfreq:trade_day_close", "14:57", "close/auction support for late report", True, 900, max_retries=1, group_name="close_core"),
-    SchedulePolicyRow("archive", "trading_day", "archive:trade_day_evening_archive", "21:30", "daily archive and backlog absorption after market/reporting cycle", True, 3600, max_retries=1, group_name="archive_main"),
+    SchedulePolicyRow("archive", "trading_day", "archive:trade_day_evening_archive", "21:30", "legacy archive path retained for coexistence/manual fallback; no longer default nightly production path", False, 3600, max_retries=1, group_name="archive_legacy"),
+    SchedulePolicyRow("archive_v2", "trading_day", "archive_v2:trade_day_nightly_daily_final", "21:40", "Archive V2 steady-state nightly daily/final truth production", True, 5400, max_retries=1, group_name="archive_v2_main"),
     # non-trading weekday
     SchedulePolicyRow("lowfreq", "non_trading_weekday", "lowfreq:offday_reference_refresh", "08:30", "refresh slow/reference data on non-trading weekday", True, 1800, max_retries=1, group_name="daily_light"),
     SchedulePolicyRow("midfreq", "non_trading_weekday", "midfreq:offday_skip", "12:00", "no regular midfreq reporting cadence on non-trading weekday", False, 1800),
     SchedulePolicyRow("highfreq", "non_trading_weekday", "highfreq:offday_skip", "12:00", "no highfreq market session on non-trading weekday", False, 900),
-    SchedulePolicyRow("archive", "non_trading_weekday", "archive:offday_archive", "21:30", "archive/catch-up still runs on non-trading weekdays", True, 3600, max_retries=1, group_name="archive_main"),
+    SchedulePolicyRow("archive", "non_trading_weekday", "archive:offday_archive", "21:30", "legacy archive path retained for coexistence/manual fallback on non-trading weekdays", False, 3600, max_retries=1, group_name="archive_legacy"),
+    SchedulePolicyRow("archive_v2", "non_trading_weekday", "archive_v2:offday_skip", "21:40", "Archive V2 nightly production is trading-day scoped; offday catch-up remains manual/backfill", False, 5400, max_retries=1, group_name="archive_v2_main"),
     # saturday
     SchedulePolicyRow("lowfreq", "saturday", "lowfreq:saturday_weekly_review_support", "09:00", "support Saturday weekly review / past-week recap", True, 2400, max_retries=1, group_name="weekly_deep"),
     SchedulePolicyRow("midfreq", "saturday", "midfreq:saturday_weekly_review_support", "10:30", "support weekly review dataset refresh", True, 1800, max_retries=1, group_name="post_close_final"),
     SchedulePolicyRow("highfreq", "saturday", "highfreq:saturday_skip", "12:00", "no highfreq weekend session", False, 900),
-    SchedulePolicyRow("archive", "saturday", "archive:saturday_archive", "21:30", "archive/catch-up continues on Saturday", True, 3600, max_retries=1, group_name="archive_main"),
+    SchedulePolicyRow("archive", "saturday", "archive:saturday_archive", "21:30", "legacy archive path retained for coexistence/manual fallback on Saturday", False, 3600, max_retries=1, group_name="archive_legacy"),
+    SchedulePolicyRow("archive_v2", "saturday", "archive_v2:saturday_skip", "21:40", "Archive V2 steady-state nightly run is not automatic on Saturday; use manual backfill if needed", False, 5400, max_retries=1, group_name="archive_v2_main"),
     # sunday
     SchedulePolicyRow("lowfreq", "sunday", "lowfreq:sunday_next_week_preview_support", "09:00", "support Sunday next-week preview/setup", True, 2400, max_retries=1, group_name="weekly_deep"),
     SchedulePolicyRow("midfreq", "sunday", "midfreq:sunday_preview_support", "10:30", "refresh swing/close-support data for next-week preview", True, 1800, max_retries=1, group_name="post_close_final"),
     SchedulePolicyRow("highfreq", "sunday", "highfreq:sunday_skip", "12:00", "no highfreq weekend session", False, 900),
-    SchedulePolicyRow("archive", "sunday", "archive:sunday_archive", "21:30", "archive/catch-up continues on Sunday", True, 3600, max_retries=1, group_name="archive_main"),
+    SchedulePolicyRow("archive", "sunday", "archive:sunday_archive", "21:30", "legacy archive path retained for coexistence/manual fallback on Sunday", False, 3600, max_retries=1, group_name="archive_legacy"),
+    SchedulePolicyRow("archive_v2", "sunday", "archive_v2:sunday_skip", "21:40", "Archive V2 steady-state nightly run is not automatic on Sunday; use manual backfill if needed", False, 5400, max_retries=1, group_name="archive_v2_main"),
 ]

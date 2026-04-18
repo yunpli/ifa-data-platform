@@ -558,6 +558,7 @@ class UnifiedRuntimeDaemon:
             "midfreq": 1800,
             "highfreq": 900,
             "archive": 3600,
+            "archive_v2": 5400,
         }[worker_type]
 
     def _next_due_at_utc(self, worker_type: str, base_utc: datetime) -> Optional[datetime]:
@@ -589,7 +590,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Unified runtime/data-collector daemon (official long-running entry)")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--loop", action="store_true")
-    parser.add_argument("--worker", choices=["lowfreq", "midfreq", "highfreq", "archive"])
+    parser.add_argument("--worker", choices=["lowfreq", "midfreq", "highfreq", "archive", "archive_v2"])
     parser.add_argument("--schedule-key", type=str)
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--dry-run-manifest-only", action="store_true")
