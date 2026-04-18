@@ -114,6 +114,25 @@ Logs / service evidence paths:
 - `artifacts/service/unified_daemon.launchd.err.log`
 - `artifacts/service/runtime_preflight_latest.json`
 
+### New Archive Layer v2 foundation
+Milestone 1 foundation now exists for the new archive layer:
+- profile loader/validator: `src/ifa_data_platform/archive_v2/profile.py`
+- DB control/run/completeness schema bootstrap: `src/ifa_data_platform/archive_v2/db.py`
+- runner/mode dispatch skeleton: `src/ifa_data_platform/archive_v2/runner.py`
+- CLI entry: `scripts/archive_v2_run.py`
+- sample profile: `profiles/archive_v2_daily_skeleton.json`
+
+Current truth:
+- profile-driven execution works
+- `single_day`, `date_range`, `backfill`, `delete` mode framework exists
+- new DB tables exist in `ifa2`:
+  - `ifa_archive_runs`
+  - `ifa_archive_run_items`
+  - `ifa_archive_completeness`
+  - `ifa_archive_profiles`
+  - `ifa_archive_repair_queue`
+- Milestone 1 is a daily-only execution skeleton; selected family groups are scaffolded but not yet fully implemented
+
 Unified daemon currently owns:
 - schedule loading from `ifa2.runtime_worker_schedules`
 - trading-day classification from `ifa2.trade_cal_current`
