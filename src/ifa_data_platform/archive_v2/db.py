@@ -112,6 +112,41 @@ DDL = [
     alter table if exists ifa2.ifa_archive_repair_queue add column if not exists last_error text
     """,
     """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists claim_id uuid
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists claimed_at timestamptz
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists claimed_by text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists claim_expires_at timestamptz
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists suppression_state text not null default 'active'
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists acknowledged_at timestamptz
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists acknowledged_by text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists acknowledgement_reason text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists suppressed_until timestamptz
+    """,
+    """
+    create index if not exists ix_ifa_archive_repair_queue_claim
+      on ifa2.ifa_archive_repair_queue (status, claim_expires_at, priority desc, updated_at)
+    """,
+    """
+    create index if not exists ix_ifa_archive_repair_queue_suppression
+      on ifa2.ifa_archive_repair_queue (suppression_state, suppressed_until, updated_at)
+    """,
+    """
     create index if not exists ix_ifa_archive_repair_queue_priority
       on ifa2.ifa_archive_repair_queue (status, priority desc, retry_after, updated_at)
     """,
@@ -139,8 +174,9 @@ DDL = [
              when reason ilike '%legacy placeholder%' then 'non_actionable'
              else 'actionable'
            end,
+           suppression_state = coalesce(suppression_state, 'active'),
            last_observed_status = coalesce(last_observed_status, status)
-     where reason_code is null or last_observed_status is null or actionability is null
+     where reason_code is null or last_observed_status is null or actionability is null or suppression_state is null
     """,
     """
     create table if not exists ifa2.ifa_archive_equity_daily (
@@ -327,6 +363,15 @@ DDL = [
     )
     """,
     """
+    drop view if exists ifa2.ifa_archive_operator_claimed_backlog_v
+    """,
+    """
+    drop view if exists ifa2.ifa_archive_operator_suppressed_backlog_v
+    """,
+    """
+    drop view if exists ifa2.ifa_archive_operator_repair_execution_history_v
+    """,
+    """
     drop view if exists ifa2.ifa_archive_operator_gap_summary_v
     """,
     """
@@ -384,6 +429,16 @@ DDL = [
       q.urgency,
       q.retry_count,
       q.escalation_level,
+      q.claim_id,
+      q.claimed_at,
+      q.claimed_by,
+      q.claim_expires_at,
+      coalesce(q.suppression_state, 'active') as suppression_state,
+      q.suppressed_until,
+      (coalesce(q.suppression_state, 'active') in ('acknowledged', 'suppressed') and (q.suppressed_until is null or q.suppressed_until > now())) as suppression_active,
+      q.acknowledged_at,
+      q.acknowledged_by,
+      q.acknowledgement_reason,
       q.last_attempt_at,
       q.last_run_id as repair_last_run_id
     from ifa2.ifa_archive_completeness c
@@ -434,9 +489,24 @@ DDL = [
       q.retry_count,
       q.escalation_level,
       q.retry_after,
+      q.claim_id,
+      q.claimed_at,
+      q.claimed_by,
+      q.claim_expires_at,
+      case when q.status = 'claimed' and (q.claim_expires_at is null or q.claim_expires_at > now()) then 'active'
+           when q.status = 'claimed' and q.claim_expires_at <= now() then 'expired'
+           else 'none' end as claim_state,
+      case when q.status = 'claimed' and (q.claim_expires_at is null or q.claim_expires_at > now()) then 0
+           when q.status = 'claimed' then 1 else 2 end as claim_state_sort,
       q.first_seen_at,
       q.last_attempt_at,
       q.updated_at,
+      coalesce(q.suppression_state, 'active') as suppression_state,
+      q.suppressed_until,
+      (coalesce(q.suppression_state, 'active') in ('acknowledged', 'suppressed') and (q.suppressed_until is null or q.suppressed_until > now())) as suppression_active,
+      q.acknowledged_at,
+      q.acknowledged_by,
+      q.acknowledgement_reason,
       q.last_observed_status,
       q.last_error,
       c.status as completeness_status,
@@ -448,7 +518,19 @@ DDL = [
      and q.family_name = c.family_name
      and q.frequency = c.frequency
      and q.coverage_scope = c.coverage_scope
-    where q.status in ('pending', 'retry_needed')
+    where q.status in ('pending', 'retry_needed', 'claimed')
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_claimed_backlog_v as
+    select *
+    from ifa2.ifa_archive_operator_repair_backlog_v
+    where repair_status = 'claimed'
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_suppressed_backlog_v as
+    select *
+    from ifa2.ifa_archive_operator_repair_backlog_v
+    where suppression_active = true
     """,
     """
     create or replace view ifa2.ifa_archive_operator_recent_runs_v as
@@ -495,6 +577,26 @@ DDL = [
       count(*) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as non_completed_families
     from ifa2.ifa_archive_completeness
     group by business_date
+    """,
+    """
+    create or replace view ifa2.ifa_archive_operator_repair_execution_history_v as
+    select
+      r.run_id,
+      r.trigger_source,
+      r.profile_name,
+      r.mode,
+      r.start_time,
+      r.end_time,
+      r.status as run_status,
+      i.business_date,
+      i.family_name,
+      i.status as item_status,
+      i.rows_written,
+      i.notes,
+      i.error_text
+    from ifa2.ifa_archive_runs r
+    join ifa2.ifa_archive_run_items i on i.run_id = r.run_id
+    where r.trigger_source = 'operator_repair_batch'
     """,
 ]
 

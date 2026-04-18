@@ -299,7 +299,7 @@ class ArchiveV2Runner:
     def _get_repair_queue_row(self, business_date: str, family: str):
         with engine.begin() as conn:
             return conn.execute(text("""
-                select status, reason, reason_code, priority, urgency, retry_count, retry_after, last_run_id
+                select status, reason, reason_code, actionability, priority, urgency, retry_count, retry_after, claim_id, claimed_by, claim_expires_at, last_run_id
                 from ifa2.ifa_archive_repair_queue
                 where business_date = :business_date
                   and family_name = :family_name
@@ -652,7 +652,8 @@ class ArchiveV2Runner:
                     on conflict (business_date, family_name, frequency, coverage_scope)
                     do update set status='pending', reason=excluded.reason, reason_code=excluded.reason_code, actionability=excluded.actionability,
                       priority=excluded.priority, urgency=excluded.urgency, retry_count=excluded.retry_count,
-                      retry_after=excluded.retry_after, last_attempt_at=excluded.last_attempt_at,
+                      retry_after=excluded.retry_after, claim_id=null, claimed_at=null, claimed_by=null, claim_expires_at=null,
+                      last_attempt_at=excluded.last_attempt_at,
                       last_observed_status=excluded.last_observed_status, escalation_level=excluded.escalation_level,
                       last_error=excluded.last_error, last_run_id=excluded.last_run_id, updated_at=now()
                 """), {
@@ -701,6 +702,10 @@ class ArchiveV2Runner:
                     actionability = coalesce(actionability, 'actionable'),
                     urgency = 'low',
                     retry_after = null,
+                    claim_id = null,
+                    claimed_at = null,
+                    claimed_by = null,
+                    claim_expires_at = null,
                     last_attempt_at = now(),
                     last_observed_status = :last_observed_status,
                     last_error = null,
