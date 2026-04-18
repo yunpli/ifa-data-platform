@@ -78,6 +78,10 @@ DDL = [
     )
     """,
     """
+    create unique index if not exists uq_ifa_archive_repair_queue_target
+      on ifa2.ifa_archive_repair_queue (business_date, family_name, frequency, coverage_scope)
+    """,
+    """
     create table if not exists ifa2.ifa_archive_equity_daily (
       business_date date not null,
       ts_code text not null,

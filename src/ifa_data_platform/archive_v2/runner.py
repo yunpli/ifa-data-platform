@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from decimal import Decimal
+
 from ifa_data_platform.tushare.client import TushareClient
 from sqlalchemy import text
 
@@ -41,6 +42,57 @@ NOT_IMPLEMENTED_NOTES = {
     'generic_structured_output_daily': 'generic structured-output catch-all is not archive-v2 worthy because it collapses unrelated finalized truths into one lossy bucket',
 }
 
+NON_COMPLETED_STATUSES = {'partial', 'incomplete', 'retry_needed', 'missing'}
+REPAIR_QUEUE_PENDING_STATUSES = {'pending', 'retry_needed'}
+TARGET_POLICY_ALL = 'all'
+TARGET_POLICY_GAPS = 'gaps'
+TARGET_POLICY_REPAIR = 'repair'
+
+MARKET_CALENDAR_FAMILIES = {
+    'equity_daily', 'index_daily', 'etf_daily', 'non_equity_daily', 'macro_daily',
+    'announcements_daily', 'news_daily', 'research_reports_daily', 'investor_qa_daily',
+    'dragon_tiger_daily', 'limit_up_detail_daily', 'limit_up_down_status_daily', 'sector_performance_daily',
+}
+
+FAMILY_DATE_SOURCE = {
+    'announcements_daily': ('announcements_history', 'ann_date', False),
+    'news_daily': ('news_history', 'datetime', True),
+    'research_reports_daily': ('research_reports_history', 'trade_date', False),
+    'investor_qa_daily': ('investor_qa_history', 'trade_date', False),
+    'dragon_tiger_daily': ('dragon_tiger_list_history', 'trade_date', False),
+    'limit_up_detail_daily': ('limit_up_detail_history', 'trade_date', False),
+    'limit_up_down_status_daily': ('limit_up_down_status_history', 'trade_date', False),
+    'sector_performance_daily': ('sector_performance_history', 'trade_date', False),
+    'highfreq_event_stream_daily': ('highfreq_event_stream_working', 'event_time', True),
+    'highfreq_limit_event_stream_daily': ('highfreq_limit_event_stream_working', 'trade_time', True),
+    'highfreq_sector_breadth_daily': ('highfreq_sector_breadth_working', 'trade_time', True),
+    'highfreq_sector_heat_daily': ('highfreq_sector_heat_working', 'trade_time', True),
+    'highfreq_leader_candidate_daily': ('highfreq_leader_candidate_working', 'trade_time', True),
+    'highfreq_intraday_signal_state_daily': ('highfreq_intraday_signal_state_working', 'trade_time', True),
+}
+
+IDENTITY_POLICY_BY_FAMILY = {
+    'equity_daily': '(business_date, ts_code)',
+    'index_daily': '(business_date, ts_code)',
+    'etf_daily': '(business_date, ts_code)',
+    'non_equity_daily': '(business_date, family_code, ts_code)',
+    'macro_daily': '(business_date, macro_series)',
+    'announcements_daily': '(business_date, ts_code, title)',
+    'news_daily': '(business_date, news_time, title)',
+    'research_reports_daily': '(business_date, ts_code, title)',
+    'investor_qa_daily': '(business_date, ts_code, pub_time)',
+    'dragon_tiger_daily': '(business_date, ts_code)',
+    'limit_up_detail_daily': '(business_date, ts_code)',
+    'limit_up_down_status_daily': '(business_date)',
+    'sector_performance_daily': '(business_date, sector_code)',
+    'highfreq_event_stream_daily': '(business_date, row_key[event_time|event_type|symbol|source|title])',
+    'highfreq_limit_event_stream_daily': '(business_date, row_key[trade_time|event_type|symbol|source|title])',
+    'highfreq_sector_breadth_daily': '(business_date, sector_code)',
+    'highfreq_sector_heat_daily': '(business_date, sector_code)',
+    'highfreq_leader_candidate_daily': '(business_date, symbol)',
+    'highfreq_intraday_signal_state_daily': '(business_date, scope_key)',
+}
+
 
 class ArchiveV2Runner:
     def __init__(self, profile_path: str):
@@ -65,51 +117,148 @@ class ArchiveV2Runner:
             raise
 
     def _dispatch(self) -> dict:
+        family_groups = self.profile.family_groups or sorted(SUPPORTED_DAILY_FAMILIES)
         if self.profile.mode == 'single_day':
-            return self._run_dates([self.profile.start_date])
+            return self._run_dates([self.profile.start_date], family_groups, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
         if self.profile.mode == 'date_range':
-            start = datetime.fromisoformat(self.profile.start_date)
-            end = datetime.fromisoformat(self.profile.end_date)
-            days = []
-            cur = start
-            while cur <= end:
-                days.append(cur.date().isoformat())
-                cur += timedelta(days=1)
-            return self._run_dates(days)
+            return self._run_dates(self._expand_date_range(), family_groups, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
         if self.profile.mode == 'backfill':
-            days = [datetime.now(timezone.utc).date() - timedelta(days=i + 1) for i in range(int(self.profile.backfill_days or 0))]
-            return self._run_dates([d.isoformat() for d in days])
+            return self._run_dates(self._resolve_backfill_dates(family_groups), family_groups, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_GAPS)
         if self.profile.mode == 'delete':
             self._write_item('archive_delete_scope', 'daily', None, 'partial', 0, [], notes='delete mode skeleton only; no family deletion implemented yet')
-            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 3 batch'}
+            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 5 batch'}
         return {'status': 'failed', 'error_text': f'unsupported mode {self.profile.mode}'}
 
-    def _run_dates(self, dates: list[str]) -> dict:
-        family_groups = self.profile.family_groups or sorted(SUPPORTED_DAILY_FAMILIES)
+    def _expand_date_range(self) -> list[str]:
+        start = datetime.fromisoformat(self.profile.start_date).date()
+        end = datetime.fromisoformat(self.profile.end_date).date()
+        days: list[str] = []
+        cur = start
+        while cur <= end:
+            days.append(cur.isoformat())
+            cur += timedelta(days=1)
+        return days
+
+    def _resolve_backfill_dates(self, family_groups: list[str]) -> list[str]:
+        anchor = datetime.fromisoformat(self.profile.end_date).date() if self.profile.end_date else datetime.now(timezone.utc).date()
+        candidate_dates: set[date] = set()
+        fetch_limit = max(int(self.profile.backfill_days or 0) * 4, 12)
+        for family in family_groups:
+            candidate_dates.update(self._available_dates_for_family(family, anchor, fetch_limit))
+        ordered = sorted([d for d in candidate_dates if d <= anchor], reverse=True)
+        selected = ordered[: int(self.profile.backfill_days or 0)]
+        return [d.isoformat() for d in sorted(selected)]
+
+    def _available_dates_for_family(self, family: str, anchor: date, limit: int) -> list[date]:
+        if family in MARKET_CALENDAR_FAMILIES:
+            sql = "select distinct trade_date as d from ifa2.index_daily_bar_history where trade_date <= :anchor order by d desc limit :limit"
+            with engine.begin() as conn:
+                return [r['d'] for r in conn.execute(text(sql), {'anchor': anchor, 'limit': limit}).mappings().all()]
+        if family in FAMILY_DATE_SOURCE:
+            table, col, is_ts = FAMILY_DATE_SOURCE[family]
+            date_expr = f'date({col})' if is_ts else col
+            sql = f"select distinct {date_expr} as d from ifa2.{table} where {date_expr} <= :anchor order by d desc limit :limit"
+            with engine.begin() as conn:
+                return [r['d'] for r in conn.execute(text(sql), {'anchor': anchor, 'limit': limit}).mappings().all()]
+        return []
+
+    def _run_dates(self, dates: list[str], family_groups: list[str], target_policy: str) -> dict:
         final_status = 'completed'
         notes = []
+        executed_targets = 0
+        skipped_targets = 0
+        if not dates:
+            return {'status': 'completed', 'notes': 'no eligible dates resolved for requested bounded execution'}
+
         for d in dates:
             for family in family_groups:
                 if family not in SUPPORTED_DAILY_FAMILIES:
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 3 batch')
+                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 5 batch')
+                    self._upsert_completeness(d, family, 'daily', self._coverage_scope(), 'incomplete', 0, 'unsupported family group in Milestone 5 batch')
                     final_status = 'partial'
                     continue
+
+                decision, decision_note = self._target_decision(d, family, target_policy)
+                if decision == 'skip':
+                    self._write_item(family, 'daily', d, 'superseded', 0, [], notes=decision_note)
+                    skipped_targets += 1
+                    continue
+
                 if family not in IMPLEMENTED_FAMILIES:
-                    note = NOT_IMPLEMENTED_NOTES.get(family, 'family scaffold only; execution not implemented in current batch')
+                    note = self._decorate_note(family, NOT_IMPLEMENTED_NOTES.get(family, 'family scaffold only; execution not implemented in current batch'))
                     self._write_item(family, 'daily', d, 'incomplete', 0, [], notes=note)
-                    self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', 'incomplete', 0, note)
+                    self._upsert_completeness(d, family, 'daily', self._coverage_scope(), 'incomplete', 0, note)
                     final_status = 'partial'
+                    executed_targets += 1
                     continue
+
                 rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, d)
-                self._write_item(family, 'daily', d, item_status, rows_written, tables_touched, notes=item_notes, error_text=item_error)
-                self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', item_status, rows_written, item_error)
+                effective_note = self._decorate_note(family, item_notes)
+                self._write_item(family, 'daily', d, item_status, rows_written, tables_touched, notes=effective_note, error_text=item_error)
+                self._upsert_completeness(d, family, 'daily', self._coverage_scope(), item_status, rows_written, item_error or effective_note if item_status != 'completed' else None)
                 if item_status != 'completed':
                     final_status = 'partial'
+                executed_targets += 1
+
         if final_status == 'partial':
-            notes.append('Selected Archive V2 families ran, with truthful incomplete status preserved for intentionally unarchived or not-yet-worthy families')
+            notes.append('Archive V2 multi-date execution ran with truthful non-complete states preserved where families/dates were missing, unstable, or intentionally unarchived')
         else:
-            notes.append('Selected Archive V2 families completed for the requested profile scope')
+            notes.append('Archive V2 multi-date execution completed for the eligible requested scope')
+        notes.append(f'dates={len(dates)} executed_targets={executed_targets} skipped_targets={skipped_targets} target_policy={target_policy}')
         return {'status': final_status, 'notes': '; '.join(notes)}
+
+    def _target_decision(self, business_date: str, family: str, target_policy: str) -> tuple[str, str | None]:
+        if target_policy == TARGET_POLICY_ALL:
+            return 'run', None
+
+        completeness = self._get_completeness(business_date, family)
+        queue_row = self._get_repair_queue_row(business_date, family)
+
+        if target_policy == TARGET_POLICY_GAPS:
+            if completeness is None:
+                return 'run', 'bounded backfill targeting missing completeness state'
+            if completeness['status'] in NON_COMPLETED_STATUSES:
+                return 'run', f"bounded backfill targeting non-complete state={completeness['status']}"
+            return 'skip', 'already completed; skipped by bounded backfill gap policy'
+
+        if target_policy == TARGET_POLICY_REPAIR:
+            if queue_row and queue_row['status'] in REPAIR_QUEUE_PENDING_STATUSES:
+                return 'run', f"repair queue requested retry status={queue_row['status']}"
+            if completeness and completeness['status'] in NON_COMPLETED_STATUSES:
+                return 'run', f"repair mode targeting completeness status={completeness['status']}"
+            return 'skip', 'not in repair scope; skipped by repair/retry policy'
+
+        return 'run', None
+
+    def _get_completeness(self, business_date: str, family: str):
+        with engine.begin() as conn:
+            return conn.execute(text("""
+                select status, row_count, last_error, last_run_id
+                from ifa2.ifa_archive_completeness
+                where business_date = :business_date
+                  and family_name = :family_name
+                  and frequency = 'daily'
+                  and coverage_scope = :coverage_scope
+            """), {
+                'business_date': business_date,
+                'family_name': family,
+                'coverage_scope': self._coverage_scope(),
+            }).mappings().first()
+
+    def _get_repair_queue_row(self, business_date: str, family: str):
+        with engine.begin() as conn:
+            return conn.execute(text("""
+                select status, reason, last_run_id
+                from ifa2.ifa_archive_repair_queue
+                where business_date = :business_date
+                  and family_name = :family_name
+                  and frequency = 'daily'
+                  and coverage_scope = :coverage_scope
+            """), {
+                'business_date': business_date,
+                'family_name': family,
+                'coverage_scope': self._coverage_scope(),
+            }).mappings().first()
 
     def _execute_family(self, family: str, business_date: str):
         trade_date = business_date.replace('-', '')
@@ -300,13 +449,7 @@ class ArchiveV2Runner:
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    row_key = '|'.join([
-                        str(r.get(time_col) or ''),
-                        str(r.get('event_type') or ''),
-                        str(r.get('symbol') or ''),
-                        str(r.get('source') or ''),
-                        str(r.get('title') or ''),
-                    ])
+                    row_key = self._build_event_row_key(r, time_col)
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, {time_col}, event_type, symbol, payload) values (:business_date, :row_key, :event_time, :event_type, :symbol, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set {time_col}=excluded.{time_col}, event_type=excluded.event_type, symbol=excluded.symbol, payload=excluded.payload"), {
                         'business_date': business_date,
                         'row_key': row_key,
@@ -316,6 +459,15 @@ class ArchiveV2Runner:
                         'payload': json.dumps(r, ensure_ascii=False, default=str),
                     })
         return len(rows), [table], 'completed', note, None
+
+    def _build_event_row_key(self, row: dict, time_col: str) -> str:
+        return '|'.join([
+            str(row.get(time_col) or ''),
+            str(row.get('event_type') or ''),
+            str(row.get('symbol') or ''),
+            str(row.get('source') or ''),
+            str(row.get('title') or ''),
+        ])
 
     def _write_snapshot_rows(self, table: str, business_date: str, rows: list[dict], key_cols: list[str], snapshot_col: str, source_time_col: str, note: str):
         if not rows:
@@ -398,7 +550,7 @@ class ArchiveV2Runner:
                 'run_id': str(self.run_id),
                 'family_name': family_name,
                 'frequency': frequency,
-                'coverage_scope': 'broad_market' if self.profile.broad_market else 'profile_scope',
+                'coverage_scope': self._coverage_scope(),
                 'business_date': business_date,
                 'status': status,
                 'rows_written': rows_written,
@@ -407,7 +559,7 @@ class ArchiveV2Runner:
                 'error_text': error_text,
             })
 
-    def _upsert_completeness(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, row_count: int, last_error: str | None = None):
+    def _upsert_completeness(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, row_count: int, detail_text: str | None = None):
         with engine.begin() as conn:
             conn.execute(text("""
                 insert into ifa2.ifa_archive_completeness(id, business_date, family_name, frequency, coverage_scope, status, source_mode, last_run_id, row_count, retry_after, last_error, updated_at)
@@ -424,6 +576,59 @@ class ArchiveV2Runner:
                 'source_mode': self.profile.mode,
                 'last_run_id': str(self.run_id),
                 'row_count': row_count,
-                'retry_after': None,
-                'last_error': last_error,
+                'retry_after': datetime.now(timezone.utc) if status in NON_COMPLETED_STATUSES else None,
+                'last_error': None if status == 'completed' else detail_text,
             })
+        self._sync_repair_queue(business_date, family_name, frequency, coverage_scope, status, detail_text)
+
+    def _sync_repair_queue(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, detail_text: str | None):
+        if status in NON_COMPLETED_STATUSES:
+            reason = detail_text or f'auto-enqueued because completeness status={status}'
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    insert into ifa2.ifa_archive_repair_queue(id, business_date, family_name, frequency, coverage_scope, status, reason, retry_after, last_run_id, updated_at)
+                    values (:id, :business_date, :family_name, :frequency, :coverage_scope, 'pending', :reason, now(), :last_run_id, now())
+                    on conflict (business_date, family_name, frequency, coverage_scope)
+                    do update set status='pending', reason=excluded.reason, retry_after=excluded.retry_after, last_run_id=excluded.last_run_id, updated_at=now()
+                """), {
+                    'id': str(uuid.uuid4()),
+                    'business_date': business_date,
+                    'family_name': family_name,
+                    'frequency': frequency,
+                    'coverage_scope': coverage_scope,
+                    'reason': reason,
+                    'last_run_id': str(self.run_id),
+                })
+            return
+
+        with engine.begin() as conn:
+            conn.execute(text("""
+                update ifa2.ifa_archive_repair_queue
+                set status = 'completed',
+                    reason = :reason,
+                    retry_after = null,
+                    last_run_id = :last_run_id,
+                    updated_at = now()
+                where business_date = :business_date
+                  and family_name = :family_name
+                  and frequency = :frequency
+                  and coverage_scope = :coverage_scope
+            """), {
+                'business_date': business_date,
+                'family_name': family_name,
+                'frequency': frequency,
+                'coverage_scope': coverage_scope,
+                'reason': 'repaired/completed by latest Archive V2 run',
+                'last_run_id': str(self.run_id),
+            })
+
+    def _decorate_note(self, family_name: str, note: str | None) -> str | None:
+        identity = IDENTITY_POLICY_BY_FAMILY.get(family_name)
+        if not identity:
+            return note
+        if note:
+            return f'{note} | identity={identity}'
+        return f'identity={identity}'
+
+    def _coverage_scope(self) -> str:
+        return 'broad_market' if self.profile.broad_market else 'profile_scope'
