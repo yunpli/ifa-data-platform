@@ -117,6 +117,21 @@ class ArchiveV2Runner:
             self._finish_run('failed', error_text=str(e))
             raise
 
+    def run_selected_targets(self, targets: list[dict], trigger_source: str = 'operator_repair_batch', notes: str | None = None) -> dict:
+        ensure_schema()
+        errors = validate_profile(self.profile)
+        if errors:
+            return {'ok': False, 'errors': errors}
+        self._persist_profile()
+        self._create_run('running', trigger_source=trigger_source, notes=notes)
+        try:
+            result = self._run_selected_targets(targets)
+            self._finish_run(result['status'], result.get('notes'), result.get('error_text'))
+            return {'ok': True, 'run_id': str(self.run_id), **result}
+        except Exception as e:
+            self._finish_run('failed', error_text=str(e))
+            raise
+
     def _dispatch(self) -> dict:
         family_groups = self.profile.family_groups or sorted(SUPPORTED_DAILY_FAMILIES)
         if self.profile.mode == 'single_day':
@@ -207,6 +222,41 @@ class ArchiveV2Runner:
             notes.append('Archive V2 multi-date execution completed for the eligible requested scope')
         notes.append(f'dates={len(dates)} executed_targets={executed_targets} skipped_targets={skipped_targets} target_policy={target_policy}')
         return {'status': final_status, 'notes': '; '.join(notes)}
+
+    def _run_selected_targets(self, targets: list[dict]) -> dict:
+        final_status = 'completed'
+        executed_targets = 0
+        if not targets:
+            return {'status': 'completed', 'notes': 'operator repair batch resolved no eligible actionable targets'}
+
+        for target in targets:
+            business_date = str(target['business_date'])
+            family = target['family_name']
+            selection_note = (
+                f"repair_batch selected priority={target.get('priority')} urgency={target.get('urgency')} "
+                f"actionability={target.get('actionability')} reason_code={target.get('reason_code')}"
+            )
+            if family not in IMPLEMENTED_FAMILIES:
+                note = self._decorate_note(family, f'{selection_note} | family execution not implemented in current batch')
+                self._write_item(family, 'daily', business_date, 'incomplete', 0, [], notes=note)
+                self._upsert_completeness(business_date, family, 'daily', self._coverage_scope(), 'incomplete', 0, note)
+                final_status = 'partial'
+                executed_targets += 1
+                continue
+
+            rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, business_date)
+            effective_note = self._decorate_note(family, f'{selection_note} | {item_notes}' if item_notes else selection_note)
+            self._write_item(family, 'daily', business_date, item_status, rows_written, tables_touched, notes=effective_note, error_text=item_error)
+            self._upsert_completeness(business_date, family, 'daily', self._coverage_scope(), item_status, rows_written, item_error or effective_note if item_status != 'completed' else None)
+            if item_status != 'completed':
+                final_status = 'partial'
+            executed_targets += 1
+
+        return {
+            'status': final_status,
+            'selected_targets': executed_targets,
+            'notes': f'operator repair batch executed selected_targets={executed_targets}'
+        }
 
     def _target_decision(self, business_date: str, family: str, target_policy: str) -> tuple[str, str | None]:
         if target_policy == TARGET_POLICY_ALL:
@@ -514,19 +564,19 @@ class ArchiveV2Runner:
                 'profile_json': json.dumps(self.profile.__dict__, ensure_ascii=False),
             })
 
-    def _create_run(self, status: str):
+    def _create_run(self, status: str, trigger_source: str = 'manual_profile', notes: str | None = None):
         with engine.begin() as conn:
             conn.execute(text("""
                 insert into ifa2.ifa_archive_runs(run_id, trigger_source, profile_name, profile_path, mode, start_time, status, notes)
                 values (:run_id, :trigger_source, :profile_name, :profile_path, :mode, now(), :status, :notes)
             """), {
                 'run_id': str(self.run_id),
-                'trigger_source': 'manual_profile',
+                'trigger_source': trigger_source,
                 'profile_name': self.profile.profile_name,
                 'profile_path': self.profile_path,
                 'mode': self.profile.mode,
                 'status': status,
-                'notes': self.profile.notes,
+                'notes': notes or self.profile.notes,
             })
 
     def _finish_run(self, status: str, notes: str | None = None, error_text: str | None = None):
@@ -590,17 +640,17 @@ class ArchiveV2Runner:
             with engine.begin() as conn:
                 conn.execute(text("""
                     insert into ifa2.ifa_archive_repair_queue(
-                      id, business_date, family_name, frequency, coverage_scope, status, reason, reason_code,
+                      id, business_date, family_name, frequency, coverage_scope, status, reason, reason_code, actionability,
                       priority, urgency, retry_count, retry_after, first_seen_at, last_attempt_at,
                       last_observed_status, escalation_level, last_error, last_run_id, updated_at
                     )
                     values (
-                      :id, :business_date, :family_name, :frequency, :coverage_scope, 'pending', :reason, :reason_code,
+                      :id, :business_date, :family_name, :frequency, :coverage_scope, 'pending', :reason, :reason_code, :actionability,
                       :priority, :urgency, :retry_count, :retry_after, now(), now(),
                       :last_observed_status, :escalation_level, :last_error, :last_run_id, now()
                     )
                     on conflict (business_date, family_name, frequency, coverage_scope)
-                    do update set status='pending', reason=excluded.reason, reason_code=excluded.reason_code,
+                    do update set status='pending', reason=excluded.reason, reason_code=excluded.reason_code, actionability=excluded.actionability,
                       priority=excluded.priority, urgency=excluded.urgency, retry_count=excluded.retry_count,
                       retry_after=excluded.retry_after, last_attempt_at=excluded.last_attempt_at,
                       last_observed_status=excluded.last_observed_status, escalation_level=excluded.escalation_level,
@@ -613,6 +663,7 @@ class ArchiveV2Runner:
                     'coverage_scope': coverage_scope,
                     'reason': reason,
                     'reason_code': policy['reason_code'],
+                    'actionability': policy['actionability'],
                     'priority': policy['priority'],
                     'urgency': policy['urgency'],
                     'retry_count': policy['retry_count'],
@@ -647,6 +698,7 @@ class ArchiveV2Runner:
                 set status = 'completed',
                     reason = :reason,
                     reason_code = 'resolved',
+                    actionability = coalesce(actionability, 'actionable'),
                     urgency = 'low',
                     retry_after = null,
                     last_attempt_at = now(),

@@ -85,6 +85,9 @@ DDL = [
     alter table if exists ifa2.ifa_archive_repair_queue add column if not exists reason_code text
     """,
     """
+    alter table if exists ifa2.ifa_archive_repair_queue add column if not exists actionability text not null default 'actionable'
+    """,
+    """
     alter table if exists ifa2.ifa_archive_repair_queue add column if not exists priority integer not null default 50
     """,
     """
@@ -120,14 +123,24 @@ DDL = [
     update ifa2.ifa_archive_repair_queue
        set reason_code = case
          when reason_code is not null then reason_code
+         when family_name = 'highfreq_signal_daily' then 'legacy_placeholder'
+         when family_name = 'generic_structured_output_daily' then 'not_archive_worthy'
          when reason ilike '%not archive-v2 worthy%' then 'not_archive_worthy'
+         when reason ilike '%legacy placeholder%' then 'legacy_placeholder'
          when reason ilike '%source returned no rows%' or reason ilike '%source/history returned no rows%' then 'source_empty'
          when status = 'retry_needed' then 'retry_needed'
          when status = 'pending' then 'legacy_pending'
          else 'unknown'
        end,
+           actionability = case
+             when family_name in ('generic_structured_output_daily', 'highfreq_signal_daily') then 'non_actionable'
+             when coalesce(reason_code, '') in ('not_archive_worthy', 'unsupported_family', 'intentional_exclusion', 'legacy_placeholder') then 'non_actionable'
+             when reason ilike '%not archive-v2 worthy%' then 'non_actionable'
+             when reason ilike '%legacy placeholder%' then 'non_actionable'
+             else 'actionable'
+           end,
            last_observed_status = coalesce(last_observed_status, status)
-     where reason_code is null or last_observed_status is null
+     where reason_code is null or last_observed_status is null or actionability is null
     """,
     """
     create table if not exists ifa2.ifa_archive_equity_daily (
@@ -314,6 +327,21 @@ DDL = [
     )
     """,
     """
+    drop view if exists ifa2.ifa_archive_operator_gap_summary_v
+    """,
+    """
+    drop view if exists ifa2.ifa_archive_operator_repair_backlog_v
+    """,
+    """
+    drop view if exists ifa2.ifa_archive_operator_recent_runs_v
+    """,
+    """
+    drop view if exists ifa2.ifa_archive_operator_family_health_v
+    """,
+    """
+    drop view if exists ifa2.ifa_archive_operator_date_health_v
+    """,
+    """
     create or replace view ifa2.ifa_archive_operator_gap_summary_v as
     select
       c.business_date,
@@ -327,12 +355,30 @@ DDL = [
       q.status as repair_status,
       coalesce(q.reason_code,
         case
+          when q.family_name = 'highfreq_signal_daily' then 'legacy_placeholder'
+          when q.family_name = 'generic_structured_output_daily' then 'not_archive_worthy'
           when q.reason ilike '%not archive-v2 worthy%' then 'not_archive_worthy'
+          when q.reason ilike '%legacy placeholder%' then 'legacy_placeholder'
           when q.reason ilike '%source returned no rows%' or q.reason ilike '%source/history returned no rows%' then 'source_empty'
           when q.status = 'retry_needed' then 'retry_needed'
           when q.status = 'pending' then 'legacy_pending'
           else 'unknown'
         end) as reason_code,
+      coalesce(q.actionability,
+        case
+          when q.family_name in ('generic_structured_output_daily', 'highfreq_signal_daily') then 'non_actionable'
+          when q.reason ilike '%not archive-v2 worthy%' then 'non_actionable'
+          when q.reason ilike '%legacy placeholder%' then 'non_actionable'
+          else 'actionable'
+        end) as actionability,
+      case
+        when coalesce(q.actionability,
+          case
+            when q.family_name in ('generic_structured_output_daily', 'highfreq_signal_daily') then 'non_actionable'
+            when q.reason ilike '%not archive-v2 worthy%' then 'non_actionable'
+            when q.reason ilike '%legacy placeholder%' then 'non_actionable'
+            else 'actionable'
+          end) = 'actionable' then 0 else 1 end as actionability_sort,
       q.reason,
       q.priority,
       q.urgency,
@@ -358,12 +404,30 @@ DDL = [
       q.status as repair_status,
       coalesce(q.reason_code,
         case
+          when q.family_name = 'highfreq_signal_daily' then 'legacy_placeholder'
+          when q.family_name = 'generic_structured_output_daily' then 'not_archive_worthy'
           when q.reason ilike '%not archive-v2 worthy%' then 'not_archive_worthy'
+          when q.reason ilike '%legacy placeholder%' then 'legacy_placeholder'
           when q.reason ilike '%source returned no rows%' or q.reason ilike '%source/history returned no rows%' then 'source_empty'
           when q.status = 'retry_needed' then 'retry_needed'
           when q.status = 'pending' then 'legacy_pending'
           else 'unknown'
         end) as reason_code,
+      coalesce(q.actionability,
+        case
+          when q.family_name in ('generic_structured_output_daily', 'highfreq_signal_daily') then 'non_actionable'
+          when q.reason ilike '%not archive-v2 worthy%' then 'non_actionable'
+          when q.reason ilike '%legacy placeholder%' then 'non_actionable'
+          else 'actionable'
+        end) as actionability,
+      case
+        when coalesce(q.actionability,
+          case
+            when q.family_name in ('generic_structured_output_daily', 'highfreq_signal_daily') then 'non_actionable'
+            when q.reason ilike '%not archive-v2 worthy%' then 'non_actionable'
+            when q.reason ilike '%legacy placeholder%' then 'non_actionable'
+            else 'actionable'
+          end) = 'actionable' then 0 else 1 end as actionability_sort,
       q.reason,
       q.priority,
       q.urgency,
