@@ -1,0 +1,26 @@
+{
+  "profile_name": "archive_v2_milestone4_highfreq_write_sample",
+  "mode": "single_day",
+  "include_daily": true,
+  "include_60m": false,
+  "include_15m": false,
+  "include_1m": false,
+  "include_business_families": false,
+  "include_tradable_families": false,
+  "include_signal_families": true,
+  "broad_market": true,
+  "family_groups": [
+    "highfreq_event_stream_daily",
+    "highfreq_limit_event_stream_daily",
+    "highfreq_sector_breadth_daily",
+    "highfreq_sector_heat_daily",
+    "highfreq_leader_candidate_daily",
+    "highfreq_intraday_signal_state_daily",
+    "generic_structured_output_daily"
+  ],
+  "start_date": "2026-04-15",
+  "repair_incomplete": false,
+  "dry_run": false,
+  "write_enabled": true,
+  "notes": "Milestone 4 highfreq archive-v2 write validation profile"
+}

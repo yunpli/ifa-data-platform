@@ -197,6 +197,70 @@ DDL = [
       primary key (business_date, sector_code)
     )
     """,
+    """
+    create table if not exists ifa2.ifa_archive_highfreq_event_stream_daily (
+      business_date date not null,
+      row_key text not null,
+      event_time timestamptz not null,
+      event_type text not null,
+      symbol text,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, row_key)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_highfreq_limit_event_stream_daily (
+      business_date date not null,
+      row_key text not null,
+      trade_time timestamptz not null,
+      event_type text not null,
+      symbol text,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, row_key)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_highfreq_sector_breadth_daily (
+      business_date date not null,
+      sector_code text not null,
+      snapshot_time timestamptz not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, sector_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_highfreq_sector_heat_daily (
+      business_date date not null,
+      sector_code text not null,
+      snapshot_time timestamptz not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, sector_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_highfreq_leader_candidate_daily (
+      business_date date not null,
+      symbol text not null,
+      snapshot_time timestamptz not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, symbol)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_highfreq_intraday_signal_state_daily (
+      business_date date not null,
+      scope_key text not null,
+      snapshot_time timestamptz not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, scope_key)
+    )
+    """,
 ]
 
 
