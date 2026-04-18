@@ -77,6 +77,52 @@ DDL = [
       updated_at timestamptz not null default now()
     )
     """,
+    """
+    create table if not exists ifa2.ifa_archive_equity_daily (
+      business_date date not null,
+      ts_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_index_daily (
+      business_date date not null,
+      ts_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_etf_daily (
+      business_date date not null,
+      ts_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_non_equity_daily (
+      business_date date not null,
+      family_code text not null,
+      ts_code text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, family_code, ts_code)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_macro_daily (
+      business_date date not null,
+      macro_series text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, macro_series)
+    )
+    """,
 ]
 
 

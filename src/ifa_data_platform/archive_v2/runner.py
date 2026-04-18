@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
+from ifa_data_platform.tushare.client import TushareClient
 from sqlalchemy import text
 
 from ifa_data_platform.archive_v2.db import engine, ensure_schema
@@ -16,7 +16,7 @@ SUPPORTED_DAILY_FAMILIES = {
     'highfreq_signal_daily',
 }
 
-IMPLEMENTED_FAMILIES = set()
+IMPLEMENTED_FAMILIES = {'equity_daily', 'etf_daily', 'non_equity_daily', 'macro_daily'}
 
 
 class ArchiveV2Runner:
@@ -24,6 +24,7 @@ class ArchiveV2Runner:
         self.profile_path = str(profile_path)
         self.profile: ArchiveProfile = load_profile(profile_path)
         self.run_id = uuid.uuid4()
+        self.client = TushareClient()
 
     def run(self) -> dict:
         ensure_schema()
@@ -44,37 +45,107 @@ class ArchiveV2Runner:
         if self.profile.mode == 'single_day':
             return self._run_dates([self.profile.start_date])
         if self.profile.mode == 'date_range':
-            return self._run_dates([self.profile.start_date, self.profile.end_date], range_mode=True)
+            start = datetime.fromisoformat(self.profile.start_date)
+            end = datetime.fromisoformat(self.profile.end_date)
+            days = []
+            cur = start
+            while cur <= end:
+                days.append(cur.date().isoformat())
+                cur += timedelta(days=1)
+            return self._run_dates(days)
         if self.profile.mode == 'backfill':
             days = [datetime.now(timezone.utc).date() - timedelta(days=i+1) for i in range(int(self.profile.backfill_days or 0))]
             return self._run_dates([d.isoformat() for d in days])
         if self.profile.mode == 'delete':
             self._write_item('archive_delete_scope', 'daily', None, 'partial', 0, [], notes='delete mode skeleton only; no family deletion implemented yet')
-            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 1'}
+            return {'status': 'partial', 'notes': 'delete mode skeleton executed; no data deletion implemented in Milestone 2'}
         return {'status': 'failed', 'error_text': f'unsupported mode {self.profile.mode}'}
 
-    def _run_dates(self, dates: list[str], range_mode: bool = False) -> dict:
+    def _run_dates(self, dates: list[str]) -> dict:
         family_groups = self.profile.family_groups or sorted(SUPPORTED_DAILY_FAMILIES)
         final_status = 'completed'
         notes = []
         for d in dates:
-            if range_mode and len(dates) == 2 and d == dates[1]:
-                continue
             for family in family_groups:
                 if family not in SUPPORTED_DAILY_FAMILIES:
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 1')
+                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='unsupported family group in Milestone 2')
                     final_status = 'partial'
                     continue
                 if family not in IMPLEMENTED_FAMILIES:
-                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='family scaffold only; execution not implemented in Milestone 1')
-                    self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', 'incomplete', 0, 'family not yet implemented in Milestone 1')
+                    self._write_item(family, 'daily', d, 'incomplete', 0, [], notes='family scaffold only; execution not implemented in Milestone 2')
+                    self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', 'incomplete', 0, 'family not yet implemented in Milestone 2')
                     final_status = 'partial'
                     continue
+                rows_written, tables_touched, item_status, item_notes, item_error = self._execute_family(family, d)
+                self._write_item(family, 'daily', d, item_status, rows_written, tables_touched, notes=item_notes, error_text=item_error)
+                self._upsert_completeness(d, family, 'daily', 'broad_market' if self.profile.broad_market else 'profile_scope', item_status, rows_written, item_error)
+                if item_status != 'completed':
+                    final_status = 'partial'
         if final_status == 'partial':
-            notes.append('daily-only archive skeleton ran truthfully; selected families are scaffolded but not yet implemented')
+            notes.append('Milestone 2 ran with real implemented daily families plus truthful incomplete families')
         else:
-            notes.append('daily-only archive skeleton completed')
+            notes.append('Milestone 2 completed')
         return {'status': final_status, 'notes': '; '.join(notes)}
+
+    def _execute_family(self, family: str, business_date: str):
+        trade_date = business_date.replace('-', '')
+        if family == 'equity_daily':
+            rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
+            return self._write_json_rows('ifa_archive_equity_daily', business_date, rows, 'ts_code')
+        if family == 'etf_daily':
+            rows = self.client.query('fund_daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
+            return self._write_json_rows('ifa_archive_etf_daily', business_date, rows, 'ts_code')
+        if family == 'non_equity_daily':
+            rows = self.client.query('fut_daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
+            if not rows:
+                return 0, ['ifa_archive_non_equity_daily'], 'incomplete', 'source returned no non-equity daily rows for sample date', None
+            return self._write_non_equity_rows('ifa_archive_non_equity_daily', business_date, rows)
+        if family == 'macro_daily':
+            rows = []
+            with engine.begin() as conn:
+                rows = [dict(r) for r in conn.execute(text("select macro_series, report_date, value, source from ifa2.macro_history where report_date = (select max(report_date) from ifa2.macro_history where report_date <= :d)"), {'d': business_date}).mappings().all()]
+            if not rows:
+                return 0, ['ifa_archive_macro_daily'], 'incomplete', 'no macro snapshot rows available on or before business_date', None
+            return self._write_macro_rows('ifa_archive_macro_daily', business_date, rows)
+        return 0, [], 'incomplete', 'family execution not implemented', None
+
+    def _write_json_rows(self, table: str, business_date: str, rows: list[dict], key_col: str):
+        if not rows:
+            return 0, [table], 'incomplete', 'source returned no rows', None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, {key_col}, payload) values (:business_date, :key, CAST(:payload as jsonb)) on conflict (business_date, {key_col}) do update set payload=excluded.payload"), {
+                        'business_date': business_date,
+                        'key': r[key_col],
+                        'payload': json.dumps(r, ensure_ascii=False),
+                    })
+        return len(rows), [table], 'completed', 'source-side direct daily pull archived', None
+
+    def _write_non_equity_rows(self, table: str, business_date: str, rows: list[dict]):
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    ts_code = r.get('ts_code')
+                    family_code = (ts_code.split('.')[1] if ts_code and '.' in ts_code else 'futures')
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, family_code, ts_code, payload) values (:business_date, :family_code, :ts_code, CAST(:payload as jsonb)) on conflict (business_date, family_code, ts_code) do update set payload=excluded.payload"), {
+                        'business_date': business_date,
+                        'family_code': family_code,
+                        'ts_code': ts_code,
+                        'payload': json.dumps(r, ensure_ascii=False),
+                    })
+        return len(rows), [table], 'completed', 'source-aligned non-equity daily archive written without forcing business over-split', None
+
+    def _write_macro_rows(self, table: str, business_date: str, rows: list[dict]):
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, macro_series, payload) values (:business_date, :macro_series, CAST(:payload as jsonb)) on conflict (business_date, macro_series) do update set payload=excluded.payload"), {
+                        'business_date': business_date,
+                        'macro_series': r['macro_series'],
+                        'payload': json.dumps(r, ensure_ascii=False, default=str),
+                    })
+        return len(rows), [table], 'completed', 'macro daily snapshot archived from retained source-side truth boundary', None
 
     def _persist_profile(self):
         with engine.begin() as conn:
