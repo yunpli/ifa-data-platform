@@ -2,17 +2,27 @@
 
 ## Production truth
 
-Archive V2 is now the intended nightly production path for daily/final archive truth.
+Archive V2 is the intended nightly production path for daily/final archive truth **in code and dedicated production CLI**.
+
+However, live runtime scheduling truth still has an important mismatch:
+- code intent: `archive_v2` should be the enabled nightly archive lane
+- live `ifa2.runtime_worker_schedules` currently still contains enabled legacy `archive` rows
+- live `ifa2.runtime_worker_schedules` currently has no `archive_v2` rows
+- live `ifa2.runtime_worker_state` currently has no `archive_v2` worker row
+
+So the correct current statement is:
+
+> Archive V2 is the intended nightly production path, but the live unified-daemon schedule DB is not yet fully switched over from legacy `archive` to `archive_v2`.
 
 Legacy `archive` lane:
-- retained for coexistence/manual fallback only
-- not the default nightly production path anymore
+- retained for coexistence/manual fallback in code intent
+- still present in live daemon scheduling DB at the time of this audit
 
 Archive V2 nightly lane:
 - runtime lane: `archive_v2`
 - profile name: `archive_v2_production_nightly_daily_final`
 - default scope: implemented daily/final families only
-- automatic cadence: trading-day nightly run
+- intended automatic cadence: trading-day nightly run once schedule DB is aligned
 
 ## Paths
 
