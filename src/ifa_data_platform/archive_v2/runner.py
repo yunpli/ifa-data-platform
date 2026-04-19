@@ -11,7 +11,7 @@ from sqlalchemy import text
 from ifa_data_platform.archive_v2.db import engine, ensure_schema
 from ifa_data_platform.archive_v2.operator import build_repair_state
 from ifa_data_platform.archive_v2.profile import ArchiveProfile, load_profile, validate_profile
-from ifa_data_platform.tushare.client import TushareClient
+from ifa_data_platform.tushare.client import TushareClient, get_tushare_client
 
 NON_COMPLETED_STATUSES = {'partial', 'incomplete', 'retry_needed', 'missing'}
 REPAIR_QUEUE_PENDING_STATUSES = {'pending', 'retry_needed', 'claimed'}
@@ -364,6 +364,9 @@ class ArchiveV2Runner:
         meta = ALL_FAMILY_META[family]
         trade_date = business_date.replace('-', '')
         kind = meta['kind']
+        if family_name in SOURCE_FIRST_DAILY_FAMILIES:
+            rows = self._fetch_source_first_daily_rows(family_name, business_date)
+            return self._write_daily_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'source-first daily archived'))
         if kind == 'tushare_daily':
             rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             return self._write_json_rows('ifa_archive_equity_daily', business_date, rows, 'ts_code')

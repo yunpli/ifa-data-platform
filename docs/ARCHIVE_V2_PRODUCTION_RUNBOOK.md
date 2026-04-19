@@ -84,6 +84,8 @@ Nightly production default scope includes the primary/default Archive V2 truth f
 - no current C-class highfreq-derived daily families
 - no proxy intraday families
 
+For daily/final B-class families where direct source-side truth exists, Archive V2 now uses source-first fetch semantics in the runner instead of treating low/mid/high retained-history tables as the primary upstream truth.
+
 It intentionally excludes:
 - all current C-class derived daily families from the primary/default Archive V2 truth model
 - proxy pseudo-intraday families from the valid raw family model entirely
