@@ -84,7 +84,7 @@ Nightly production default scope includes the primary/default Archive V2 truth f
 - no current C-class highfreq-derived daily families
 - no proxy intraday families
 
-For daily/final B-class families where direct source-side truth exists, Archive V2 now uses source-first fetch semantics in the runner instead of treating low/mid/high retained-history tables as the primary upstream truth.
+For business/event daily families where direct source-side truth exists, Archive V2 now uses family-specific source contracts in the runner instead of one generic retained-history branch. Each family must declare explicit source endpoint(s), source mode, shard strategy, dedupe identity, zero-row policy, completeness rule, and an isolated `ifa_archive_*` destination table. Archive V2 business/event outputs must never write into lowfreq/midfreq/highfreq current/history tables or generic unprefixed tables.
 
 It intentionally excludes:
 - all current C-class derived daily families from the primary/default Archive V2 truth model

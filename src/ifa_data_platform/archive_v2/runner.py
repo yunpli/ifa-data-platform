@@ -2,12 +2,27 @@ from __future__ import annotations
 
 import json
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta, date, time
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text
 
+from ifa_data_platform.archive_v2.business_contracts import (
+    ANNOUNCEMENTS_SUSPICIOUS_NEAR_CAP,
+    BUSINESS_DAILY_CONTRACTS,
+    INVESTOR_QA_SUSPICIOUS_LOW_ROWS,
+    LIMIT_LIST_EXCHANGES,
+    LIMIT_LIST_LIMIT_TYPES,
+    NEWS_SOURCE_BUNDLE,
+    NEWS_SUSPICIOUS_NEAR_CAP,
+    RESEARCH_REPORT_SUSPICIOUS_NEAR_CAP,
+    RESEARCH_REPORT_TYPES,
+    SECTOR_INDEX_TYPES,
+    assert_archive_namespace,
+    stable_hash,
+)
 from ifa_data_platform.archive_v2.db import engine, ensure_schema
 from ifa_data_platform.archive_v2.operator import build_repair_state
 from ifa_data_platform.archive_v2.profile import ArchiveProfile, load_profile, validate_profile
@@ -31,20 +46,28 @@ INTRADAY_TRADABLE_FAMILIES = {
     '1m': ['equity_1m', 'etf_1m', 'index_1m', 'futures_1m', 'commodity_1m', 'precious_metal_1m'],
 }
 
+DIRECT_DEST_TABLES = {
+    'equity_daily': 'ifa_archive_equity_daily',
+    'index_daily': 'ifa_archive_index_daily',
+    'etf_daily': 'ifa_archive_etf_daily',
+    'non_equity_daily': 'ifa_archive_non_equity_daily',
+    'macro_daily': 'ifa_archive_macro_daily',
+}
+
 ALL_FAMILY_META: dict[str, dict[str, Any]] = {
     'equity_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'tushare_daily'},
     'index_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'history_daily', 'source_table': 'index_daily_bar_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_index_daily', 'key_col': 'ts_code', 'note': 'index daily archive written from retained final history truth'},
     'etf_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'tushare_etf'},
     'non_equity_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'tushare_non_equity'},
     'macro_daily': {'frequency': 'daily', 'bucket': 'tradable', 'implemented': True, 'kind': 'macro_daily'},
-    'announcements_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'multi_key_daily', 'source_table': 'announcements_history', 'date_col': 'ann_date', 'dest_table': 'ifa_archive_announcements_daily', 'keys': ['ts_code', 'title'], 'note': 'daily finalized announcements archived from retained history truth'},
-    'news_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'news_daily', 'source_table': 'news_history', 'date_col': 'datetime', 'date_via_ts': True, 'dest_table': 'ifa_archive_news_daily'},
-    'research_reports_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'multi_key_daily', 'source_table': 'research_reports_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_research_reports_daily', 'keys': ['ts_code', 'title'], 'note': 'daily finalized research reports archived from retained history truth'},
-    'investor_qa_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'investor_qa_daily', 'source_table': 'investor_qa_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_investor_qa_daily'},
-    'dragon_tiger_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'dragon_tiger_list_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_dragon_tiger_daily', 'key_col': 'ts_code', 'note': 'daily finalized dragon tiger list archived from retained history truth'},
-    'limit_up_detail_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'limit_up_detail_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_limit_up_detail_daily', 'key_col': 'ts_code', 'note': 'daily finalized limit-up detail archived from retained history truth'},
-    'limit_up_down_status_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'singleton_daily', 'source_table': 'limit_up_down_status_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_limit_up_down_status_daily', 'note': 'daily finalized market-wide limit status archived from retained history truth'},
-    'sector_performance_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'sector_performance_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_sector_performance_daily', 'key_col': 'sector_code', 'note': 'daily finalized sector performance archived from retained history truth'},
+    'announcements_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_announcements_daily', 'note': 'family-specific anns_d contract with cap-aware fallback'},
+    'news_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_news_daily', 'note': 'family-specific news time-window/source bundle contract'},
+    'research_reports_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_research_reports_daily', 'note': 'family-specific research_report shard contract'},
+    'investor_qa_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_investor_qa_daily', 'note': 'family-specific SH+SZ QA contract with pub_date fallback'},
+    'dragon_tiger_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_dragon_tiger_daily', 'note': 'family-specific top_list direct contract with reason-aware identity'},
+    'limit_up_detail_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_limit_up_detail_daily', 'note': 'family-specific limit_list_d shard contract'},
+    'limit_up_down_status_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_limit_up_down_status_daily', 'note': 'family-specific limit_list_d aggregate contract'},
+    'sector_performance_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'business_contract_daily', 'dest_table': 'ifa_archive_sector_performance_daily', 'note': 'family-specific ths_index + ths_daily coverage contract'},
     'highfreq_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_event_stream_working', 'date_col': 'event_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_event_stream_daily', 'time_col': 'event_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'highfreq_event_stream_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; preserve upstream raw truth first and derive later'},
     'highfreq_limit_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_limit_event_stream_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_limit_event_stream_daily', 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'close_auction_raw+intraday_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; keep only as temporary derived retention until raw truth coverage is complete'},
     'highfreq_sector_breadth_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_breadth_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_breadth_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'stock_intraday_raw+grouping_raw+auction_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; move toward raw-first/derive-later when raw truth coverage is complete'},
@@ -54,7 +77,7 @@ ALL_FAMILY_META: dict[str, dict[str, Any]] = {
     'highfreq_signal_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': False, 'kind': 'not_implemented', 'note': 'legacy placeholder only; superseded by explicit highfreq Archive V2 families'},
     'generic_structured_output_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': False, 'kind': 'not_implemented', 'note': 'generic structured-output catch-all is not archive-v2 worthy because it collapses unrelated finalized truths into one lossy bucket'},
     'equity_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
-    'etf_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': False, 'kind': 'intraday_source_pending', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'instrument_key': 'ts_code', 'note': 'valid true-source ETF intraday family kept in Archive V2 model as later-enable/default-off support; correct future path is direct stk_mins with ETF ts_code'},
+    'etf_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'dest_table': 'ifa_archive_etf_60m', 'archive_key_col': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'instrument_key': 'ts_code', 'note': 'valid true-source ETF intraday family kept in Archive V2 model as later-enable/default-off support; current path now uses direct stk_mins with ETF ts_code'},
     'index_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 60, 'dest_table': 'ifa_archive_index_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'idx_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
     'futures_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'futures_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_futures_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
     'commodity_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'commodity_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_commodity_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
@@ -79,12 +102,12 @@ IDENTITY_POLICY_BY_FAMILY = {
     'etf_daily': '(business_date, ts_code)',
     'non_equity_daily': '(business_date, family_code, ts_code)',
     'macro_daily': '(business_date, macro_series)',
-    'announcements_daily': '(business_date, ts_code, title)',
-    'news_daily': '(business_date, news_time, title)',
-    'research_reports_daily': '(business_date, ts_code, title)',
-    'investor_qa_daily': '(business_date, ts_code, pub_time)',
-    'dragon_tiger_daily': '(business_date, ts_code)',
-    'limit_up_detail_daily': '(business_date, ts_code)',
+    'announcements_daily': '(business_date, row_key[ts_code|title|url|rec_time])',
+    'news_daily': '(business_date, row_key[src|datetime|title|content_hash])',
+    'research_reports_daily': '(business_date, row_key[report_type|inst_csname|ts_code|title|author])',
+    'investor_qa_daily': '(business_date, row_key[exchange_source|ts_code|pub_time|q_hash|a_hash])',
+    'dragon_tiger_daily': '(business_date, row_key[ts_code|reason|net_amount|l_amount])',
+    'limit_up_detail_daily': '(business_date, row_key[ts_code|limit|first_time|last_time|limit_times])',
     'limit_up_down_status_daily': '(business_date)',
     'sector_performance_daily': '(business_date, sector_code)',
     'highfreq_event_stream_daily': '(business_date, row_key[event_time|event_type|symbol|source|title])',
@@ -116,6 +139,22 @@ IDENTITY_POLICY_BY_FAMILY = {
 SUPPORTED_FAMILIES = set(ALL_FAMILY_META.keys())
 IMPLEMENTED_FAMILIES = {family for family, meta in ALL_FAMILY_META.items() if meta.get('implemented')}
 MARKET_CALENDAR_FAMILIES = {family for family, meta in ALL_FAMILY_META.items() if meta['bucket'] in {'tradable', 'business'} and meta['frequency'] == 'daily'}
+SOURCE_FIRST_DAILY_FAMILIES = {
+    'index_daily',
+    'macro_daily',
+}
+SOURCE_FIRST_60M_FAMILIES = {
+    'equity_60m',
+    'etf_60m',
+    'index_60m',
+    'futures_60m',
+    'commodity_60m',
+    'precious_metal_60m',
+}
+ZERO_OK_DAILY_FAMILIES = {
+    'investor_qa_daily',
+    'research_reports_daily',
+}
 
 
 class ArchiveV2Runner:
@@ -364,13 +403,16 @@ class ArchiveV2Runner:
         meta = ALL_FAMILY_META[family]
         trade_date = business_date.replace('-', '')
         kind = meta['kind']
-        if family_name in SOURCE_FIRST_DAILY_FAMILIES:
-            rows = self._fetch_source_first_daily_rows(family_name, business_date)
-            if not rows and family_name in ZERO_OK_DAILY_FAMILIES:
-                return 0, [meta['dest_table']], 'completed', 'source-empty but truthful zero-row day', None
-            return self._write_daily_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'source-first daily archived'))
-        if family_name in SOURCE_FIRST_60M_FAMILIES:
-            rows = self._fetch_source_first_60m_rows(family_name, business_date)
+        if family in BUSINESS_DAILY_CONTRACTS:
+            return self._execute_business_contract_family(family, business_date)
+        if family in SOURCE_FIRST_DAILY_FAMILIES:
+            table = meta.get('dest_table') or DIRECT_DEST_TABLES.get(family)
+            rows = self._fetch_source_first_daily_rows(family, business_date)
+            if not rows and family in ZERO_OK_DAILY_FAMILIES:
+                return 0, [table], 'completed', 'source-empty but truthful zero-row day', None
+            return self._write_daily_rows(table, business_date, rows, note=meta.get('note', 'source-first daily archived'))
+        if family in SOURCE_FIRST_60M_FAMILIES:
+            rows = self._fetch_source_first_60m_rows(family, business_date)
             return self._write_intraday_rows(meta, business_date, rows, note=meta.get('note', 'source-first 60m archived'))
         if kind == 'tushare_daily':
             rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
@@ -488,6 +530,401 @@ class ArchiveV2Runner:
     def _fetch_macro_rows(self, business_date: str):
         with engine.begin() as conn:
             return [self._normalize_record(dict(r)) for r in conn.execute(text("select macro_series, report_date, value, source from ifa2.macro_history where report_date = (select max(report_date) from ifa2.macro_history where report_date <= :d)"), {'d': business_date}).mappings().all()]
+
+    def _fetch_source_first_daily_rows(self, family: str, business_date: str) -> list[dict]:
+        if family == 'index_daily':
+            return self._fetch_index_daily_direct(business_date)
+        if family == 'macro_daily':
+            return self._fetch_macro_rows(business_date)
+        raise ValueError(f'unsupported source-first daily family: {family}')
+
+    def _execute_business_contract_family(self, family: str, business_date: str):
+        contract = BUSINESS_DAILY_CONTRACTS[family]
+        assert_archive_namespace(contract.archive_table_name)
+        result = self._fetch_business_contract_rows(family, business_date)
+        rows = result['rows']
+        status = result['status']
+        note = result['note']
+        if family == 'announcements_daily':
+            return self._write_announcements_rows(contract.archive_table_name, business_date, rows, status, note)
+        if family == 'news_daily':
+            return self._write_news_rows(contract.archive_table_name, business_date, rows, status, note)
+        if family == 'research_reports_daily':
+            return self._write_research_report_rows(contract.archive_table_name, business_date, rows, status, note)
+        if family == 'investor_qa_daily':
+            return self._write_investor_qa_rows(contract.archive_table_name, business_date, rows, status, note)
+        if family == 'dragon_tiger_daily':
+            return self._write_dragon_tiger_rows(contract.archive_table_name, business_date, rows, status, note)
+        if family == 'limit_up_detail_daily':
+            return self._write_limit_up_detail_rows(contract.archive_table_name, business_date, rows, status, note)
+        if family == 'limit_up_down_status_daily':
+            return self._write_limit_up_down_status_row(contract.archive_table_name, business_date, result['aggregate_row'], status, note)
+        if family == 'sector_performance_daily':
+            return self._write_sector_performance_rows(contract.archive_table_name, business_date, rows, status, note)
+        raise ValueError(f'unsupported business contract family: {family}')
+
+    def _fetch_business_contract_rows(self, family: str, business_date: str) -> dict[str, Any]:
+        if family == 'announcements_daily':
+            return self._fetch_announcements_contract_rows(business_date)
+        if family == 'news_daily':
+            return self._fetch_news_contract_rows(business_date)
+        if family == 'research_reports_daily':
+            return self._fetch_research_reports_contract_rows(business_date)
+        if family == 'investor_qa_daily':
+            return self._fetch_investor_qa_contract_rows(business_date)
+        if family == 'dragon_tiger_daily':
+            return self._fetch_dragon_tiger_contract_rows(business_date)
+        if family == 'limit_up_detail_daily':
+            return self._fetch_limit_up_detail_contract_rows(business_date)
+        if family == 'limit_up_down_status_daily':
+            return self._fetch_limit_up_down_status_contract_rows(business_date)
+        if family == 'sector_performance_daily':
+            return self._fetch_sector_performance_contract_rows(business_date)
+        raise ValueError(f'no business contract fetcher for {family}')
+
+    def _fetch_announcements_contract_rows(self, business_date: str) -> dict[str, Any]:
+        trade_date = business_date.replace('-', '')
+        bulk_rows = self._query_tushare_safe('anns_d', {'ann_date': trade_date})
+        suspicious = len(bulk_rows) >= ANNOUNCEMENTS_SUSPICIOUS_NEAR_CAP
+        rows = list(bulk_rows)
+        note = f"anns_d ann_date bulk_rows={len(bulk_rows)}"
+        if suspicious:
+            fallback_rows: list[dict[str, Any]] = []
+            symbols = self._load_equity_trade_date_symbols(business_date)
+            max_workers = 24 if len(symbols) > 120 else max(1, min(12, len(symbols)))
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = [pool.submit(self._query_tushare_safe, 'anns_d', {'ann_date': trade_date, 'ts_code': ts_code}) for ts_code in symbols]
+                for fut in as_completed(futures):
+                    fallback_rows.extend(fut.result())
+            rows.extend(fallback_rows)
+            note = f"anns_d ann_date near cap bulk_rows={len(bulk_rows)}; ts_code fallback_rows={len(fallback_rows)}; union_rows={len(rows)}"
+        deduped = self._dedupe_rows('announcements_daily', business_date, rows)
+        if not deduped:
+            return {'rows': [], 'status': 'incomplete', 'note': note + '; zero rows after bulk/fallback'}
+        return {'rows': deduped, 'status': 'completed', 'note': note + f'; deduped_rows={len(deduped)}'}
+
+    def _fetch_news_contract_rows(self, business_date: str) -> dict[str, Any]:
+        rows: list[dict[str, Any]] = []
+        suspicious_windows: list[str] = []
+        tasks = [(src, start_dt, end_dt) for src in NEWS_SOURCE_BUNDLE for start_dt, end_dt in self._split_day_windows(business_date, hours=6)]
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            futures = [pool.submit(self._fetch_news_window, src, start_dt, end_dt) for src, start_dt, end_dt in tasks]
+            for (src, start_dt, end_dt), fut in zip(tasks, futures):
+                pulled, suspicious = fut.result()
+                rows.extend(pulled)
+                if suspicious:
+                    suspicious_windows.append(f'{src}:{start_dt}->{end_dt}')
+        deduped = self._dedupe_rows('news_daily', business_date, rows)
+        if not deduped:
+            return {'rows': [], 'status': 'completed', 'note': f'news checked all configured src/windows with truthful zero; suspicious_windows={len(suspicious_windows)}'}
+        status = 'completed' if not suspicious_windows else 'incomplete'
+        return {'rows': deduped, 'status': status, 'note': f'news srcs={len(NEWS_SOURCE_BUNDLE)} deduped_rows={len(deduped)} suspicious_windows={len(suspicious_windows)}'}
+
+    def _fetch_research_reports_contract_rows(self, business_date: str) -> dict[str, Any]:
+        trade_date = business_date.replace('-', '')
+        brokers = self._load_recent_broker_universe()
+        rows: list[dict[str, Any]] = []
+        shard_count = 0
+        for report_type in RESEARCH_REPORT_TYPES:
+            for inst_csname in brokers:
+                shard_rows = self._query_tushare_safe('research_report', {'trade_date': trade_date, 'report_type': report_type, 'inst_csname': inst_csname})
+                rows.extend(shard_rows)
+                shard_count += 1
+        deduped = self._dedupe_rows('research_reports_daily', business_date, rows)
+        if not deduped:
+            return {'rows': [], 'status': 'completed', 'note': f'research_report report_type×broker shards exhausted with truthful zero; shards={shard_count}'}
+        suspicious = any(len(self._query_tushare_safe('research_report', {'trade_date': trade_date, 'report_type': rt})) >= RESEARCH_REPORT_SUSPICIOUS_NEAR_CAP for rt in RESEARCH_REPORT_TYPES)
+        status = 'completed' if not suspicious else 'incomplete'
+        return {'rows': deduped, 'status': status, 'note': f'research_report shards={shard_count} deduped_rows={len(deduped)} suspicious_bulk={suspicious}'}
+
+    def _fetch_investor_qa_contract_rows(self, business_date: str) -> dict[str, Any]:
+        trade_date = business_date.replace('-', '')
+        all_rows: list[dict[str, Any]] = []
+        low_or_zero = False
+        for exchange_source, endpoint in [('sh', 'irm_qa_sh'), ('sz', 'irm_qa_sz')]:
+            rows = self._query_tushare_safe(endpoint, {'trade_date': trade_date})
+            for row in rows:
+                row['exchange_source'] = exchange_source
+            all_rows.extend(rows)
+            if len(rows) <= INVESTOR_QA_SUSPICIOUS_LOW_ROWS:
+                low_or_zero = True
+                start_dt, end_dt = self._full_day_window(business_date)
+                fallback = self._query_tushare_safe(endpoint, {'start_date': trade_date, 'end_date': trade_date, 'pub_date': start_dt})
+                if not fallback:
+                    fallback = self._query_tushare_safe(endpoint, {'start_date': trade_date, 'end_date': trade_date})
+                for row in fallback:
+                    row['exchange_source'] = exchange_source
+                all_rows.extend(fallback)
+        deduped = self._dedupe_rows('investor_qa_daily', business_date, all_rows)
+        if not deduped:
+            return {'rows': [], 'status': 'completed', 'note': 'irm_qa_sh + irm_qa_sz exhausted including fallback; truthful zero'}
+        return {'rows': deduped, 'status': 'completed', 'note': f'irm_qa_sh+sz rows={len(deduped)} low_or_zero_fallback={low_or_zero}'}
+
+    def _fetch_dragon_tiger_contract_rows(self, business_date: str) -> dict[str, Any]:
+        trade_date = business_date.replace('-', '')
+        rows = self._query_tushare_safe('top_list', {'trade_date': trade_date})
+        deduped = self._dedupe_rows('dragon_tiger_daily', business_date, rows)
+        if not deduped:
+            return {'rows': [], 'status': 'incomplete', 'note': 'top_list returned zero rows on trading-day contract path'}
+        return {'rows': deduped, 'status': 'completed', 'note': f'top_list direct rows={len(deduped)}'}
+
+    def _fetch_limit_up_detail_contract_rows(self, business_date: str) -> dict[str, Any]:
+        trade_date = business_date.replace('-', '')
+        rows: list[dict[str, Any]] = []
+        shards = 0
+        for limit_type in LIMIT_LIST_LIMIT_TYPES:
+            for exchange in LIMIT_LIST_EXCHANGES:
+                shard_rows = self._query_tushare_safe('limit_list_d', {'trade_date': trade_date, 'limit_type': limit_type, 'exchange': exchange})
+                for row in shard_rows:
+                    row['exchange'] = exchange
+                    row['limit_type_shard'] = limit_type
+                rows.extend(shard_rows)
+                shards += 1
+        detail_rows = [r for r in rows if (r.get('limit') or r.get('limit_type_shard')) in {'U', 'Z'}]
+        deduped = self._dedupe_rows('limit_up_detail_daily', business_date, detail_rows)
+        if not deduped:
+            return {'rows': [], 'status': 'incomplete', 'note': f'limit_list_d shards exhausted but no limit-up detail rows; shards={shards}'}
+        return {'rows': deduped, 'status': 'completed', 'note': f'limit_list_d shards={shards} detail_rows={len(deduped)}'}
+
+    def _fetch_limit_up_down_status_contract_rows(self, business_date: str) -> dict[str, Any]:
+        detail = self._fetch_limit_up_detail_contract_rows(business_date)
+        rows = detail['rows']
+        aggregate = {
+            'business_date': business_date,
+            'source_endpoint': 'limit_list_d',
+            'source_mode': 'source_plus_aggregate',
+            'up_count': sum(1 for r in rows if (r.get('limit') or r.get('limit_type_shard')) == 'U'),
+            'blow_open_count': sum(1 for r in rows if (r.get('limit') or r.get('limit_type_shard')) == 'Z'),
+            'raw_rows': len(rows),
+        }
+        if not rows:
+            return {'rows': [], 'aggregate_row': aggregate, 'status': detail['status'], 'note': detail['note'] + '; no aggregate rows'}
+        return {'rows': rows, 'aggregate_row': aggregate, 'status': 'completed', 'note': detail['note'] + '; aggregate generated from canonical limit_list_d'}
+
+    def _fetch_sector_performance_contract_rows(self, business_date: str) -> dict[str, Any]:
+        trade_date = business_date.replace('-', '')
+        universe = self._load_ths_sector_universe()
+        rows: list[dict[str, Any]] = []
+
+        def fetch_one(item: dict[str, Any]) -> list[dict[str, Any]]:
+            shard = self._query_tushare_safe('ths_daily', {'ts_code': item['ts_code'], 'trade_date': trade_date})
+            for row in shard:
+                row['sector_name'] = item.get('name')
+                row['sector_type'] = item.get('type')
+                row['sector_code'] = item.get('ts_code')
+            return shard
+
+        max_workers = 16 if len(universe) > 64 else max(1, min(8, len(universe)))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = [pool.submit(fetch_one, item) for item in universe]
+            for fut in as_completed(futures):
+                rows.extend(fut.result())
+        deduped = self._dedupe_rows('sector_performance_daily', business_date, rows)
+        expected = len(universe)
+        actual = len({r.get('sector_code') or r.get('ts_code') for r in deduped if r.get('sector_code') or r.get('ts_code')})
+        coverage = 0.0 if expected == 0 else actual / expected
+        if not deduped:
+            return {'rows': [], 'status': 'incomplete', 'note': f'ths_index universe expected={expected} actual=0 coverage=0.000'}
+        status = 'completed' if coverage >= 0.90 else 'incomplete'
+        return {'rows': deduped, 'status': status, 'note': f'ths_index+ths_daily expected={expected} actual={actual} coverage={coverage:.3f}'}
+
+    def _query_tushare_safe(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        try:
+            return [self._normalize_record(dict(r)) for r in self.client.query(api_name, params, timeout_sec=30, max_retries=2)]
+        except Exception:
+            return []
+
+    def _split_day_windows(self, business_date: str, hours: int) -> list[tuple[str, str]]:
+        start = datetime.fromisoformat(business_date + 'T00:00:00')
+        end = datetime.fromisoformat(business_date + 'T23:59:59')
+        out: list[tuple[str, str]] = []
+        cur = start
+        while cur < end:
+            nxt = min(cur + timedelta(hours=hours), end)
+            out.append((cur.strftime('%Y-%m-%d %H:%M:%S'), nxt.strftime('%Y-%m-%d %H:%M:%S')))
+            cur = nxt
+        return out
+
+    def _full_day_window(self, business_date: str) -> tuple[str, str]:
+        windows = self._split_day_windows(business_date, hours=24)
+        return windows[0]
+
+    def _fetch_news_window(self, src: str, start_dt: str, end_dt: str) -> tuple[list[dict[str, Any]], bool]:
+        rows = self._query_tushare_safe('news', {'src': src, 'start_date': start_dt, 'end_date': end_dt})
+        if len(rows) < NEWS_SUSPICIOUS_NEAR_CAP:
+            for row in rows:
+                row['src'] = src
+            return rows, False
+        start = datetime.fromisoformat(start_dt.replace(' ', 'T'))
+        end = datetime.fromisoformat(end_dt.replace(' ', 'T'))
+        if (end - start).total_seconds() <= 3600:
+            for row in rows:
+                row['src'] = src
+            return rows, True
+        mid = start + (end - start) / 2
+        left_rows, left_suspicious = self._fetch_news_window(src, start.strftime('%Y-%m-%d %H:%M:%S'), mid.strftime('%Y-%m-%d %H:%M:%S'))
+        right_rows, right_suspicious = self._fetch_news_window(src, mid.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
+        return left_rows + right_rows, left_suspicious or right_suspicious
+
+    def _load_recent_broker_universe(self) -> list[str]:
+        with engine.begin() as conn:
+            rows = conn.execute(text("""
+                select distinct inst_csname
+                from ifa2.research_reports_history
+                where inst_csname is not null and trade_date >= current_date - interval '180 days'
+                order by inst_csname
+            """)).scalars().all()
+        return [str(x) for x in rows if x]
+
+    def _load_ths_sector_universe(self) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for index_type in SECTOR_INDEX_TYPES:
+            shard = self._query_tushare_safe('ths_index', {'exchange': 'A', 'type': index_type})
+            for row in shard:
+                ts_code = str(row.get('ts_code') or '')
+                if not ts_code or ts_code in seen:
+                    continue
+                seen.add(ts_code)
+                rows.append(row)
+        return rows
+
+    def _dedupe_rows(self, family: str, business_date: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        deduped: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for row in rows:
+            row_key = self._build_business_row_key(family, business_date, row)
+            if row_key in seen:
+                continue
+            seen.add(row_key)
+            row['row_key'] = row_key
+            deduped.append(row)
+        return deduped
+
+    def _build_business_row_key(self, family: str, business_date: str, row: dict[str, Any]) -> str:
+        if family == 'announcements_daily':
+            return stable_hash(business_date, row.get('ts_code'), row.get('title'), row.get('url'), row.get('rec_time'))
+        if family == 'news_daily':
+            title = row.get('title') or (str(row.get('content') or '')[:80] or f"{row.get('src') or 'news'}@{row.get('datetime')}")
+            row['title'] = title
+            content_hash = stable_hash(row.get('content'), title)
+            row['content_hash'] = content_hash
+            return stable_hash(business_date, row.get('src'), row.get('datetime'), title, content_hash)
+        if family == 'research_reports_daily':
+            return stable_hash(business_date, row.get('report_type'), row.get('inst_csname'), row.get('ts_code'), row.get('title'), row.get('author'))
+        if family == 'investor_qa_daily':
+            q_hash = stable_hash(row.get('q'))
+            a_hash = stable_hash(row.get('a'))
+            row['q_hash'] = q_hash
+            row['a_hash'] = a_hash
+            return stable_hash(business_date, row.get('exchange_source'), row.get('ts_code'), row.get('pub_time'), q_hash, a_hash)
+        if family == 'dragon_tiger_daily':
+            return stable_hash(business_date, row.get('ts_code'), row.get('reason'), row.get('net_amount'), row.get('l_amount'))
+        if family == 'limit_up_detail_daily':
+            return stable_hash(business_date, row.get('ts_code'), row.get('limit') or row.get('limit_type_shard'), row.get('first_time'), row.get('last_time'), row.get('limit_times'))
+        if family == 'sector_performance_daily':
+            return stable_hash(business_date, row.get('ts_code'))
+        raise ValueError(f'unsupported business row_key family: {family}')
+
+    def _fetch_index_daily_direct(self, business_date: str) -> list[dict]:
+        trade_date = business_date.replace('-', '')
+        index_codes = [
+            '000001.SH',
+            '399001.SZ',
+            '399006.SZ',
+            '000300.SH',
+            '000905.SH',
+            '000016.SH',
+            '000688.SH',
+            '399300.SZ',
+        ]
+        out: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+        for ts_code in index_codes:
+            try:
+                rows = self.client.query('index_daily', {'ts_code': ts_code, 'trade_date': trade_date}, timeout_sec=30, max_retries=2)
+            except Exception:
+                rows = []
+            for row in rows:
+                rec = self._normalize_record(dict(row))
+                key = (str(rec.get('ts_code') or ts_code), str(rec.get('trade_date') or trade_date))
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(rec)
+        return out
+
+    def _fetch_source_first_60m_rows(self, family: str, business_date: str) -> list[dict]:
+        if family == 'equity_60m':
+            return self._fetch_stk_mins_direct(self._load_equity_trade_date_symbols(business_date), business_date, '60min')
+        if family == 'etf_60m':
+            return self._fetch_stk_mins_direct(self._load_etf_trade_date_symbols(business_date), business_date, '60min')
+        if family == 'index_60m':
+            return self._fetch_idx_mins_direct([
+                '000001.SH', '399001.SZ', '399006.SZ', '000300.SH',
+                '000905.SH', '000016.SH', '000688.SH', '399300.SZ',
+            ], business_date, '60min')
+        if family == 'futures_60m':
+            return self._fetch_ft_mins_direct(self._load_symbol_universe('futures_history'), business_date, '60min')
+        if family == 'commodity_60m':
+            return self._fetch_ft_mins_direct(self._load_symbol_universe('commodity_60min_history'), business_date, '60min')
+        if family == 'precious_metal_60m':
+            return self._fetch_ft_mins_direct(self._load_symbol_universe('precious_metal_60min_history'), business_date, '60min')
+        raise ValueError(f'unsupported source-first 60m family: {family}')
+
+    def _load_symbol_universe(self, table: str) -> list[str]:
+        with engine.begin() as conn:
+            return [x for x in conn.execute(text(f"select distinct ts_code from ifa2.{table} where ts_code is not null order by ts_code")).scalars().all() if x]
+
+    def _load_equity_trade_date_symbols(self, business_date: str) -> list[str]:
+        trade_date = business_date.replace('-', '')
+        try:
+            rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
+        except Exception:
+            rows = []
+        return sorted({str(r.get('ts_code')) for r in rows if r.get('ts_code')})
+
+    def _load_etf_trade_date_symbols(self, business_date: str) -> list[str]:
+        trade_date = business_date.replace('-', '')
+        try:
+            rows = self.client.query('fund_daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
+        except Exception:
+            rows = []
+        return sorted({str(r.get('ts_code')) for r in rows if r.get('ts_code')})
+
+    def _fetch_stk_mins_direct(self, ts_codes: list[str], business_date: str, freq: str) -> list[dict]:
+        return self._fetch_intraday_api_parallel('stk_mins', ts_codes, business_date, freq)
+
+    def _fetch_idx_mins_direct(self, ts_codes: list[str], business_date: str, freq: str) -> list[dict]:
+        return self._fetch_intraday_api_parallel('idx_mins', ts_codes, business_date, freq)
+
+    def _fetch_ft_mins_direct(self, ts_codes: list[str], business_date: str, freq: str) -> list[dict]:
+        return self._fetch_intraday_api_parallel('ft_mins', ts_codes, business_date, freq)
+
+    def _fetch_intraday_api_parallel(self, api_name: str, ts_codes: list[str], business_date: str, freq: str) -> list[dict]:
+        start = business_date + ' 09:00:00'
+        end = business_date + ' 16:00:00'
+        out: list[dict] = []
+
+        def fetch_one(ts_code: str) -> list[dict]:
+            try:
+                rows = self.client.query(api_name, {'ts_code': ts_code, 'freq': freq, 'start_date': start, 'end_date': end}, timeout_sec=30, max_retries=2)
+            except Exception:
+                rows = []
+            local: list[dict] = []
+            for row in rows:
+                rec = self._normalize_record(dict(row))
+                rec['bar_time'] = rec.get('trade_time') or rec.get('trade_date')
+                rec['instrument_code'] = rec.get('ts_code') or ts_code
+                local.append(rec)
+            return local
+
+        max_workers = 12 if len(ts_codes) > 24 else max(1, min(6, len(ts_codes)))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = [pool.submit(fetch_one, ts_code) for ts_code in ts_codes]
+            for fut in as_completed(futures):
+                out.extend(fut.result())
+        return out
 
     def _fetch_intraday_rows(self, meta: dict[str, Any], business_date: str) -> list[dict]:
         table = meta['source_table']
@@ -615,23 +1052,75 @@ class ArchiveV2Runner:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, {keys[0]}, {keys[1]}, payload) values (:business_date, :k1, :k2, CAST(:payload as jsonb)) on conflict (business_date, {keys[0]}, {keys[1]}) do update set payload=excluded.payload"), {'business_date': business_date, 'k1': r[keys[0]], 'k2': r[keys[1]], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', note, None
 
-    def _write_news_rows(self, table: str, business_date: str, rows: list[dict]):
+    def _write_announcements_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
-            return 0, [table], 'incomplete', 'source/history returned no news rows', None
+            return 0, [table], status, note, None
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, news_time, title, payload) values (:business_date, :news_time, :title, CAST(:payload as jsonb)) on conflict (business_date, news_time, title) do update set payload=excluded.payload"), {'business_date': business_date, 'news_time': r['datetime'], 'title': r['title'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
-        return len(rows), [table], 'completed', 'daily finalized news archived from retained history truth', None
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, title, url, rec_time, payload) values (:business_date, :row_key, :ts_code, :title, :url, :rec_time, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, title=excluded.title, url=excluded.url, rec_time=excluded.rec_time, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'title': r.get('title'), 'url': r.get('url'), 'rec_time': r.get('rec_time'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
 
-    def _write_investor_qa_rows(self, table: str, business_date: str, rows: list[dict]):
+    def _write_news_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
-            return 0, [table], 'incomplete', 'source/history returned no investor QA rows', None
+            return 0, [table], status, note, None
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, ts_code, pub_time, payload) values (:business_date, :ts_code, :pub_time, CAST(:payload as jsonb)) on conflict (business_date, ts_code, pub_time) do update set payload=excluded.payload"), {'business_date': business_date, 'ts_code': r['ts_code'], 'pub_time': r['pub_time'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
-        return len(rows), [table], 'completed', 'daily finalized investor QA archived from retained history truth', None
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, src, news_time, title, content_hash, payload) values (:business_date, :row_key, :src, :news_time, :title, :content_hash, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set src=excluded.src, news_time=excluded.news_time, title=excluded.title, content_hash=excluded.content_hash, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'src': r.get('src'), 'news_time': r.get('datetime'), 'title': r.get('title'), 'content_hash': r.get('content_hash'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
+
+    def _write_research_report_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
+        if not rows:
+            return 0, [table], status, note, None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, title, report_type, inst_csname, author, payload) values (:business_date, :row_key, :ts_code, :title, :report_type, :inst_csname, :author, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, title=excluded.title, report_type=excluded.report_type, inst_csname=excluded.inst_csname, author=excluded.author, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'title': r.get('title'), 'report_type': r.get('report_type'), 'inst_csname': r.get('inst_csname'), 'author': r.get('author'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
+
+    def _write_investor_qa_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
+        if not rows:
+            return 0, [table], status, note, None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, exchange_source, ts_code, pub_time, q_hash, a_hash, payload) values (:business_date, :row_key, :exchange_source, :ts_code, :pub_time, :q_hash, :a_hash, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set exchange_source=excluded.exchange_source, ts_code=excluded.ts_code, pub_time=excluded.pub_time, q_hash=excluded.q_hash, a_hash=excluded.a_hash, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'exchange_source': r.get('exchange_source'), 'ts_code': r.get('ts_code'), 'pub_time': r.get('pub_time'), 'q_hash': r.get('q_hash'), 'a_hash': r.get('a_hash'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
+
+    def _write_dragon_tiger_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
+        if not rows:
+            return 0, [table], status, note, None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, reason, payload) values (:business_date, :row_key, :ts_code, :reason, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, reason=excluded.reason, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'reason': r.get('reason'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
+
+    def _write_limit_up_detail_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
+        if not rows:
+            return 0, [table], status, note, None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, limit_type, exchange, first_time, last_time, limit_times, payload) values (:business_date, :row_key, :ts_code, :limit_type, :exchange, :first_time, :last_time, :limit_times, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, limit_type=excluded.limit_type, exchange=excluded.exchange, first_time=excluded.first_time, last_time=excluded.last_time, limit_times=excluded.limit_times, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'limit_type': r.get('limit') or r.get('limit_type_shard'), 'exchange': r.get('exchange'), 'first_time': r.get('first_time'), 'last_time': r.get('last_time'), 'limit_times': r.get('limit_times'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
+
+    def _write_limit_up_down_status_row(self, table: str, business_date: str, row: dict[str, Any], status: str, note: str):
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                conn.execute(text(f"insert into ifa2.{table}(business_date, payload) values (:business_date, CAST(:payload as jsonb)) on conflict (business_date) do update set payload=excluded.payload"), {'business_date': business_date, 'payload': json.dumps(row, ensure_ascii=False, default=str)})
+        return 1 if row else 0, [table], status, note, None
+
+    def _write_sector_performance_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
+        if not rows:
+            return 0, [table], status, note, None
+        if self.profile.write_enabled:
+            with engine.begin() as conn:
+                for r in rows:
+                    sector_code = r.get('ts_code') or r.get('sector_code')
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, sector_code, payload) values (:business_date, :sector_code, CAST(:payload as jsonb)) on conflict (business_date, sector_code) do update set payload=excluded.payload"), {'business_date': business_date, 'sector_code': sector_code, 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+        return len(rows), [table], status, note, None
 
     def _write_singleton_rows(self, table: str, business_date: str, rows: list[dict], note: str):
         if not rows:
@@ -686,6 +1175,13 @@ class ArchiveV2Runner:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, macro_series, payload) values (:business_date, :macro_series, CAST(:payload as jsonb)) on conflict (business_date, macro_series) do update set payload=excluded.payload"), {'business_date': business_date, 'macro_series': r['macro_series'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', 'macro daily snapshot archived from retained source-side truth boundary', None
+
+    def _write_daily_rows(self, table: str, business_date: str, rows: list[dict], note: str):
+        if table == 'ifa_archive_index_daily':
+            return self._write_json_rows(table, business_date, rows, 'ts_code', note=note)
+        if table == 'ifa_archive_macro_daily':
+            return self._write_macro_rows(table, business_date, rows)
+        raise ValueError(f'unsupported direct daily write table: {table}')
 
     def _write_intraday_rows(self, meta: dict[str, Any], business_date: str, rows: list[dict], note: str):
         table = meta['dest_table']

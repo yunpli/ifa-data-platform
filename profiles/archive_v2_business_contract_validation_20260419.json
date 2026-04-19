@@ -1,0 +1,27 @@
+{
+  "profile_name": "archive_v2_business_contract_validation_20260419",
+  "mode": "single_day",
+  "include_daily": true,
+  "include_60m": false,
+  "include_15m": false,
+  "include_1m": false,
+  "include_business_families": true,
+  "include_tradable_families": false,
+  "include_signal_families": false,
+  "broad_market": true,
+  "family_groups": [
+    "announcements_daily",
+    "news_daily",
+    "research_reports_daily",
+    "investor_qa_daily",
+    "dragon_tiger_daily",
+    "limit_up_detail_daily",
+    "limit_up_down_status_daily",
+    "sector_performance_daily"
+  ],
+  "start_date": "2026-04-17",
+  "repair_incomplete": false,
+  "dry_run": false,
+  "write_enabled": false,
+  "notes": "Focused business-contract validation profile"
+}

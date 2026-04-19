@@ -373,6 +373,16 @@ DDL = [
     )
     """,
     """
+    create table if not exists ifa2.ifa_archive_etf_60m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
     create table if not exists ifa2.ifa_archive_index_60m (
       business_date date not null,
       ts_code text not null,
@@ -420,6 +430,249 @@ DDL = [
       payload jsonb not null,
       created_at timestamptz not null default now(),
       primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_futures_60m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_futures_15m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_futures_1m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_commodity_60m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_commodity_15m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_commodity_1m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_precious_metal_60m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_precious_metal_15m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_precious_metal_1m (
+      business_date date not null,
+      ts_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, ts_code, bar_time)
+    )
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_announcements_daily add column if not exists row_key text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_announcements_daily add column if not exists url text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_announcements_daily add column if not exists rec_time timestamptz
+    """,
+    """
+    update ifa2.ifa_archive_announcements_daily set row_key = coalesce(row_key, md5(payload::text)) where row_key is null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_news_daily add column if not exists row_key text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_news_daily add column if not exists src text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_news_daily add column if not exists content_hash text
+    """,
+    """
+    update ifa2.ifa_archive_news_daily set row_key = coalesce(row_key, md5(payload::text)), src = coalesce(src, payload->>'src'), content_hash = coalesce(content_hash, md5(coalesce(payload->>'content','') || '|' || coalesce(payload->>'title',''))) where row_key is null or src is null or content_hash is null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily add column if not exists row_key text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily add column if not exists report_type text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily add column if not exists inst_csname text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily add column if not exists author text
+    """,
+    """
+    update ifa2.ifa_archive_research_reports_daily set row_key = coalesce(row_key, md5(payload::text)), report_type = coalesce(report_type, payload->>'report_type'), inst_csname = coalesce(inst_csname, payload->>'inst_csname'), author = coalesce(author, payload->>'author') where row_key is null or report_type is null or inst_csname is null or author is null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily alter column ts_code drop not null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_investor_qa_daily add column if not exists row_key text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_investor_qa_daily add column if not exists exchange_source text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_investor_qa_daily add column if not exists q_hash text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_investor_qa_daily add column if not exists a_hash text
+    """,
+    """
+    update ifa2.ifa_archive_investor_qa_daily set row_key = coalesce(row_key, md5(payload::text)), exchange_source = coalesce(exchange_source, payload->>'exchange_source'), q_hash = coalesce(q_hash, md5(coalesce(payload->>'q',''))), a_hash = coalesce(a_hash, md5(coalesce(payload->>'a',''))) where row_key is null or exchange_source is null or q_hash is null or a_hash is null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_dragon_tiger_daily add column if not exists row_key text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_dragon_tiger_daily add column if not exists reason text
+    """,
+    """
+    update ifa2.ifa_archive_dragon_tiger_daily set row_key = coalesce(row_key, md5(payload::text)), reason = coalesce(reason, payload->>'reason') where row_key is null or reason is null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add column if not exists row_key text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add column if not exists limit_type text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add column if not exists exchange text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add column if not exists first_time text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add column if not exists last_time text
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add column if not exists limit_times integer
+    """,
+    """
+    update ifa2.ifa_archive_limit_up_detail_daily set row_key = coalesce(row_key, md5(payload::text)), limit_type = coalesce(limit_type, payload->>'limit'), exchange = coalesce(exchange, payload->>'exchange'), first_time = coalesce(first_time, payload->>'first_time'), last_time = coalesce(last_time, payload->>'last_time'), limit_times = coalesce(limit_times, nullif(payload->>'limit_times','')::integer) where row_key is null or limit_type is null or exchange is null or first_time is null or last_time is null or limit_times is null
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_announcements_daily drop constraint if exists ifa_archive_announcements_daily_pkey
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_news_daily drop constraint if exists ifa_archive_news_daily_pkey
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily drop constraint if exists ifa_archive_research_reports_daily_pkey
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_investor_qa_daily drop constraint if exists ifa_archive_investor_qa_daily_pkey
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_dragon_tiger_daily drop constraint if exists ifa_archive_dragon_tiger_daily_pkey
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily drop constraint if exists ifa_archive_limit_up_detail_daily_pkey
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_announcements_daily add constraint ifa_archive_announcements_daily_pkey primary key (business_date, row_key)
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_news_daily add constraint ifa_archive_news_daily_pkey primary key (business_date, row_key)
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_research_reports_daily add constraint ifa_archive_research_reports_daily_pkey primary key (business_date, row_key)
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_investor_qa_daily add constraint ifa_archive_investor_qa_daily_pkey primary key (business_date, row_key)
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_dragon_tiger_daily add constraint ifa_archive_dragon_tiger_daily_pkey primary key (business_date, row_key)
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_limit_up_detail_daily add constraint ifa_archive_limit_up_detail_daily_pkey primary key (business_date, row_key)
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_proxy_60m (
+      business_date date not null,
+      proxy_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, proxy_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_proxy_15m (
+      business_date date not null,
+      proxy_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, proxy_code, bar_time)
+    )
+    """,
+    """
+    create table if not exists ifa2.ifa_archive_proxy_1m (
+      business_date date not null,
+      proxy_code text not null,
+      bar_time text not null,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (business_date, proxy_code, bar_time)
     )
     """,
     """
