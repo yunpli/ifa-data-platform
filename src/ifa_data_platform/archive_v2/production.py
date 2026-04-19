@@ -31,6 +31,8 @@ PRODUCTION_NIGHTLY_FAMILIES = [
 PRODUCTION_NIGHTLY_PROFILE_NAME = 'archive_v2_production_nightly_daily_final'
 PRODUCTION_BACKFILL_PROFILE_NAME = 'archive_v2_production_manual_backfill'
 PRODUCTION_REPAIR_PATH = 'scripts/archive_v2_operator_cli.py repair-batch ...'
+OFFICIAL_RUNTIME_NIGHTLY_TRIGGER = 'runtime_archive_v2_nightly'
+MANUAL_CLI_NIGHTLY_TRIGGER = 'manual_archive_v2_nightly_cli'
 WEEKEND_CATCHUP_BACKFILL_DAYS = 3
 WEEKEND_REPAIR_TARGET_LIMIT = 50
 PRODUCTION_MANUAL_BACKFILL_FAMILIES = [
@@ -45,6 +47,24 @@ PRODUCTION_MANUAL_BACKFILL_FAMILIES = [
     'limit_up_down_status_daily',
     'sector_performance_daily',
 ]
+DISALLOWED_NIGHTLY_FAMILIES = {
+    'highfreq_event_stream_daily',
+    'highfreq_limit_event_stream_daily',
+    'highfreq_sector_breadth_daily',
+    'highfreq_sector_heat_daily',
+    'highfreq_leader_candidate_daily',
+    'highfreq_intraday_signal_state_daily',
+    'proxy_1m',
+    'proxy_15m',
+    'proxy_60m',
+    'equity_60m', 'etf_60m', 'index_60m', 'futures_60m', 'commodity_60m', 'precious_metal_60m',
+    'equity_15m', 'etf_15m', 'index_15m', 'futures_15m', 'commodity_15m', 'precious_metal_15m',
+    'equity_1m', 'etf_1m', 'index_1m', 'futures_1m', 'commodity_1m', 'precious_metal_1m',
+}
+
+
+if DISALLOWED_NIGHTLY_FAMILIES & set(PRODUCTION_NIGHTLY_FAMILIES):
+    raise ValueError(f"PRODUCTION_NIGHTLY_FAMILIES contains disallowed entries: {sorted(DISALLOWED_NIGHTLY_FAMILIES & set(PRODUCTION_NIGHTLY_FAMILIES))}")
 
 
 def _previous_trading_day(calendar: TradingCalendarService, target_date: date, max_days: int = 14) -> date:
@@ -124,7 +144,7 @@ def _write_temp_profile(profile: ArchiveProfile) -> str:
     return str(path)
 
 
-def run_nightly_production(business_date: str | None = None, trigger_source: str = 'production_nightly_archive_v2') -> dict[str, Any]:
+def run_nightly_production(business_date: str | None = None, trigger_source: str = OFFICIAL_RUNTIME_NIGHTLY_TRIGGER) -> dict[str, Any]:
     business_date = business_date or resolve_production_business_date()
     profile = build_nightly_profile(business_date)
     profile_path = _write_temp_profile(profile)
@@ -134,6 +154,8 @@ def run_nightly_production(business_date: str | None = None, trigger_source: str
         'business_date': business_date,
         'profile_name': profile.profile_name,
         'profile_path': profile_path,
+        'families': list(PRODUCTION_NIGHTLY_FAMILIES),
+        'official_trigger_source': OFFICIAL_RUNTIME_NIGHTLY_TRIGGER,
         **result,
     }
 

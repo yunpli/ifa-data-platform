@@ -90,6 +90,8 @@ Sector-specific production rule: `sector_performance_daily` uses a supported THS
 
 Archive V2 runtime rule: trading-day evening remains the normal nightly production run. Saturday and Sunday are **not pure skip-only states**. They now expose a controlled Archive V2 catch-up window that performs bounded backfill for recent dates plus actionable repair-queue drain / completeness catch-up. This weekend window is narrower than the trading-day nightly path but is part of the formal runtime schedule truth.
 
+Archive V2 nightly trigger rule: the **only formal production nightly trigger** is `runtime_archive_v2_nightly` from the unified runtime lane. CLI nightly entrypoints are operator/manual paths and must not emit `production_nightly_archive_v2` as if they were a second formal production nightly trigger.
+
 Highfreq runtime rule: the trading-day pre-open path now includes an explicit final pre-open node at **09:27 Asia/Shanghai** to support the final post-auction / near-open snapshot before the 09:29-style pre-open briefing.
 
 It intentionally excludes:

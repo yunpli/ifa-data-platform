@@ -1054,11 +1054,12 @@ class UnifiedRuntime:
         started_at: str,
         archive_window: str,
     ) -> UnifiedRunResult:
-        lane_items = [i for i in manifest.items if i.resolved_lane == "archive"]
         if archive_window in {"archive_v2:saturday_catchup_window", "archive_v2:sunday_catchup_window"}:
             result = run_weekend_catchup(trigger_source="runtime_archive_v2_weekend_catchup")
+            executed_families = []
         else:
             result = run_nightly_production(trigger_source="runtime_archive_v2_nightly")
+            executed_families = list(result.get("families") or [])
         final_status = "succeeded" if result["status"] == "completed" else result["status"]
         summary = {
             "run_id": run_id,
@@ -1067,7 +1068,7 @@ class UnifiedRuntime:
             "manifest_id": manifest.manifest_id,
             "manifest_hash": manifest.manifest_hash,
             "manifest_snapshot_id": manifest_snapshot_id,
-            "manifest_item_count": len(lane_items),
+            "manifest_item_count": len(executed_families),
             "execution_mode": "real_run",
             "profile_name": result.get("profile_name"),
             "profile_path": result.get("profile_path"),
@@ -1080,8 +1081,7 @@ class UnifiedRuntime:
             "archive_v2_repair": result.get("repair"),
             "legacy_archive_superseded_for_nightly": True,
             "legacy_archive_status": "legacy_manual_fallback_only",
-            "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],
-            "planned_dataset_names": [i.display_name for i in lane_items[:10]],
+            "nightly_family_set": executed_families,
         }
         self.store.finalize_run(
             run_id=run_id,
