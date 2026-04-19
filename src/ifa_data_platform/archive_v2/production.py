@@ -25,12 +25,6 @@ PRODUCTION_NIGHTLY_FAMILIES = [
     'limit_up_detail_daily',
     'limit_up_down_status_daily',
     'sector_performance_daily',
-    'highfreq_event_stream_daily',
-    'highfreq_limit_event_stream_daily',
-    'highfreq_sector_breadth_daily',
-    'highfreq_sector_heat_daily',
-    'highfreq_leader_candidate_daily',
-    'highfreq_intraday_signal_state_daily',
 ]
 
 PRODUCTION_NIGHTLY_PROFILE_NAME = 'archive_v2_production_nightly_daily_final'
@@ -47,12 +41,6 @@ PRODUCTION_MANUAL_BACKFILL_FAMILIES = [
     'limit_up_detail_daily',
     'limit_up_down_status_daily',
     'sector_performance_daily',
-    'highfreq_event_stream_daily',
-    'highfreq_limit_event_stream_daily',
-    'highfreq_sector_breadth_daily',
-    'highfreq_sector_heat_daily',
-    'highfreq_leader_candidate_daily',
-    'highfreq_intraday_signal_state_daily',
 ]
 
 
@@ -87,14 +75,14 @@ def build_nightly_profile(business_date: str) -> ArchiveProfile:
         include_1m=False,
         include_business_families=True,
         include_tradable_families=True,
-        include_signal_families=True,
+        include_signal_families=False,
         broad_market=True,
         family_groups=list(PRODUCTION_NIGHTLY_FAMILIES),
         start_date=business_date,
         repair_incomplete=False,
         dry_run=False,
         write_enabled=True,
-        notes='Archive V2 steady-state nightly production daily/final run',
+        notes='Archive V2 steady-state nightly production daily/final run without derived highfreq daily families in the primary truth model',
     )
 
 
@@ -112,7 +100,7 @@ def build_backfill_profile(start_date: str | None = None, end_date: str | None =
         include_1m=False,
         include_business_families=True,
         include_tradable_families=True,
-        include_signal_families=True,
+        include_signal_families=False,
         broad_market=True,
         family_groups=list(PRODUCTION_MANUAL_BACKFILL_FAMILIES),
         start_date=start_date,
@@ -121,7 +109,7 @@ def build_backfill_profile(start_date: str | None = None, end_date: str | None =
         repair_incomplete=False,
         dry_run=False,
         write_enabled=True,
-        notes='Archive V2 manual bounded backfill / replay path',
+        notes='Archive V2 manual bounded backfill / replay path without derived highfreq daily families in the primary truth model',
     )
 
 

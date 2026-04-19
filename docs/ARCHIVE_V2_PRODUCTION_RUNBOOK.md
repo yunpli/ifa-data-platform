@@ -58,8 +58,8 @@ Expected trigger source:
 - `manual_archive_v2_backfill`
 
 Operational note:
-- manual backfill defaults to retained-history-backed daily/final families
-- nightly production remains the path for full steady-state daily truth generation
+- manual backfill defaults to the primary daily/final Archive V2 truth families only
+- current C-class highfreq-derived daily families are no longer part of the primary/default Archive V2 truth model
 - targeted holes after nightly runs should normally use operator `repair-batch`, not broad backfill
 
 ### 3) Manual/operator repair batches
@@ -73,12 +73,26 @@ Expected trigger source:
 - `operator_repair_batch`
 
 ## Default nightly scope
-Nightly production default scope includes implemented daily/final families:
+Nightly production default scope includes the primary/default Archive V2 truth families only:
 - tradable/final daily
 - business/event daily/final
-- selected highfreq finalized daily families
+- no current C-class highfreq-derived daily families
+- no proxy intraday families
 
-It intentionally excludes non-actionable/placeholder families from the nightly production path.
+It intentionally excludes:
+- all current C-class derived daily families from the primary/default Archive V2 truth model
+- proxy pseudo-intraday families from the valid raw family model entirely
+- true source-side intraday families from nightly activation by default
+
+Later-enable intraday support remains valid for the true source-side family groups:
+- equity `1m / 15m / 60m`
+- ETF `1m / 15m / 60m`
+- index `1m / 15m / 60m`
+- futures `1m / 15m / 60m`
+- commodity `1m / 15m / 60m`
+- precious_metal `1m / 15m / 60m`
+
+These remain default-OFF unless explicitly enabled by profile/operator intent.
 
 ## How to verify nightly success
 

@@ -24,15 +24,11 @@ DAILY_BUSINESS_FAMILIES = [
     'announcements_daily', 'news_daily', 'research_reports_daily', 'investor_qa_daily',
     'dragon_tiger_daily', 'limit_up_detail_daily', 'limit_up_down_status_daily', 'sector_performance_daily',
 ]
-DAILY_SIGNAL_FAMILIES = [
-    'highfreq_event_stream_daily', 'highfreq_limit_event_stream_daily', 'highfreq_sector_breadth_daily',
-    'highfreq_sector_heat_daily', 'highfreq_leader_candidate_daily', 'highfreq_intraday_signal_state_daily',
-    'highfreq_signal_daily', 'generic_structured_output_daily',
-]
+DAILY_SIGNAL_FAMILIES: list[str] = []
 INTRADAY_TRADABLE_FAMILIES = {
-    '60m': ['equity_60m', 'index_60m'],
-    '15m': ['equity_15m', 'index_15m'],
-    '1m': ['equity_1m', 'index_1m'],
+    '60m': ['equity_60m', 'etf_60m', 'index_60m', 'futures_60m', 'commodity_60m', 'precious_metal_60m'],
+    '15m': ['equity_15m', 'etf_15m', 'index_15m', 'futures_15m', 'commodity_15m', 'precious_metal_15m'],
+    '1m': ['equity_1m', 'etf_1m', 'index_1m', 'futures_1m', 'commodity_1m', 'precious_metal_1m'],
 }
 
 ALL_FAMILY_META: dict[str, dict[str, Any]] = {
@@ -49,20 +45,32 @@ ALL_FAMILY_META: dict[str, dict[str, Any]] = {
     'limit_up_detail_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'limit_up_detail_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_limit_up_detail_daily', 'key_col': 'ts_code', 'note': 'daily finalized limit-up detail archived from retained history truth'},
     'limit_up_down_status_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'singleton_daily', 'source_table': 'limit_up_down_status_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_limit_up_down_status_daily', 'note': 'daily finalized market-wide limit status archived from retained history truth'},
     'sector_performance_daily': {'frequency': 'daily', 'bucket': 'business', 'implemented': True, 'kind': 'json_daily', 'source_table': 'sector_performance_history', 'date_col': 'trade_date', 'dest_table': 'ifa_archive_sector_performance_daily', 'key_col': 'sector_code', 'note': 'daily finalized sector performance archived from retained history truth'},
-    'highfreq_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_event_stream_working', 'date_col': 'event_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_event_stream_daily', 'time_col': 'event_time', 'note': 'daily finalized highfreq event stream archived with event-semantics retention'},
-    'highfreq_limit_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_limit_event_stream_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_limit_event_stream_daily', 'time_col': 'trade_time', 'note': 'daily finalized highfreq limit-event stream archived with event-semantics retention'},
-    'highfreq_sector_breadth_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_breadth_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_breadth_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq sector breadth archived as latest per-sector snapshot'},
-    'highfreq_sector_heat_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_heat_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_heat_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq sector heat archived as latest per-sector snapshot'},
-    'highfreq_leader_candidate_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_leader_candidate_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_leader_candidate_daily', 'keys': ['symbol'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq leader candidates archived as latest per-symbol state'},
-    'highfreq_intraday_signal_state_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_intraday_signal_state_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_intraday_signal_state_daily', 'keys': ['scope_key'], 'time_col': 'trade_time', 'note': 'daily finalized highfreq signal state archived as latest per-scope state'},
+    'highfreq_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_event_stream_working', 'date_col': 'event_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_event_stream_daily', 'time_col': 'event_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'highfreq_event_stream_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; preserve upstream raw truth first and derive later'},
+    'highfreq_limit_event_stream_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'event_daily', 'source_table': 'highfreq_limit_event_stream_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_limit_event_stream_daily', 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'close_auction_raw+intraday_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; keep only as temporary derived retention until raw truth coverage is complete'},
+    'highfreq_sector_breadth_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_breadth_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_breadth_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'stock_intraday_raw+grouping_raw+auction_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; move toward raw-first/derive-later when raw truth coverage is complete'},
+    'highfreq_sector_heat_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_sector_heat_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_sector_heat_daily', 'keys': ['sector_code'], 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'grouping_raw+market_context_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; keep only as temporary derived retention while raw grouping truth remains insufficient'},
+    'highfreq_leader_candidate_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_leader_candidate_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_leader_candidate_daily', 'keys': ['symbol'], 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'stock_intraday_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; move toward raw-first/derive-later when stock intraday raw archive coverage is complete'},
+    'highfreq_intraday_signal_state_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': True, 'kind': 'snapshot_daily', 'source_table': 'highfreq_intraday_signal_state_working', 'date_col': 'trade_time', 'date_via_ts': True, 'dest_table': 'ifa_archive_highfreq_intraday_signal_state_daily', 'keys': ['scope_key'], 'time_col': 'trade_time', 'default_enabled': False, 'support_status': 'derived_not_archived_by_default', 'raw_source_family': 'stock_intraday_raw+auction_raw+grouping_raw', 'note': 'derived highfreq daily family removed from the default Archive V2 truth model; keep only as temporary derived retention until raw truth coverage is complete'},
     'highfreq_signal_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': False, 'kind': 'not_implemented', 'note': 'legacy placeholder only; superseded by explicit highfreq Archive V2 families'},
     'generic_structured_output_daily': {'frequency': 'daily', 'bucket': 'signal', 'implemented': False, 'kind': 'not_implemented', 'note': 'generic structured-output catch-all is not archive-v2 worthy because it collapses unrelated finalized truths into one lossy bucket'},
-    'equity_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_60m', 'instrument_key': 'ts_code', 'note': 'Archive V2 60m equity bars archived from retained stock_60min_history truth'},
-    'index_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 60, 'dest_table': 'ifa_archive_index_60m', 'instrument_key': 'ts_code', 'note': 'Archive V2 60m index bars archived via explicit 1m→60m rollup from highfreq_index_1m_working'},
-    'equity_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_15min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_15m', 'instrument_key': 'ts_code', 'note': 'Archive V2 15m equity bars archived from retained stock_15min_history truth'},
-    'index_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 15, 'dest_table': 'ifa_archive_index_15m', 'instrument_key': 'ts_code', 'note': 'Archive V2 15m index bars archived via explicit 1m→15m rollup from highfreq_index_1m_working'},
-    'equity_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_minute_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_1m', 'instrument_key': 'ts_code', 'note': 'Archive V2 1m equity bars archived from retained stock_minute_history truth'},
-    'index_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_index_1m', 'instrument_key': 'ts_code', 'note': 'Archive V2 1m index bars archived from retained highfreq_index_1m_working truth'},
+    'equity_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'etf_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': False, 'kind': 'intraday_source_pending', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'instrument_key': 'ts_code', 'note': 'valid true-source ETF intraday family kept in Archive V2 model as later-enable/default-off support; correct future path is direct stk_mins with ETF ts_code'},
+    'index_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 60, 'dest_table': 'ifa_archive_index_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'idx_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'futures_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'futures_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_futures_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'commodity_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'commodity_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_commodity_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'precious_metal_60m': {'frequency': '60m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'precious_metal_60min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_precious_metal_60m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'equity_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_15min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_15m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'etf_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': False, 'kind': 'intraday_source_pending', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'instrument_key': 'ts_code', 'note': 'valid true-source ETF intraday family kept in Archive V2 model as later-enable/default-off support; correct future path is direct stk_mins with ETF ts_code'},
+    'index_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_rollup', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'bucket_minutes': 15, 'dest_table': 'ifa_archive_index_15m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'idx_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'futures_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'futures_15min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_futures_15m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'commodity_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'commodity_15min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_commodity_15m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'precious_metal_15m': {'frequency': '15m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'precious_metal_15min_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_precious_metal_15m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'equity_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'stock_minute_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_equity_1m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'etf_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': False, 'kind': 'intraday_source_pending', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'stk_mins', 'instrument_key': 'ts_code', 'note': 'valid true-source ETF intraday family kept in Archive V2 model as later-enable/default-off support; correct future path is direct stk_mins with ETF ts_code'},
+    'index_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'highfreq_index_1m_working', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_index_1m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'idx_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'futures_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'futures_minute_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_futures_1m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'commodity_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'commodity_minute_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_commodity_1m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
+    'precious_metal_1m': {'frequency': '1m', 'bucket': 'tradable', 'implemented': True, 'kind': 'intraday_bars', 'source_table': 'precious_metal_minute_history', 'source_time_col': 'trade_time', 'source_date_expr': 'date(trade_time)', 'source_symbol_col': 'ts_code', 'dest_table': 'ifa_archive_precious_metal_1m', 'archive_key_col': 'ts_code', 'instrument_key': 'ts_code', 'default_enabled': False, 'support_status': 'supported_later', 'source_endpoint': 'ft_mins', 'note': 'valid true-source intraday family kept as later-enable/default-off support; current path still needs source-first correction'},
 }
 
 IDENTITY_POLICY_BY_FAMILY = {
@@ -86,11 +94,23 @@ IDENTITY_POLICY_BY_FAMILY = {
     'highfreq_leader_candidate_daily': '(business_date, symbol)',
     'highfreq_intraday_signal_state_daily': '(business_date, scope_key)',
     'equity_60m': '(business_date, ts_code, bar_time)',
+    'etf_60m': '(business_date, ts_code, bar_time)',
     'index_60m': '(business_date, ts_code, bar_time)',
+    'futures_60m': '(business_date, ts_code, bar_time)',
+    'commodity_60m': '(business_date, ts_code, bar_time)',
+    'precious_metal_60m': '(business_date, ts_code, bar_time)',
     'equity_15m': '(business_date, ts_code, bar_time)',
+    'etf_15m': '(business_date, ts_code, bar_time)',
     'index_15m': '(business_date, ts_code, bar_time)',
+    'futures_15m': '(business_date, ts_code, bar_time)',
+    'commodity_15m': '(business_date, ts_code, bar_time)',
+    'precious_metal_15m': '(business_date, ts_code, bar_time)',
     'equity_1m': '(business_date, ts_code, bar_time)',
+    'etf_1m': '(business_date, ts_code, bar_time)',
     'index_1m': '(business_date, ts_code, bar_time)',
+    'futures_1m': '(business_date, ts_code, bar_time)',
+    'commodity_1m': '(business_date, ts_code, bar_time)',
+    'precious_metal_1m': '(business_date, ts_code, bar_time)',
 }
 
 SUPPORTED_FAMILIES = set(ALL_FAMILY_META.keys())
@@ -383,10 +403,10 @@ class ArchiveV2Runner:
             return self._write_snapshot_rows(meta['dest_table'], business_date, rows, meta['keys'], 'snapshot_time', meta['time_col'], note=meta.get('note', 'snapshot archive written'))
         if kind == 'intraday_bars':
             rows = self._fetch_intraday_rows(meta, business_date)
-            return self._write_intraday_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'intraday bars archived'))
+            return self._write_intraday_rows(meta, business_date, rows, note=meta.get('note', 'intraday bars archived'))
         if kind == 'intraday_rollup':
             rows = self._fetch_intraday_rollup_rows(meta, business_date)
-            return self._write_intraday_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'intraday bars archived'))
+            return self._write_intraday_rows(meta, business_date, rows, note=meta.get('note', 'intraday bars archived'))
         return 0, [], 'incomplete', 'family execution not implemented', None
 
     def _intraday_time_col(self, meta: dict[str, Any]) -> str:
@@ -517,13 +537,14 @@ class ArchiveV2Runner:
         for row in ordered_rows:
             trade_dt = datetime.fromisoformat(str(row['bar_time'])) if isinstance(row['bar_time'], str) else row['bar_time']
             bucket_time = self._bucket_intraday_time(trade_dt, bucket_minutes)
-            instrument_code = row.get('instrument_code') or row.get('ts_code')
+            instrument_code = row.get('instrument_code') or row.get(meta.get('instrument_key', 'ts_code')) or row.get('ts_code')
+            archive_key_col = meta.get('archive_key_col', 'ts_code')
             bucket_key = (str(instrument_code), bucket_time.isoformat())
             current = grouped.get(bucket_key)
             if current is None:
                 grouped[bucket_key] = {
                     'instrument_code': instrument_code,
-                    'ts_code': instrument_code,
+                    archive_key_col: instrument_code,
                     'bar_time': bucket_time.isoformat(),
                     'trade_time': bucket_time.isoformat(),
                     'open': row.get('open'),
@@ -658,13 +679,16 @@ class ArchiveV2Runner:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, macro_series, payload) values (:business_date, :macro_series, CAST(:payload as jsonb)) on conflict (business_date, macro_series) do update set payload=excluded.payload"), {'business_date': business_date, 'macro_series': r['macro_series'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', 'macro daily snapshot archived from retained source-side truth boundary', None
 
-    def _write_intraday_rows(self, table: str, business_date: str, rows: list[dict], note: str):
+    def _write_intraday_rows(self, meta: dict[str, Any], business_date: str, rows: list[dict], note: str):
+        table = meta['dest_table']
+        archive_key_col = meta.get('archive_key_col', 'ts_code')
         if not rows:
             return 0, [table], 'incomplete', 'source/history returned no intraday rows', None
         if self.profile.write_enabled:
             with engine.begin() as conn:
                 for r in rows:
-                    conn.execute(text(f"insert into ifa2.{table}(business_date, ts_code, bar_time, payload) values (:business_date, :ts_code, :bar_time, CAST(:payload as jsonb)) on conflict (business_date, ts_code, bar_time) do update set payload=excluded.payload"), {'business_date': business_date, 'ts_code': r.get('instrument_code') or r.get('ts_code'), 'bar_time': r['bar_time'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
+                    key_value = r.get(archive_key_col) or r.get('instrument_code') or r.get(meta.get('instrument_key', archive_key_col))
+                    conn.execute(text(f"insert into ifa2.{table}(business_date, {archive_key_col}, bar_time, payload) values (:business_date, :key_value, :bar_time, CAST(:payload as jsonb)) on conflict (business_date, {archive_key_col}, bar_time) do update set payload=excluded.payload"), {'business_date': business_date, 'key_value': key_value, 'bar_time': r['bar_time'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], 'completed', note, None
 
     def _persist_profile(self):
