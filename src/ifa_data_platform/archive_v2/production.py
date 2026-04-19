@@ -7,6 +7,7 @@ from datetime import datetime, timezone, date, timedelta
 from pathlib import Path
 from typing import Any
 
+from ifa_data_platform.archive_v2.operator import build_repair_batch_notes, select_repair_targets
 from ifa_data_platform.archive_v2.profile import ArchiveProfile
 from ifa_data_platform.archive_v2.runner import ArchiveV2Runner
 from ifa_data_platform.runtime.trading_calendar import TradingCalendarService, BJ_TZ
@@ -30,6 +31,8 @@ PRODUCTION_NIGHTLY_FAMILIES = [
 PRODUCTION_NIGHTLY_PROFILE_NAME = 'archive_v2_production_nightly_daily_final'
 PRODUCTION_BACKFILL_PROFILE_NAME = 'archive_v2_production_manual_backfill'
 PRODUCTION_REPAIR_PATH = 'scripts/archive_v2_operator_cli.py repair-batch ...'
+WEEKEND_CATCHUP_BACKFILL_DAYS = 3
+WEEKEND_REPAIR_TARGET_LIMIT = 50
 PRODUCTION_MANUAL_BACKFILL_FAMILIES = [
     'index_daily',
     'macro_daily',
@@ -144,4 +147,29 @@ def run_manual_backfill(start_date: str | None = None, end_date: str | None = No
         'profile_name': profile.profile_name,
         'profile_path': profile_path,
         **result,
+    }
+
+
+def run_weekend_catchup(current_time_utc: datetime | None = None, trigger_source: str = 'runtime_archive_v2_weekend_catchup') -> dict[str, Any]:
+    business_date = resolve_production_business_date(current_time_utc)
+    backfill = run_manual_backfill(end_date=business_date, backfill_days=WEEKEND_CATCHUP_BACKFILL_DAYS)
+
+    profile = build_nightly_profile(business_date)
+    profile_path = _write_temp_profile(profile)
+    runner = ArchiveV2Runner(profile_path)
+    repair_targets = select_repair_targets(limit=WEEKEND_REPAIR_TARGET_LIMIT, actionable_only=True, include_non_actionable=False, include_suppressed=False, include_claimed=False)
+    repair_notes = build_repair_batch_notes(repair_targets, {'limit': WEEKEND_REPAIR_TARGET_LIMIT, 'weekend_catchup': True}) if repair_targets else 'weekend catch-up found no actionable repair targets'
+    repair_result = runner.run_selected_targets(repair_targets, trigger_source='operator_repair_batch', notes=repair_notes) if repair_targets else {'status': 'completed', 'selected_targets': 0, 'notes': repair_notes}
+
+    final_status = 'completed'
+    if backfill.get('status') != 'completed' or repair_result.get('status') not in {'completed', 'success'}:
+        final_status = 'partial'
+    return {
+        'business_date': business_date,
+        'profile_name': profile.profile_name,
+        'profile_path': profile_path,
+        'status': final_status,
+        'backfill': backfill,
+        'repair': repair_result,
+        'notes': f"weekend catch-up backfill_days={WEEKEND_CATCHUP_BACKFILL_DAYS} repair_targets={repair_result.get('selected_targets', 0)}",
     }

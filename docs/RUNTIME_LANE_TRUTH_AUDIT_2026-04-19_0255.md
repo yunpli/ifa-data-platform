@@ -17,7 +17,7 @@ Source of truth used:
 - live recent DB run evidence
 
 Artifacts:
-- sample daily report: `docs/RUNTIME_DAILY_REPORT_SAMPLE_2026-04-19_0245.md`
+- sample daily report: `docs/RUNTIME_DAILY_REPORT_SAMPLE_2026-04-19_0305.md`
 
 ---
 
@@ -85,6 +85,7 @@ Yes, but only on trading days.
 
 ### Schedule truth (Asia/Shanghai)
 - trading day: `09:15`
+- trading day: `09:27`
 - trading day: `11:25`
 - trading day: `14:57`
 - non-trading weekday: disabled (`12:00 skip`)
@@ -97,7 +98,8 @@ Yes, but only on trading days.
 - `14:57 CST` = `06:57 UTC`
 
 ### What it runs
-- `09:15`: pre-open / auction support for trading-day early report
+- `09:15`: coarse pre-open / auction support for trading-day early report
+- `09:27`: final post-auction / near-open snapshot for the 09:29-style pre-open briefing
 - `11:25`: intraday support approaching midday report
 - `14:57`: close / auction support for late report
 
@@ -118,15 +120,16 @@ Yes.
 ### Schedule truth (Asia/Shanghai)
 - trading day: `21:40`
 - non-trading weekday: disabled (`21:40 skip`)
-- Saturday: disabled (`21:40 skip`)
-- Sunday: disabled (`21:40 skip`)
+- Saturday: `10:30`
+- Sunday: `10:30`
 
 ### UTC reference
 - `21:40 CST` = `13:40 UTC`
 
 ### What it runs
-Trading-day nightly daily/final Archive V2 production path.
-Current nightly production family set in code:
+Trading-day `21:40`: nightly daily/final Archive V2 production path.
+Weekend `10:30`: controlled Archive V2 catch-up window for bounded backfill + actionable repair-queue drain + completeness catch-up.
+Current trading-day nightly production family set in code:
 - `equity_daily`
 - `index_daily`
 - `etf_daily`
@@ -143,7 +146,8 @@ Current nightly production family set in code:
 
 ### Auto vs manual
 - trading-day nightly path is enabled and formal
-- offday catch-up / replay remains manual/backfill
+- Saturday/Sunday catch-up windows are enabled and formal
+- non-trading weekday catch-up / replay remains manual/backfill
 
 ### Truthful note about legacy archive lane
 There is still a legacy `archive` lane in the DB schedule at `21:30`, but all of its entries are `enabled=false`.
@@ -157,8 +161,8 @@ So the current default nightly production path is **Archive V2**, not legacy arc
 |---|---|---|---|---|---|---|
 | lowfreq | 07:20 | 08:30 | 09:00 | 09:00 | yes | calendar/reference/fundamental refresh, weekly review/preview support |
 | midfreq | 11:45, 15:20 | disabled | 10:30 | 10:30 | yes | midday/post-close support, weekly review/preview |
-| highfreq | 09:15, 11:25, 14:57 | disabled | disabled | disabled | yes | pre-open, intraday midday, close/auction support |
-| archive_v2 | 21:40 | disabled | disabled | disabled | yes | nightly daily/final Archive V2 production |
+| highfreq | 09:15, 09:27, 11:25, 14:57 | disabled | disabled | disabled | yes | coarse pre-open, final pre-open snapshot, intraday midday, close/auction support |
+| archive_v2 | 21:40 | disabled | 10:30 | 10:30 | yes | trading-day nightly production; weekend bounded catch-up/backfill/repair |
 
 ---
 
@@ -202,6 +206,6 @@ It is not enough for the requested production operator use because:
 ## Final judgment
 
 - the four-lane schedule truth is now explicitly audited against live DB schedule truth
-- `archive_v2` is the formal nightly production lane
+- `archive_v2` is the formal nightly production lane, and Saturday/Sunday now also have enabled catch-up windows
 - legacy `archive` remains in schedule truth only as disabled/manual fallback
 - a formal daily runtime report script now exists and has been run successfully on real DB/runtime evidence

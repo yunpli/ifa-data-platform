@@ -21,7 +21,7 @@ from sqlalchemy import text
 
 from ifa_data_platform.archive.archive_config import get_archive_config
 from ifa_data_platform.archive.archive_orchestrator import ArchiveOrchestrator
-from ifa_data_platform.archive_v2.production import run_nightly_production
+from ifa_data_platform.archive_v2.production import run_nightly_production, run_weekend_catchup
 from ifa_data_platform.archive.archive_target_delta import (
     ArchiveDeltaItem,
     build_archive_manifest,
@@ -1055,7 +1055,10 @@ class UnifiedRuntime:
         archive_window: str,
     ) -> UnifiedRunResult:
         lane_items = [i for i in manifest.items if i.resolved_lane == "archive"]
-        result = run_nightly_production(trigger_source="runtime_archive_v2_nightly")
+        if archive_window in {"archive_v2:saturday_catchup_window", "archive_v2:sunday_catchup_window"}:
+            result = run_weekend_catchup(trigger_source="runtime_archive_v2_weekend_catchup")
+        else:
+            result = run_nightly_production(trigger_source="runtime_archive_v2_nightly")
         final_status = "succeeded" if result["status"] == "completed" else result["status"]
         summary = {
             "run_id": run_id,
@@ -1072,6 +1075,9 @@ class UnifiedRuntime:
             "archive_v2_run_id": result.get("run_id"),
             "archive_v2_status": result.get("status"),
             "archive_v2_notes": result.get("notes"),
+            "archive_v2_mode": "weekend_catchup" if archive_window in {"archive_v2:saturday_catchup_window", "archive_v2:sunday_catchup_window"} else "trading_day_nightly",
+            "archive_v2_backfill": result.get("backfill"),
+            "archive_v2_repair": result.get("repair"),
             "legacy_archive_superseded_for_nightly": True,
             "legacy_archive_status": "legacy_manual_fallback_only",
             "manifest_preview_symbols": [i.symbol_or_series_id for i in lane_items[:10]],

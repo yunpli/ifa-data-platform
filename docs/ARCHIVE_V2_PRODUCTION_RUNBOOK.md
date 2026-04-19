@@ -88,6 +88,10 @@ For business/event daily families where direct source-side truth exists, Archive
 
 Sector-specific production rule: `sector_performance_daily` uses a supported THS universe only (`N`, `S`, `TH`, `ST`, `R`) and explicitly excludes low-support `I` / `BB` classes from the production expected universe. Its completion rule is coverage-based on that supported universe, with completion at coverage >= `0.90`. The fanout path is correctness-first and does not use shared-client concurrent `ths_daily` calls.
 
+Archive V2 runtime rule: trading-day evening remains the normal nightly production run. Saturday and Sunday are **not pure skip-only states**. They now expose a controlled Archive V2 catch-up window that performs bounded backfill for recent dates plus actionable repair-queue drain / completeness catch-up. This weekend window is narrower than the trading-day nightly path but is part of the formal runtime schedule truth.
+
+Highfreq runtime rule: the trading-day pre-open path now includes an explicit final pre-open node at **09:27 Asia/Shanghai** to support the final post-auction / near-open snapshot before the 09:29-style pre-open briefing.
+
 It intentionally excludes:
 - all current C-class derived daily families from the primary/default Archive V2 truth model
 - proxy pseudo-intraday families from the valid raw family model entirely
