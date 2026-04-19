@@ -366,7 +366,12 @@ class ArchiveV2Runner:
         kind = meta['kind']
         if family_name in SOURCE_FIRST_DAILY_FAMILIES:
             rows = self._fetch_source_first_daily_rows(family_name, business_date)
+            if not rows and family_name in ZERO_OK_DAILY_FAMILIES:
+                return 0, [meta['dest_table']], 'completed', 'source-empty but truthful zero-row day', None
             return self._write_daily_rows(meta['dest_table'], business_date, rows, note=meta.get('note', 'source-first daily archived'))
+        if family_name in SOURCE_FIRST_60M_FAMILIES:
+            rows = self._fetch_source_first_60m_rows(family_name, business_date)
+            return self._write_intraday_rows(meta, business_date, rows, note=meta.get('note', 'source-first 60m archived'))
         if kind == 'tushare_daily':
             rows = self.client.query('daily', {'trade_date': trade_date}, timeout_sec=30, max_retries=2)
             return self._write_json_rows('ifa_archive_equity_daily', business_date, rows, 'ts_code')
