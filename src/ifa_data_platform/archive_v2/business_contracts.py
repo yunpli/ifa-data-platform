@@ -28,12 +28,14 @@ RESEARCH_REPORT_TYPES = [
 
 SECTOR_INDEX_TYPES = [
     'N',
-    'I',
     'S',
     'TH',
     'ST',
-    'BB',
     'R',
+]
+SECTOR_INDEX_TYPES_EXCLUDED = [
+    'I',
+    'BB',
 ]
 
 LIMIT_LIST_LIMIT_TYPES = ['U', 'Z', 'D']
@@ -127,10 +129,10 @@ BUSINESS_DAILY_CONTRACTS: dict[str, BusinessDailyContract] = {
         family_name='sector_performance_daily',
         source_endpoints=('ths_index', 'ths_daily'),
         source_mode='universe_sharded',
-        shard_strategy='ths_index(exchange=A,type=...) universe × per-sector ths_daily(trade_date)',
+        shard_strategy='ths_index(exchange=A,type in [N,S,TH,ST,R]) supported sector/theme universe × per-sector ths_daily(trade_date); exclude low-support I/BB classes from production expected universe',
         dedupe_identity='(business_date, sector_code)',
-        zero_row_policy='incomplete on zero rows unless expected universe itself is empty',
-        completeness_rule='completed by coverage ratio against expected universe, not mere nonzero rows',
+        zero_row_policy='incomplete on zero rows unless supported expected universe itself is empty',
+        completeness_rule='completed when supported-universe coverage >= 0.90; I/BB are excluded from production expected universe as structurally low-support classes',
         archive_table_name='ifa_archive_sector_performance_daily',
     ),
 }

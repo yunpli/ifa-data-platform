@@ -86,6 +86,8 @@ Nightly production default scope includes the primary/default Archive V2 truth f
 
 For business/event daily families where direct source-side truth exists, Archive V2 now uses family-specific source contracts in the runner instead of one generic retained-history branch. Each family must declare explicit source endpoint(s), source mode, shard strategy, dedupe identity, zero-row policy, completeness rule, and an isolated `ifa_archive_*` destination table. Archive V2 business/event outputs must never write into lowfreq/midfreq/highfreq current/history tables or generic unprefixed tables.
 
+Sector-specific production rule: `sector_performance_daily` uses a supported THS universe only (`N`, `S`, `TH`, `ST`, `R`) and explicitly excludes low-support `I` / `BB` classes from the production expected universe. Its completion rule is coverage-based on that supported universe, with completion at coverage >= `0.90`. The fanout path is correctness-first and does not use shared-client concurrent `ths_daily` calls.
+
 It intentionally excludes:
 - all current C-class derived daily families from the primary/default Archive V2 truth model
 - proxy pseudo-intraday families from the valid raw family model entirely

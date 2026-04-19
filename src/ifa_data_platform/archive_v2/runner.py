@@ -705,28 +705,21 @@ class ArchiveV2Runner:
         trade_date = business_date.replace('-', '')
         universe = self._load_ths_sector_universe()
         rows: list[dict[str, Any]] = []
-
-        def fetch_one(item: dict[str, Any]) -> list[dict[str, Any]]:
+        for item in universe:
             shard = self._query_tushare_safe('ths_daily', {'ts_code': item['ts_code'], 'trade_date': trade_date})
             for row in shard:
                 row['sector_name'] = item.get('name')
                 row['sector_type'] = item.get('type')
                 row['sector_code'] = item.get('ts_code')
-            return shard
-
-        max_workers = 16 if len(universe) > 64 else max(1, min(8, len(universe)))
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = [pool.submit(fetch_one, item) for item in universe]
-            for fut in as_completed(futures):
-                rows.extend(fut.result())
+            rows.extend(shard)
         deduped = self._dedupe_rows('sector_performance_daily', business_date, rows)
         expected = len(universe)
         actual = len({r.get('sector_code') or r.get('ts_code') for r in deduped if r.get('sector_code') or r.get('ts_code')})
         coverage = 0.0 if expected == 0 else actual / expected
         if not deduped:
-            return {'rows': [], 'status': 'incomplete', 'note': f'ths_index universe expected={expected} actual=0 coverage=0.000'}
+            return {'rows': [], 'status': 'incomplete', 'note': f'ths_index supported-universe expected={expected} actual=0 coverage=0.000'}
         status = 'completed' if coverage >= 0.90 else 'incomplete'
-        return {'rows': deduped, 'status': status, 'note': f'ths_index+ths_daily expected={expected} actual={actual} coverage={coverage:.3f}'}
+        return {'rows': deduped, 'status': status, 'note': f'ths_index+ths_daily supported-universe expected={expected} actual={actual} coverage={coverage:.3f} threshold=0.900 excluded_types=I,BB'}
 
     def _query_tushare_safe(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         try:
