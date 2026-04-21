@@ -58,6 +58,8 @@ def test_unified_runtime_run_once_lowfreq_real_run_executes():
     assert expected <= set(payload['planned_dataset_names'])
     assert 'trade_cal' not in payload['planned_dataset_names']
     assert payload['executed_dataset_count'] >= 15
+    assert payload['trade_calendar_gate']['checked'] is True
+    assert 'performed' in payload['trade_calendar_gate']
     assert any(r['dataset_name'] == 'fund_basic_etf' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'index_weight' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'top10_holders' for r in payload['dataset_results'])

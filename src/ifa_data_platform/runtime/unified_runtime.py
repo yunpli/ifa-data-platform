@@ -31,6 +31,7 @@ from ifa_data_platform.config.settings import get_settings
 from ifa_data_platform.db.engine import make_engine
 from ifa_data_platform.lowfreq.registry import DatasetRegistry
 from ifa_data_platform.lowfreq.runner import LowFreqRunner
+from ifa_data_platform.lowfreq.trade_calendar_maintenance import TradeCalendarMaintenanceService
 from ifa_data_platform.midfreq.registry import MidfreqDatasetRegistry
 from ifa_data_platform.midfreq.runner import MidfreqRunner
 from ifa_data_platform.highfreq.registry import HighfreqDatasetRegistry
@@ -674,6 +675,7 @@ class UnifiedRuntime:
     def __init__(self) -> None:
         self.store = UnifiedRuntimeStore()
         self.lowfreq_runner = LowFreqRunner()
+        self.lowfreq_trade_calendar_maintenance = TradeCalendarMaintenanceService()
         self.midfreq_runner = MidfreqRunner()
         self.highfreq_runner = HighfreqRunner()
         self.lowfreq_registry = DatasetRegistry()
@@ -763,11 +765,12 @@ class UnifiedRuntime:
         dataset_names = self._plan_lane_datasets(lane, lane_items, trigger_mode=trigger_mode)
         execution_mode = self._lane_execution_mode(lane)
         requirement_state = self._runtime_requirement_state(lane)
+        auto_trade_calendar = self._maybe_run_lowfreq_trade_calendar_gate(lane=lane, trigger_mode=trigger_mode)
         blocked = self._blocked_dataset_results(lane, dataset_names, requirement_state)
         runnable_dataset_names = [
             dataset_name for dataset_name in dataset_names if dataset_name not in {r.dataset_name for r in blocked}
         ]
-        dataset_results = blocked + [
+        dataset_results = list(auto_trade_calendar["dataset_results"]) + blocked + [
             self._execute_lane_dataset(lane, dataset_name, dry_run=(execution_mode == "dry_run"), run_id=run_id)
             for dataset_name in runnable_dataset_names
         ]
@@ -794,6 +797,7 @@ class UnifiedRuntime:
             "requirements": requirement_state,
             "blocked_dataset_count": len(blocked),
             "blocked_dataset_names": [r.dataset_name for r in blocked],
+            "trade_calendar_gate": auto_trade_calendar["summary"],
         }
         self.store.finalize_run(
             run_id=run_id,
@@ -858,6 +862,40 @@ class UnifiedRuntime:
             return enabled or ["stock_1m_ohlcv"]
 
         return []
+
+    def _maybe_run_lowfreq_trade_calendar_gate(self, *, lane: str, trigger_mode: str) -> dict[str, Any]:
+        if lane != "lowfreq" or trigger_mode in {"trade_calendar_monthly_maintenance", "trade_calendar_manual_refresh"}:
+            return {
+                "dataset_results": [],
+                "summary": {
+                    "checked": lane == "lowfreq",
+                    "performed": False,
+                    "reason": "maintenance_trigger_bypasses_gate" if lane == "lowfreq" else "not_lowfreq",
+                },
+            }
+
+        gate = self.lowfreq_trade_calendar_maintenance.auto_sync_if_due(exchange="SSE")
+        result = gate.get("result") or {}
+        dataset_results: list[DatasetExecutionResult] = []
+        if gate.get("performed"):
+            dataset_results.append(
+                DatasetExecutionResult(
+                    dataset_name="trade_cal",
+                    status="succeeded",
+                    records_processed=int(result.get("records_fetched") or 0),
+                    watermark=result.get("watermark"),
+                    error_message=None,
+                )
+            )
+        return {
+            "dataset_results": dataset_results,
+            "summary": {
+                "checked": True,
+                "performed": gate.get("performed", False),
+                "decision": gate.get("decision"),
+                "result": result or None,
+            },
+        }
 
     def _lane_execution_mode(self, lane: str) -> str:
         if lane == "lowfreq":

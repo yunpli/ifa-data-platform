@@ -80,16 +80,12 @@ python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-bu
 
 ### Trade calendar operational policy
 
-`trade_cal` is no longer refreshed on every normal lowfreq runtime start. Runtime truth still reads from local `ifa2.trade_cal_current`, but refresh is now split into:
+`trade_cal` normal maintenance is now owned by the lowfreq worker itself.
 
-1. **Monthly maintenance sync**
-```bash
-python scripts/runtime_manifest_cli.py run-once \
-  --lane lowfreq \
-  --trigger-mode trade_calendar_monthly_maintenance \
-  --owner-type default --owner-id default
-```
-This executes only `trade_cal` through the normal lowfreq runner/version path.
+1. **Automatic lowfreq gate**
+- every normal lowfreq worker start checks `ifa2.trade_calendar_sync_state`
+- if the last successful trade-calendar sync is older than ~1 month (31 days), lowfreq refreshes `trade_cal` first
+- otherwise lowfreq skips calendar maintenance and continues with the regular lowfreq dataset batch
 
 2. **Manual exact-range repair/backfill**
 ```bash
@@ -97,9 +93,18 @@ python scripts/trade_calendar_maintenance.py sync \
   --start-date 2026-01-01 \
   --end-date 2026-12-31
 ```
-This is the operator path for targeted repair/backfill and promotes the refreshed version by default.
+This remains the operator path for targeted repair/backfill and promotes the refreshed version by default.
 
-3. **Preflight check without auto-sync**
+3. **Optional explicit monthly maintenance trigger**
+```bash
+python scripts/runtime_manifest_cli.py run-once \
+  --lane lowfreq \
+  --trigger-mode trade_calendar_monthly_maintenance \
+  --owner-type default --owner-id default
+```
+This still executes only `trade_cal` through the normal lowfreq runner/version path when an operator wants a dedicated maintenance run.
+
+4. **Preflight check without auto-sync**
 ```bash
 python scripts/trade_calendar_maintenance.py health-check
 python scripts/runtime_preflight.py --out artifacts/service/runtime_preflight_latest.json

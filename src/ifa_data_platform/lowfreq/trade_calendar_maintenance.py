@@ -44,6 +44,8 @@ class TradeCalendarHealthReport:
 
 
 class TradeCalendarMaintenanceService:
+    AUTO_SYNC_INTERVAL_DAYS = 31
+
     def __init__(self) -> None:
         self.engine = make_engine()
         self.current = TradeCalCurrent()
@@ -84,6 +86,13 @@ class TradeCalendarMaintenanceService:
         self.history.store_version(version_id, records)
         if promote:
             self.version_registry.promote("trade_cal", version_id)
+        self._record_success(
+            exchange=exchange,
+            run_id=run_id,
+            version_id=version_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         return TradeCalendarSyncResult(
             run_id=run_id,
@@ -109,6 +118,67 @@ class TradeCalendarMaintenanceService:
         start_date = anchor - timedelta(days=lookback_days)
         end_date = anchor + timedelta(days=forward_days)
         return self.sync_range(start_date, end_date, exchange=exchange, promote=promote)
+
+    def get_sync_state(self, exchange: str = "SSE") -> Optional[dict[str, Any]]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT exchange, last_successful_sync_at, last_successful_run_id,
+                           last_successful_version_id, last_successful_start_date,
+                           last_successful_end_date, updated_at
+                    FROM ifa2.trade_calendar_sync_state
+                    WHERE exchange = :exchange
+                    """
+                ),
+                {"exchange": exchange},
+            ).mappings().first()
+        return dict(row) if row else None
+
+    def should_auto_sync(self, *, exchange: str = "SSE", now: Optional[datetime] = None) -> dict[str, Any]:
+        now_utc = now or datetime.now(timezone.utc)
+        state = self.get_sync_state(exchange=exchange)
+        last_successful_sync_at = state.get("last_successful_sync_at") if state else None
+        if last_successful_sync_at and last_successful_sync_at.tzinfo is None:
+            last_successful_sync_at = last_successful_sync_at.replace(tzinfo=timezone.utc)
+        if last_successful_sync_at is None:
+            return {
+                "should_sync": True,
+                "reason": "missing_sync_state",
+                "exchange": exchange,
+                "last_successful_sync_at": None,
+                "interval_days": self.AUTO_SYNC_INTERVAL_DAYS,
+            }
+        age_days = (now_utc - last_successful_sync_at).total_seconds() / 86400.0
+        return {
+            "should_sync": age_days >= self.AUTO_SYNC_INTERVAL_DAYS,
+            "reason": "stale_sync_state" if age_days >= self.AUTO_SYNC_INTERVAL_DAYS else "fresh_sync_state",
+            "exchange": exchange,
+            "last_successful_sync_at": last_successful_sync_at.isoformat(),
+            "age_days": round(age_days, 2),
+            "interval_days": self.AUTO_SYNC_INTERVAL_DAYS,
+        }
+
+    def auto_sync_if_due(
+        self,
+        *,
+        exchange: str = "SSE",
+        now: Optional[datetime] = None,
+        lookback_days: int = 45,
+        forward_days: int = 400,
+    ) -> dict[str, Any]:
+        now_utc = now or datetime.now(timezone.utc)
+        decision = self.should_auto_sync(exchange=exchange, now=now_utc)
+        if not decision["should_sync"]:
+            return {"performed": False, "decision": decision, "result": None}
+        result = self.monthly_sync(
+            anchor_date=now_utc.date(),
+            exchange=exchange,
+            lookback_days=lookback_days,
+            forward_days=forward_days,
+            promote=True,
+        )
+        return {"performed": True, "decision": decision, "result": result.to_dict()}
 
     def health_check(
         self,
@@ -228,6 +298,49 @@ class TradeCalendarMaintenanceService:
             active_version_promoted_at_utc=(active_promoted_at.replace(tzinfo=timezone.utc) if active_promoted_at and active_promoted_at.tzinfo is None else active_promoted_at.astimezone(timezone.utc)).isoformat() if active_promoted_at else None,
             findings=findings,
         )
+
+    def _record_success(
+        self,
+        *,
+        exchange: str,
+        run_id: str,
+        version_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> None:
+        now_utc = datetime.now(timezone.utc)
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO ifa2.trade_calendar_sync_state (
+                        exchange, last_successful_sync_at, last_successful_run_id,
+                        last_successful_version_id, last_successful_start_date,
+                        last_successful_end_date, updated_at
+                    ) VALUES (
+                        :exchange, :last_successful_sync_at, :last_successful_run_id,
+                        :last_successful_version_id, :last_successful_start_date,
+                        :last_successful_end_date, :updated_at
+                    )
+                    ON CONFLICT (exchange) DO UPDATE SET
+                        last_successful_sync_at = EXCLUDED.last_successful_sync_at,
+                        last_successful_run_id = EXCLUDED.last_successful_run_id,
+                        last_successful_version_id = EXCLUDED.last_successful_version_id,
+                        last_successful_start_date = EXCLUDED.last_successful_start_date,
+                        last_successful_end_date = EXCLUDED.last_successful_end_date,
+                        updated_at = EXCLUDED.updated_at
+                    """
+                ),
+                {
+                    "exchange": exchange,
+                    "last_successful_sync_at": now_utc,
+                    "last_successful_run_id": run_id,
+                    "last_successful_version_id": version_id,
+                    "last_successful_start_date": start_date,
+                    "last_successful_end_date": end_date,
+                    "updated_at": now_utc,
+                },
+            )
 
     def _fetch_range(self, start_date: date, end_date: date, exchange: str) -> list[dict[str, Any]]:
         records = self.client.query(

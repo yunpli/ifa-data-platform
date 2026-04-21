@@ -106,3 +106,26 @@ def test_trade_calendar_monthly_sync_uses_bounded_window(monkeypatch) -> None:
     params = fake_client.calls[0][1]
     assert params['start_date'] == '20260401'
     assert params['end_date'] == '20260425'
+
+
+def test_trade_calendar_sync_state_is_recorded_and_gate_skips_when_fresh(monkeypatch) -> None:
+    fake_client = _FakeTushareClient([
+        {'exchange': 'SSE', 'cal_date': '20260401', 'is_open': '1', 'pretrade_date': '20260331'},
+    ])
+    monkeypatch.setattr(
+        'ifa_data_platform.lowfreq.trade_calendar_maintenance.get_tushare_client',
+        lambda: fake_client,
+    )
+
+    svc = TradeCalendarMaintenanceService()
+    result = svc.monthly_sync(anchor_date=date(2026, 4, 15), lookback_days=14, forward_days=10)
+    state = svc.get_sync_state('SSE')
+
+    assert state is not None
+    assert state['last_successful_run_id'] == result.run_id
+    assert str(state['last_successful_version_id']) == result.version_id
+
+    gate = svc.auto_sync_if_due(exchange='SSE')
+    assert gate['performed'] is False
+    assert gate['decision']['reason'] == 'fresh_sync_state'
+    assert len(fake_client.calls) == 1
