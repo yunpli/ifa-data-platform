@@ -21,7 +21,7 @@ class SchedulePolicyRow:
 
 DEFAULT_SCHEDULE_POLICY: list[SchedulePolicyRow] = [
     # trading day
-    SchedulePolicyRow("lowfreq", "trading_day", "lowfreq:trade_day_premarket_refresh", "07:20", "refresh calendar/reference/fundamental support before early report", True, 1800, max_retries=1, group_name="daily_light"),
+    SchedulePolicyRow("lowfreq", "trading_day", "lowfreq:trade_day_premarket_refresh", "22:00", "refresh calendar/reference/fundamental support before early report", True, 1800, max_retries=1, group_name="daily_light"),
     SchedulePolicyRow("midfreq", "trading_day", "midfreq:trade_day_midday_report_support", "11:45", "support midday report snapshot after morning session", True, 1800, max_retries=1, group_name="midday_final"),
     SchedulePolicyRow("midfreq", "trading_day", "midfreq:trade_day_post_close_report_support", "15:20", "support late report and close data", True, 2400, max_retries=2, group_name="post_close_final"),
     SchedulePolicyRow("highfreq", "trading_day", "highfreq:trade_day_pre_open", "09:15", "coarse pre-open / auction support for trading-day early report", True, 900, max_retries=1, group_name="pre_open_core"),
