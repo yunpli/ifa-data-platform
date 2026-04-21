@@ -33,7 +33,8 @@ PRODUCTION_BACKFILL_PROFILE_NAME = 'archive_v2_production_manual_backfill'
 PRODUCTION_REPAIR_PATH = 'scripts/archive_v2_operator_cli.py repair-batch ...'
 OFFICIAL_RUNTIME_NIGHTLY_TRIGGER = 'runtime_archive_v2_nightly'
 MANUAL_CLI_NIGHTLY_TRIGGER = 'manual_archive_v2_nightly_cli'
-WEEKEND_CATCHUP_BACKFILL_DAYS = 3
+WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS = 30
+WEEKEND_CATCHUP_CHUNK_DAYS = 10
 WEEKEND_REPAIR_TARGET_LIMIT = 50
 PRODUCTION_MANUAL_BACKFILL_FAMILIES = [
     'index_daily',
@@ -86,6 +87,13 @@ def resolve_production_business_date(current_time_utc: datetime | None = None) -
     if status.pretrade_date:
         return status.pretrade_date.isoformat()
     return _previous_trading_day(calendar, bj_now.date()).isoformat()
+
+
+def is_runtime_trading_day(current_time_utc: datetime | None = None) -> bool:
+    now = current_time_utc or datetime.now(timezone.utc)
+    calendar = TradingCalendarService()
+    bj_now = now.astimezone(BJ_TZ)
+    return calendar.get_day_status(bj_now.date()).is_trading_day
 
 
 def build_nightly_profile(business_date: str) -> ArchiveProfile:
@@ -145,6 +153,23 @@ def _write_temp_profile(profile: ArchiveProfile) -> str:
 
 
 def run_nightly_production(business_date: str | None = None, trigger_source: str = OFFICIAL_RUNTIME_NIGHTLY_TRIGGER) -> dict[str, Any]:
+    explicit_business_date = business_date is not None
+    if not explicit_business_date and not is_runtime_trading_day():
+        resolved_business_date = resolve_production_business_date()
+        return {
+            'ok': True,
+            'skipped': True,
+            'status': 'skipped',
+            'business_date': resolved_business_date,
+            'profile_name': PRODUCTION_NIGHTLY_PROFILE_NAME,
+            'profile_path': None,
+            'families': list(PRODUCTION_NIGHTLY_FAMILIES),
+            'official_trigger_source': OFFICIAL_RUNTIME_NIGHTLY_TRIGGER,
+            'notes': (
+                'Archive V2 implicit nightly production skips on Beijing non-trading days; '
+                'use manual backfill/catch-up paths instead of replaying the previous trading day as a same-day nightly run'
+            ),
+        }
     business_date = business_date or resolve_production_business_date()
     profile = build_nightly_profile(business_date)
     profile_path = _write_temp_profile(profile)
@@ -174,7 +199,25 @@ def run_manual_backfill(start_date: str | None = None, end_date: str | None = No
 
 def run_weekend_catchup(current_time_utc: datetime | None = None, trigger_source: str = 'runtime_archive_v2_weekend_catchup') -> dict[str, Any]:
     business_date = resolve_production_business_date(current_time_utc)
-    backfill = run_manual_backfill(end_date=business_date, backfill_days=WEEKEND_CATCHUP_BACKFILL_DAYS)
+    remaining_days = WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS
+    backfill_chunks: list[dict[str, Any]] = []
+    while remaining_days > 0:
+        chunk_days = min(WEEKEND_CATCHUP_CHUNK_DAYS, remaining_days)
+        chunk = run_manual_backfill(end_date=business_date, backfill_days=chunk_days)
+        backfill_chunks.append({
+            'chunk_backfill_days': chunk_days,
+            **chunk,
+        })
+        remaining_days -= chunk_days
+
+    backfill_statuses = {chunk.get('status') for chunk in backfill_chunks}
+    backfill = {
+        'status': 'completed' if backfill_statuses == {'completed'} else 'partial',
+        'chunk_count': len(backfill_chunks),
+        'total_backfill_days': WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS,
+        'chunk_backfill_days': WEEKEND_CATCHUP_CHUNK_DAYS,
+        'chunks': backfill_chunks,
+    }
 
     profile = build_nightly_profile(business_date)
     profile_path = _write_temp_profile(profile)
@@ -193,5 +236,9 @@ def run_weekend_catchup(current_time_utc: datetime | None = None, trigger_source
         'status': final_status,
         'backfill': backfill,
         'repair': repair_result,
-        'notes': f"weekend catch-up backfill_days={WEEKEND_CATCHUP_BACKFILL_DAYS} repair_targets={repair_result.get('selected_targets', 0)}",
+        'notes': (
+            f"weekend catch-up total_backfill_days={WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS} "
+            f"chunk_backfill_days={WEEKEND_CATCHUP_CHUNK_DAYS} "
+            f"repair_targets={repair_result.get('selected_targets', 0)}"
+        ),
     }

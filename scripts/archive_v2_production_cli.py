@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from ifa_data_platform.archive_v2.production import run_nightly_production, run_manual_backfill, resolve_production_business_date, PRODUCTION_NIGHTLY_FAMILIES, PRODUCTION_MANUAL_BACKFILL_FAMILIES, PRODUCTION_REPAIR_PATH, MANUAL_CLI_NIGHTLY_TRIGGER, OFFICIAL_RUNTIME_NIGHTLY_TRIGGER
+from ifa_data_platform.archive_v2.production import run_nightly_production, run_manual_backfill, resolve_production_business_date, PRODUCTION_NIGHTLY_FAMILIES, PRODUCTION_MANUAL_BACKFILL_FAMILIES, PRODUCTION_REPAIR_PATH, MANUAL_CLI_NIGHTLY_TRIGGER, OFFICIAL_RUNTIME_NIGHTLY_TRIGGER, WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS, WEEKEND_CATCHUP_CHUNK_DAYS
 
 
 def main() -> None:
@@ -40,6 +40,9 @@ def main() -> None:
             'manual_repair_path': PRODUCTION_REPAIR_PATH,
             'official_runtime_nightly_trigger': OFFICIAL_RUNTIME_NIGHTLY_TRIGGER,
             'manual_cli_nightly_trigger': MANUAL_CLI_NIGHTLY_TRIGGER,
+            'weekend_catchup_total_backfill_days': WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS,
+            'weekend_catchup_chunk_backfill_days': WEEKEND_CATCHUP_CHUNK_DAYS,
+            'weekend_catchup_chunk_count': WEEKEND_CATCHUP_TOTAL_BACKFILL_DAYS // WEEKEND_CATCHUP_CHUNK_DAYS,
         }, ensure_ascii=False, indent=2, default=str))
 
 

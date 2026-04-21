@@ -6,6 +6,9 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
+from datetime import datetime, timezone
+
+from ifa_data_platform.archive_v2 import production
 from ifa_data_platform.runtime.schedule_policy import DEFAULT_SCHEDULE_POLICY
 
 REPO = Path('/Users/neoclaw/repos/ifa-data-platform')
@@ -25,7 +28,7 @@ def _run(*args: str) -> dict:
 
 
 def test_archive_v2_milestone9_production_runtime_path_and_manual_path_separation() -> None:
-    nightly = _run('scripts/archive_v2_production_cli.py', 'nightly', '--business-date', '2026-04-17')
+    nightly = _run('scripts/archive_v2_production_cli.py', 'nightly', '--business-date', '2026-04-17', '--trigger-source', 'production_nightly_archive_v2')
     assert nightly['ok'] is True
     assert nightly['status'] in {'completed', 'partial'}
 
@@ -70,3 +73,45 @@ def test_archive_v2_milestone9_operator_surfaces_distinguish_nightly_vs_repair()
     assert any(row['lane'] == 'archive_v2' for row in run_status)
     assert plan['nightly_profile_name'] == 'archive_v2_production_nightly_daily_final'
     assert plan['family_count'] >= 10
+    assert plan['weekend_catchup_total_backfill_days'] == 30
+    assert plan['weekend_catchup_chunk_backfill_days'] == 10
+    assert plan['weekend_catchup_chunk_count'] == 3
+
+
+def test_archive_v2_milestone9_implicit_nightly_skips_on_non_trading_days(monkeypatch) -> None:
+    monkeypatch.setattr(production, 'is_runtime_trading_day', lambda current_time_utc=None: False)
+    monkeypatch.setattr(production, 'resolve_production_business_date', lambda current_time_utc=None: '2026-04-17')
+
+    result = production.run_nightly_production()
+
+    assert result['ok'] is True
+    assert result['skipped'] is True
+    assert result['status'] == 'skipped'
+    assert result['business_date'] == '2026-04-17'
+    assert result['profile_path'] is None
+    assert 'non-trading days' in result['notes']
+
+
+def test_archive_v2_milestone9_weekend_catchup_uses_three_10day_backfill_chunks(monkeypatch) -> None:
+    calls: list[tuple[str, int | None, str | None]] = []
+
+    def fake_backfill(*, start_date=None, end_date=None, backfill_days=None):
+        calls.append(('backfill', backfill_days, end_date))
+        return {'ok': True, 'status': 'completed', 'profile_name': 'archive_v2_production_manual_backfill', 'profile_path': '/tmp/backfill.json'}
+
+    monkeypatch.setattr(production, 'resolve_production_business_date', lambda current_time_utc=None: '2026-04-18')
+    monkeypatch.setattr(production, 'run_manual_backfill', fake_backfill)
+    monkeypatch.setattr(production, 'select_repair_targets', lambda **kwargs: [])
+
+    result = production.run_weekend_catchup(current_time_utc=datetime(2026, 4, 19, 2, 30, tzinfo=timezone.utc))
+
+    assert result['status'] == 'completed'
+    assert result['backfill']['chunk_count'] == 3
+    assert result['backfill']['total_backfill_days'] == 30
+    assert result['backfill']['chunk_backfill_days'] == 10
+    assert [chunk['chunk_backfill_days'] for chunk in result['backfill']['chunks']] == [10, 10, 10]
+    assert calls == [
+        ('backfill', 10, '2026-04-18'),
+        ('backfill', 10, '2026-04-18'),
+        ('backfill', 10, '2026-04-18'),
+    ]

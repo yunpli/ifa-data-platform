@@ -28,10 +28,12 @@ def _reset_state(profile_name_prefix: str) -> None:
         conn.execute(text("delete from ifa2.ifa_archive_run_items where run_id in (select run_id from ifa2.ifa_archive_runs where profile_name like :prefix)"), {'prefix': f'{profile_name_prefix}%'})
         conn.execute(text("delete from ifa2.ifa_archive_runs where profile_name like :prefix"), {'prefix': f'{profile_name_prefix}%'})
         conn.execute(text("delete from ifa2.ifa_archive_profiles where profile_name like :prefix"), {'prefix': f'{profile_name_prefix}%'})
-        conn.execute(text("delete from ifa2.ifa_archive_completeness where family_name in ('index_daily', 'sector_performance_daily') and business_date between '2026-04-16' and '2026-04-20'"))
-        conn.execute(text("delete from ifa2.ifa_archive_repair_queue where family_name in ('index_daily', 'sector_performance_daily') and business_date between '2026-04-16' and '2026-04-20'"))
+        conn.execute(text("delete from ifa2.ifa_archive_completeness where family_name in ('index_daily', 'sector_performance_daily')"))
+        conn.execute(text("delete from ifa2.ifa_archive_repair_queue where family_name in ('index_daily', 'sector_performance_daily')"))
         conn.execute(text("delete from ifa2.trade_cal_current where cal_date between '2026-04-16' and '2026-04-20' and exchange='SSE'"))
         conn.execute(text("delete from ifa2.index_daily_bar_history where trade_date between '2026-04-16' and '2026-04-20' and ts_code in ('000001.SH', '399001.SZ')"))
+        conn.execute(text("delete from ifa2.index_daily_bar_history where id in ('00000000-0000-0000-0000-000000000211','00000000-0000-0000-0000-000000000212','00000000-0000-0000-0000-000000000221','00000000-0000-0000-0000-000000000222','00000000-0000-0000-0000-000000000223','00000000-0000-0000-0000-000000000224','00000000-0000-0000-0000-000000000225')"))
+        conn.execute(text("delete from ifa2.trade_cal_current where id='00000000-0000-0000-0000-000000000201'"))
 
 
 def test_archive_v2_dry_run_is_side_effect_free_and_tracks_would_write_metrics() -> None:
