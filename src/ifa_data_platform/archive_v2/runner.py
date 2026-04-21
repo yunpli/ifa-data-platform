@@ -640,23 +640,13 @@ class ArchiveV2Runner:
     def _fetch_announcements_contract_rows(self, business_date: str) -> dict[str, Any]:
         trade_date = business_date.replace('-', '')
         bulk_rows = self._query_tushare_safe('anns_d', {'ann_date': trade_date})
-        suspicious = len(bulk_rows) >= ANNOUNCEMENTS_SUSPICIOUS_NEAR_CAP
-        rows = list(bulk_rows)
+        deduped = self._dedupe_rows('announcements_daily', business_date, bulk_rows)
         note = f"anns_d ann_date bulk_rows={len(bulk_rows)}"
-        if suspicious:
-            fallback_rows: list[dict[str, Any]] = []
-            symbols = self._load_equity_trade_date_symbols(business_date)
-            max_workers = 24 if len(symbols) > 120 else max(1, min(12, len(symbols)))
-            with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                futures = [pool.submit(self._query_tushare_safe, 'anns_d', {'ann_date': trade_date, 'ts_code': ts_code}) for ts_code in symbols]
-                for fut in as_completed(futures):
-                    fallback_rows.extend(fut.result())
-            rows.extend(fallback_rows)
-            note = f"anns_d ann_date near cap bulk_rows={len(bulk_rows)}; ts_code fallback_rows={len(fallback_rows)}; union_rows={len(rows)}"
-        deduped = self._dedupe_rows('announcements_daily', business_date, rows)
         if not deduped:
-            return {'rows': [], 'status': 'incomplete', 'note': note + '; zero rows after bulk/fallback'}
-        return {'rows': deduped, 'status': 'completed', 'note': note + f'; deduped_rows={len(deduped)}'}
+            return {'rows': [], 'status': 'incomplete', 'note': note + '; zero rows after direct bulk'}
+        suspicious = len(bulk_rows) == ANNOUNCEMENTS_SUSPICIOUS_NEAR_CAP
+        status = 'completed' if not suspicious else 'incomplete'
+        return {'rows': deduped, 'status': status, 'note': note + f'; deduped_rows={len(deduped)} suspicious_bulk={suspicious}'}
 
     def _fetch_news_contract_rows(self, business_date: str) -> dict[str, Any]:
         rows: list[dict[str, Any]] = []
@@ -677,20 +667,13 @@ class ArchiveV2Runner:
 
     def _fetch_research_reports_contract_rows(self, business_date: str) -> dict[str, Any]:
         trade_date = business_date.replace('-', '')
-        brokers = self._load_recent_broker_universe()
-        rows: list[dict[str, Any]] = []
-        shard_count = 0
-        for report_type in RESEARCH_REPORT_TYPES:
-            for inst_csname in brokers:
-                shard_rows = self._query_tushare_safe('research_report', {'trade_date': trade_date, 'report_type': report_type, 'inst_csname': inst_csname})
-                rows.extend(shard_rows)
-                shard_count += 1
-        deduped = self._dedupe_rows('research_reports_daily', business_date, rows)
+        bulk_rows = self._query_tushare_safe('research_report', {'trade_date': trade_date})
+        deduped = self._dedupe_rows('research_reports_daily', business_date, bulk_rows)
         if not deduped:
-            return {'rows': [], 'status': 'completed', 'note': f'research_report report_type×broker shards exhausted with truthful zero; shards={shard_count}'}
-        suspicious = any(len(self._query_tushare_safe('research_report', {'trade_date': trade_date, 'report_type': rt})) >= RESEARCH_REPORT_SUSPICIOUS_NEAR_CAP for rt in RESEARCH_REPORT_TYPES)
+            return {'rows': [], 'status': 'completed', 'note': 'research_report trade_date bulk exhausted with truthful zero'}
+        suspicious = len(bulk_rows) >= RESEARCH_REPORT_SUSPICIOUS_NEAR_CAP
         status = 'completed' if not suspicious else 'incomplete'
-        return {'rows': deduped, 'status': status, 'note': f'research_report shards={shard_count} deduped_rows={len(deduped)} suspicious_bulk={suspicious}'}
+        return {'rows': deduped, 'status': status, 'note': f'research_report trade_date bulk_rows={len(bulk_rows)} deduped_rows={len(deduped)} suspicious_bulk={suspicious}'}
 
     def _fetch_investor_qa_contract_rows(self, business_date: str) -> dict[str, Any]:
         trade_date = business_date.replace('-', '')
@@ -725,21 +708,12 @@ class ArchiveV2Runner:
 
     def _fetch_limit_up_detail_contract_rows(self, business_date: str) -> dict[str, Any]:
         trade_date = business_date.replace('-', '')
-        rows: list[dict[str, Any]] = []
-        shards = 0
-        for limit_type in LIMIT_LIST_LIMIT_TYPES:
-            for exchange in LIMIT_LIST_EXCHANGES:
-                shard_rows = self._query_tushare_safe('limit_list_d', {'trade_date': trade_date, 'limit_type': limit_type, 'exchange': exchange})
-                for row in shard_rows:
-                    row['exchange'] = exchange
-                    row['limit_type_shard'] = limit_type
-                rows.extend(shard_rows)
-                shards += 1
-        detail_rows = [r for r in rows if (r.get('limit') or r.get('limit_type_shard')) in {'U', 'Z'}]
+        bulk_rows = self._query_tushare_safe('limit_list_d', {'trade_date': trade_date})
+        detail_rows = [r for r in bulk_rows if (r.get('limit') or r.get('limit_type_shard')) in {'U', 'Z'}]
         deduped = self._dedupe_rows('limit_up_detail_daily', business_date, detail_rows)
         if not deduped:
-            return {'rows': [], 'status': 'incomplete', 'note': f'limit_list_d shards exhausted but no limit-up detail rows; shards={shards}'}
-        return {'rows': deduped, 'status': 'completed', 'note': f'limit_list_d shards={shards} detail_rows={len(deduped)}'}
+            return {'rows': [], 'status': 'incomplete', 'note': f'limit_list_d trade_date bulk exhausted but no limit-up detail rows; bulk_rows={len(bulk_rows)}'}
+        return {'rows': deduped, 'status': 'completed', 'note': f'limit_list_d trade_date bulk_rows={len(bulk_rows)} detail_rows={len(deduped)}'}
 
     def _fetch_limit_up_down_status_contract_rows(self, business_date: str) -> dict[str, Any]:
         detail = self._fetch_limit_up_detail_contract_rows(business_date)
@@ -759,22 +733,27 @@ class ArchiveV2Runner:
     def _fetch_sector_performance_contract_rows(self, business_date: str) -> dict[str, Any]:
         trade_date = business_date.replace('-', '')
         universe = self._load_ths_sector_universe()
+        universe_by_code = {item['ts_code']: item for item in universe}
+        bulk_rows = self._query_tushare_safe('ths_daily', {'trade_date': trade_date})
         rows: list[dict[str, Any]] = []
-        for item in universe:
-            shard = self._query_tushare_safe('ths_daily', {'ts_code': item['ts_code'], 'trade_date': trade_date})
-            for row in shard:
-                row['sector_name'] = item.get('name')
-                row['sector_type'] = item.get('type')
-                row['sector_code'] = item.get('ts_code')
-            rows.extend(shard)
+        for row in bulk_rows:
+            sector_code = row.get('ts_code')
+            item = universe_by_code.get(sector_code)
+            if not item:
+                continue
+            enriched = dict(row)
+            enriched['sector_name'] = item.get('name')
+            enriched['sector_type'] = item.get('type')
+            enriched['sector_code'] = item.get('ts_code')
+            rows.append(enriched)
         deduped = self._dedupe_rows('sector_performance_daily', business_date, rows)
         expected = len(universe)
         actual = len({r.get('sector_code') or r.get('ts_code') for r in deduped if r.get('sector_code') or r.get('ts_code')})
         coverage = 0.0 if expected == 0 else actual / expected
         if not deduped:
-            return {'rows': [], 'status': 'incomplete', 'note': f'ths_index supported-universe expected={expected} actual=0 coverage=0.000'}
+            return {'rows': [], 'status': 'incomplete', 'note': f'ths_daily trade_date bulk_rows={len(bulk_rows)} supported-universe expected={expected} actual=0 coverage=0.000'}
         status = 'completed' if coverage >= 0.90 else 'incomplete'
-        return {'rows': deduped, 'status': status, 'note': f'ths_index+ths_daily supported-universe expected={expected} actual={actual} coverage={coverage:.3f} threshold=0.900 excluded_types=I,BB'}
+        return {'rows': deduped, 'status': status, 'note': f'ths_daily trade_date bulk_rows={len(bulk_rows)} supported-universe expected={expected} actual={actual} coverage={coverage:.3f} threshold=0.900 excluded_types=I,BB'}
 
     def _query_tushare_safe(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         try:

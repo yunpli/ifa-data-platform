@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 from sqlalchemy import text
 
@@ -191,3 +192,47 @@ def test_archive_v2_operator_surfaces_expose_actual_vs_would_write_and_family_co
     assert gap['family_expected_rows'] == 100
     assert gap['family_observed_rows'] == 80
     assert float(gap['family_coverage_ratio']) == 0.8
+
+
+def test_archive_v2_business_contract_bulk_first_fetchers_use_single_day_calls() -> None:
+    profile = ArchiveProfile(
+        profile_name='pytest_archive_v2_bulk_fetchers',
+        mode='single_day',
+        family_groups=['sector_performance_daily'],
+        start_date='2026-04-17',
+        dry_run=True,
+        write_enabled=False,
+    )
+    runner = ArchiveV2Runner(_profile_path(profile))
+    calls: list[tuple[str, dict]] = []
+
+    def fake_query(api_name: str, params: dict, timeout_sec: int = 30, max_retries: int = 2):
+        calls.append((api_name, dict(params)))
+        if api_name == 'anns_d':
+            return [{'ann_date': '20260417', 'ts_code': '000001.SZ', 'title': 'a1', 'url': 'u1'}]
+        if api_name == 'research_report':
+            return [{'trade_date': '20260417', 'title': 'r1', 'report_type': '个股研报', 'author': 'a', 'ts_code': '000001.SZ', 'inst_csname': 'b'}]
+        if api_name == 'limit_list_d':
+            return [{'trade_date': '20260417', 'ts_code': '000001.SZ', 'limit': 'U', 'first_time': '093000', 'last_time': '145500', 'limit_times': 1}]
+        if api_name == 'ths_daily':
+            return [{'ts_code': '885001.TI', 'trade_date': '20260417', 'close': 1.0}]
+        raise AssertionError(f'unexpected api call: {api_name} {params}')
+
+    runner.client = SimpleNamespace(query=fake_query)
+    runner._load_ths_sector_universe = lambda: [{'ts_code': '885001.TI', 'name': 'Sector1', 'type': 'N'}]
+
+    announcements = runner._fetch_announcements_contract_rows('2026-04-17')
+    research = runner._fetch_research_reports_contract_rows('2026-04-17')
+    limit_detail = runner._fetch_limit_up_detail_contract_rows('2026-04-17')
+    sector = runner._fetch_sector_performance_contract_rows('2026-04-17')
+
+    assert announcements['status'] == 'completed'
+    assert research['status'] == 'completed'
+    assert limit_detail['status'] == 'completed'
+    assert sector['status'] == 'completed'
+    assert calls == [
+        ('anns_d', {'ann_date': '20260417'}),
+        ('research_report', {'trade_date': '20260417'}),
+        ('limit_list_d', {'trade_date': '20260417'}),
+        ('ths_daily', {'trade_date': '20260417'}),
+    ]
