@@ -254,9 +254,9 @@ class ArchiveV2Runner:
     def _resolve_backfill_dates(self, families: list[str]) -> list[str]:
         anchor = datetime.fromisoformat(self.profile.end_date).date() if self.profile.end_date else datetime.now(timezone.utc).date()
         if self._should_use_trading_day_calendar(families):
-            ordered = sorted([d for d in self._historical_trading_days_between(anchor - timedelta(days=max(int(self.profile.backfill_days or 0) * 4, 14)), anchor) if d <= anchor], reverse=True)
-            selected = ordered[: int(self.profile.backfill_days or 0)]
-            return [d.isoformat() for d in sorted(selected)]
+            target_days = int(self.profile.backfill_days or 0)
+            resolved = self._historical_trading_days_for_backfill(anchor, target_days)
+            return [d.isoformat() for d in resolved]
         candidate_dates: set[date] = set()
         fetch_limit = max(int(self.profile.backfill_days or 0) * 4, 12)
         for family in families:
@@ -264,6 +264,23 @@ class ArchiveV2Runner:
         ordered = sorted([d for d in candidate_dates if d <= anchor], reverse=True)
         selected = ordered[: int(self.profile.backfill_days or 0)]
         return [d.isoformat() for d in sorted(selected)]
+
+    def _historical_trading_days_for_backfill(self, anchor: date, target_days: int, exchange: str = 'SSE') -> list[date]:
+        if target_days <= 0:
+            return []
+        authoritative = self._historical_trading_days_between(anchor - timedelta(days=max(target_days * 4, 14)), anchor, exchange=exchange)
+        selected = sorted([d for d in authoritative if d <= anchor], reverse=True)[:target_days]
+        if len(selected) >= target_days:
+            return sorted(selected)
+
+        known = set(selected)
+        cursor = anchor
+        while len(selected) < target_days:
+            if cursor.weekday() < 5 and cursor not in known:
+                selected.append(cursor)
+                known.add(cursor)
+            cursor -= timedelta(days=1)
+        return sorted(selected)
 
     def _should_use_trading_day_calendar(self, families: list[str]) -> bool:
         return bool(families) and all(family in MARKET_CALENDAR_FAMILIES for family in families)

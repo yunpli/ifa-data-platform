@@ -102,6 +102,41 @@ def test_archive_v2_historical_range_and_backfill_use_trading_days_with_observed
     assert backfill_runner._resolve_backfill_dates(['index_daily']) == ['2026-04-17', '2026-04-20']
 
 
+def test_archive_v2_backfill_fills_sparse_historical_calendar_with_weekday_fallback() -> None:
+    _reset_state('pytest_archive_v2_sparse_backfill')
+    with engine.begin() as conn:
+        conn.execute(text("""
+            insert into ifa2.index_daily_bar_history(id, version_id, trade_date, ts_code)
+            values
+              ('00000000-0000-0000-0000-000000000221', 'pytest', '2026-04-14', '000001.SH'),
+              ('00000000-0000-0000-0000-000000000222', 'pytest', '2026-04-15', '000001.SH'),
+              ('00000000-0000-0000-0000-000000000223', 'pytest', '2026-04-16', '000001.SH'),
+              ('00000000-0000-0000-0000-000000000224', 'pytest', '2026-04-17', '000001.SH'),
+              ('00000000-0000-0000-0000-000000000225', 'pytest', '2026-04-20', '000001.SH')
+        """))
+
+    backfill_profile = ArchiveProfile(
+        profile_name='pytest_archive_v2_sparse_backfill',
+        mode='backfill',
+        family_groups=['index_daily'],
+        end_date='2026-04-20',
+        backfill_days=10,
+    )
+    backfill_runner = ArchiveV2Runner(_profile_path(backfill_profile))
+    assert backfill_runner._resolve_backfill_dates(['index_daily']) == [
+        '2026-04-07',
+        '2026-04-08',
+        '2026-04-09',
+        '2026-04-10',
+        '2026-04-13',
+        '2026-04-14',
+        '2026-04-15',
+        '2026-04-16',
+        '2026-04-17',
+        '2026-04-20',
+    ]
+
+
 def test_archive_v2_stale_running_runs_are_auto_closed_before_new_execution() -> None:
     _reset_state('pytest_archive_v2_stale')
     with engine.begin() as conn:
