@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable
+from typing import Iterable, Optional
 
 from ifa_data_platform.runtime.target_manifest import SelectorScope, build_target_manifest
 
@@ -21,31 +21,35 @@ class ArchivePolicyDecision:
 
 def archive_policy_matrix() -> list[ArchivePolicyDecision]:
     return [
-        ArchivePolicyDecision('stock', 'daily', 'backfill_from_anchor', ('all',), True, 'daily archive for tradable objects'),
-        ArchivePolicyDecision('futures', 'daily', 'backfill_from_anchor', ('all',), True, 'daily archive for tradable objects'),
-        ArchivePolicyDecision('commodity', 'daily', 'backfill_from_anchor', ('all',), True, 'daily archive for tradable objects'),
-        ArchivePolicyDecision('precious_metal', 'daily', 'backfill_from_anchor', ('all',), True, 'daily archive for tradable objects'),
-        ArchivePolicyDecision('stock', '60min', 'backfill_from_anchor', ('all',), False, '60min source/storage path not implemented yet'),
-        ArchivePolicyDecision('futures', '60min', 'backfill_from_anchor', ('all',), False, '60min source/storage path not implemented yet'),
-        ArchivePolicyDecision('commodity', '60min', 'backfill_from_anchor', ('all',), False, '60min source/storage path not implemented yet'),
-        ArchivePolicyDecision('precious_metal', '60min', 'backfill_from_anchor', ('all',), False, '60min source/storage path not implemented yet'),
-        ArchivePolicyDecision('stock', '15min', 'forward_only', ('key_focus', 'focus'), True, '15min is forward archive only'),
-        ArchivePolicyDecision('futures', '15min', 'forward_only', ('futures_key_focus', 'futures_focus'), True, '15min is forward archive only'),
-        ArchivePolicyDecision('commodity', '15min', 'forward_only', ('commodity_key_focus', 'commodity_focus'), True, '15min is forward archive only'),
-        ArchivePolicyDecision('precious_metal', '15min', 'forward_only', ('precious_metal_key_focus', 'precious_metal_focus'), True, '15min is forward archive only'),
-        ArchivePolicyDecision('stock', '1min', 'forward_only', ('key_focus',), True, '1min is forward archive only for key focus'),
-        ArchivePolicyDecision('futures', '1min', 'forward_only', ('futures_key_focus',), True, '1min is forward archive only for key focus'),
-        ArchivePolicyDecision('commodity', '1min', 'forward_only', ('commodity_key_focus',), True, '1min is forward archive only for key focus'),
-        ArchivePolicyDecision('precious_metal', '1min', 'forward_only', ('precious_metal_key_focus',), True, '1min is forward archive only for key focus'),
+        ArchivePolicyDecision("stock", "daily", "backfill_from_anchor", ("focus", "key_focus"), True, "daily archive for focus scope"),
+        ArchivePolicyDecision("futures", "daily", "backfill_from_anchor", ("futures_focus", "futures_key_focus"), True, "daily archive for focus scope"),
+        ArchivePolicyDecision("commodity", "daily", "backfill_from_anchor", ("commodity_focus", "commodity_key_focus", "chemical_focus", "chemical_key_focus", "agri_focus", "agri_key_focus", "black_chain_focus", "black_chain_key_focus", "metal_focus", "metal_key_focus"), True, "daily archive for focus scope"),
+        ArchivePolicyDecision("precious_metal", "daily", "backfill_from_anchor", ("precious_metal_focus", "precious_metal_key_focus"), True, "daily archive for focus scope"),
+        ArchivePolicyDecision("stock", "15min", "forward_only", ("focus", "key_focus"), True, "15min forward-only focus scope"),
+        ArchivePolicyDecision("stock", "1min", "forward_only", ("key_focus",), True, "1min forward-only key focus scope"),
+        ArchivePolicyDecision("futures", "15min", "forward_only", ("futures_focus", "futures_key_focus"), True, "15min forward-only focus scope"),
+        ArchivePolicyDecision("futures", "1min", "forward_only", ("futures_key_focus",), True, "1min forward-only key focus scope"),
+        ArchivePolicyDecision("commodity", "15min", "forward_only", ("commodity_focus", "commodity_key_focus", "chemical_focus", "chemical_key_focus", "agri_focus", "agri_key_focus", "black_chain_focus", "black_chain_key_focus", "metal_focus", "metal_key_focus"), True, "15min forward-only focus scope"),
+        ArchivePolicyDecision("commodity", "1min", "forward_only", ("commodity_key_focus", "chemical_key_focus", "agri_key_focus", "black_chain_key_focus", "metal_key_focus"), True, "1min forward-only key focus scope"),
+        ArchivePolicyDecision("precious_metal", "15min", "forward_only", ("precious_metal_focus", "precious_metal_key_focus"), True, "15min forward-only focus scope"),
+        ArchivePolicyDecision("precious_metal", "1min", "forward_only", ("precious_metal_key_focus",), True, "1min forward-only key focus scope"),
+        ArchivePolicyDecision("stock", "60min", "forward_aggregate", ("focus", "key_focus"), True, "60min derived from 15min history"),
+        ArchivePolicyDecision("futures", "60min", "forward_aggregate", ("futures_focus", "futures_key_focus"), True, "60min derived from 15min history"),
+        ArchivePolicyDecision("commodity", "60min", "forward_aggregate", ("commodity_focus", "commodity_key_focus", "chemical_focus", "chemical_key_focus", "agri_focus", "agri_key_focus", "black_chain_focus", "black_chain_key_focus", "metal_focus", "metal_key_focus"), True, "60min derived from 15min history"),
+        ArchivePolicyDecision("precious_metal", "60min", "forward_aggregate", ("precious_metal_focus", "precious_metal_key_focus"), True, "60min derived from 15min history"),
     ]
 
 
-def archive_scope_symbols(list_types: Iterable[str]) -> list[str]:
+def archive_scope_symbols(list_types: Iterable[str], *, asset_categories: Optional[set[str]] = None, frequency: Optional[str] = None) -> list[str]:
     manifest = build_target_manifest(SelectorScope(list_types=tuple(list_types)))
-    deduped = []
-    seen = set()
+    deduped: list[str] = []
+    seen: set[str] = set()
     for item in manifest.items:
-        if item.resolved_lane != 'archive':
+        if item.resolved_lane != "archive":
+            continue
+        if frequency and item.resolved_granularity != frequency:
+            continue
+        if asset_categories and item.asset_category not in asset_categories:
             continue
         if item.symbol_or_series_id not in seen:
             seen.add(item.symbol_or_series_id)

@@ -269,14 +269,21 @@ class MidfreqRunner:
                     f"Skipping history persistence for {dataset_name}: current/history table missing"
                 )
                 return 0
+            key_columns = self._get_history_key_columns(dataset_name)
             result = conn.execute(
                 text(f"""
-                    INSERT INTO ifa2.{history_table} (id, version_id, 
+                    INSERT INTO ifa2.{history_table} (id, version_id,
                         {self._get_columns_for_history(dataset_name)})
                     SELECT gen_random_uuid(), :version_id,
                         {self._get_columns_for_insert(dataset_name)}
-                    FROM ifa2.{current_table}
-                    WHERE version_id = :version_id
+                    FROM ifa2.{current_table} c
+                    WHERE c.version_id = :version_id
+                      AND NOT EXISTS (
+                        SELECT 1
+                        FROM ifa2.{history_table} h
+                        WHERE h.version_id = :version_id
+                          AND {key_columns}
+                      )
                 """),
                 {"version_id": version_id},
             )
@@ -306,3 +313,20 @@ class MidfreqRunner:
             "limit_up_detail": 'ts_code, trade_date, limit_status AS "limit", pre_limit_status AS pre_limit',
         }
         return current_column_maps.get(dataset_name, self._get_columns_for_history(dataset_name))
+
+    def _get_history_key_columns(self, dataset_name: str) -> str:
+        key_maps = {
+            "equity_daily_bar": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+            "index_daily_bar": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+            "etf_daily_bar": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+            "northbound_flow": "h.trade_date = c.trade_date",
+            "limit_up_down_status": "h.trade_date = c.trade_date",
+            "margin_financing": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+            "turnover_rate": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+            "limit_up_detail": 'h.ts_code = c.ts_code AND h.trade_date = c.trade_date',
+            "southbound_flow": "h.trade_date = c.trade_date",
+            "main_force_flow": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+            "sector_performance": "h.sector_code = c.sector_code AND h.trade_date = c.trade_date",
+            "dragon_tiger_list": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
+        }
+        return key_maps[dataset_name]

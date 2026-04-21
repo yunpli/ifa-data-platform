@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import signal
 import sys
@@ -213,6 +214,16 @@ class UnifiedRuntimeDaemonStore:
         with self.engine.begin() as conn:
             rows = conn.execute(text("SELECT * FROM ifa2.runtime_worker_state ORDER BY worker_type")).mappings().all()
             return [dict(r) for r in rows]
+
+    def try_worker_lock(self, worker_type: str) -> bool:
+        lock_key = int(hashlib.sha1(worker_type.encode("utf-8")).hexdigest()[:15], 16)
+        with self.engine.begin() as conn:
+            return bool(conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_key}).scalar())
+
+    def release_worker_lock(self, worker_type: str) -> None:
+        lock_key = int(hashlib.sha1(worker_type.encode("utf-8")).hexdigest()[:15], 16)
+        with self.engine.begin() as conn:
+            conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
 
     def update_unified_run_governance(
         self,
@@ -461,6 +472,31 @@ class UnifiedRuntimeDaemon:
     ) -> dict[str, Any]:
         start = current_time_utc or now_utc()
         runtime_budget_sec = runtime_budget_override_sec or int((schedule_row or {}).get("runtime_budget_sec") or self._default_budget(worker_type))
+        if not self.store.try_worker_lock(worker_type):
+            marker = self.adapter.runtime.run_once(worker_type, trigger_mode="scheduler_lock_conflict", dry_run_manifest_only=True)
+            self.store.update_unified_run_governance(
+                run_id=marker.run_id,
+                schedule_key=schedule_key,
+                beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
+                runtime_budget_sec=runtime_budget_sec,
+                duration_ms=0,
+                tables_updated=[],
+                tasks_executed=[],
+                error_count=1,
+                governance_state="scheduler_lock_conflict",
+                status="scheduler_lock_conflict",
+                summary_patch={"reason": "pg_advisory_lock denied", "worker_type": worker_type},
+            )
+            return {
+                "run_id": marker.run_id,
+                "lane": worker_type,
+                "status": "scheduler_lock_conflict",
+                "duration_ms": 0,
+                "tasks_executed": [],
+                "tables_updated": [],
+                "error_count": 1,
+                "governance_state": "scheduler_lock_conflict",
+            }
         state = self.store.get_worker_state(worker_type)
         if state and state.get("active_run_id"):
             active_started = state.get("active_started_at")
@@ -513,44 +549,47 @@ class UnifiedRuntimeDaemon:
                 }
 
         provisional_run_id = str(uuid.uuid4())
-        self.store.mark_worker_running(worker_type=worker_type, run_id=provisional_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
-        result = self.adapter.run(
-            worker_type,
-            trigger_mode=trigger_mode,
-            schedule_key=schedule_key,
-            group_name=(schedule_row or {}).get("group_name"),
-            dry_run_manifest_only=dry_run_manifest_only,
-        )
-        effective_run_id = result.get("run_id") or provisional_run_id
-        if effective_run_id != provisional_run_id:
-            self.store.mark_worker_running(worker_type=worker_type, run_id=effective_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
-        self.store.update_unified_run_governance(
-            run_id=effective_run_id,
-            schedule_key=schedule_key,
-            beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
-            runtime_budget_sec=runtime_budget_sec,
-            duration_ms=result["duration_ms"],
-            tables_updated=result["tables_updated"],
-            tasks_executed=result["tasks_executed"],
-            error_count=result["error_count"],
-            governance_state=result["governance_state"],
-            status=result["status"],
-            summary_patch={
-                "automatic_entry": trigger_mode == "scheduled",
-                "worker_type": worker_type,
-                "runtime_budget_sec": runtime_budget_sec,
-                "day_type": (schedule_row or {}).get("day_type"),
-                "purpose": (schedule_row or {}).get("purpose"),
-            },
-        )
-        self.store.mark_worker_finished(
-            worker_type=worker_type,
-            run_id=effective_run_id,
-            status=result["status"],
-            error=None if result["error_count"] == 0 else "see unified_runtime_runs.summary",
-            next_due_at_utc=self._next_due_at_utc(worker_type, start),
-        )
-        return result
+        try:
+            self.store.mark_worker_running(worker_type=worker_type, run_id=provisional_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
+            result = self.adapter.run(
+                worker_type,
+                trigger_mode=trigger_mode,
+                schedule_key=schedule_key,
+                group_name=(schedule_row or {}).get("group_name"),
+                dry_run_manifest_only=dry_run_manifest_only,
+            )
+            effective_run_id = result.get("run_id") or provisional_run_id
+            if effective_run_id != provisional_run_id:
+                self.store.mark_worker_running(worker_type=worker_type, run_id=effective_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
+            self.store.update_unified_run_governance(
+                run_id=effective_run_id,
+                schedule_key=schedule_key,
+                beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
+                runtime_budget_sec=runtime_budget_sec,
+                duration_ms=result["duration_ms"],
+                tables_updated=result["tables_updated"],
+                tasks_executed=result["tasks_executed"],
+                error_count=result["error_count"],
+                governance_state=result["governance_state"],
+                status=result["status"],
+                summary_patch={
+                    "automatic_entry": trigger_mode == "scheduled",
+                    "worker_type": worker_type,
+                    "runtime_budget_sec": runtime_budget_sec,
+                    "day_type": (schedule_row or {}).get("day_type"),
+                    "purpose": (schedule_row or {}).get("purpose"),
+                },
+            )
+            self.store.mark_worker_finished(
+                worker_type=worker_type,
+                run_id=effective_run_id,
+                status=result["status"],
+                error=None if result["error_count"] == 0 else "see unified_runtime_runs.summary",
+                next_due_at_utc=self._next_due_at_utc(worker_type, start),
+            )
+            return result
+        finally:
+            self.store.release_worker_lock(worker_type)
 
     def _default_budget(self, worker_type: str) -> int:
         return {

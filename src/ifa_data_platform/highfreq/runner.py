@@ -50,23 +50,23 @@ class HighfreqRunner:
             return result
 
         if dataset_name == "stock_1m_ohlcv":
-            records = self.adaptor.fetch_stock_1m("000001.SZ", "20260415 09:30:00", "20260415 09:35:00")
+            records = self.adaptor.fetch_stock_1m()
             count = self.adaptor.persist_stock_1m(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         elif dataset_name == "open_auction_snapshot":
-            records = self.adaptor.fetch_open_auction("000001.SZ", "20260415")
+            records = self.adaptor.fetch_open_auction()
             count = self.adaptor.persist_open_auction(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         elif dataset_name == "close_auction_snapshot":
-            records = self.adaptor.fetch_close_auction("000001.SZ", "20260415")
+            records = self.adaptor.fetch_close_auction()
             count = self.adaptor.persist_close_auction(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         elif dataset_name == "event_time_stream":
-            records = self.adaptor.fetch_event_stream("20260415", "20260416")
+            records = self.adaptor.fetch_event_stream()
             count = self.adaptor.persist_event_stream(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         elif dataset_name == "index_1m_ohlcv":
-            records = self.adaptor.fetch_index_1m("000001.SH", "20260415 09:30:00", "20260415 09:35:00")
+            records = self.adaptor.fetch_index_1m()
             count = self.adaptor.persist_index_1m(run_id or "highfreq-local", records, now)
             result = RunnerResult(dataset_name=dataset_name, status="succeeded", records_processed=count, watermark=now)
         elif dataset_name == "etf_sector_style_1m_ohlcv":

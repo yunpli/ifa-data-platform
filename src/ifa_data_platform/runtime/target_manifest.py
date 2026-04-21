@@ -1,10 +1,13 @@
 """Business Layer selector reader and normalized target manifest support.
 
-This module is the first concrete implementation step of the approved
-Trailblazer upgrade path:
-- read Business Layer selector inputs from ifa2.focus_* tables (read-only)
-- resolve them into a normalized target manifest
-- map business-layer list semantics into execution lanes
+This module is the runtime-side contract between the Business Layer focus lists
+and the H/M/L/archive workers.
+
+Execution rules implemented here:
+- highfreq collects only key-focus scope
+- midfreq and lowfreq collect focus scope
+- archive scope is frequency-aware and driven by focus/key-focus families
+- futures / commodity / precious-metal families keep their own list namespaces
 """
 
 from __future__ import annotations
@@ -13,13 +16,36 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from sqlalchemy import text
 
 from ifa_data_platform.db.engine import make_engine
 
 RUNTIME_LANES = {"lowfreq", "midfreq", "archive", "highfreq"}
+KEY_FOCUS_LIST_TYPES = {
+    "key_focus",
+    "tech_key_focus",
+    "futures_key_focus",
+    "commodity_key_focus",
+    "precious_metal_key_focus",
+    "metal_key_focus",
+    "black_chain_key_focus",
+    "chemical_key_focus",
+    "agri_key_focus",
+}
+FOCUS_LIST_TYPES = {
+    "focus",
+    "tech_focus",
+    "futures_focus",
+    "commodity_focus",
+    "precious_metal_focus",
+    "metal_focus",
+    "black_chain_focus",
+    "chemical_focus",
+    "agri_focus",
+}
+ARCHIVE_MINUTE_FREQUENCIES = {"1min", "15min", "60min", "daily"}
 
 
 @dataclass(frozen=True)
@@ -27,9 +53,6 @@ class SelectorScope:
     owner_type: str = "default"
     owner_id: str = "default"
     list_names: tuple[str, ...] = ()
-    # list_types are Business Layer selection families. For non-equity scope these may now include
-    # commodity / metal / precious_metal / black_chain families, and should not be interpreted as
-    # implying financial-futures coverage unless such source truth actually exists.
     list_types: tuple[str, ...] = ()
     include_inactive: bool = False
 
@@ -84,20 +107,12 @@ class TargetManifest:
 
 
 class BusinessLayerSelectorReader:
-    """Read-only reader over Business Layer selector tables."""
-
     def __init__(self) -> None:
         self.engine = make_engine()
 
     def fetch_selector_rows(self, scope: SelectorScope) -> list[dict[str, Any]]:
-        filters = [
-            "fl.owner_type = :owner_type",
-            "fl.owner_id = :owner_id",
-        ]
-        params: dict[str, Any] = {
-            "owner_type": scope.owner_type,
-            "owner_id": scope.owner_id,
-        }
+        filters = ["fl.owner_type = :owner_type", "fl.owner_id = :owner_id"]
+        params: dict[str, Any] = {"owner_type": scope.owner_type, "owner_id": scope.owner_id}
 
         if not scope.include_inactive:
             filters.extend(["fl.is_active = TRUE", "fli.is_active = TRUE"])
@@ -110,47 +125,81 @@ class BusinessLayerSelectorReader:
             filters.append("fl.list_type = ANY(:list_types)")
             params["list_types"] = list(scope.list_types)
 
-        sql = f"""
-        WITH list_rules AS (
+        sql_templates = [
+            f"""
+            WITH list_rules AS (
+                SELECT list_id, jsonb_object_agg(rule_key, rule_value) AS rule_map
+                FROM ifa2.focus_list_rules
+                GROUP BY list_id
+            )
             SELECT
-                list_id,
-                jsonb_object_agg(rule_key, rule_value) AS rule_map
-            FROM ifa2.focus_list_rules
-            GROUP BY list_id
-        )
-        SELECT
-            fl.id AS list_id,
-            fl.owner_type,
-            fl.owner_id,
-            fl.list_type,
-            fl.name AS list_name,
-            fl.asset_type,
-            fl.frequency_type,
-            fl.is_active AS list_is_active,
-            COALESCE(lr.rule_map, '{{}}'::jsonb) AS rule_map,
-            fli.id AS item_id,
-            fli.symbol,
-            fli.name AS item_name,
-            fli.asset_category,
-            fli.priority,
-            fli.source,
-            fli.notes,
-            fli.is_active AS item_is_active
-        FROM ifa2.focus_lists fl
-        JOIN ifa2.focus_list_items fli ON fli.list_id = fl.id
-        LEFT JOIN list_rules lr ON lr.list_id = fl.id
-        WHERE {' AND '.join(filters)}
-        ORDER BY fl.list_type, fl.name, fl.frequency_type, fli.priority, fli.symbol
-        """
+                fl.id AS list_id,
+                fl.owner_type,
+                fl.owner_id,
+                fl.list_type,
+                fl.name AS list_name,
+                fl.asset_type,
+                fl.frequency_type,
+                fl.is_active AS list_is_active,
+                COALESCE(lr.rule_map, '{{}}'::jsonb) AS rule_map,
+                fli.id AS item_id,
+                COALESCE(fli.symbol_or_series_id, fli.symbol) AS symbol,
+                fli.name AS item_name,
+                fli.asset_category,
+                fli.priority,
+                fli.source,
+                fli.notes,
+                fli.is_active AS item_is_active
+            FROM ifa2.focus_lists fl
+            JOIN ifa2.focus_list_items fli ON fli.list_id = fl.id
+            LEFT JOIN list_rules lr ON lr.list_id = fl.id
+            WHERE {' AND '.join(filters)}
+            ORDER BY fl.list_type, fl.name, fl.frequency_type, fli.priority, COALESCE(fli.symbol_or_series_id, fli.symbol)
+            """,
+            f"""
+            WITH list_rules AS (
+                SELECT list_id, jsonb_object_agg(rule_key, rule_value) AS rule_map
+                FROM ifa2.focus_list_rules
+                GROUP BY list_id
+            )
+            SELECT
+                fl.id AS list_id,
+                fl.owner_type,
+                fl.owner_id,
+                fl.list_type,
+                fl.name AS list_name,
+                fl.asset_type,
+                fl.frequency_type,
+                fl.is_active AS list_is_active,
+                COALESCE(lr.rule_map, '{{}}'::jsonb) AS rule_map,
+                fli.id AS item_id,
+                fli.symbol AS symbol,
+                fli.name AS item_name,
+                fli.asset_category,
+                fli.priority,
+                fli.source,
+                fli.notes,
+                fli.is_active AS item_is_active
+            FROM ifa2.focus_lists fl
+            JOIN ifa2.focus_list_items fli ON fli.list_id = fl.id
+            LEFT JOIN list_rules lr ON lr.list_id = fl.id
+            WHERE {' AND '.join(filters)}
+            ORDER BY fl.list_type, fl.name, fl.frequency_type, fli.priority, fli.symbol
+            """,
+        ]
 
-        with self.engine.begin() as conn:
-            rows = conn.execute(text(sql), params).mappings().all()
-            return [dict(r) for r in rows]
+        last_error = None
+        for sql in sql_templates:
+            try:
+                with self.engine.begin() as conn:
+                    rows = conn.execute(text(sql), params).mappings().all()
+                    return [dict(r) for r in rows]
+            except Exception as exc:  # schema compatibility fallback
+                last_error = exc
+        raise last_error
 
 
 class TargetManifestBuilder:
-    """Build a normalized target manifest from Business Layer selector rows."""
-
     def __init__(self) -> None:
         self.reader = BusinessLayerSelectorReader()
 
@@ -166,9 +215,8 @@ class TargetManifestBuilder:
             key=lambda i: (i.resolved_lane, i.source_list_type, i.source_list_name, i.priority, i.symbol_or_series_id),
         )
         manifest_hash = self._compute_manifest_hash(scope, ordered)
-        manifest_id = manifest_hash[:16]
         return TargetManifest(
-            manifest_id=manifest_id,
+            manifest_id=manifest_hash[:16],
             manifest_hash=manifest_hash,
             generated_at=generated_at,
             selector_scope={
@@ -188,9 +236,7 @@ class TargetManifestBuilder:
         for lane, lane_reason in self._resolve_lanes(row):
             granularity = self._resolve_granularity(row, lane)
             worker_type = self._resolve_worker_type(row, lane)
-            adapter_policy = self._resolve_adapter_policy(row, lane)
-            reason = self._selection_reason(row, lane, lane_reason)
-            dedupe_key = self._dedupe_key(row, lane, granularity)
+            adapter_policy = self._resolve_adapter_policy(row, lane, granularity)
             items.append(
                 TargetManifestItem(
                     generated_at=generated_at,
@@ -203,7 +249,7 @@ class TargetManifestBuilder:
                     source_rule_map=dict(row["rule_map"] or {}),
                     symbol_or_series_id=row["symbol"],
                     display_name=row["item_name"],
-                    asset_category=row["asset_category"],
+                    asset_category=row["asset_category"] or row["asset_type"] or "unknown",
                     priority=int(row["priority"] or 100),
                     theme_tags=theme_tags,
                     resolved_lane=lane,
@@ -211,8 +257,8 @@ class TargetManifestBuilder:
                     resolved_granularity=granularity,
                     source_adapter_policy=adapter_policy,
                     is_active=bool(row["list_is_active"] and row["item_is_active"]),
-                    dedupe_key=dedupe_key,
-                    selection_reason=reason,
+                    dedupe_key=self._dedupe_key(row, lane, granularity),
+                    selection_reason=self._selection_reason(row, lane, lane_reason),
                     validation_status=validation_status,
                     lane_reason=lane_reason,
                 )
@@ -229,51 +275,72 @@ class TargetManifestBuilder:
         return tuple(tags)
 
     def _resolve_lanes(self, row: dict[str, Any]) -> list[tuple[str, str]]:
-        if row["list_type"] == "archive_targets":
-            return [("archive", "archive_targets_frequency_mapping")]
+        list_type = str(row.get("list_type") or "")
+        freq = str(row.get("frequency_type") or "none")
+        asset = str(row.get("asset_category") or row.get("asset_type") or "unknown")
 
         lanes: list[tuple[str, str]] = []
-        if row["list_type"] in {"key_focus", "focus"}:
-            lanes.append(("lowfreq", "focus_family_lowfreq_default"))
-            if row["asset_category"] == "stock":
-                lanes.append(("midfreq", "focus_family_stock_midfreq_enabled"))
-            return lanes
+        if list_type in FOCUS_LIST_TYPES or list_type in KEY_FOCUS_LIST_TYPES:
+            lanes.append(("lowfreq", "focus_scope_lowfreq"))
+            lanes.append(("midfreq", "focus_scope_midfreq"))
+        if list_type in KEY_FOCUS_LIST_TYPES:
+            lanes.append(("highfreq", "key_focus_scope_highfreq"))
+        if freq in ARCHIVE_MINUTE_FREQUENCIES and (list_type in FOCUS_LIST_TYPES or list_type in KEY_FOCUS_LIST_TYPES):
+            lanes.append(("archive", f"focus_scope_archive_{freq}"))
+        if list_type == "archive_targets":
+            lanes.append(("archive", "archive_targets_frequency_mapping"))
 
-        return [("lowfreq", "default_fallback_lowfreq")]
+        if not lanes:
+            return [("lowfreq", "default_fallback_lowfreq")]
+
+        out: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for lane, reason in lanes:
+            if lane in {"midfreq", "highfreq"} and asset not in {"stock", "index", "etf", "futures", "commodity", "precious_metal", "metal", "black_chain", "chemical", "agri", "agricultural", "base_metal"}:
+                continue
+            key = (lane, reason)
+            if key not in seen:
+                seen.add(key)
+                out.append(key)
+        return out
 
     def _resolve_granularity(self, row: dict[str, Any], lane: str) -> str:
         freq = row["frequency_type"] or "none"
-        if lane == "archive":
+        if lane in {"archive", "highfreq"}:
             return freq
         return "none"
 
     def _resolve_worker_type(self, row: dict[str, Any], lane: str) -> str:
-        asset = row["asset_category"]
-        if lane == "archive":
-            return f"archive_{asset}_worker"
+        asset = row["asset_category"] or row["asset_type"] or "unknown"
         return f"{lane}_{asset}_worker"
 
-    def _resolve_adapter_policy(self, row: dict[str, Any], lane: str) -> str:
-        asset = row["asset_category"]
-        if asset == "stock":
-            return "tushare_stock"
-        if asset == "macro":
-            return "tushare_macro"
-        if asset in {"futures", "commodity", "precious_metal"}:
-            return "tushare_futures"
-        return f"default_{lane}"
+    def _resolve_adapter_policy(self, row: dict[str, Any], lane: str, granularity: str) -> str:
+        asset = str(row["asset_category"] or row["asset_type"] or "unknown")
+        if lane == "midfreq":
+            return f"tushare_midfreq_{asset}"
+        if lane == "highfreq":
+            if asset in {"stock", "index", "etf"}:
+                return "tushare_stk_mins"
+            return "tushare_ft_mins"
+        if lane == "archive":
+            if granularity in {"1min", "15min", "60min"}:
+                return "tushare_intraday_archive"
+            return "tushare_daily_archive"
+        return f"tushare_lowfreq_{asset}"
 
     def _resolve_validation_status(self, row: dict[str, Any]) -> str:
-        # First implementation keeps validation cheap and deterministic.
-        if row["asset_category"] == "stock" and (row["symbol"].endswith('.SZ') or row["symbol"].endswith('.SH')):
+        symbol = str(row.get("symbol") or "")
+        asset = str(row.get("asset_category") or row.get("asset_type") or "")
+        if asset == "stock" and (symbol.endswith(".SZ") or symbol.endswith(".SH")):
             return "eligible_stock_symbol"
+        if asset in {"index", "etf"} and "." in symbol:
+            return "eligible_exchange_symbol"
+        if asset in {"futures", "commodity", "precious_metal", "metal", "black_chain", "chemical", "agri", "agricultural", "base_metal"}:
+            return "eligible_contract_alias_or_code"
         return "unchecked"
 
     def _selection_reason(self, row: dict[str, Any], lane: str, lane_reason: str) -> str:
-        return (
-            f"business_layer:{row['list_name']}:{row['list_type']}"
-            f"->{lane}:{row['asset_category']}:{lane_reason}"
-        )
+        return f"business_layer:{row['list_name']}:{row['list_type']}->{lane}:{row['asset_category']}:{lane_reason}"
 
     def _dedupe_key(self, row: dict[str, Any], lane: str, granularity: str) -> str:
         return f"{lane}|{granularity}|{row['asset_category']}|{row['symbol']}"

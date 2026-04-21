@@ -193,23 +193,23 @@ class ArchiveOrchestrator:
         if dataset_name == "stock_minute_history":
             return self._process_stock_minute_job(dataset_name)
         if dataset_name == "stock_60min_history":
-            return self._process_60min_job(asset_type="stock", list_types=("key_focus", "focus"))
+            return self._process_60min_job(asset_type="stock", list_types=("key_focus", "focus"), frequency="60min")
         if dataset_name == "futures_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"futures"}, checkpoint_asset_type="futures")
         if dataset_name == "futures_15min_history":
-            return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"metals"}, freq="15min")
+            return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"futures", "index", "bond"}, freq="15min")
         if dataset_name == "futures_minute_history":
-            return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"metals"}, freq="1min")
+            return self._process_futures_intraday_job(dataset_name, asset_type="futures", category_filter={"futures", "index", "bond"}, freq="1min")
         if dataset_name == "futures_60min_history":
-            return self._process_60min_job(asset_type="futures", list_types=("futures_key_focus", "futures_focus"))
+            return self._process_60min_job(asset_type="futures", list_types=("futures_key_focus", "futures_focus"), frequency="60min")
         if dataset_name == "commodity_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, checkpoint_asset_type="commodity")
         if dataset_name == "commodity_15min_history":
-            return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, freq="15min")
+            return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "agri", "energy", "base_metal", "metals", "black_chain", "metal"}, freq="15min")
         if dataset_name == "commodity_minute_history":
-            return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "energy", "base_metal", "metals"}, freq="1min")
+            return self._process_futures_intraday_job(dataset_name, asset_type="commodity", category_filter={"commodity", "chemical", "agricultural", "agri", "energy", "base_metal", "metals", "black_chain", "metal"}, freq="1min")
         if dataset_name == "commodity_60min_history":
-            return self._process_60min_job(asset_type="commodity", list_types=("commodity_key_focus", "commodity_focus"))
+            return self._process_60min_job(asset_type="commodity", list_types=("commodity_key_focus", "commodity_focus", "chemical_key_focus", "chemical_focus", "agri_key_focus", "agri_focus", "black_chain_key_focus", "black_chain_focus", "metal_key_focus", "metal_focus"), frequency="60min")
         if dataset_name == "precious_metal_history":
             return self._process_commodity_family_job(dataset_name, asset_type={"precious_metal"}, checkpoint_asset_type="precious_metal")
         if dataset_name == "precious_metal_15min_history":
@@ -217,7 +217,7 @@ class ArchiveOrchestrator:
         if dataset_name == "precious_metal_minute_history":
             return self._process_futures_intraday_job(dataset_name, asset_type="precious_metal", category_filter={"precious_metal"}, freq="1min")
         if dataset_name == "precious_metal_60min_history":
-            return self._process_60min_job(asset_type="precious_metal", list_types=("precious_metal_key_focus", "precious_metal_focus"))
+            return self._process_60min_job(asset_type="precious_metal", list_types=("precious_metal_key_focus", "precious_metal_focus"), frequency="60min")
         if dataset_name == "macro_15min_history":
             raise NotImplementedError("macro 15min archive has no real source/storage path in current repo")
         if dataset_name == "macro_minute_history":
@@ -254,7 +254,7 @@ class ArchiveOrchestrator:
 
         archiver = Stock15MinArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
-        symbols = archive_scope_symbols(("key_focus", "focus"))
+        symbols = archive_scope_symbols(("key_focus", "focus"), asset_categories={"stock"}, frequency="15min")
         cfg = self.config
 
         try:
@@ -279,7 +279,7 @@ class ArchiveOrchestrator:
 
         archiver = StockMinuteArchiver()
         end_time = datetime.combine(date.today() - timedelta(days=1), time(15, 0, 0))
-        symbols = archive_scope_symbols(("key_focus",))
+        symbols = archive_scope_symbols(("key_focus",), asset_categories={"stock"}, frequency="1min")
         cfg = self.config
         records = archiver.run_archive(
             dataset_name=dataset_name,
@@ -306,12 +306,12 @@ class ArchiveOrchestrator:
         list_types = {
             ('futures', '15min'): ('futures_key_focus', 'futures_focus'),
             ('futures', '1min'): ('futures_key_focus',),
-            ('commodity', '15min'): ('commodity_key_focus', 'commodity_focus'),
-            ('commodity', '1min'): ('commodity_key_focus',),
+            ('commodity', '15min'): ('commodity_key_focus', 'commodity_focus', 'chemical_key_focus', 'chemical_focus', 'agri_key_focus', 'agri_focus', 'black_chain_key_focus', 'black_chain_focus', 'metal_key_focus', 'metal_focus'),
+            ('commodity', '1min'): ('commodity_key_focus', 'chemical_key_focus', 'agri_key_focus', 'black_chain_key_focus', 'metal_key_focus'),
             ('precious_metal', '15min'): ('precious_metal_key_focus', 'precious_metal_focus'),
             ('precious_metal', '1min'): ('precious_metal_key_focus',),
         }[(asset_type, freq)]
-        symbols = archive_scope_symbols(list_types)
+        symbols = archive_scope_symbols(list_types, asset_categories=category_filter, frequency=freq)
         cfg = self.config
         records = archiver.run_archive(
             dataset_name=dataset_name,
@@ -327,11 +327,11 @@ class ArchiveOrchestrator:
         logger.info(f"{dataset_name} archive completed: {records} records")
         return records
 
-    def _process_60min_job(self, asset_type: str, list_types: tuple[str, ...]) -> int:
+    def _process_60min_job(self, asset_type: str, list_types: tuple[str, ...], frequency: str) -> int:
         from ifa_data_platform.archive.archive_60min_archiver import Archive60MinArchiver
         from ifa_data_platform.archive.archive_policy import archive_scope_symbols
         archiver = Archive60MinArchiver()
-        symbols = archive_scope_symbols(list_types)
+        symbols = archive_scope_symbols(list_types, frequency=frequency)
         return archiver.run_archive(asset_type=asset_type, symbols=symbols)
 
     def _archive_structured_outputs(self) -> int:

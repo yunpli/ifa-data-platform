@@ -150,7 +150,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             elif dataset_name == "limit_up_down_status":
                 raw_records, new_watermark = self._fetch_limit_up_down_status(watermark)
                 request_params = {
-                    "api_name": "stk_limit",
+                    "api_name": "limit_list_ths",
                     "trade_date": watermark,
                 }
 
@@ -164,7 +164,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             elif dataset_name == "limit_up_detail":
                 raw_records, new_watermark = self._fetch_limit_up_detail(watermark)
                 request_params = {
-                    "api_name": "stk_limit",
+                    "api_name": "limit_list_d",
                     "trade_date": watermark,
                 }
 
@@ -525,7 +525,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
 
         try:
             records = self.client.query(
-                "stk_limit",
+                "limit_list_ths",
                 {"trade_date": trade_date},
                 timeout_sec=30,
                 max_retries=2,
@@ -539,10 +539,10 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         total_down = 0
 
         for rec in records:
-            limit = rec.get("limit", "")
-            if limit == "U":
+            status = str(rec.get("limit_status") or rec.get("limit") or "").upper()
+            if "UP" in status or status == "U":
                 total_up += 1
-            elif limit == "D":
+            elif "DOWN" in status or status == "D":
                 total_down += 1
 
         trade_date_val = None
@@ -635,7 +635,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
 
         try:
             records = self.client.query(
-                "stk_limit", {"trade_date": trade_date}, timeout_sec=30, max_retries=2
+                "limit_list_d", {"trade_date": trade_date}, timeout_sec=30, max_retries=2
             )
         except Exception as e:
             logger.warning(f"limit_up_detail query failed: {e}")
@@ -649,13 +649,13 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                     datetime.strptime(trade_date, "%Y%m%d") - timedelta(days=1)
                 ).strftime("%Y%m%d")
                 prev_data = self.client.query(
-                    "stk_limit",
+                    "limit_list_d",
                     {"trade_date": prev_date},
                     timeout_sec=30,
                     max_retries=2,
                 )
                 for r in prev_data:
-                    prev_records[r.get("ts_code", "")] = r.get("limit", "")
+                    prev_records[r.get("ts_code", "")] = r.get("limit_status") or r.get("limit", "")
             except:
                 pass
 
@@ -673,7 +673,7 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                     {
                         "ts_code": ts,
                         "trade_date": trade_date_val,
-                        "limit": rec.get("limit"),
+                        "limit": rec.get("limit_status") or rec.get("limit"),
                         "pre_limit": prev_records.get(ts, ""),
                     }
                 )
