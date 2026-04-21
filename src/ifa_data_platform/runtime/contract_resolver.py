@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Optional
 
@@ -67,11 +68,17 @@ class ContractResolver:
         exchange = self._infer_exchange(alias_or_symbol, alias)
         params = {"exchange": exchange, "fut_type": "1"}
         rows = self.client.query("fut_basic", params, timeout_sec=60, max_retries=2)
-        candidates = [r for r in rows if str(r.get("fut_code") or "").upper() == alias and str(r.get("delist_date") or "99999999") >= "20000101"]
+        candidates = [r for r in rows if str(r.get("fut_code") or "").upper() == alias]
         if not candidates:
             raise ValueError(f"live contract not found for alias={alias_or_symbol} exchange={exchange}")
-        candidates.sort(key=lambda r: (str(r.get("delist_date") or ""), str(r.get("list_date") or "")))
-        return str(candidates[0]["ts_code"])
+
+        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+        active_candidates = [r for r in candidates if str(r.get("delist_date") or "99999999") >= today]
+        if not active_candidates:
+            raise ValueError(f"live contract not found for alias={alias_or_symbol} exchange={exchange} as_of={today}")
+
+        active_candidates.sort(key=lambda r: (str(r.get("delist_date") or "99999999"), str(r.get("list_date") or ""), str(r.get("ts_code") or "")))
+        return str(active_candidates[0]["ts_code"])
 
     def _infer_exchange(self, raw: str, alias: str) -> str:
         if "." in raw:

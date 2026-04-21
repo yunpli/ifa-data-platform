@@ -210,8 +210,9 @@ class TargetManifestBuilder:
         items: list[TargetManifestItem] = []
         for row in rows:
             items.extend(self._row_to_items(row, generated_at))
+        deduped = self._collapse_duplicates(items)
         ordered = sorted(
-            items,
+            deduped,
             key=lambda i: (i.resolved_lane, i.source_list_type, i.source_list_name, i.priority, i.symbol_or_series_id),
         )
         manifest_hash = self._compute_manifest_hash(scope, ordered)
@@ -341,6 +342,25 @@ class TargetManifestBuilder:
 
     def _selection_reason(self, row: dict[str, Any], lane: str, lane_reason: str) -> str:
         return f"business_layer:{row['list_name']}:{row['list_type']}->{lane}:{row['asset_category']}:{lane_reason}"
+
+    def _collapse_duplicates(self, items: list[TargetManifestItem]) -> list[TargetManifestItem]:
+        chosen: dict[str, TargetManifestItem] = {}
+        for item in items:
+            current = chosen.get(item.dedupe_key)
+            if current is None or self._item_preference(item) < self._item_preference(current):
+                chosen[item.dedupe_key] = item
+        return list(chosen.values())
+
+    def _item_preference(self, item: TargetManifestItem) -> tuple[int, int, int, str, str]:
+        list_type_rank = 0 if item.source_list_type in KEY_FOCUS_LIST_TYPES else 1
+        lane_rank = 0 if item.resolved_lane in {"lowfreq", "midfreq"} else 1
+        return (
+            lane_rank,
+            list_type_rank,
+            int(item.priority),
+            item.source_list_name,
+            item.symbol_or_series_id,
+        )
 
     def _dedupe_key(self, row: dict[str, Any], lane: str, granularity: str) -> str:
         return f"{lane}|{granularity}|{row['asset_category']}|{row['symbol']}"
