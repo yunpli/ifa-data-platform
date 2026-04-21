@@ -19,6 +19,7 @@ DDL = [
       status text not null,
       notes text,
       error_text text,
+      dry_run boolean not null default false,
       created_at timestamptz not null default now()
     )
     """,
@@ -33,6 +34,11 @@ DDL = [
       status text not null,
       rows_written bigint not null default 0,
       tables_touched jsonb not null default '[]'::jsonb,
+      would_write_rows bigint not null default 0,
+      would_write_tables jsonb not null default '[]'::jsonb,
+      family_expected_rows bigint,
+      family_observed_rows bigint,
+      family_coverage_ratio numeric,
       notes text,
       error_text text,
       created_at timestamptz not null default now()
@@ -51,6 +57,9 @@ DDL = [
       row_count bigint not null default 0,
       retry_after timestamptz,
       last_error text,
+      family_expected_rows bigint,
+      family_observed_rows bigint,
+      family_coverage_ratio numeric,
       updated_at timestamptz not null default now(),
       unique (business_date, family_name, frequency, coverage_scope)
     )
@@ -76,6 +85,33 @@ DDL = [
       last_run_id uuid,
       updated_at timestamptz not null default now()
     )
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_runs add column if not exists dry_run boolean not null default false
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_run_items add column if not exists would_write_rows bigint not null default 0
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_run_items add column if not exists would_write_tables jsonb not null default '[]'::jsonb
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_run_items add column if not exists family_expected_rows bigint
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_run_items add column if not exists family_observed_rows bigint
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_run_items add column if not exists family_coverage_ratio numeric
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_completeness add column if not exists family_expected_rows bigint
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_completeness add column if not exists family_observed_rows bigint
+    """,
+    """
+    alter table if exists ifa2.ifa_archive_completeness add column if not exists family_coverage_ratio numeric
     """,
     """
     create unique index if not exists uq_ifa_archive_repair_queue_target
@@ -710,6 +746,9 @@ DDL = [
       c.row_count,
       c.retry_after,
       c.last_error,
+      c.family_expected_rows,
+      c.family_observed_rows,
+      c.family_coverage_ratio,
       q.status as repair_status,
       coalesce(q.reason_code,
         case
@@ -824,6 +863,9 @@ DDL = [
       q.last_error,
       c.status as completeness_status,
       c.row_count,
+      c.family_expected_rows,
+      c.family_observed_rows,
+      c.family_coverage_ratio,
       c.last_run_id as completeness_last_run_id
     from ifa2.ifa_archive_repair_queue q
     left join ifa2.ifa_archive_completeness c
@@ -856,7 +898,10 @@ DDL = [
       r.end_time,
       r.duration_ms,
       r.notes,
+      r.dry_run,
       count(i.id) as item_count,
+      sum(i.rows_written) as rows_written,
+      sum(i.would_write_rows) as would_write_rows,
       count(*) filter (where i.status = 'completed') as completed_items,
       count(*) filter (where i.status = 'incomplete') as incomplete_items,
       count(*) filter (where i.status = 'partial') as partial_items,
@@ -864,7 +909,7 @@ DDL = [
       count(*) filter (where i.status = 'failed') as failed_items
     from ifa2.ifa_archive_runs r
     left join ifa2.ifa_archive_run_items i on i.run_id = r.run_id
-    group by r.run_id, r.profile_name, r.mode, r.status, r.start_time, r.end_time, r.duration_ms, r.notes
+    group by r.run_id, r.profile_name, r.mode, r.status, r.start_time, r.end_time, r.duration_ms, r.notes, r.dry_run
     """,
     """
     create or replace view ifa2.ifa_archive_operator_family_health_v as
@@ -877,6 +922,9 @@ DDL = [
       max(business_date) as latest_business_date,
       max(business_date) filter (where status = 'completed') as latest_completed_date,
       max(business_date) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as latest_problem_date,
+      max(family_expected_rows) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as latest_family_expected_rows,
+      max(family_observed_rows) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as latest_family_observed_rows,
+      min(family_coverage_ratio) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as worst_family_coverage_ratio,
       round((100.0 * count(*) filter (where status = 'completed') / greatest(count(*), 1))::numeric, 2) as completion_ratio
     from ifa2.ifa_archive_completeness
     group by family_name, frequency
@@ -887,7 +935,8 @@ DDL = [
       business_date,
       count(*) as families_observed,
       count(*) filter (where status = 'completed') as completed_families,
-      count(*) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as non_completed_families
+      count(*) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as non_completed_families,
+      min(family_coverage_ratio) filter (where status in ('partial', 'incomplete', 'retry_needed', 'missing')) as worst_family_coverage_ratio
     from ifa2.ifa_archive_completeness
     group by business_date
     """,
@@ -905,6 +954,10 @@ DDL = [
       i.family_name,
       i.status as item_status,
       i.rows_written,
+      i.would_write_rows,
+      i.family_expected_rows,
+      i.family_observed_rows,
+      i.family_coverage_ratio,
       i.notes,
       i.error_text
     from ifa2.ifa_archive_runs r

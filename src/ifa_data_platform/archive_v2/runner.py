@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta, date, time
@@ -155,6 +156,7 @@ ZERO_OK_DAILY_FAMILIES = {
     'investor_qa_daily',
     'research_reports_daily',
 }
+FAMILY_COMPLETENESS_RE = re.compile(r'expected=(?P<expected>\d+)\s+actual=(?P<actual>\d+)\s+coverage=(?P<coverage>\d+(?:\.\d+)?)')
 
 
 class ArchiveV2Runner:
@@ -203,7 +205,7 @@ class ArchiveV2Runner:
         if self.profile.mode == 'single_day':
             return self._run_dates([self.profile.start_date], families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
         if self.profile.mode == 'date_range':
-            return self._run_dates(self._expand_date_range(), families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
+            return self._run_dates(self._expand_date_range(families), families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_ALL)
         if self.profile.mode == 'backfill':
             return self._run_dates(self._resolve_backfill_dates(families), families, TARGET_POLICY_REPAIR if self.profile.repair_incomplete else TARGET_POLICY_GAPS)
         if self.profile.mode == 'delete':
@@ -237,9 +239,11 @@ class ArchiveV2Runner:
                 out.append(f)
         return out
 
-    def _expand_date_range(self) -> list[str]:
+    def _expand_date_range(self, families: list[str]) -> list[str]:
         start = datetime.fromisoformat(self.profile.start_date).date()
         end = datetime.fromisoformat(self.profile.end_date).date()
+        if self._should_use_trading_day_calendar(families):
+            return [d.isoformat() for d in self._historical_trading_days_between(start, end)]
         days: list[str] = []
         cur = start
         while cur <= end:
@@ -249,6 +253,10 @@ class ArchiveV2Runner:
 
     def _resolve_backfill_dates(self, families: list[str]) -> list[str]:
         anchor = datetime.fromisoformat(self.profile.end_date).date() if self.profile.end_date else datetime.now(timezone.utc).date()
+        if self._should_use_trading_day_calendar(families):
+            ordered = sorted([d for d in self._historical_trading_days_between(anchor - timedelta(days=max(int(self.profile.backfill_days or 0) * 4, 14)), anchor) if d <= anchor], reverse=True)
+            selected = ordered[: int(self.profile.backfill_days or 0)]
+            return [d.isoformat() for d in sorted(selected)]
         candidate_dates: set[date] = set()
         fetch_limit = max(int(self.profile.backfill_days or 0) * 4, 12)
         for family in families:
@@ -256,6 +264,36 @@ class ArchiveV2Runner:
         ordered = sorted([d for d in candidate_dates if d <= anchor], reverse=True)
         selected = ordered[: int(self.profile.backfill_days or 0)]
         return [d.isoformat() for d in sorted(selected)]
+
+    def _should_use_trading_day_calendar(self, families: list[str]) -> bool:
+        return bool(families) and all(family in MARKET_CALENDAR_FAMILIES for family in families)
+
+    def _historical_trading_days_between(self, start: date, end: date, exchange: str = 'SSE') -> list[date]:
+        with engine.begin() as conn:
+            calendar_rows = conn.execute(text("""
+                select cal_date as d
+                from ifa2.trade_cal_current
+                where exchange = :exchange
+                  and cal_date between :start and :end
+                  and is_open = 1
+            """), {'exchange': exchange, 'start': start, 'end': end}).mappings().all()
+            observed_rows = conn.execute(text("""
+                select distinct trade_date as d
+                from ifa2.index_daily_bar_history
+                where trade_date between :start and :end
+            """), {'start': start, 'end': end}).mappings().all()
+        observed = {r['d'] for r in observed_rows if r.get('d')}
+        calendar = {r['d'] for r in calendar_rows if r.get('d')}
+        merged = sorted(d for d in (observed | calendar) if start <= d <= end)
+        if merged:
+            return merged
+        fallback: list[date] = []
+        cur = start
+        while cur <= end:
+            if cur.weekday() < 5:
+                fallback.append(cur)
+            cur += timedelta(days=1)
+        return fallback
 
     def _available_dates_for_family(self, family: str, anchor: date, limit: int) -> list[date]:
         meta = ALL_FAMILY_META.get(family)
@@ -1030,7 +1068,7 @@ class ArchiveV2Runner:
     def _write_json_rows(self, table: str, business_date: str, rows: list[dict], key_col: str, note: str = 'source-side direct daily pull archived'):
         if not rows:
             return 0, [table], 'incomplete', 'source returned no rows', None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, {key_col}, payload) values (:business_date, :key, CAST(:payload as jsonb)) on conflict (business_date, {key_col}) do update set payload=excluded.payload"), {'business_date': business_date, 'key': r[key_col], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1039,7 +1077,7 @@ class ArchiveV2Runner:
     def _write_multi_key_rows(self, table: str, business_date: str, rows: list[dict], keys: list[str], note: str):
         if not rows:
             return 0, [table], 'incomplete', 'source/history returned no rows', None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, {keys[0]}, {keys[1]}, payload) values (:business_date, :k1, :k2, CAST(:payload as jsonb)) on conflict (business_date, {keys[0]}, {keys[1]}) do update set payload=excluded.payload"), {'business_date': business_date, 'k1': r[keys[0]], 'k2': r[keys[1]], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1048,7 +1086,7 @@ class ArchiveV2Runner:
     def _write_announcements_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, title, url, rec_time, payload) values (:business_date, :row_key, :ts_code, :title, :url, :rec_time, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, title=excluded.title, url=excluded.url, rec_time=excluded.rec_time, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'title': r.get('title'), 'url': r.get('url'), 'rec_time': r.get('rec_time'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1057,7 +1095,7 @@ class ArchiveV2Runner:
     def _write_news_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, src, news_time, title, content_hash, payload) values (:business_date, :row_key, :src, :news_time, :title, :content_hash, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set src=excluded.src, news_time=excluded.news_time, title=excluded.title, content_hash=excluded.content_hash, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'src': r.get('src'), 'news_time': r.get('datetime'), 'title': r.get('title'), 'content_hash': r.get('content_hash'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1066,7 +1104,7 @@ class ArchiveV2Runner:
     def _write_research_report_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, title, report_type, inst_csname, author, payload) values (:business_date, :row_key, :ts_code, :title, :report_type, :inst_csname, :author, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, title=excluded.title, report_type=excluded.report_type, inst_csname=excluded.inst_csname, author=excluded.author, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'title': r.get('title'), 'report_type': r.get('report_type'), 'inst_csname': r.get('inst_csname'), 'author': r.get('author'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1075,7 +1113,7 @@ class ArchiveV2Runner:
     def _write_investor_qa_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, exchange_source, ts_code, pub_time, q_hash, a_hash, payload) values (:business_date, :row_key, :exchange_source, :ts_code, :pub_time, :q_hash, :a_hash, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set exchange_source=excluded.exchange_source, ts_code=excluded.ts_code, pub_time=excluded.pub_time, q_hash=excluded.q_hash, a_hash=excluded.a_hash, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'exchange_source': r.get('exchange_source'), 'ts_code': r.get('ts_code'), 'pub_time': r.get('pub_time'), 'q_hash': r.get('q_hash'), 'a_hash': r.get('a_hash'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1084,7 +1122,7 @@ class ArchiveV2Runner:
     def _write_dragon_tiger_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, reason, payload) values (:business_date, :row_key, :ts_code, :reason, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, reason=excluded.reason, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'reason': r.get('reason'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1093,14 +1131,14 @@ class ArchiveV2Runner:
     def _write_limit_up_detail_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, row_key, ts_code, limit_type, exchange, first_time, last_time, limit_times, payload) values (:business_date, :row_key, :ts_code, :limit_type, :exchange, :first_time, :last_time, :limit_times, CAST(:payload as jsonb)) on conflict (business_date, row_key) do update set ts_code=excluded.ts_code, limit_type=excluded.limit_type, exchange=excluded.exchange, first_time=excluded.first_time, last_time=excluded.last_time, limit_times=excluded.limit_times, payload=excluded.payload"), {'business_date': business_date, 'row_key': r['row_key'], 'ts_code': r.get('ts_code'), 'limit_type': r.get('limit') or r.get('limit_type_shard'), 'exchange': r.get('exchange'), 'first_time': r.get('first_time'), 'last_time': r.get('last_time'), 'limit_times': r.get('limit_times'), 'payload': json.dumps(r, ensure_ascii=False, default=str)})
         return len(rows), [table], status, note, None
 
     def _write_limit_up_down_status_row(self, table: str, business_date: str, row: dict[str, Any], status: str, note: str):
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 conn.execute(text(f"insert into ifa2.{table}(business_date, payload) values (:business_date, CAST(:payload as jsonb)) on conflict (business_date) do update set payload=excluded.payload"), {'business_date': business_date, 'payload': json.dumps(row, ensure_ascii=False, default=str)})
         return 1 if row else 0, [table], status, note, None
@@ -1108,7 +1146,7 @@ class ArchiveV2Runner:
     def _write_sector_performance_rows(self, table: str, business_date: str, rows: list[dict], status: str, note: str):
         if not rows:
             return 0, [table], status, note, None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     sector_code = r.get('ts_code') or r.get('sector_code')
@@ -1119,13 +1157,13 @@ class ArchiveV2Runner:
         if not rows:
             return 0, [table], 'incomplete', 'source/history returned no rows', None
         row = rows[0]
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 conn.execute(text(f"insert into ifa2.{table}(business_date, payload) values (:business_date, CAST(:payload as jsonb)) on conflict (business_date) do update set payload=excluded.payload"), {'business_date': business_date, 'payload': json.dumps(row, ensure_ascii=False, default=str)})
         return 1, [table], 'completed', note, None
 
     def _write_non_equity_rows(self, table: str, business_date: str, rows: list[dict]):
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     ts_code = r.get('ts_code')
@@ -1136,7 +1174,7 @@ class ArchiveV2Runner:
     def _write_event_rows(self, table: str, business_date: str, rows: list[dict], time_col: str, note: str):
         if not rows:
             return 0, [table], 'incomplete', 'source/history returned no rows', None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     row_key = self._build_event_row_key(r, time_col)
@@ -1149,7 +1187,7 @@ class ArchiveV2Runner:
     def _write_snapshot_rows(self, table: str, business_date: str, rows: list[dict], key_cols: list[str], snapshot_col: str, source_time_col: str, note: str):
         if not rows:
             return 0, [table], 'incomplete', 'source/history returned no rows', None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     params = {'business_date': business_date, 'payload': json.dumps(r, ensure_ascii=False, default=str), 'snapshot_time': r[source_time_col]}
@@ -1163,7 +1201,7 @@ class ArchiveV2Runner:
         return len(rows), [table], 'completed', note, None
 
     def _write_macro_rows(self, table: str, business_date: str, rows: list[dict]):
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     conn.execute(text(f"insert into ifa2.{table}(business_date, macro_series, payload) values (:business_date, :macro_series, CAST(:payload as jsonb)) on conflict (business_date, macro_series) do update set payload=excluded.payload"), {'business_date': business_date, 'macro_series': r['macro_series'], 'payload': json.dumps(r, ensure_ascii=False, default=str)})
@@ -1181,7 +1219,7 @@ class ArchiveV2Runner:
         archive_key_col = meta.get('archive_key_col', 'ts_code')
         if not rows:
             return 0, [table], 'incomplete', 'source/history returned no intraday rows', None
-        if self.profile.write_enabled:
+        if self._persist_enabled():
             with engine.begin() as conn:
                 for r in rows:
                     key_value = r.get(archive_key_col) or r.get('instrument_code') or r.get(meta.get('instrument_key', archive_key_col))
@@ -1189,6 +1227,8 @@ class ArchiveV2Runner:
         return len(rows), [table], 'completed', note, None
 
     def _persist_profile(self):
+        if self.profile.dry_run:
+            return
         with engine.begin() as conn:
             conn.execute(text("""
                 insert into ifa2.ifa_archive_profiles(profile_name, profile_path, profile_json, updated_at)
@@ -1198,11 +1238,28 @@ class ArchiveV2Runner:
             """), {'name': self.profile.profile_name, 'path': self.profile_path, 'profile_json': json.dumps(self.profile.__dict__, ensure_ascii=False)})
 
     def _create_run(self, status: str, trigger_source: str = 'manual_profile', notes: str | None = None):
+        self._close_stale_running_runs()
         with engine.begin() as conn:
             conn.execute(text("""
-                insert into ifa2.ifa_archive_runs(run_id, trigger_source, profile_name, profile_path, mode, start_time, status, notes)
-                values (:run_id, :trigger_source, :profile_name, :profile_path, :mode, now(), :status, :notes)
-            """), {'run_id': str(self.run_id), 'trigger_source': trigger_source, 'profile_name': self.profile.profile_name, 'profile_path': self.profile_path, 'mode': self.profile.mode, 'status': status, 'notes': notes or self.profile.notes})
+                insert into ifa2.ifa_archive_runs(run_id, trigger_source, profile_name, profile_path, mode, start_time, status, notes, dry_run)
+                values (:run_id, :trigger_source, :profile_name, :profile_path, :mode, now(), :status, :notes, :dry_run)
+            """), {'run_id': str(self.run_id), 'trigger_source': trigger_source, 'profile_name': self.profile.profile_name, 'profile_path': self.profile_path, 'mode': self.profile.mode, 'status': status, 'notes': notes or self.profile.notes, 'dry_run': self.profile.dry_run})
+
+    def _close_stale_running_runs(self) -> None:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                update ifa2.ifa_archive_runs
+                   set status = 'aborted',
+                       end_time = coalesce(end_time, now()),
+                       duration_ms = coalesce(duration_ms, greatest(0, floor(extract(epoch from (now() - start_time)) * 1000))::bigint),
+                       error_text = coalesce(error_text, 'auto-closed stale running run before new Archive V2 execution'),
+                       notes = case
+                           when notes is null or notes = '' then 'auto-closed stale running run before new Archive V2 execution'
+                           else notes || ' | auto-closed stale running run before new Archive V2 execution'
+                       end
+                 where status = 'running'
+                   and run_id <> cast(:run_id as uuid)
+            """), {'run_id': str(self.run_id)})
 
     def _finish_run(self, status: str, notes: str | None = None, error_text: str | None = None):
         with engine.begin() as conn:
@@ -1217,21 +1274,46 @@ class ArchiveV2Runner:
             """), {'run_id': str(self.run_id), 'status': status, 'notes': notes, 'error_text': error_text})
 
     def _write_item(self, family_name: str, frequency: str, business_date: str | None, status: str, rows_written: int, tables_touched: list[str], notes: str | None = None, error_text: str | None = None):
+        actual_rows_written = rows_written if self._persist_enabled() else 0
+        actual_tables_touched = tables_touched if self._persist_enabled() else []
+        family_metrics = self._parse_family_metrics(notes)
         with engine.begin() as conn:
             conn.execute(text("""
-                insert into ifa2.ifa_archive_run_items(id, run_id, family_name, frequency, coverage_scope, business_date, status, rows_written, tables_touched, notes, error_text)
-                values (:id, :run_id, :family_name, :frequency, :coverage_scope, :business_date, :status, :rows_written, CAST(:tables_touched as jsonb), :notes, :error_text)
-            """), {'id': str(uuid.uuid4()), 'run_id': str(self.run_id), 'family_name': family_name, 'frequency': frequency, 'coverage_scope': self._coverage_scope(), 'business_date': business_date, 'status': status, 'rows_written': rows_written, 'tables_touched': json.dumps(tables_touched), 'notes': notes, 'error_text': error_text})
+                insert into ifa2.ifa_archive_run_items(
+                    id, run_id, family_name, frequency, coverage_scope, business_date, status,
+                    rows_written, tables_touched, would_write_rows, would_write_tables,
+                    family_expected_rows, family_observed_rows, family_coverage_ratio,
+                    notes, error_text)
+                values (
+                    :id, :run_id, :family_name, :frequency, :coverage_scope, :business_date, :status,
+                    :rows_written, CAST(:tables_touched as jsonb), :would_write_rows, CAST(:would_write_tables as jsonb),
+                    :family_expected_rows, :family_observed_rows, :family_coverage_ratio,
+                    :notes, :error_text)
+            """), {'id': str(uuid.uuid4()), 'run_id': str(self.run_id), 'family_name': family_name, 'frequency': frequency, 'coverage_scope': self._coverage_scope(), 'business_date': business_date, 'status': status, 'rows_written': actual_rows_written, 'tables_touched': json.dumps(actual_tables_touched), 'would_write_rows': rows_written, 'would_write_tables': json.dumps(tables_touched), 'family_expected_rows': family_metrics.get('expected_rows'), 'family_observed_rows': family_metrics.get('observed_rows'), 'family_coverage_ratio': family_metrics.get('coverage_ratio'), 'notes': notes, 'error_text': error_text})
 
     def _upsert_completeness(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, row_count: int, detail_text: str | None = None):
+        if self.profile.dry_run:
+            return
+        family_metrics = self._parse_family_metrics(detail_text)
         with engine.begin() as conn:
             conn.execute(text("""
-                insert into ifa2.ifa_archive_completeness(id, business_date, family_name, frequency, coverage_scope, status, source_mode, last_run_id, row_count, retry_after, last_error, updated_at)
-                values (:id, :business_date, :family_name, :frequency, :coverage_scope, :status, :source_mode, :last_run_id, :row_count, :retry_after, :last_error, now())
+                insert into ifa2.ifa_archive_completeness(id, business_date, family_name, frequency, coverage_scope, status, source_mode, last_run_id, row_count, retry_after, last_error, family_expected_rows, family_observed_rows, family_coverage_ratio, updated_at)
+                values (:id, :business_date, :family_name, :frequency, :coverage_scope, :status, :source_mode, :last_run_id, :row_count, :retry_after, :last_error, :family_expected_rows, :family_observed_rows, :family_coverage_ratio, now())
                 on conflict (business_date, family_name, frequency, coverage_scope)
-                do update set status=excluded.status, source_mode=excluded.source_mode, last_run_id=excluded.last_run_id, row_count=excluded.row_count, retry_after=excluded.retry_after, last_error=excluded.last_error, updated_at=now()
-            """), {'id': str(uuid.uuid4()), 'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope, 'status': status, 'source_mode': self.profile.mode, 'last_run_id': str(self.run_id), 'row_count': row_count, 'retry_after': None, 'last_error': None if status == 'completed' else detail_text})
+                do update set status=excluded.status, source_mode=excluded.source_mode, last_run_id=excluded.last_run_id, row_count=excluded.row_count, retry_after=excluded.retry_after, last_error=excluded.last_error, family_expected_rows=excluded.family_expected_rows, family_observed_rows=excluded.family_observed_rows, family_coverage_ratio=excluded.family_coverage_ratio, updated_at=now()
+            """), {'id': str(uuid.uuid4()), 'business_date': business_date, 'family_name': family_name, 'frequency': frequency, 'coverage_scope': coverage_scope, 'status': status, 'source_mode': self.profile.mode, 'last_run_id': str(self.run_id), 'row_count': row_count, 'retry_after': None, 'last_error': None if status == 'completed' else detail_text, 'family_expected_rows': family_metrics.get('expected_rows'), 'family_observed_rows': family_metrics.get('observed_rows'), 'family_coverage_ratio': family_metrics.get('coverage_ratio')})
         self._sync_repair_queue(business_date, family_name, frequency, coverage_scope, status, detail_text)
+
+    def _persist_enabled(self) -> bool:
+        return bool(self.profile.write_enabled and not self.profile.dry_run)
+
+    def _parse_family_metrics(self, detail_text: str | None) -> dict[str, Any]:
+        if not detail_text:
+            return {}
+        match = FAMILY_COMPLETENESS_RE.search(detail_text)
+        if not match:
+            return {}
+        return {'expected_rows': int(match.group('expected')), 'observed_rows': int(match.group('actual')), 'coverage_ratio': float(match.group('coverage'))}
 
     def _sync_repair_queue(self, business_date: str, family_name: str, frequency: str, coverage_scope: str, status: str, detail_text: str | None):
         existing = self._get_repair_queue_row(business_date, family_name, frequency)
