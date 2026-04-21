@@ -1067,24 +1067,37 @@ class NewsHistory:
         version_id: str,
         records: list[dict],
     ) -> int:
-        """Store historical records for a version."""
+        """Store historical records for a version.
+
+        Exact duplicate rows are suppressed across versions so repeated real-runs
+        do not grow `news_history` unless the material payload changes.
+        """
         if not records:
             return 0
 
         count = 0
-        for rec in records:
-            record_id = str(uuid.uuid4())
-            with self.engine.begin() as conn:
-                conn.execute(
+        with self.engine.begin() as conn:
+            for rec in records:
+                record_id = str(uuid.uuid4())
+                result = conn.execute(
                     text(
                         """
                         INSERT INTO ifa2.news_history (
                             id, version_id, datetime, classify, title, source,
                             url, content, created_at
                         )
-                        VALUES (
+                        SELECT
                             :id, :version_id, :datetime, :classify, :title, :source,
                             :url, :content, now()
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM ifa2.news_history h
+                            WHERE h.datetime IS NOT DISTINCT FROM :datetime
+                              AND h.classify IS NOT DISTINCT FROM :classify
+                              AND h.title IS NOT DISTINCT FROM :title
+                              AND h.source IS NOT DISTINCT FROM :source
+                              AND h.url IS NOT DISTINCT FROM :url
+                              AND h.content IS NOT DISTINCT FROM :content
                         )
                         """
                     ),
@@ -1099,7 +1112,7 @@ class NewsHistory:
                         "content": rec.get("content"),
                     },
                 )
-                count += 1
+                count += result.rowcount or 0
 
         return count
 

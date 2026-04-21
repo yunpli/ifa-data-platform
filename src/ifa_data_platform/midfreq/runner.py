@@ -214,7 +214,13 @@ class MidfreqRunner:
             logger.info(f"Registered midfreq dataset: {ds['dataset_name']}")
 
     def _persist_current_to_history(self, dataset_name: str, version_id: str) -> int:
-        """Copy current records to history table for versioning."""
+        """Copy current records to history table for versioning.
+
+        Idempotency rule: a re-run should not grow history when the current-table
+        business row is materially unchanged. Only rows whose business key exists
+        with different payload, or does not exist yet, are written as a new
+        history snapshot for the new version.
+        """
         from sqlalchemy import text
         from ifa_data_platform.db.engine import make_engine
 
@@ -270,6 +276,7 @@ class MidfreqRunner:
                 )
                 return 0
             key_columns = self._get_history_key_columns(dataset_name)
+            material_match_columns = self._get_history_material_match_columns(dataset_name)
             result = conn.execute(
                 text(f"""
                     INSERT INTO ifa2.{history_table} (id, version_id,
@@ -281,8 +288,8 @@ class MidfreqRunner:
                       AND NOT EXISTS (
                         SELECT 1
                         FROM ifa2.{history_table} h
-                        WHERE h.version_id = :version_id
-                          AND {key_columns}
+                        WHERE {key_columns}
+                          AND {material_match_columns}
                       )
                 """),
                 {"version_id": version_id},
@@ -330,3 +337,89 @@ class MidfreqRunner:
             "dragon_tiger_list": "h.ts_code = c.ts_code AND h.trade_date = c.trade_date",
         }
         return key_maps[dataset_name]
+
+    def _get_history_material_match_columns(self, dataset_name: str) -> str:
+        material_maps = {
+            "equity_daily_bar": " AND ".join([
+                "h.open IS NOT DISTINCT FROM c.open",
+                "h.high IS NOT DISTINCT FROM c.high",
+                "h.low IS NOT DISTINCT FROM c.low",
+                "h.close IS NOT DISTINCT FROM c.close",
+                "h.vol IS NOT DISTINCT FROM c.vol",
+                "h.amount IS NOT DISTINCT FROM c.amount",
+                "h.pre_close IS NOT DISTINCT FROM c.pre_close",
+                "h.change IS NOT DISTINCT FROM c.change",
+                "h.pct_chg IS NOT DISTINCT FROM c.pct_chg",
+            ]),
+            "index_daily_bar": " AND ".join([
+                "h.open IS NOT DISTINCT FROM c.open",
+                "h.high IS NOT DISTINCT FROM c.high",
+                "h.low IS NOT DISTINCT FROM c.low",
+                "h.close IS NOT DISTINCT FROM c.close",
+                "h.vol IS NOT DISTINCT FROM c.vol",
+                "h.amount IS NOT DISTINCT FROM c.amount",
+                "h.pre_close IS NOT DISTINCT FROM c.pre_close",
+                "h.change IS NOT DISTINCT FROM c.change",
+                "h.pct_chg IS NOT DISTINCT FROM c.pct_chg",
+            ]),
+            "etf_daily_bar": " AND ".join([
+                "h.open IS NOT DISTINCT FROM c.open",
+                "h.high IS NOT DISTINCT FROM c.high",
+                "h.low IS NOT DISTINCT FROM c.low",
+                "h.close IS NOT DISTINCT FROM c.close",
+                "h.vol IS NOT DISTINCT FROM c.vol",
+                "h.amount IS NOT DISTINCT FROM c.amount",
+                "h.pre_close IS NOT DISTINCT FROM c.pre_close",
+                "h.change IS NOT DISTINCT FROM c.change",
+                "h.pct_chg IS NOT DISTINCT FROM c.pct_chg",
+            ]),
+            "northbound_flow": " AND ".join([
+                "h.north_money IS NOT DISTINCT FROM c.north_money",
+                "h.north_bal IS NOT DISTINCT FROM c.north_bal",
+                "h.north_buy IS NOT DISTINCT FROM c.north_buy",
+                "h.north_sell IS NOT DISTINCT FROM c.north_sell",
+            ]),
+            "limit_up_down_status": " AND ".join([
+                "h.limit_up_count IS NOT DISTINCT FROM c.limit_up_count",
+                "h.limit_down_count IS NOT DISTINCT FROM c.limit_down_count",
+                "h.limit_up_streak_high IS NOT DISTINCT FROM c.limit_up_streak_high",
+                "h.limit_down_streak_high IS NOT DISTINCT FROM c.limit_down_streak_high",
+            ]),
+            "margin_financing": " AND ".join([
+                "h.rzye IS NOT DISTINCT FROM c.rzye",
+                "h.rzmre IS NOT DISTINCT FROM c.rzmre",
+                "h.rzche IS NOT DISTINCT FROM c.rzche",
+                "h.rzrqye IS NOT DISTINCT FROM c.rzrqye",
+                "h.rqryl IS NOT DISTINCT FROM c.rqryl",
+            ]),
+            "turnover_rate": " AND ".join([
+                "h.turnover_rate IS NOT DISTINCT FROM c.turnover_rate",
+                "h.turnover_rate_f IS NOT DISTINCT FROM c.turnover_rate_f",
+            ]),
+            "limit_up_detail": " AND ".join([
+                'h."limit" IS NOT DISTINCT FROM c.limit_status',
+                "h.pre_limit IS NOT DISTINCT FROM c.pre_limit_status",
+            ]),
+            "southbound_flow": " AND ".join([
+                "h.south_money IS NOT DISTINCT FROM c.south_money",
+                "h.south_bal IS NOT DISTINCT FROM c.south_bal",
+                "h.south_buy IS NOT DISTINCT FROM c.south_buy",
+                "h.south_sell IS NOT DISTINCT FROM c.south_sell",
+            ]),
+            "main_force_flow": " AND ".join([
+                "h.main_force IS NOT DISTINCT FROM c.main_force",
+                "h.main_force_pct IS NOT DISTINCT FROM c.main_force_pct",
+            ]),
+            "sector_performance": " AND ".join([
+                "h.sector_name IS NOT DISTINCT FROM c.sector_name",
+                "h.close IS NOT DISTINCT FROM c.close",
+                "h.pct_chg IS NOT DISTINCT FROM c.pct_chg",
+                "h.turnover_rate IS NOT DISTINCT FROM c.turnover_rate",
+            ]),
+            "dragon_tiger_list": " AND ".join([
+                "h.buy_amount IS NOT DISTINCT FROM c.buy_amount",
+                "h.sell_amount IS NOT DISTINCT FROM c.sell_amount",
+                "h.net_amount IS NOT DISTINCT FROM c.net_amount",
+            ]),
+        }
+        return material_maps[dataset_name]

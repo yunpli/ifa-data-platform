@@ -14,8 +14,16 @@ class DerivedSignalBuilder:
     def __init__(self) -> None:
         self.engine = make_engine()
 
+    def _reset_working_tables(self, conn) -> None:
+        conn.execute(text("TRUNCATE TABLE ifa2.highfreq_sector_breadth_working"))
+        conn.execute(text("TRUNCATE TABLE ifa2.highfreq_sector_heat_working"))
+        conn.execute(text("TRUNCATE TABLE ifa2.highfreq_leader_candidate_working"))
+        conn.execute(text("TRUNCATE TABLE ifa2.highfreq_limit_event_stream_working"))
+        conn.execute(text("TRUNCATE TABLE ifa2.highfreq_intraday_signal_state_working"))
+
     def build(self) -> dict:
         with self.engine.begin() as conn:
+            self._reset_working_tables(conn)
             stock_rows = conn.execute(
                 text(
                     """
