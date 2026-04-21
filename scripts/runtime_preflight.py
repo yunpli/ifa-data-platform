@@ -9,6 +9,8 @@ from typing import Any
 
 from sqlalchemy import create_engine, text
 
+from ifa_data_platform.lowfreq.trade_calendar_maintenance import TradeCalendarMaintenanceService
+
 engine = create_engine('postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp')
 
 
@@ -34,6 +36,10 @@ def main():
     ap.add_argument('--runtime-stale-min', type=int, default=120)
     ap.add_argument('--checkpoint-stale-hours', type=int, default=12)
     ap.add_argument('--catchup-stale-hours', type=int, default=24)
+    ap.add_argument('--calendar-exchange', type=str, default='SSE')
+    ap.add_argument('--calendar-past-days-required', type=int, default=30)
+    ap.add_argument('--calendar-future-days-required', type=int, default=180)
+    ap.add_argument('--calendar-max-active-version-age-days', type=int, default=45)
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
@@ -114,18 +120,30 @@ def main():
                 'progress_note': c.get('progress_note'),
             }))
 
+    calendar_report = TradeCalendarMaintenanceService().health_check(
+        exchange=args.calendar_exchange,
+        past_days_required=args.calendar_past_days_required,
+        future_days_required=args.calendar_future_days_required,
+        max_active_version_age_days=args.calendar_max_active_version_age_days,
+    )
+    for item in calendar_report.findings:
+        findings.append(Finding('trade_calendar_health', 'report_only', item))
+
     payload = {
         'generated_at': now.isoformat(),
         'repair': args.repair,
         'runtime_stale_min': args.runtime_stale_min,
         'checkpoint_stale_hours': args.checkpoint_stale_hours,
         'catchup_stale_hours': args.catchup_stale_hours,
+        'trade_calendar': calendar_report.to_dict(),
         'findings': [asdict(f) for f in findings],
         'summary': {
             'total_findings': len(findings),
             'stale_runtime_active': sum(1 for f in findings if f.kind == 'runtime_worker_state_stale_active'),
             'in_progress_checkpoints': sum(1 for f in findings if f.kind == 'archive_checkpoint_in_progress'),
             'catchup_pending_or_observed': sum(1 for f in findings if f.kind == 'archive_target_catchup_pending_or_observed'),
+            'trade_calendar_status': calendar_report.status,
+            'trade_calendar_findings': len(calendar_report.findings),
         }
     }
     if args.out:

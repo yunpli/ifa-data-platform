@@ -50,19 +50,29 @@ def test_unified_runtime_run_once_lowfreq_real_run_executes():
     assert payload['lane'] == 'lowfreq'
     assert payload['execution_mode'] == 'real_run'
     expected = {
-        'trade_cal', 'stock_basic', 'index_basic', 'fund_basic_etf', 'sw_industry_mapping',
+        'stock_basic', 'index_basic', 'fund_basic_etf', 'sw_industry_mapping',
         'announcements', 'news', 'research_reports', 'investor_qa', 'index_weight',
         'etf_daily_basic', 'share_float', 'company_basic', 'stk_managers', 'new_share',
         'name_change', 'top10_holders', 'top10_floatholders', 'pledge_stat'
     }
     assert expected <= set(payload['planned_dataset_names'])
-    assert payload['executed_dataset_count'] >= 16
+    assert 'trade_cal' not in payload['planned_dataset_names']
+    assert payload['executed_dataset_count'] >= 15
     assert any(r['dataset_name'] == 'fund_basic_etf' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'index_weight' for r in payload['dataset_results'])
     assert any(r['dataset_name'] == 'top10_holders' for r in payload['dataset_results'])
     assert all(r['status'] == 'succeeded' for r in payload['dataset_results'])
     assert any((r['records_processed'] or 0) > 0 for r in payload['dataset_results'])
     assert payload['manifest_item_count'] > 0
+
+
+def test_unified_runtime_trade_calendar_monthly_trigger_runs_only_trade_cal():
+    payload = run_cli('run-once', '--lane', 'lowfreq', '--trigger-mode', 'trade_calendar_monthly_maintenance', '--owner-type', 'default', '--owner-id', 'default')
+    assert payload['lane'] == 'lowfreq'
+    assert payload['planned_dataset_names'] == ['trade_cal']
+    assert payload['executed_dataset_count'] == 1
+    assert payload['dataset_results'][0]['dataset_name'] == 'trade_cal'
+    assert payload['dataset_results'][0]['status'] == 'succeeded'
 
 
 def test_unified_runtime_run_once_midfreq_real_run_executes():

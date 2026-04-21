@@ -17,6 +17,8 @@ def test_runtime_preflight_outputs_findings_file(tmp_path: Path):
     assert 'generated_at' in payload
     assert 'findings' in payload
     assert 'summary' in payload
+    assert 'trade_calendar' in payload
+    assert 'trade_calendar_status' in payload['summary']
     assert isinstance(payload['findings'], list)
 
 

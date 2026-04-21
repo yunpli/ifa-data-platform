@@ -78,6 +78,34 @@ python -m ifa_data_platform.runtime.unified_daemon --worker highfreq --runtime-b
 python -m ifa_data_platform.runtime.unified_daemon --worker archive --runtime-budget-sec 3600
 ```
 
+### Trade calendar operational policy
+
+`trade_cal` is no longer refreshed on every normal lowfreq runtime start. Runtime truth still reads from local `ifa2.trade_cal_current`, but refresh is now split into:
+
+1. **Monthly maintenance sync**
+```bash
+python scripts/runtime_manifest_cli.py run-once \
+  --lane lowfreq \
+  --trigger-mode trade_calendar_monthly_maintenance \
+  --owner-type default --owner-id default
+```
+This executes only `trade_cal` through the normal lowfreq runner/version path.
+
+2. **Manual exact-range repair/backfill**
+```bash
+python scripts/trade_calendar_maintenance.py sync \
+  --start-date 2026-01-01 \
+  --end-date 2026-12-31
+```
+This is the operator path for targeted repair/backfill and promotes the refreshed version by default.
+
+3. **Preflight check without auto-sync**
+```bash
+python scripts/trade_calendar_maintenance.py health-check
+python scripts/runtime_preflight.py --out artifacts/service/runtime_preflight_latest.json
+```
+The preflight path validates calendar coverage/version freshness for runtime/archive consumers but never auto-syncs the calendar.
+
 Optional bounded validation mode:
 ```bash
 python -m ifa_data_platform.runtime.unified_daemon --worker highfreq --dry-run-manifest-only

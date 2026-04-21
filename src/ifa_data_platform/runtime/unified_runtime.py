@@ -760,7 +760,7 @@ class UnifiedRuntime:
         started_at: str,
     ) -> UnifiedRunResult:
         lane_items = [i for i in manifest.items if i.resolved_lane == lane]
-        dataset_names = self._plan_lane_datasets(lane, lane_items)
+        dataset_names = self._plan_lane_datasets(lane, lane_items, trigger_mode=trigger_mode)
         execution_mode = self._lane_execution_mode(lane)
         requirement_state = self._runtime_requirement_state(lane)
         blocked = self._blocked_dataset_results(lane, dataset_names, requirement_state)
@@ -822,7 +822,7 @@ class UnifiedRuntime:
             summary=summary,
         )
 
-    def _plan_lane_datasets(self, lane: str, lane_items: list[TargetManifestItem]) -> list[str]:
+    def _plan_lane_datasets(self, lane: str, lane_items: list[TargetManifestItem], trigger_mode: str = "manual_once") -> list[str]:
         if lane == "lowfreq":
             enabled = [
                 d.dataset_name
@@ -830,10 +830,18 @@ class UnifiedRuntime:
                 if not d.dataset_name.startswith("test_")
                 and d.dataset_name not in {"e2e_test_dataset", "china_a_share_daily"}
             ]
-            preferred = [name for name in LOWFREQ_PROOFSET if name in enabled]
+            calendar_maintenance_trigger_modes = {
+                "trade_calendar_monthly_maintenance",
+                "trade_calendar_manual_refresh",
+            }
+            if trigger_mode in calendar_maintenance_trigger_modes:
+                return ["trade_cal"] if "trade_cal" in enabled else []
+
+            enabled_without_trade_cal = [name for name in enabled if name != "trade_cal"]
+            preferred = [name for name in LOWFREQ_PROOFSET if name in enabled_without_trade_cal]
             if preferred:
                 return preferred
-            return enabled or ["stock_basic"]
+            return enabled_without_trade_cal or ["stock_basic"]
 
         if lane == "midfreq":
             enabled = [d.dataset_name for d in self.midfreq_registry.list_enabled()]

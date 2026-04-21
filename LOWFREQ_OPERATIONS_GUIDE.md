@@ -171,6 +171,8 @@ python scripts/validate_daemon.py --health
 ### daily_light
 用于较轻量、日常刷新的低频数据组。
 
+**重要变更：** `trade_cal` 不再跟随每次常规 lowfreq 启动一起刷新。常规 unified lowfreq 运行会跳过 `trade_cal`，避免每次 runtime 启动都浪费一次日历同步。
+
 默认调度窗口：
 - `22:45` Asia/Shanghai
 - fallback：`01:30` Asia/Shanghai
@@ -188,6 +190,26 @@ python scripts/validate_daemon.py --health
 - group 执行结果进入 `GroupExecutionSummary`
 - group / daemon state 写入 DB
 - 同一窗口成功后会被 dedupe，避免重复执行
+
+### trade_cal 现在怎么维护
+- **执行真相仍然是本地表**：`ifa2.trade_cal_current` + `ifa2.trade_cal_history`
+- **月度维护刷新**：
+  ```bash
+  python scripts/runtime_manifest_cli.py run-once \
+    --lane lowfreq \
+    --trigger-mode trade_calendar_monthly_maintenance \
+    --owner-type default --owner-id default
+  ```
+- **手动 repair / backfill**：
+  ```bash
+  python scripts/trade_calendar_maintenance.py sync --start-date 2026-01-01 --end-date 2026-12-31
+  ```
+- **预检只检查不自动同步**：
+  ```bash
+  python scripts/trade_calendar_maintenance.py health-check
+  python scripts/runtime_preflight.py --out artifacts/service/runtime_preflight_latest.json
+  ```
+- 推荐策略：`monthly sync + on-demand repair + preflight check`，不要再把 trade calendar 放进每次 lowfreq 启动的默认刷新路径。
 
 ---
 
