@@ -12,10 +12,14 @@
 
 对应的 business 合同文档在：
 
-- `/Users/neoclaw/repos/ifa-business-layer/docs/A_SHARE_2_0_ONE_MAIN_THREE_SUPPORT_CONTRACT.md`
+- `/Users/neoclaw/repos/ifa-business-layer/docs/A_SHARE_EARLY_MID_LATE_DATA_CONSUMPTION_CONTRACT_V1.md`
 - `/Users/neoclaw/repos/ifa-business-layer/docs/A_SHARE_MAIN_AGENT_DELIVERY_CONTRACT.md`
 - `/Users/neoclaw/repos/ifa-business-layer/docs/A_SHARE_SUPPORT_AGENTS_DELIVERY_CONTRACT.md`
 - `/Users/neoclaw/repos/ifa-business-layer/docs/A_SHARE_FSJ_AND_EVIDENCE_MAPPING_V1.md`
+
+slot 级数据合同补充见：
+
+- `/Users/neoclaw/repos/ifa-data-platform/docs/A_SHARE_REPORT_SLOT_DATA_CONTRACT_V1.md`
 
 ---
 
