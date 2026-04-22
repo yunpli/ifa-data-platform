@@ -135,6 +135,25 @@ A successful unified-daemon run proves:
 - centralized run evidence can be written to `ifa2.unified_runtime_runs`
 - centralized worker state can be written to `ifa2.runtime_worker_state`
 - worker execution can be dispatched through one official runtime entry
+- scheduled slot-support runs can auto-persist replay evidence into `ifa2.slot_replay_evidence` / `ifa2.slot_replay_evidence_runs`
+
+### Runtime slot replay auto-capture
+
+For recognized scheduled report-support windows, the unified daemon now auto-captures slot replay evidence **after** the runtime row has been finalized, so the evidence reflects the completed execution state rather than a speculative pre-run snapshot.
+
+Current rules:
+- only `scheduled` unified-daemon runs participate
+- only `lowfreq`, `midfreq`, `highfreq`, and `archive_v2` are eligible
+- non-slot/manual/overlap-marker runs are ignored to avoid noisy evidence spam
+- report artifact metadata stays on the existing placeholder contract when no real artifact path exists yet at execution time
+- perspective is derived from the scheduled Beijing clock time:
+  - `observed` = the scheduled support window lands by the slot cutoff
+  - `corrected` = the same slot is refreshed after its observed cutoff
+
+Slot families currently inferred from schedule time:
+- `<= 09:30` → `early`
+- `09:31 .. 13:30` → `mid`
+- `> 13:30` → `late`
 
 It still does **not** by itself prove complete iFA 2.0 production readiness; coverage truth, Business Layer scope truth, source limitations, and archive/backfill depth must also be interpreted correctly.
 

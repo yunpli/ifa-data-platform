@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.runtime.replay_evidence import ReplayEvidenceStore, SLOT_DEFINITIONS
 from ifa_data_platform.runtime.schedule_policy import DEFAULT_SCHEDULE_POLICY, SchedulePolicyRow
 from ifa_data_platform.runtime.trading_calendar import TradingCalendarService
 from ifa_data_platform.runtime.unified_runtime import UnifiedRuntime, now_utc
@@ -355,6 +356,7 @@ class UnifiedRuntimeDaemon:
     def __init__(self) -> None:
         self.store = UnifiedRuntimeDaemonStore()
         self.adapter = UnifiedWorkerAdapter()
+        self.replay_store = ReplayEvidenceStore()
         self.shutdown_requested = False
         self.calendar = TradingCalendarService()
 
@@ -587,9 +589,84 @@ class UnifiedRuntimeDaemon:
                 error=None if result["error_count"] == 0 else "see unified_runtime_runs.summary",
                 next_due_at_utc=self._next_due_at_utc(worker_type, start),
             )
+            self._maybe_capture_slot_replay_evidence(
+                worker_type=worker_type,
+                trigger_mode=trigger_mode,
+                schedule_key=schedule_key,
+                run_id=effective_run_id,
+            )
             return result
         finally:
             self.store.release_worker_lock(worker_type)
+
+    def _maybe_capture_slot_replay_evidence(
+        self,
+        *,
+        worker_type: str,
+        trigger_mode: str,
+        schedule_key: Optional[str],
+        run_id: str,
+    ) -> Optional[dict[str, Any]]:
+        capture_plan = derive_runtime_slot_capture(
+            worker_type=worker_type,
+            trigger_mode=trigger_mode,
+            schedule_key=schedule_key,
+        )
+        if not capture_plan:
+            return None
+        try:
+            evidence = self.replay_store.capture_runtime_run_evidence(
+                run_id=run_id,
+                slot_key=capture_plan["slot_key"],
+                perspective=capture_plan["perspective"],
+                capture_reason="runtime_daemon_auto_capture",
+                notes=capture_plan["note"],
+            )
+            self.store.update_unified_run_governance(
+                run_id=run_id,
+                schedule_key=schedule_key,
+                beijing_time_hm=None,
+                runtime_budget_sec=None,
+                duration_ms=None,
+                tables_updated=[],
+                tasks_executed=[],
+                error_count=0,
+                governance_state="ok",
+                status=None,
+                summary_patch={
+                    "slot_replay_capture": {
+                        "attempted": True,
+                        "status": "captured",
+                        "slot_key": capture_plan["slot_key"],
+                        "perspective": capture_plan["perspective"],
+                        "evidence_id": str(evidence.get("id")),
+                    }
+                },
+            )
+            return evidence
+        except Exception as exc:
+            self.store.update_unified_run_governance(
+                run_id=run_id,
+                schedule_key=schedule_key,
+                beijing_time_hm=None,
+                runtime_budget_sec=None,
+                duration_ms=None,
+                tables_updated=[],
+                tasks_executed=[],
+                error_count=0,
+                governance_state="ok",
+                status=None,
+                summary_patch={
+                    "slot_replay_capture": {
+                        "attempted": True,
+                        "status": "failed",
+                        "slot_key": capture_plan["slot_key"],
+                        "perspective": capture_plan["perspective"],
+                        "error": str(exc),
+                    }
+                },
+            )
+            return None
 
     def _default_budget(self, worker_type: str) -> int:
         return {
@@ -623,6 +700,53 @@ class UnifiedRuntimeDaemon:
     def _signal_handler(self, signum, frame) -> None:
         self.shutdown_requested = True
         sys.exit(0)
+
+
+def derive_runtime_slot_capture(
+    *,
+    worker_type: str,
+    trigger_mode: str,
+    schedule_key: Optional[str],
+) -> Optional[dict[str, str]]:
+    if trigger_mode != "scheduled" or not schedule_key:
+        return None
+    if worker_type not in {"lowfreq", "midfreq", "highfreq", "archive_v2"}:
+        return None
+    hm = _schedule_time_hm(schedule_key)
+    if not hm:
+        return None
+    slot_key = _slot_key_for_time(hm)
+    if slot_key is None:
+        return None
+    perspective = _slot_perspective(slot_key, hm)
+    return {
+        "slot_key": slot_key,
+        "perspective": perspective,
+        "note": f"Auto-captured from unified runtime daemon for {schedule_key}. Observed means the scheduled support window landed by slot cutoff; corrected means the same slot was refreshed after the observed cutoff.",
+    }
+
+
+def _schedule_time_hm(schedule_key: str) -> Optional[str]:
+    tail = schedule_key.rsplit(":", 1)[-1]
+    token = tail.rsplit("_", 1)[-1]
+    if len(token) == 4 and token.isdigit():
+        return f"{token[:2]}:{token[2:]}"
+    return None
+
+
+def _slot_key_for_time(hm: str) -> Optional[str]:
+    if hm <= "09:30":
+        return "early"
+    if hm <= "13:30":
+        return "mid"
+    if hm <= "23:59":
+        return "late"
+    return None
+
+
+def _slot_perspective(slot_key: str, hm: str) -> str:
+    cutoff = SLOT_DEFINITIONS[slot_key]["observed_cutoff"].strftime("%H:%M")
+    return "observed" if hm <= cutoff else "corrected"
 
 
 def main() -> None:

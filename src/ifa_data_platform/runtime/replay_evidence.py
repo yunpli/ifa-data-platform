@@ -306,6 +306,69 @@ class ReplayEvidenceStore:
             ).mappings().first()
             return dict(row) if row else None
 
+    def capture_runtime_run_evidence(
+        self,
+        *,
+        run_id: str,
+        slot_key: str,
+        perspective: str,
+        capture_reason: str = "runtime_auto_capture",
+        notes: Optional[str] = None,
+    ) -> dict[str, Any]:
+        self.ensure_schema()
+        run = self._load_run(run_id)
+        if not run:
+            raise ValueError(f"Runtime run not found: {run_id}")
+        trade_date = self._infer_trade_date(run)
+        artifact = placeholder_artifact(slot_key=slot_key, trade_date=trade_date)
+        return self.capture_slot_evidence(
+            trade_date=trade_date,
+            slot_key=slot_key,
+            perspective=perspective,
+            capture_reason=capture_reason,
+            artifact=artifact,
+            run_ids=[run_id],
+            notes=notes,
+        )
+
+    def _load_run(self, run_id: str) -> Optional[dict[str, Any]]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT id, lane, worker_type, trigger_mode, schedule_key,
+                           triggered_for_beijing_time, runtime_budget_sec, duration_ms,
+                           governance_state, status, started_at, completed_at,
+                           records_processed, error_count, tables_updated, tasks_executed,
+                           manifest_snapshot_id, manifest_hash, summary
+                    FROM ifa2.unified_runtime_runs
+                    WHERE id = CAST(:id AS uuid)
+                    """
+                ),
+                {"id": run_id},
+            ).mappings().first()
+            return dict(row) if row else None
+
+    def _infer_trade_date(self, run: dict[str, Any]) -> str:
+        summary = run.get("summary") or {}
+        if not isinstance(summary, dict):
+            try:
+                summary = json.loads(summary)
+            except Exception:
+                summary = {}
+        if summary.get("business_date"):
+            return str(summary["business_date"])
+        started_at = run.get("started_at")
+        if isinstance(started_at, datetime):
+            ts = started_at if started_at.tzinfo else started_at.replace(tzinfo=UTC)
+            return ts.astimezone(BJ_TZ).date().isoformat()
+        if started_at:
+            parsed = datetime.fromisoformat(str(started_at))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            return parsed.astimezone(BJ_TZ).date().isoformat()
+        raise ValueError(f"Unable to infer trade_date for runtime run {run.get('id')}")
+
     def _select_runs(
         self,
         *,

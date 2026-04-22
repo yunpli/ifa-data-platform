@@ -10,6 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy import text
 
 from ifa_data_platform.runtime.replay_evidence import ReplayEvidenceStore, artifact_from_path
+from ifa_data_platform.runtime.unified_daemon import UnifiedRuntimeDaemon, derive_runtime_slot_capture
 
 REPO = Path('/Users/neoclaw/repos/ifa-data-platform')
 PYTHON = REPO / '.venv' / 'bin' / 'python'
@@ -208,6 +209,103 @@ def test_slot_replay_evidence_capture_observed_and_corrected_selection(tmp_path:
             conn.execute(text("DELETE FROM ifa2.unified_runtime_runs WHERE id IN (CAST(:a AS uuid), CAST(:b AS uuid), CAST(:c AS uuid))"), {'a': run_early, 'b': run_corrected, 'c': run_mid})
             conn.execute(text("DELETE FROM ifa2.job_runs WHERE id IN (CAST(:a AS uuid), CAST(:b AS uuid), CAST(:c AS uuid))"), {'a': run_early, 'b': run_corrected, 'c': run_mid})
             conn.execute(text("DELETE FROM ifa2.target_manifest_snapshots WHERE id = CAST(:id AS uuid)"), {'id': manifest_id})
+
+
+def test_runtime_daemon_auto_capture_persists_observed_and_corrected_evidence() -> None:
+    store = ReplayEvidenceStore()
+    store.ensure_schema()
+    daemon = UnifiedRuntimeDaemon()
+    owner_suffix = str(uuid.uuid4())[:8]
+    manifest_id = str(uuid.uuid4())
+    run_observed = str(uuid.uuid4())
+    run_corrected = str(uuid.uuid4())
+    evidence_ids: list[str] = []
+    with engine().begin() as conn:
+        manifest_hash = _insert_manifest(conn, manifest_id, owner_suffix)
+        _insert_run(
+            conn,
+            run_id=run_observed,
+            manifest_id=manifest_id,
+            manifest_hash=manifest_hash,
+            lane='highfreq',
+            started_at='2099-04-18T01:17:00+00:00',
+            completed_at='2099-04-18T01:18:00+00:00',
+            schedule_key='highfreq:trade_day_0917',
+            triggered_time='09:17',
+            summary={'dataset_results': [{'dataset_name': 'open_auction_snapshot', 'status': 'succeeded', 'records_processed': 7, 'watermark': '2099-04-18T09:17:00+08:00'}]},
+        )
+        _insert_run(
+            conn,
+            run_id=run_corrected,
+            manifest_id=manifest_id,
+            manifest_hash=manifest_hash,
+            lane='lowfreq',
+            started_at='2099-04-18T14:00:00+00:00',
+            completed_at='2099-04-18T14:01:00+00:00',
+            schedule_key='lowfreq:trade_day_2200',
+            triggered_time='22:00',
+            summary={'dataset_results': [{'dataset_name': 'stock_basic', 'status': 'succeeded', 'records_processed': 11, 'watermark': '2099-04-18'}]},
+        )
+    try:
+        observed = daemon._maybe_capture_slot_replay_evidence(
+            worker_type='highfreq',
+            trigger_mode='scheduled',
+            schedule_key='highfreq:trade_day_0917',
+            run_id=run_observed,
+        )
+        corrected = daemon._maybe_capture_slot_replay_evidence(
+            worker_type='lowfreq',
+            trigger_mode='scheduled',
+            schedule_key='lowfreq:trade_day_2200',
+            run_id=run_corrected,
+        )
+        evidence_ids = [str(observed['id']), str(corrected['id'])]
+
+        assert observed['slot_key'] == 'early'
+        assert observed['perspective'] == 'observed'
+        assert corrected['slot_key'] == 'late'
+        assert corrected['perspective'] == 'corrected'
+
+        listed_early = store.list_evidence(trade_date=TRADE_DATE, slot_key='early', perspective='observed')
+        listed_late = store.list_evidence(trade_date=TRADE_DATE, slot_key='late', perspective='corrected')
+        assert any(str(row['id']) == evidence_ids[0] for row in listed_early)
+        assert any(str(row['id']) == evidence_ids[1] for row in listed_late)
+
+        with engine().begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT id, summary->'slot_replay_capture' AS slot_replay_capture
+                    FROM ifa2.unified_runtime_runs
+                    WHERE id IN (CAST(:a AS uuid), CAST(:b AS uuid))
+                    ORDER BY started_at ASC
+                    """
+                ),
+                {'a': run_observed, 'b': run_corrected},
+            ).mappings().all()
+        assert rows[0]['slot_replay_capture']['status'] == 'captured'
+        assert rows[0]['slot_replay_capture']['slot_key'] == 'early'
+        assert rows[1]['slot_replay_capture']['status'] == 'captured'
+        assert rows[1]['slot_replay_capture']['perspective'] == 'corrected'
+    finally:
+        with engine().begin() as conn:
+            if evidence_ids:
+                conn.execute(text("DELETE FROM ifa2.slot_replay_evidence_runs WHERE evidence_id = ANY(CAST(:ids AS uuid[]))"), {'ids': evidence_ids})
+                conn.execute(text("DELETE FROM ifa2.slot_replay_evidence WHERE id = ANY(CAST(:ids AS uuid[]))"), {'ids': evidence_ids})
+            conn.execute(text("DELETE FROM ifa2.unified_runtime_runs WHERE id IN (CAST(:a AS uuid), CAST(:b AS uuid))"), {'a': run_observed, 'b': run_corrected})
+            conn.execute(text("DELETE FROM ifa2.job_runs WHERE id IN (CAST(:a AS uuid), CAST(:b AS uuid))"), {'a': run_observed, 'b': run_corrected})
+            conn.execute(text("DELETE FROM ifa2.target_manifest_snapshots WHERE id = CAST(:id AS uuid)"), {'id': manifest_id})
+
+
+def test_runtime_slot_capture_derivation_filters_non_slot_runs() -> None:
+    assert derive_runtime_slot_capture(worker_type='highfreq', trigger_mode='manual', schedule_key='highfreq:trade_day_0917') is None
+    assert derive_runtime_slot_capture(worker_type='archive', trigger_mode='scheduled', schedule_key='archive:trade_day_evening_archive') is None
+    plan = derive_runtime_slot_capture(worker_type='highfreq', trigger_mode='scheduled', schedule_key='highfreq:trade_day_1305')
+    assert plan == {
+        'slot_key': 'mid',
+        'perspective': 'observed',
+        'note': 'Auto-captured from unified runtime daemon for highfreq:trade_day_1305. Observed means the scheduled support window landed by slot cutoff; corrected means the same slot was refreshed after the observed cutoff.',
+    }
 
 
 def test_slot_replay_evidence_cli_capture_with_explicit_run_id(tmp_path: Path):
