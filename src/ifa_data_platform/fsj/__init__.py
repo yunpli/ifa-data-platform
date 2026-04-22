@@ -6,6 +6,14 @@ from .early_main_producer import (
     EarlyMainProducerInput,
     SqlEarlyMainInputReader,
 )
+from .late_main_producer import (
+    LATE_MAIN_PRODUCER,
+    LATE_MAIN_PRODUCER_VERSION,
+    LateMainFSJAssembler,
+    LateMainFSJProducer,
+    LateMainProducerInput,
+    SqlLateMainInputReader,
+)
 from .mid_main_producer import (
     MID_MAIN_PRODUCER,
     MID_MAIN_PRODUCER_VERSION,
@@ -19,15 +27,21 @@ from .store import FSJStore
 __all__ = [
     "EARLY_MAIN_PRODUCER",
     "EARLY_MAIN_PRODUCER_VERSION",
+    "LATE_MAIN_PRODUCER",
+    "LATE_MAIN_PRODUCER_VERSION",
     "MID_MAIN_PRODUCER",
     "MID_MAIN_PRODUCER_VERSION",
     "EarlyMainFSJAssembler",
     "EarlyMainFSJProducer",
     "EarlyMainProducerInput",
+    "LateMainFSJAssembler",
+    "LateMainFSJProducer",
+    "LateMainProducerInput",
     "MidMainFSJAssembler",
     "MidMainFSJProducer",
     "MidMainProducerInput",
     "FSJStore",
     "SqlEarlyMainInputReader",
+    "SqlLateMainInputReader",
     "SqlMidMainInputReader",
 ]
