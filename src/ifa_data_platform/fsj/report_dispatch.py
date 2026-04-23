@@ -64,20 +64,7 @@ class DeliveryDispatchCandidate:
 class MainReportDeliveryDispatchHelper:
     """Select the best MAIN delivery package for send / send-review orchestration."""
 
-    def load_active_published_candidate(
-        self,
-        *,
-        business_date: str,
-        store: FSJStore | None = None,
-    ) -> dict[str, Any] | None:
-        store = store or FSJStore()
-        surface = store.get_active_report_delivery_surface(
-            business_date=business_date,
-            agent_domain="main",
-            artifact_family="main_final_report",
-        )
-        if not surface:
-            return None
+    def _published_candidate_from_surface(self, surface: dict[str, Any], *, source: str) -> dict[str, Any] | None:
         artifact = dict(surface.get("artifact") or {})
         delivery_package = dict(surface.get("delivery_package") or {})
         if not delivery_package:
@@ -105,8 +92,47 @@ class MainReportDeliveryDispatchHelper:
             },
             "report_evaluation": {},
             "package_index": {},
-            "source": "db_active_delivery_surface",
+            "source": source,
         }
+
+    def load_active_published_candidate(
+        self,
+        *,
+        business_date: str,
+        store: FSJStore | None = None,
+    ) -> dict[str, Any] | None:
+        store = store or FSJStore()
+        surface = store.get_active_report_delivery_surface(
+            business_date=business_date,
+            agent_domain="main",
+            artifact_family="main_final_report",
+        )
+        if not surface:
+            return None
+        return self._published_candidate_from_surface(surface, source="db_active_delivery_surface")
+
+    def list_db_delivery_candidates(
+        self,
+        *,
+        business_date: str,
+        store: FSJStore | None = None,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        store = store or FSJStore()
+        surfaces = store.list_report_delivery_surfaces(
+            business_date=business_date,
+            agent_domain="main",
+            artifact_family="main_final_report",
+            statuses=["active", "superseded"],
+            limit=limit,
+        )
+        results: list[dict[str, Any]] = []
+        for index, surface in enumerate(surfaces):
+            source = "db_active_delivery_surface" if index == 0 and (surface.get("artifact") or {}).get("status") == "active" else "db_delivery_history_surface"
+            candidate = self._published_candidate_from_surface(surface, source=source)
+            if candidate:
+                results.append(candidate)
+        return results
 
     def candidate_from_published(self, published: dict[str, Any]) -> DeliveryDispatchCandidate:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
@@ -207,10 +233,13 @@ class MainReportDeliveryDispatchHelper:
             return True
 
         if prefer_db_active and business_date:
-            db_active = self.load_active_published_candidate(business_date=business_date, store=store)
-            if db_active:
-                _append(db_active)
-                if limit is not None and len(results) >= limit:
+            for db_candidate in self.list_db_delivery_candidates(
+                business_date=business_date,
+                store=store,
+                limit=limit or 8,
+            ):
+                appended = _append(db_candidate)
+                if appended and limit is not None and len(results) >= limit:
                     return results
 
         root = Path(root_dir)

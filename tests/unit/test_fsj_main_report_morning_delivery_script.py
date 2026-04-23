@@ -14,7 +14,24 @@ _load_comparison_candidates = _module._load_comparison_candidates
 
 class _FakeHelper:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str | None]] = []
+        self.calls: list[tuple] = []
+
+    def list_db_delivery_candidates(self, *, business_date: str, store, limit: int = 8) -> list[dict]:
+        self.calls.append(("db-list", business_date, limit))
+        return [
+            {
+                "artifact": {"artifact_id": "artifact-db", "business_date": business_date, "artifact_family": "main_final_report"},
+                "delivery_manifest_path": "/tmp/db/delivery_manifest.json",
+                "delivery_manifest": {"artifact_id": "artifact-db", "business_date": business_date},
+                "source": "db_active_delivery_surface",
+            },
+            {
+                "artifact": {"artifact_id": "artifact-db-history", "business_date": business_date, "artifact_family": "main_final_report"},
+                "delivery_manifest_path": "/tmp/db-history/delivery_manifest.json",
+                "delivery_manifest": {"artifact_id": "artifact-db-history", "business_date": business_date},
+                "source": "db_delivery_history_surface",
+            },
+        ]
 
     def load_active_published_candidate(self, *, business_date: str, store) -> dict | None:
         self.calls.append(("db", business_date))
@@ -33,13 +50,18 @@ class _FakeHelper:
                 "delivery_manifest": {"artifact_id": "artifact-db-dupe", "business_date": business_date},
             },
             {
+                "artifact": {"artifact_id": "artifact-db-history-dupe", "business_date": business_date, "artifact_family": "main_final_report"},
+                "delivery_manifest_path": "/tmp/db-history/delivery_manifest.json",
+                "delivery_manifest": {"artifact_id": "artifact-db-history-dupe", "business_date": business_date},
+            },
+            {
                 "artifact": {"artifact_id": "artifact-fs", "business_date": business_date, "artifact_family": "main_final_report"},
                 "delivery_manifest_path": "/tmp/fs/delivery_manifest.json",
                 "delivery_manifest": {"artifact_id": "artifact-fs", "business_date": business_date},
             },
         ]
         if prefer_db_active:
-            results.insert(0, self.load_active_published_candidate(business_date=business_date or "", store=store))
+            results = [*self.list_db_delivery_candidates(business_date=business_date or "", store=store, limit=limit or 8), *results]
         return results
 
     def load_published_candidate(self, path: str) -> dict:
@@ -70,9 +92,10 @@ def test_load_comparison_candidates_prefers_db_active_surface_and_dedupes_filesy
 
     assert [item["artifact"]["artifact_id"] for item in candidates] == [
         "artifact-db",
+        "artifact-db-history",
         "artifact-fs",
         "artifact:/tmp/pkg-a",
         "artifact:/tmp/manifest-b.json",
     ]
     assert helper.calls[0] == ("discover", "/tmp/out", True, True)
-    assert helper.calls[1] == ("db", "2099-04-22")
+    assert helper.calls[1] == ("db-list", "2099-04-22", 8)

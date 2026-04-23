@@ -366,57 +366,72 @@ def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active
                 conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id IN (:a, :b)'), {'a': first['artifact']['artifact_id'], 'b': second['artifact']['artifact_id']})
 
 
-def test_main_report_delivery_surface_is_queryable_from_active_artifact(tmp_path) -> None:
+def test_main_report_delivery_surface_is_queryable_from_active_and_recent_superseded_artifacts(tmp_path) -> None:
     store = FSJStore()
     store.ensure_schema()
+    business_date = '2099-07-18'
     bundle_id = f'fsj:test:{uuid.uuid4()}:bundle'
-    published: dict | None = None
+    first: dict | None = None
+    second: dict | None = None
     try:
         store.upsert_bundle_graph(_sample_payload(bundle_id))
         publisher = MainReportArtifactPublishingService(
             rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='delivery summary')),
             store=store,
         )
-        published = publisher.publish_delivery_package(
-            business_date='2099-04-18',
+        first = publisher.publish_delivery_package(
+            business_date=business_date,
             output_dir=tmp_path,
-            report_run_id='report-run-delivery-surface',
+            report_run_id='report-run-delivery-surface-v1',
             generated_at=datetime(2099, 4, 18, 12, 10, tzinfo=timezone.utc),
+        )
+        second = publisher.publish_delivery_package(
+            business_date=business_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-delivery-surface-v2',
+            generated_at=datetime(2099, 4, 18, 12, 15, tzinfo=timezone.utc),
         )
 
         surface = store.get_active_report_delivery_surface(
-            business_date='2099-04-18',
+            business_date=business_date,
             agent_domain='main',
             artifact_family='main_final_report',
         )
-        helper_surface = MainReportDeliveryDispatchHelper().load_active_published_candidate(
-            business_date='2099-04-18',
+        history_surfaces = store.list_report_delivery_surfaces(
+            business_date=business_date,
+            agent_domain='main',
+            artifact_family='main_final_report',
+            statuses=['active', 'superseded'],
+            limit=8,
+        )
+        helper_surfaces = MainReportDeliveryDispatchHelper().list_db_delivery_candidates(
+            business_date=business_date,
             store=store,
+            limit=8,
         )
         assert surface is not None
-        assert helper_surface is not None
-        assert surface['artifact']['artifact_id'] == published['artifact']['artifact_id']
-        assert helper_surface['artifact']['artifact_id'] == published['artifact']['artifact_id']
-        assert surface['delivery_package']['delivery_manifest_path'] == published['delivery_manifest_path']
-        assert surface['delivery_package']['delivery_zip_path'] == published['delivery_zip_path']
-        assert surface['delivery_package']['telegram_caption_path'] == published['telegram_caption_path']
-        assert surface['delivery_package']['ready_for_delivery'] == published['delivery_manifest']['ready_for_delivery']
-        assert helper_surface['delivery_manifest']['dispatch_advice']['recommended_action'] == published['delivery_manifest']['dispatch_advice']['recommended_action']
-        assert helper_surface['delivery_manifest_path'] == published['delivery_manifest_path']
-        assert surface['delivery_package']['workflow']['recommended_action'] == published['delivery_manifest']['dispatch_advice']['recommended_action']
-        assert surface['send_ready'] == (published['delivery_manifest']['ready_for_delivery'] and published['delivery_manifest']['dispatch_advice']['recommended_action'] == 'send')
-        assert surface['review_required'] == (published['delivery_manifest']['dispatch_advice']['recommended_action'] == 'send_review')
+        assert second is not None
+        assert first is not None
+        assert surface['artifact']['artifact_id'] == second['artifact']['artifact_id']
+        assert [item['artifact']['artifact_id'] for item in history_surfaces] == [second['artifact']['artifact_id'], first['artifact']['artifact_id']]
+        assert [item['artifact']['artifact_id'] for item in helper_surfaces] == [second['artifact']['artifact_id'], first['artifact']['artifact_id']]
+        assert helper_surfaces[0]['source'] == 'db_active_delivery_surface'
+        assert helper_surfaces[1]['source'] == 'db_delivery_history_surface'
+        assert helper_surfaces[0]['delivery_manifest']['dispatch_advice']['recommended_action'] == second['delivery_manifest']['dispatch_advice']['recommended_action']
+        assert helper_surfaces[1]['delivery_manifest_path'] == first['delivery_manifest_path']
+        assert history_surfaces[1]['artifact']['status'] == 'superseded'
 
         active_artifact = store.get_active_report_artifact(
-            business_date='2099-04-18',
+            business_date=business_date,
             agent_domain='main',
             artifact_family='main_final_report',
         )
         delivery_package = dict((active_artifact or {}).get('metadata_json', {}).get('delivery_package') or {})
-        assert delivery_package['delivery_package_dir'] == published['delivery_package_dir']
+        assert delivery_package['delivery_package_dir'] == second['delivery_package_dir']
         assert delivery_package['artifacts']['delivery_manifest'] == 'delivery_manifest.json'
     finally:
         _cleanup([bundle_id])
-        if published:
+        artifact_ids = [artifact['artifact']['artifact_id'] for artifact in (first, second) if artifact]
+        if artifact_ids:
             with engine().begin() as conn:
-                conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id=:artifact_id'), {'artifact_id': published['artifact']['artifact_id']})
+                conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id = ANY(CAST(:artifact_ids AS text[]))'), {'artifact_ids': artifact_ids})

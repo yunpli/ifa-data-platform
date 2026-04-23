@@ -690,7 +690,7 @@ def test_main_report_delivery_dispatch_helper_loads_and_discovers_delivery_packa
     assert discovered[0]["delivery_manifest_path"].endswith("delivery_manifest.json")
 
 
-def test_main_report_delivery_dispatch_helper_prefers_db_active_surface_before_filesystem_scan(tmp_path: Path) -> None:
+def test_main_report_delivery_dispatch_helper_prefers_db_surfaces_before_filesystem_scan(tmp_path: Path) -> None:
     helper = MainReportDeliveryDispatchHelper()
     root = tmp_path / "out"
     package = root / "a_share_main_report_delivery_2099-04-22_20990422T095700Z_artifact-ready"
@@ -709,12 +709,20 @@ def test_main_report_delivery_dispatch_helper_prefers_db_active_surface_before_f
     class _StubStore:
         pass
 
-    helper.load_active_published_candidate = lambda *, business_date, store=None: {
-        "artifact": {"artifact_id": "artifact-db", "business_date": business_date, "artifact_family": "main_final_report"},
-        "delivery_manifest_path": str(manifest_path.resolve()),
-        "delivery_manifest": {"artifact_id": "artifact-db", "business_date": business_date},
-        "source": "db_active_delivery_surface",
-    }
+    helper.list_db_delivery_candidates = lambda *, business_date, store=None, limit=8: [
+        {
+            "artifact": {"artifact_id": "artifact-db", "business_date": business_date, "artifact_family": "main_final_report"},
+            "delivery_manifest_path": str(manifest_path.resolve()),
+            "delivery_manifest": {"artifact_id": "artifact-db", "business_date": business_date},
+            "source": "db_active_delivery_surface",
+        },
+        {
+            "artifact": {"artifact_id": "artifact-db-history", "business_date": business_date, "artifact_family": "main_final_report"},
+            "delivery_manifest_path": str((root / "db-history" / "delivery_manifest.json").resolve()),
+            "delivery_manifest": {"artifact_id": "artifact-db-history", "business_date": business_date},
+            "source": "db_delivery_history_surface",
+        },
+    ]
 
     discovered = helper.discover_published_candidates(
         root,
@@ -724,9 +732,10 @@ def test_main_report_delivery_dispatch_helper_prefers_db_active_surface_before_f
         prefer_db_active=True,
     )
 
-    assert len(discovered) == 1
-    assert discovered[0]["artifact"]["artifact_id"] == "artifact-db"
+    assert len(discovered) == 2
+    assert [item["artifact"]["artifact_id"] for item in discovered] == ["artifact-db", "artifact-db-history"]
     assert discovered[0]["source"] == "db_active_delivery_surface"
+    assert discovered[1]["source"] == "db_delivery_history_surface"
 
 
 def test_main_report_delivery_dispatch_helper_falls_back_to_send_review_for_best_available_provisional_candidate() -> None:

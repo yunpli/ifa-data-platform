@@ -638,14 +638,57 @@ class FSJStore:
         agent_domain: str,
         artifact_family: str,
     ) -> dict[str, Any] | None:
-        artifact = self.get_active_report_artifact(
+        surfaces = self.list_report_delivery_surfaces(
             business_date=business_date,
             agent_domain=agent_domain,
             artifact_family=artifact_family,
+            statuses=["active"],
+            limit=1,
         )
-        if artifact is None:
-            return None
+        return surfaces[0] if surfaces else None
 
+    def list_report_delivery_surfaces(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        artifact_family: str,
+        statuses: list[str] | tuple[str, ...] | None = None,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        normalized_statuses = [str(status) for status in (statuses or ["active", "superseded"])]
+        valid_statuses = [status for status in normalized_statuses if status in VALID_REPORT_ARTIFACT_STATUS]
+        if not valid_statuses or limit <= 0:
+            return []
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT *
+                      FROM ifa2.ifa_fsj_report_artifacts
+                     WHERE business_date=:business_date
+                       AND agent_domain=:agent_domain
+                       AND artifact_family=:artifact_family
+                       AND status = ANY(CAST(:statuses AS text[]))
+                     ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'superseded' THEN 1 ELSE 2 END,
+                              updated_at DESC,
+                              artifact_id DESC
+                     LIMIT :limit
+                    """
+                ),
+                {
+                    "business_date": business_date,
+                    "agent_domain": agent_domain,
+                    "artifact_family": artifact_family,
+                    "statuses": valid_statuses,
+                    "limit": int(limit),
+                },
+            ).mappings().all()
+        return [self._report_delivery_surface_from_artifact(self._mapping_to_dict(row)) for row in rows]
+
+    def _report_delivery_surface_from_artifact(self, artifact: dict[str, Any]) -> dict[str, Any]:
         metadata = dict(artifact.get("metadata_json") or {})
         delivery_package = dict(metadata.get("delivery_package") or {})
         if not delivery_package:
