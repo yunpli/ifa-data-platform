@@ -44,6 +44,17 @@ from .ai_tech_support_producer import (
     LateAITechSupportProducer,
     SqlAITechSupportInputReader,
 )
+from .commodities_support_producer import (
+    EARLY_COMMODITIES_SUPPORT_PRODUCER,
+    EARLY_COMMODITIES_SUPPORT_PRODUCER_VERSION,
+    LATE_COMMODITIES_SUPPORT_PRODUCER,
+    LATE_COMMODITIES_SUPPORT_PRODUCER_VERSION,
+    CommoditiesSupportAssembler,
+    CommoditiesSupportProducerInput,
+    EarlyCommoditiesSupportProducer,
+    LateCommoditiesSupportProducer,
+    SqlCommoditiesSupportInputReader,
+)
 from .report_assembly import (
     DEFAULT_MAIN_REPORT_SECTION_SPECS,
     FSJReportAssemblyStore,
@@ -51,6 +62,7 @@ from .report_assembly import (
     MainReportSectionAssembler,
     MainReportSectionSpec,
 )
+from .report_evaluation import MainReportEvaluationHarness
 from .report_quality import MainReportQAEvaluator
 from .report_rendering import (
     MainReportArtifactPublishingService,
@@ -93,11 +105,20 @@ __all__ = [
     "AITechSupportProducerInput",
     "EarlyAITechSupportProducer",
     "LateAITechSupportProducer",
+    "EARLY_COMMODITIES_SUPPORT_PRODUCER",
+    "EARLY_COMMODITIES_SUPPORT_PRODUCER_VERSION",
+    "LATE_COMMODITIES_SUPPORT_PRODUCER",
+    "LATE_COMMODITIES_SUPPORT_PRODUCER_VERSION",
+    "CommoditiesSupportAssembler",
+    "CommoditiesSupportProducerInput",
+    "EarlyCommoditiesSupportProducer",
+    "LateCommoditiesSupportProducer",
     "DEFAULT_MAIN_REPORT_SECTION_SPECS",
     "FSJReportAssemblyStore",
     "FSJStore",
     "MainReportAssemblyService",
     "MainReportArtifactPublishingService",
+    "MainReportEvaluationHarness",
     "MainReportHTMLRenderer",
     "MainReportQAEvaluator",
     "MainReportRenderingService",
@@ -110,4 +131,5 @@ __all__ = [
     "SqlMidMainInputReader",
     "SqlMacroSupportInputReader",
     "SqlAITechSupportInputReader",
+    "SqlCommoditiesSupportInputReader",
 ]
