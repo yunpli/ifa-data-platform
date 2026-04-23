@@ -3,10 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any
+
+from sqlalchemy import text
 
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.store import FSJStore
+
+_VALID_SLOT_KEYS = {"early", "mid", "late"}
+_BEIJING = timezone(timedelta(hours=8))
 
 
 def _safe_dict(value: Any) -> dict[str, Any]:
@@ -77,7 +83,54 @@ def _surface_summary(surface: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_status_payload(*, business_date: str, history_limit: int = 5) -> dict[str, Any]:
+def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: str | None = None) -> dict[str, Any] | None:
+    if slot is not None and slot not in _VALID_SLOT_KEYS:
+        raise ValueError(f"unsupported slot: {slot}")
+
+    store = store or FSJStore()
+    store.ensure_schema()
+    slot_sql = ""
+    params: dict[str, Any] = {}
+    if slot is not None:
+        slot_sql = """
+           AND coalesce(
+                 metadata_json->'delivery_package'->'slot_evaluation'->>'strongest_slot',
+                 metadata_json->'report_evaluation'->'summary'->>'strongest_slot'
+               ) = :slot
+        """
+        params["slot"] = slot
+
+    params["max_business_date"] = datetime.now(_BEIJING).date().isoformat()
+
+    with store.engine.begin() as conn:
+        row = conn.execute(
+            text(
+                f"""
+                SELECT business_date::text AS business_date,
+                       artifact_id::text AS artifact_id,
+                       report_run_id,
+                       status,
+                       updated_at,
+                       coalesce(
+                         metadata_json->'delivery_package'->'slot_evaluation'->>'strongest_slot',
+                         metadata_json->'report_evaluation'->'summary'->>'strongest_slot'
+                       ) AS strongest_slot
+                  FROM ifa2.ifa_fsj_report_artifacts
+                 WHERE agent_domain='main'
+                   AND artifact_family='main_final_report'
+                   AND status='active'
+                   AND business_date <= :max_business_date
+                   {slot_sql}
+                 ORDER BY business_date DESC, updated_at DESC, artifact_id DESC
+                 LIMIT 1
+                """
+            ),
+            params,
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def build_status_payload(*, business_date: str, history_limit: int = 5, resolution: dict[str, Any] | None = None) -> dict[str, Any]:
     store = FSJStore()
     helper = MainReportDeliveryDispatchHelper()
     active_surface = store.get_active_report_delivery_surface(
@@ -99,6 +152,7 @@ def build_status_payload(*, business_date: str, history_limit: int = 5) -> dict[
     )
     return {
         "business_date": business_date,
+        "resolution": dict(resolution or {"mode": "explicit_business_date", "business_date": business_date}),
         "active_surface": _surface_summary(active_surface) if active_surface else None,
         "history": [_surface_summary(surface) for surface in history_surfaces],
         "db_candidates": [helper.summarize_candidate(candidate) for candidate in db_candidates],
@@ -111,7 +165,15 @@ def _print_text(payload: dict[str, Any]) -> None:
     selected = _safe_dict(active.get("selected_handoff"))
     state = _safe_dict(active.get("state"))
     pointers = _safe_dict(active.get("manifest_pointers"))
+    resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
+    print(f"resolution_mode={resolution.get('mode')}")
+    if resolution.get("requested_slot"):
+        print(f"requested_slot={resolution.get('requested_slot')}")
+    if resolution.get("resolved_artifact_id"):
+        print(f"resolved_artifact_id={resolution.get('resolved_artifact_id')}")
+    if resolution.get("resolved_strongest_slot"):
+        print(f"resolved_strongest_slot={resolution.get('resolved_strongest_slot')}")
     if not active:
         print("active_artifact=NONE")
         return
@@ -140,12 +202,52 @@ def _print_text(payload: dict[str, Any]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Operator read surface for MAIN delivery state from DB-backed report artifacts.")
-    parser.add_argument("--business-date", required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--business-date")
+    target.add_argument("--latest", action="store_true", help="Resolve the latest active MAIN delivery surface from DB truth")
+    parser.add_argument("--slot", choices=sorted(_VALID_SLOT_KEYS), help="Optional strongest-slot filter when resolving --latest")
     parser.add_argument("--history-limit", type=int, default=5)
     parser.add_argument("--format", choices=["text", "json"], default="text")
     args = parser.parse_args()
 
-    payload = build_status_payload(business_date=args.business_date, history_limit=args.history_limit)
+    if args.business_date:
+        resolution = {
+            "mode": "explicit_business_date",
+            "business_date": args.business_date,
+        }
+        business_date = args.business_date
+    else:
+        resolved = resolve_latest_main_business_date(slot=args.slot)
+        if not resolved:
+            payload = {
+                "business_date": None,
+                "resolution": {
+                    "mode": "latest_active_lookup",
+                    "requested_slot": args.slot,
+                    "business_date": None,
+                    "status": "not_found",
+                },
+                "active_surface": None,
+                "history": [],
+                "db_candidates": [],
+            }
+            if args.format == "json":
+                print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+                return
+            _print_text(payload)
+            return
+        business_date = str(resolved["business_date"])
+        resolution = {
+            "mode": "latest_active_lookup",
+            "requested_slot": args.slot,
+            "business_date": business_date,
+            "resolved_artifact_id": resolved.get("artifact_id"),
+            "resolved_report_run_id": resolved.get("report_run_id"),
+            "resolved_strongest_slot": resolved.get("strongest_slot"),
+            "status": "resolved",
+        }
+
+    payload = build_status_payload(business_date=business_date, history_limit=args.history_limit, resolution=resolution)
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
         return

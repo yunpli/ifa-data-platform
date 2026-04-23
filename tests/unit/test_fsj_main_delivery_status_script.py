@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_main_delivery_status.py"
 _spec = importlib.util.spec_from_file_location("fsj_main_delivery_status_script", _MODULE_PATH)
@@ -11,6 +13,8 @@ assert _spec is not None and _spec.loader is not None
 _spec.loader.exec_module(_module)
 _surface_summary = _module._surface_summary
 _print_text = _module._print_text
+build_status_payload = _module.build_status_payload
+resolve_latest_main_business_date = _module.resolve_latest_main_business_date
 
 
 def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_pointers() -> None:
@@ -81,6 +85,12 @@ def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_poin
 def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
+        "resolution": {
+            "mode": "latest_active_lookup",
+            "requested_slot": "late",
+            "resolved_artifact_id": "artifact-active",
+            "resolved_strongest_slot": "late",
+        },
         "active_surface": {
             "artifact": {
                 "artifact_id": "artifact-active",
@@ -118,9 +128,53 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     output = capsys.readouterr().out
 
     assert "business_date=2099-04-22" in output
+    assert "resolution_mode=latest_active_lookup" in output
+    assert "requested_slot=late" in output
+    assert "resolved_artifact_id=artifact-active" in output
+    assert "resolved_strongest_slot=late" in output
     assert "active_artifact_id=artifact-active" in output
     assert "selected_artifact_id=artifact-selected" in output
     assert "recommended_action=send_review" in output
     assert "workflow_state=review_required" in output
     assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
     assert "history_count=2" in output
+
+
+def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
+    class _DummyStore:
+        def get_active_report_delivery_surface(self, **_: object) -> dict:
+            return {
+                "artifact": {"artifact_id": "artifact-1", "report_run_id": "run-1", "business_date": "2099-04-22", "status": "active"},
+                "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {}, "workflow": {}, "artifacts": {}},
+                "workflow_linkage": {},
+                "send_ready": False,
+                "review_required": False,
+            }
+
+        def list_report_delivery_surfaces(self, **_: object) -> list[dict]:
+            return []
+
+    class _DummyHelper:
+        def list_db_delivery_candidates(self, **_: object) -> list[dict]:
+            return []
+
+        def summarize_candidate(self, candidate: dict) -> dict:
+            return candidate
+
+    monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
+    monkeypatch.setattr(_module, "MainReportDeliveryDispatchHelper", lambda: _DummyHelper())
+
+    payload = build_status_payload(
+        business_date="2099-04-22",
+        history_limit=3,
+        resolution={"mode": "latest_active_lookup", "requested_slot": "mid", "business_date": "2099-04-22"},
+    )
+
+    assert payload["resolution"]["mode"] == "latest_active_lookup"
+    assert payload["resolution"]["requested_slot"] == "mid"
+    assert payload["business_date"] == "2099-04-22"
+
+
+def test_resolve_latest_main_business_date_rejects_unknown_slot() -> None:
+    with pytest.raises(ValueError, match="unsupported slot"):
+        resolve_latest_main_business_date(slot="close")
