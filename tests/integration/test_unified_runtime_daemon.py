@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 
 from ifa_data_platform.runtime.trading_calendar import TradingCalendarService
 from ifa_data_platform.runtime.unified_daemon import UnifiedRuntimeDaemon, UnifiedRuntimeDaemonStore
@@ -48,3 +48,43 @@ def test_trading_calendar_service_reads_db_backed_truth() -> None:
     status = svc.get_day_status(date(2026, 4, 16), exchange="SSE")
     assert status.source in {"ifa2.trade_cal_current", "fallback_weekday_only"}
     assert status.as_of_date == date(2026, 4, 16)
+
+
+def test_watchdog_waiting_for_next_due_is_not_marked_stale() -> None:
+    daemon = UnifiedRuntimeDaemon()
+    now = datetime(2026, 4, 22, 23, 20, tzinfo=timezone.utc)
+    entry = daemon._build_watchdog_entry(
+        ws={
+            "worker_type": "midfreq",
+            "last_status": "succeeded",
+            "last_completed_at": now - timedelta(minutes=40),
+            "last_heartbeat_at": now - timedelta(minutes=40),
+            "next_due_at_utc": now + timedelta(minutes=20),
+            "active_run_id": None,
+            "active_started_at": None,
+        },
+        schedules=[{"runtime_budget_sec": 1800}],
+        now=now,
+    )
+    assert entry["state"] == "idle_waiting_for_next_due"
+    assert "next due in" in entry["note"]
+
+
+def test_watchdog_missed_schedule_exceeds_grace() -> None:
+    daemon = UnifiedRuntimeDaemon()
+    now = datetime(2026, 4, 22, 23, 20, tzinfo=timezone.utc)
+    entry = daemon._build_watchdog_entry(
+        ws={
+            "worker_type": "highfreq",
+            "last_status": "succeeded",
+            "last_completed_at": now - timedelta(hours=3),
+            "last_heartbeat_at": now - timedelta(hours=3),
+            "next_due_at_utc": now - timedelta(hours=1),
+            "active_run_id": None,
+            "active_started_at": None,
+        },
+        schedules=[{"runtime_budget_sec": 900}],
+        now=now,
+    )
+    assert entry["state"] == "stale_missed_schedule"
+    assert "exceeded grace" in entry["note"]

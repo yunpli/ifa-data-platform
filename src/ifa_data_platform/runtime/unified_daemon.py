@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import signal
 import sys
 import time
@@ -360,6 +361,7 @@ class UnifiedRuntimeDaemon:
         self.replay_store = ReplayEvidenceStore()
         self.shutdown_requested = False
         self.calendar = TradingCalendarService()
+        self.heartbeat_file = os.environ.get("UNIFIED_DAEMON_HEARTBEAT_FILE")
 
     def bootstrap(self) -> None:
         self.store.seed_schedule_policy()
@@ -402,8 +404,21 @@ class UnifiedRuntimeDaemon:
         self.bootstrap()
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
+        self._write_heartbeat(phase="starting", loop_interval_sec=loop_interval_sec)
         while not self.shutdown_requested:
-            self.run_due_once()
+            loop_started_at = now_utc()
+            self._write_heartbeat(
+                phase="running",
+                loop_interval_sec=loop_interval_sec,
+                last_iteration_started_at=loop_started_at,
+            )
+            self.run_due_once(current_time_utc=loop_started_at)
+            self._write_heartbeat(
+                phase="sleeping",
+                loop_interval_sec=loop_interval_sec,
+                last_iteration_started_at=loop_started_at,
+                last_iteration_completed_at=now_utc(),
+            )
             time.sleep(loop_interval_sec)
 
     def status(self) -> dict[str, Any]:
@@ -412,37 +427,11 @@ class UnifiedRuntimeDaemon:
         day_type = self.calendar.get_runtime_day_type(now, exchange="SSE")
         trading_status = self.calendar.get_day_status(now.astimezone(BJ_TZ).date(), exchange="SSE")
         worker_states = self.store.list_worker_states()
+        all_schedules = self.store.list_schedules(enabled_only=True)
         watchdog = []
         for ws in worker_states:
-            active_started = ws.get("active_started_at")
-            if active_started and getattr(active_started, 'tzinfo', None) is None:
-                active_started = active_started.replace(tzinfo=timezone.utc)
-            last_heartbeat = ws.get("last_heartbeat_at")
-            if last_heartbeat and getattr(last_heartbeat, 'tzinfo', None) is None:
-                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
-            schedules = [s for s in self.store.list_schedules(enabled_only=True) if s["worker_type"] == ws["worker_type"]]
-            budget = max([int(s.get("runtime_budget_sec") or self._default_budget(ws["worker_type"])) for s in schedules] or [self._default_budget(ws["worker_type"])])
-            state = "idle"
-            note = "no active run"
-            if ws.get("active_run_id") and active_started:
-                elapsed = int((now - active_started).total_seconds())
-                if elapsed > budget:
-                    state = "stale_active_timeout_exceeded"
-                    note = f"active run age {elapsed}s exceeded budget {budget}s"
-                else:
-                    state = "active_within_budget"
-                    note = f"active run age {elapsed}s within budget {budget}s"
-            elif last_heartbeat:
-                elapsed = int((now - last_heartbeat).total_seconds())
-                state = "healthy_recent_heartbeat" if elapsed <= 2 * 60 * 60 else "stale_heartbeat"
-                note = f"last heartbeat age {elapsed}s"
-            watchdog.append({
-                "worker_type": ws["worker_type"],
-                "state": state,
-                "budget_sec": budget,
-                "active_run_id": str(ws["active_run_id"]) if ws.get("active_run_id") else None,
-                "note": note,
-            })
+            schedules = [s for s in all_schedules if s["worker_type"] == ws["worker_type"]]
+            watchdog.append(self._build_watchdog_entry(ws=ws, schedules=schedules, now=now))
         return {
             "daemon_name": "unified_runtime_daemon",
             "official_long_running_entry": "python3 -m ifa_data_platform.runtime.unified_daemon --loop",
@@ -693,6 +682,100 @@ class UnifiedRuntimeDaemon:
             "archive_v2": 5400,
         }[worker_type]
 
+    def _build_watchdog_entry(
+        self,
+        *,
+        ws: dict[str, Any],
+        schedules: list[dict[str, Any]],
+        now: datetime,
+    ) -> dict[str, Any]:
+        active_started = ws.get("active_started_at")
+        if active_started and getattr(active_started, "tzinfo", None) is None:
+            active_started = active_started.replace(tzinfo=timezone.utc)
+        last_heartbeat = ws.get("last_heartbeat_at")
+        if last_heartbeat and getattr(last_heartbeat, "tzinfo", None) is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+        last_completed = ws.get("last_completed_at")
+        if last_completed and getattr(last_completed, "tzinfo", None) is None:
+            last_completed = last_completed.replace(tzinfo=timezone.utc)
+        next_due_at = ws.get("next_due_at_utc")
+        if next_due_at and getattr(next_due_at, "tzinfo", None) is None:
+            next_due_at = next_due_at.replace(tzinfo=timezone.utc)
+
+        budget = max([int(s.get("runtime_budget_sec") or self._default_budget(ws["worker_type"])) for s in schedules] or [self._default_budget(ws["worker_type"])])
+        grace_sec = max(budget, 15 * 60)
+        state = "idle"
+        note = "no active run"
+
+        if ws.get("active_run_id") and active_started:
+            elapsed = int((now - active_started).total_seconds())
+            if elapsed > budget:
+                state = "stale_active_timeout_exceeded"
+                note = f"active run age {elapsed}s exceeded budget {budget}s"
+            else:
+                state = "active_within_budget"
+                note = f"active run age {elapsed}s within budget {budget}s"
+        elif next_due_at:
+            due_delta_sec = int((next_due_at - now).total_seconds())
+            if due_delta_sec > 0:
+                if ws.get("last_status") in {"succeeded", "partial", "completed", "idle", "scheduler_lock_conflict", "overlap_conflict"}:
+                    state = "idle_waiting_for_next_due"
+                    note = f"next due in {due_delta_sec}s"
+                elif last_heartbeat:
+                    heartbeat_age = int((now - last_heartbeat).total_seconds())
+                    state = "healthy_recent_heartbeat" if heartbeat_age <= grace_sec else "degraded_waiting_for_next_due"
+                    note = f"next due in {due_delta_sec}s; last heartbeat age {heartbeat_age}s"
+                else:
+                    state = "bootstrap_waiting_for_first_due"
+                    note = f"next due in {due_delta_sec}s; no completed run yet"
+            else:
+                overdue_sec = abs(due_delta_sec)
+                if last_completed and last_completed >= next_due_at:
+                    state = "idle_waiting_for_next_due_refresh"
+                    note = f"last completed run covers due slot; scheduler refresh pending ({overdue_sec}s past due)"
+                elif overdue_sec <= grace_sec:
+                    state = "due_now_within_grace"
+                    note = f"worker is {overdue_sec}s past due but still within grace {grace_sec}s"
+                else:
+                    state = "stale_missed_schedule"
+                    note = f"worker is {overdue_sec}s past due and exceeded grace {grace_sec}s"
+        elif last_heartbeat:
+            elapsed = int((now - last_heartbeat).total_seconds())
+            state = "healthy_recent_heartbeat" if elapsed <= 2 * 60 * 60 else "stale_heartbeat"
+            note = f"last heartbeat age {elapsed}s"
+
+        return {
+            "worker_type": ws["worker_type"],
+            "state": state,
+            "budget_sec": budget,
+            "active_run_id": str(ws["active_run_id"]) if ws.get("active_run_id") else None,
+            "note": note,
+        }
+
+    def _write_heartbeat(
+        self,
+        *,
+        phase: str,
+        loop_interval_sec: int,
+        last_iteration_started_at: Optional[datetime] = None,
+        last_iteration_completed_at: Optional[datetime] = None,
+    ) -> None:
+        if not self.heartbeat_file:
+            return
+        payload = {
+            "pid": os.getpid(),
+            "phase": phase,
+            "generated_at": now_utc().isoformat(),
+            "loop_interval_sec": loop_interval_sec,
+            "shutdown_requested": self.shutdown_requested,
+            "last_iteration_started_at": last_iteration_started_at.isoformat() if last_iteration_started_at else None,
+            "last_iteration_completed_at": last_iteration_completed_at.isoformat() if last_iteration_completed_at else None,
+        }
+        path = f"{self.heartbeat_file}.tmp"
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+        os.replace(path, self.heartbeat_file)
+
     def _next_due_at_utc(self, worker_type: str, base_utc: datetime) -> Optional[datetime]:
         schedules = [s for s in self.store.list_schedules(enabled_only=True) if s["worker_type"] == worker_type and s["beijing_time_hm"]]
         if not schedules:
@@ -715,6 +798,7 @@ class UnifiedRuntimeDaemon:
 
     def _signal_handler(self, signum, frame) -> None:
         self.shutdown_requested = True
+        self._write_heartbeat(phase="shutdown", loop_interval_sec=0)
         sys.exit(0)
 
 

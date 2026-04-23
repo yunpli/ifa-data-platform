@@ -66,10 +66,37 @@ def main():
                             set active_run_id = null,
                                 active_schedule_key = null,
                                 active_started_at = null,
+                                last_status = case
+                                    when coalesce(last_status, '') in ('running', 'active') then 'timed_out'
+                                    else last_status
+                                end,
                                 last_error = coalesce(last_error, 'cleared by runtime_preflight after abnormal termination'),
                                 updated_at = now()
                             where worker_type = :worker_type
                         """), {'worker_type': ws['worker_type']})
+                        conn.execute(text("""
+                            update ifa2.unified_runtime_runs
+                            set status = case
+                                    when coalesce(status, '') in ('running', 'active') then 'timed_out'
+                                    else status
+                                end,
+                                governance_state = case
+                                    when coalesce(governance_state, '') in ('', 'ok', 'running', 'active') then 'timed_out'
+                                    else governance_state
+                                end,
+                                completed_at = coalesce(completed_at, now()),
+                                duration_ms = coalesce(
+                                    duration_ms,
+                                    greatest(0, floor(extract(epoch from (now() - started_at)) * 1000))::bigint
+                                ),
+                                error_count = greatest(coalesce(error_count, 0), 1),
+                                summary = coalesce(summary, '{}'::jsonb) || jsonb_build_object(
+                                    'runtime_preflight_repaired', true,
+                                    'runtime_preflight_repaired_at', now(),
+                                    'runtime_preflight_reason', 'stale_active_runtime_state'
+                                )
+                            where id = cast(:run_id as uuid)
+                        """), {'run_id': str(active_run_id)})
 
         cps = conn.execute(text("select * from ifa2.archive_checkpoints where status = 'in_progress' order by dataset_name, asset_type")).mappings().all()
         for cp in cps:

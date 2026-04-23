@@ -102,8 +102,10 @@ def test_unified_daemon_service_status_recovers_when_pid_file_is_stale_but_real_
     try:
         log_dir = tmp_path / 'service'
         pid_file = log_dir / 'unified_daemon.pid'
+        heartbeat_file = log_dir / 'unified_daemon.heartbeat.json'
         log_dir.mkdir(parents=True)
         pid_file.write_text(f'{stale.pid}\n')
+        heartbeat_file.write_text(json.dumps({'pid': daemon.pid, 'generated_at': '2999-01-01T00:00:00+00:00', 'phase': 'running'}))
 
         proc = subprocess.run(
             ['zsh', 'scripts/unified_daemon_service.sh', 'status'],
@@ -114,6 +116,7 @@ def test_unified_daemon_service_status_recovers_when_pid_file_is_stale_but_real_
                 **os.environ,
                 'LOG_DIR': str(log_dir),
                 'PID_FILE': str(pid_file),
+                'HEARTBEAT_FILE': str(heartbeat_file),
                 'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
             },
         )
@@ -138,7 +141,9 @@ def test_unified_daemon_service_status_recovers_without_pid_file_when_real_daemo
     try:
         log_dir = tmp_path / 'service'
         pid_file = log_dir / 'unified_daemon.pid'
+        heartbeat_file = log_dir / 'unified_daemon.heartbeat.json'
         log_dir.mkdir(parents=True)
+        heartbeat_file.write_text(json.dumps({'pid': daemon.pid, 'generated_at': '2999-01-01T00:00:00+00:00', 'phase': 'running'}))
 
         proc = subprocess.run(
             ['zsh', 'scripts/unified_daemon_service.sh', 'status'],
@@ -149,6 +154,7 @@ def test_unified_daemon_service_status_recovers_without_pid_file_when_real_daemo
                 **os.environ,
                 'LOG_DIR': str(log_dir),
                 'PID_FILE': str(pid_file),
+                'HEARTBEAT_FILE': str(heartbeat_file),
                 'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
             },
         )
@@ -168,7 +174,9 @@ def test_unified_daemon_service_start_detects_existing_daemon_via_process_scan(t
     try:
         log_dir = tmp_path / 'service'
         pid_file = log_dir / 'unified_daemon.pid'
+        heartbeat_file = log_dir / 'unified_daemon.heartbeat.json'
         log_dir.mkdir(parents=True)
+        heartbeat_file.write_text(json.dumps({'pid': daemon.pid, 'generated_at': '2999-01-01T00:00:00+00:00', 'phase': 'running'}))
 
         proc = subprocess.run(
             ['zsh', 'scripts/unified_daemon_service.sh', 'start'],
@@ -179,6 +187,7 @@ def test_unified_daemon_service_start_detects_existing_daemon_via_process_scan(t
                 **os.environ,
                 'LOG_DIR': str(log_dir),
                 'PID_FILE': str(pid_file),
+                'HEARTBEAT_FILE': str(heartbeat_file),
                 'PREFLIGHT_JSON': str(log_dir / 'runtime_preflight_latest.json'),
                 'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
             },
@@ -186,6 +195,41 @@ def test_unified_daemon_service_start_detects_existing_daemon_via_process_scan(t
         assert proc.returncode == 0
         assert f'already_running pid={daemon.pid} source=process_scan refreshed_pid_file=1' in proc.stdout
         assert pid_file.read_text().strip() == str(daemon.pid)
+    finally:
+        daemon.terminate()
+        daemon.wait(timeout=5)
+
+
+def test_unified_daemon_service_status_fails_when_heartbeat_is_stale(tmp_path: Path):
+    sentinel = 'test-status-stale-heartbeat'
+    daemon = subprocess.Popen([
+        'python3', '-c', 'import time; time.sleep(30)', '-m', 'ifa_data_platform.runtime.unified_daemon', '--loop', '--sentinel', sentinel
+    ])
+    try:
+        log_dir = tmp_path / 'service'
+        pid_file = log_dir / 'unified_daemon.pid'
+        heartbeat_file = log_dir / 'unified_daemon.heartbeat.json'
+        log_dir.mkdir(parents=True)
+        pid_file.write_text(f'{daemon.pid}\n')
+        heartbeat_file.write_text(json.dumps({'pid': daemon.pid, 'generated_at': '2000-01-01T00:00:00+00:00', 'phase': 'running'}))
+
+        proc = subprocess.run(
+            ['zsh', 'scripts/unified_daemon_service.sh', 'status'],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'LOG_DIR': str(log_dir),
+                'PID_FILE': str(pid_file),
+                'HEARTBEAT_FILE': str(heartbeat_file),
+                'HEARTBEAT_STALE_SEC': '60',
+                'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
+            },
+        )
+        assert proc.returncode == 1
+        assert f'alive pid={daemon.pid} source=pid_file' in proc.stdout
+        assert 'heartbeat_status=stale' in proc.stdout
     finally:
         daemon.terminate()
         daemon.wait(timeout=5)
