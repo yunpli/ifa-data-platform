@@ -690,6 +690,45 @@ def test_main_report_delivery_dispatch_helper_loads_and_discovers_delivery_packa
     assert discovered[0]["delivery_manifest_path"].endswith("delivery_manifest.json")
 
 
+def test_main_report_delivery_dispatch_helper_prefers_db_active_surface_before_filesystem_scan(tmp_path: Path) -> None:
+    helper = MainReportDeliveryDispatchHelper()
+    root = tmp_path / "out"
+    package = root / "a_share_main_report_delivery_2099-04-22_20990422T095700Z_artifact-ready"
+    package.mkdir(parents=True)
+    manifest_path = package / "delivery_manifest.json"
+    manifest_path.write_text(json.dumps({
+        "artifact_id": "artifact-fs",
+        "business_date": "2099-04-22",
+        "report_run_id": "run-fs",
+        "artifact_family": "a_share_main",
+        "package_state": "ready",
+        "ready_for_delivery": True,
+        "quality_gate": {"score": 88},
+    }), encoding="utf-8")
+
+    class _StubStore:
+        pass
+
+    helper.load_active_published_candidate = lambda *, business_date, store=None: {
+        "artifact": {"artifact_id": "artifact-db", "business_date": business_date, "artifact_family": "main_final_report"},
+        "delivery_manifest_path": str(manifest_path.resolve()),
+        "delivery_manifest": {"artifact_id": "artifact-db", "business_date": business_date},
+        "source": "db_active_delivery_surface",
+    }
+
+    discovered = helper.discover_published_candidates(
+        root,
+        business_date="2099-04-22",
+        limit=5,
+        store=_StubStore(),
+        prefer_db_active=True,
+    )
+
+    assert len(discovered) == 1
+    assert discovered[0]["artifact"]["artifact_id"] == "artifact-db"
+    assert discovered[0]["source"] == "db_active_delivery_surface"
+
+
 def test_main_report_delivery_dispatch_helper_falls_back_to_send_review_for_best_available_provisional_candidate() -> None:
     helper = MainReportDeliveryDispatchHelper()
     provisional = {

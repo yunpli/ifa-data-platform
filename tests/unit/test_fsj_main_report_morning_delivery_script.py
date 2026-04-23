@@ -24,9 +24,9 @@ class _FakeHelper:
             "delivery_manifest": {"artifact_id": "artifact-db", "business_date": business_date},
         }
 
-    def discover_published_candidates(self, root: str, *, business_date: str | None = None, limit: int | None = None) -> list[dict]:
-        self.calls.append(("discover", root))
-        return [
+    def discover_published_candidates(self, root: str, *, business_date: str | None = None, limit: int | None = None, store=None, prefer_db_active: bool = False) -> list[dict]:
+        self.calls.append(("discover", root, prefer_db_active, store is not None))
+        results = [
             {
                 "artifact": {"artifact_id": "artifact-db-dupe", "business_date": business_date, "artifact_family": "main_final_report"},
                 "delivery_manifest_path": "/tmp/db/delivery_manifest.json",
@@ -38,6 +38,9 @@ class _FakeHelper:
                 "delivery_manifest": {"artifact_id": "artifact-fs", "business_date": business_date},
             },
         ]
+        if prefer_db_active:
+            results.insert(0, self.load_active_published_candidate(business_date=business_date or "", store=store))
+        return results
 
     def load_published_candidate(self, path: str) -> dict:
         self.calls.append(("load", path))
@@ -71,4 +74,5 @@ def test_load_comparison_candidates_prefers_db_active_surface_and_dedupes_filesy
         "artifact:/tmp/pkg-a",
         "artifact:/tmp/manifest-b.json",
     ]
-    assert helper.calls[0] == ("db", "2099-04-22")
+    assert helper.calls[0] == ("discover", "/tmp/out", True, True)
+    assert helper.calls[1] == ("db", "2099-04-22")

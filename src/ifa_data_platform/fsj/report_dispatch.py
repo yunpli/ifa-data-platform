@@ -190,19 +190,40 @@ class MainReportDeliveryDispatchHelper:
         *,
         business_date: str | None = None,
         limit: int | None = None,
+        store: FSJStore | None = None,
+        prefer_db_active: bool = False,
     ) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        seen_manifest_paths: set[str] = set()
+
+        def _append(candidate: dict[str, Any]) -> bool:
+            manifest_path = str(candidate.get("delivery_manifest_path") or "")
+            dedupe_key = manifest_path or str((candidate.get("artifact") or {}).get("artifact_id") or "")
+            if dedupe_key and dedupe_key in seen_manifest_paths:
+                return False
+            if dedupe_key:
+                seen_manifest_paths.add(dedupe_key)
+            results.append(candidate)
+            return True
+
+        if prefer_db_active and business_date:
+            db_active = self.load_active_published_candidate(business_date=business_date, store=store)
+            if db_active:
+                _append(db_active)
+                if limit is not None and len(results) >= limit:
+                    return results
+
         root = Path(root_dir)
         if not root.exists():
-            return []
+            return results
         manifests = sorted(root.glob("a_share_main_report_delivery_*/delivery_manifest.json"), reverse=True)
-        results: list[dict[str, Any]] = []
         for manifest_path in manifests:
             published = self.load_published_candidate(manifest_path)
             candidate_date = (published.get("delivery_manifest") or {}).get("business_date")
             if business_date and candidate_date != business_date:
                 continue
-            results.append(published)
-            if limit is not None and len(results) >= limit:
+            appended = _append(published)
+            if appended and limit is not None and len(results) >= limit:
                 break
         return results
 

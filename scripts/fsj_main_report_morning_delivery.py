@@ -41,13 +41,19 @@ def _load_comparison_candidates(
             candidates.append(candidate)
             seen_manifest_paths.add(manifest_path)
 
-    db_active = helper.load_active_published_candidate(business_date=business_date, store=store)
-    if db_active:
-        _append(db_active)
-
     if compare_under_output_dir:
-        for candidate in helper.discover_published_candidates(compare_under_output_dir, business_date=business_date, limit=compare_limit):
+        for candidate in helper.discover_published_candidates(
+            compare_under_output_dir,
+            business_date=business_date,
+            limit=compare_limit,
+            store=store,
+            prefer_db_active=True,
+        ):
             _append(candidate)
+    else:
+        db_active = helper.load_active_published_candidate(business_date=business_date, store=store)
+        if db_active:
+            _append(db_active)
     for package_dir in comparison_package_dir:
         _append(helper.load_published_candidate(package_dir))
     for manifest_path in comparison_manifest:
