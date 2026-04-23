@@ -3,9 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
+from pathlib import Path
 from typing import Any, Sequence
+from uuid import uuid4
+import json
 
 from .report_assembly import MainReportAssemblyService
+from .store import FSJStore
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
 RENDERER_VERSION = "v1"
@@ -275,3 +279,110 @@ class MainReportRenderingService:
             report_run_id=report_run_id,
             artifact_uri=artifact_uri,
         )
+
+
+class MainReportArtifactPublishingService:
+    ARTIFACT_FAMILY = "main_final_report"
+
+    def __init__(
+        self,
+        rendering_service: MainReportRenderingService,
+        store: FSJStore,
+    ) -> None:
+        self.rendering_service = rendering_service
+        self.store = store
+
+    def publish_main_report_html(
+        self,
+        *,
+        business_date: str,
+        output_dir: str | Path,
+        include_empty: bool = False,
+        report_run_id: str | None = None,
+        generated_at: datetime | None = None,
+    ) -> dict[str, Any]:
+        generated_at = generated_at or datetime.now(timezone.utc)
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
+        artifact_id = f"fsj-main-report:{business_date}:{stamp}:{uuid4().hex[:8]}"
+        html_path = output_path / f"a_share_main_report_{business_date}_{stamp}.html"
+        artifact_uri = html_path.resolve().as_uri()
+        effective_report_run_id = report_run_id or artifact_id
+
+        rendered = self.rendering_service.render_main_report_html(
+            business_date=business_date,
+            include_empty=include_empty,
+            report_run_id=effective_report_run_id,
+            artifact_uri=artifact_uri,
+        )
+        html_path.write_text(rendered["content"], encoding="utf-8")
+
+        artifact_record = self.store.register_report_artifact(
+            {
+                "artifact_id": artifact_id,
+                "artifact_family": self.ARTIFACT_FAMILY,
+                "market": str(rendered["metadata"].get("market") or "a_share"),
+                "business_date": business_date,
+                "agent_domain": str(rendered["metadata"].get("agent_domain") or "main"),
+                "render_format": rendered["render_format"],
+                "artifact_type": rendered["artifact_type"],
+                "content_type": rendered["content_type"],
+                "title": rendered["title"],
+                "report_run_id": effective_report_run_id,
+                "artifact_uri": artifact_uri,
+                "status": "active",
+                "metadata_json": {
+                    **dict(rendered["metadata"]),
+                    "artifact_file_path": str(html_path.resolve()),
+                    "bundle_ids": list(rendered["metadata"].get("bundle_ids") or []),
+                },
+            }
+        )
+
+        persisted_links: list[dict[str, Any]] = []
+        for link in rendered["report_links"]:
+            locator = dict(link.get("artifact_locator_json") or {})
+            locator.update(
+                {
+                    "report_artifact_id": artifact_record["artifact_id"],
+                    "artifact_file_path": str(html_path.resolve()),
+                }
+            )
+            persisted_links.extend(
+                self.store.attach_report_links(
+                    str(link["bundle_id"]),
+                    [
+                        {
+                            **link,
+                            "report_run_id": effective_report_run_id,
+                            "artifact_uri": artifact_uri,
+                            "artifact_locator_json": locator,
+                        }
+                    ],
+                )
+            )
+
+        manifest_path = output_path / f"a_share_main_report_{business_date}_{stamp}.manifest.json"
+        manifest = {
+            "artifact": artifact_record,
+            "rendered": {
+                "artifact_type": rendered["artifact_type"],
+                "artifact_version": rendered["artifact_version"],
+                "render_format": rendered["render_format"],
+                "content_type": rendered["content_type"],
+                "title": rendered["title"],
+                "metadata": rendered["metadata"],
+            },
+            "report_links": rendered["report_links"],
+            "persisted_report_links": persisted_links,
+        }
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        return {
+            "artifact": artifact_record,
+            "html_path": str(html_path.resolve()),
+            "manifest_path": str(manifest_path.resolve()),
+            "rendered": rendered,
+            "persisted_report_links": persisted_links,
+        }

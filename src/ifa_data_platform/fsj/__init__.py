@@ -41,6 +41,7 @@ from .report_assembly import (
     MainReportSectionSpec,
 )
 from .report_rendering import (
+    MainReportArtifactPublishingService,
     MainReportHTMLRenderer,
     MainReportRenderingService,
     RENDERER_NAME,
@@ -76,6 +77,7 @@ __all__ = [
     "FSJReportAssemblyStore",
     "FSJStore",
     "MainReportAssemblyService",
+    "MainReportArtifactPublishingService",
     "MainReportHTMLRenderer",
     "MainReportRenderingService",
     "MainReportSectionAssembler",

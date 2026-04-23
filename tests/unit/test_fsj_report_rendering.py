@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
-from ifa_data_platform.fsj.report_rendering import MainReportHTMLRenderer, MainReportRenderingService
+from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportHTMLRenderer, MainReportRenderingService
 
 
 def _assembled_sections() -> dict:
@@ -164,3 +165,45 @@ def test_main_report_rendering_service_delegates_assembly_then_render() -> None:
     assert stub.calls == [("2099-04-22", True)]
     assert rendered["metadata"]["artifact_uri"] == "file:///tmp/final.html"
     assert rendered["report_links"][1]["bundle_id"] == "bundle-late"
+
+
+class _StubStore:
+    def __init__(self) -> None:
+        self.registered: list[dict] = []
+        self.attached: list[tuple[str, list[dict]]] = []
+
+    def register_report_artifact(self, payload: dict) -> dict:
+        self.registered.append(payload)
+        return {**payload, "status": payload["status"]}
+
+    def attach_report_links(self, bundle_id: str, report_links: list[dict]) -> list[dict]:
+        self.attached.append((bundle_id, report_links))
+        return report_links
+
+
+def test_main_report_artifact_publisher_writes_html_and_manifest_with_report_wiring(tmp_path: Path) -> None:
+    stub = _StubAssemblyService(_assembled_sections())
+    rendering_service = MainReportRenderingService(assembly_service=stub)
+    store = _StubStore()
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+
+    published = publisher.publish_main_report_html(
+        business_date="2099-04-22",
+        output_dir=tmp_path,
+        include_empty=False,
+        report_run_id="report-run-final-1",
+        generated_at=datetime(2099, 4, 22, 9, 30, tzinfo=timezone.utc),
+    )
+
+    html_path = Path(published["html_path"])
+    manifest_path = Path(published["manifest_path"])
+    assert html_path.exists()
+    assert manifest_path.exists()
+    assert "盘前主结论" in html_path.read_text(encoding="utf-8")
+    assert published["artifact"]["artifact_family"] == "main_final_report"
+    assert published["artifact"]["report_run_id"] == "report-run-final-1"
+    assert store.registered[0]["metadata_json"]["artifact_file_path"] == str(html_path)
+    assert [bundle_id for bundle_id, _ in store.attached] == ["bundle-early", "bundle-late"]
+    first_link = store.attached[0][1][0]
+    assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]
+    assert first_link["artifact_uri"] == html_path.as_uri()

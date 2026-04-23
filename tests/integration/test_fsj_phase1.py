@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 
 import sqlalchemy as sa
 from sqlalchemy import text
 
 from ifa_data_platform.fsj import FSJStore
+from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 
 DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
 
@@ -255,3 +258,108 @@ def test_fsj_phase1_status_chain_supports_superseded_and_active_versions() -> No
         assert by_id[new_bundle_id]['supersedes_bundle_id'] == old_bundle_id
     finally:
         _cleanup([old_bundle_id, new_bundle_id])
+
+
+class _StubAssemblyService:
+    def __init__(self, bundle_id: str, *, summary: str):
+        self.bundle_id = bundle_id
+        self.summary = summary
+
+    def assemble_main_sections(self, *, business_date: str, include_empty: bool = False) -> dict:
+        return {
+            'artifact_type': 'fsj_main_report_sections',
+            'artifact_version': 'v1',
+            'market': 'a_share',
+            'business_date': business_date,
+            'agent_domain': 'main',
+            'section_count': 1,
+            'sections': [
+                {
+                    'slot': 'mid',
+                    'section_key': 'main_thesis',
+                    'section_render_key': 'main.midday',
+                    'title': '盘中主结论',
+                    'order_index': 20,
+                    'status': 'ready',
+                    'bundle': {
+                        'bundle_id': self.bundle_id,
+                        'status': 'active',
+                        'supersedes_bundle_id': None,
+                        'bundle_topic_key': 'theme:robotics',
+                        'producer': 'business-layer',
+                        'producer_version': 'phase1',
+                        'section_type': 'thesis',
+                        'slot_run_id': 'slot-run-mid',
+                        'replay_id': 'replay-mid',
+                        'report_run_id': None,
+                        'updated_at': '2099-04-18T12:00:00+00:00',
+                    },
+                    'summary': self.summary,
+                    'judgments': [],
+                    'signals': [],
+                    'facts': [],
+                    'lineage': {'bundle': {'bundle_id': self.bundle_id}, 'objects': [], 'edges': [], 'evidence_links': [], 'observed_records': [], 'report_links': []},
+                }
+            ],
+        }
+
+
+def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active(tmp_path) -> None:
+    store = FSJStore()
+    store.ensure_schema()
+    bundle_id = f'fsj:test:{uuid.uuid4()}:bundle'
+    first: dict | None = None
+    second: dict | None = None
+    try:
+        store.upsert_bundle_graph(_sample_payload(bundle_id))
+        publisher_v1 = MainReportArtifactPublishingService(
+            rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='v1 summary')),
+            store=store,
+        )
+        first = publisher_v1.publish_main_report_html(
+            business_date='2099-04-18',
+            output_dir=tmp_path,
+            report_run_id='report-run-v1',
+            generated_at=datetime(2099, 4, 18, 12, 0, tzinfo=timezone.utc),
+        )
+
+        publisher_v2 = MainReportArtifactPublishingService(
+            rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='v2 summary')),
+            store=store,
+        )
+        second = publisher_v2.publish_main_report_html(
+            business_date='2099-04-18',
+            output_dir=tmp_path,
+            report_run_id='report-run-v2',
+            generated_at=datetime(2099, 4, 18, 12, 5, tzinfo=timezone.utc),
+        )
+
+        active_artifact = store.get_active_report_artifact(
+            business_date='2099-04-18',
+            agent_domain='main',
+            artifact_family='main_final_report',
+        )
+        assert active_artifact is not None
+        assert active_artifact['artifact_id'] == second['artifact']['artifact_id']
+        assert active_artifact['supersedes_artifact_id'] == first['artifact']['artifact_id']
+
+        with engine().begin() as conn:
+            artifact_rows = conn.execute(
+                text("SELECT artifact_id, status, supersedes_artifact_id FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id IN (:a, :b) ORDER BY artifact_id"),
+                {'a': first['artifact']['artifact_id'], 'b': second['artifact']['artifact_id']},
+            ).mappings().all()
+            report_links = conn.execute(
+                text("SELECT report_run_id, artifact_uri FROM ifa2.ifa_fsj_report_links WHERE bundle_id=:bundle_id AND artifact_type='html' ORDER BY report_run_id"),
+                {'bundle_id': bundle_id},
+            ).mappings().all()
+        by_id = {row['artifact_id']: row for row in artifact_rows}
+        assert by_id[first['artifact']['artifact_id']]['status'] == 'superseded'
+        assert by_id[second['artifact']['artifact_id']]['status'] == 'active'
+        assert by_id[second['artifact']['artifact_id']]['supersedes_artifact_id'] == first['artifact']['artifact_id']
+        assert [row['report_run_id'] for row in report_links] == ['report-run-v1', 'report-run-v2']
+        assert report_links[-1]['artifact_uri'] == Path(second['html_path']).as_uri()
+    finally:
+        _cleanup([bundle_id])
+        if first and second:
+            with engine().begin() as conn:
+                conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id IN (:a, :b)'), {'a': first['artifact']['artifact_id'], 'b': second['artifact']['artifact_id']})
