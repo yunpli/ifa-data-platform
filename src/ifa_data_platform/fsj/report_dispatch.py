@@ -116,6 +116,14 @@ class MainReportDeliveryDispatchHelper:
             except FileNotFoundError:
                 report_evaluation = {}
         caption_path = package_dir / str((payload.get("artifacts") or {}).get("telegram_caption") or "telegram_caption.txt")
+        package_index_path = package_dir / str((payload.get("artifacts") or {}).get("package_index") or "package_index.json")
+        browse_readme_path = package_dir / str((payload.get("artifacts") or {}).get("browse_readme") or "BROWSE_PACKAGE.md")
+        package_index: dict[str, Any] = {}
+        if package_index_path.exists():
+            try:
+                package_index = json.loads(package_index_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                package_index = {}
         zip_candidates = sorted(package_dir.parent.glob(f"{package_dir.name}.zip"))
         return {
             "artifact": artifact,
@@ -123,8 +131,11 @@ class MainReportDeliveryDispatchHelper:
             "delivery_manifest_path": str(manifest_path.resolve()),
             "delivery_zip_path": str(zip_candidates[0].resolve()) if zip_candidates else None,
             "telegram_caption_path": str(caption_path.resolve()) if caption_path.exists() else None,
+            "package_index_path": str(package_index_path.resolve()) if package_index_path.exists() else None,
+            "package_browse_readme_path": str(browse_readme_path.resolve()) if browse_readme_path.exists() else None,
             "delivery_manifest": payload,
             "report_evaluation": report_evaluation,
+            "package_index": package_index,
         }
 
     def discover_published_candidates(

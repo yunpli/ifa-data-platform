@@ -583,6 +583,11 @@ class MainReportArtifactPublishingService:
         report_eval = dict(published["report_evaluation"])
         artifact = dict(published["artifact"])
         rendered = dict(published["rendered"])
+        support_summary_aggregate = self._build_support_summary_aggregate(
+            rendered=rendered,
+            evaluation=evaluation,
+            report_eval=report_eval,
+        )
 
         package_slug = self._delivery_package_slug(
             business_date=business_date,
@@ -607,6 +612,7 @@ class MainReportArtifactPublishingService:
             artifact=artifact,
             evaluation=evaluation,
             rendered=rendered,
+            support_summary_aggregate=support_summary_aggregate,
         )
         caption_path = package_dir / "telegram_caption.txt"
         caption_path.write_text(caption_text, encoding="utf-8")
@@ -642,6 +648,7 @@ class MainReportArtifactPublishingService:
                 "average_slot_score": (report_eval.get("summary") or {}).get("average_slot_score"),
                 "slot_score_span": (report_eval.get("summary") or {}).get("slot_score_span"),
             },
+            "support_summary_aggregate": support_summary_aggregate,
             "artifacts": {
                 "html": package_html_path.name,
                 "qa": package_qa_path.name,
@@ -663,6 +670,30 @@ class MainReportArtifactPublishingService:
         delivery_manifest_path = package_dir / "delivery_manifest.json"
         delivery_manifest_path.write_text(json.dumps(delivery_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
+        package_index = self._build_delivery_package_index(
+            package_dir=package_dir,
+            artifact=artifact,
+            delivery_manifest=delivery_manifest,
+            package_artifacts={
+                "html": package_html_path,
+                "qa": package_qa_path,
+                "evaluation": package_eval_path,
+                "manifest": package_manifest_path,
+                "telegram_caption": caption_path,
+                "delivery_manifest": delivery_manifest_path,
+            },
+        )
+        package_index_path = package_dir / "package_index.json"
+        package_index_path.write_text(json.dumps(package_index, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        browse_readme_path = package_dir / "BROWSE_PACKAGE.md"
+        browse_readme_path.write_text(self._build_delivery_package_browse_readme(package_index), encoding="utf-8")
+
+        delivery_manifest["artifacts"]["delivery_manifest"] = delivery_manifest_path.name
+        delivery_manifest["artifacts"]["package_index"] = package_index_path.name
+        delivery_manifest["artifacts"]["browse_readme"] = browse_readme_path.name
+        delivery_manifest_path.write_text(json.dumps(delivery_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
         zip_path = root_output_dir / f"{package_slug}.zip"
         with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zf:
             for path in sorted(package_dir.iterdir()):
@@ -677,6 +708,9 @@ class MainReportArtifactPublishingService:
             "delivery_manifest": delivery_manifest,
             "delivery_eval_path": str(package_eval_path.resolve()),
             "dispatch_advice": delivery_manifest.get("dispatch_advice"),
+            "package_index_path": str(package_index_path.resolve()),
+            "package_browse_readme_path": str(browse_readme_path.resolve()),
+            "package_index": package_index,
         }
 
     def _delivery_package_slug(self, *, business_date: str, generated_at: datetime, artifact_id: str) -> str:
@@ -691,6 +725,7 @@ class MainReportArtifactPublishingService:
         artifact: dict[str, Any],
         evaluation: dict[str, Any],
         rendered: dict[str, Any],
+        support_summary_aggregate: dict[str, Any],
     ) -> str:
         summary = dict(evaluation.get("summary") or {})
         quality_state = "READY" if evaluation.get("ready_for_delivery") else "BLOCKED"
@@ -703,8 +738,87 @@ class MainReportArtifactPublishingService:
             f"blockers={summary.get('blocker_count', 0)}｜warnings={summary.get('warning_count', 0)}",
             f"sections={summary.get('ready_section_count', 0)}/{summary.get('section_count', 0)} ready",
             f"support_summaries={summary.get('support_summary_count', 0)}｜report_links={summary.get('report_link_count', 0)}",
+            f"support_domains={','.join(support_summary_aggregate.get('domains') or []) or '-'}｜support_slots={','.join(support_summary_aggregate.get('slots') or []) or '-'}",
             f"renderer={((rendered.get('metadata') or {}).get('renderer_version') or '-')}",
         ]
+        return "\n".join(lines) + "\n"
+
+    def _build_support_summary_aggregate(
+        self,
+        *,
+        rendered: dict[str, Any],
+        evaluation: dict[str, Any],
+        report_eval: dict[str, Any],
+    ) -> dict[str, Any]:
+        metadata = dict(rendered.get("metadata") or {})
+        existing_report_links = list(metadata.get("existing_report_links") or [])
+        support_links = [link for link in existing_report_links if link.get("bundle_id") in set(metadata.get("support_summary_bundle_ids") or [])]
+        domains = sorted({str(domain) for domain in (metadata.get("support_summary_domains") or []) if domain})
+        slots = sorted({str(link.get("slot") or "") for link in support_links if link.get("slot")})
+        return {
+            "support_summary_count": int((evaluation.get("summary") or {}).get("support_summary_count") or 0),
+            "bundle_ids": list(metadata.get("support_summary_bundle_ids") or []),
+            "domains": domains,
+            "slots": slots,
+            "report_link_count": len(support_links),
+            "section_count": len(list(metadata.get("bundle_ids") or [])),
+            "ready_section_count": int((evaluation.get("summary") or {}).get("ready_section_count") or 0),
+            "strongest_slot": (report_eval.get("summary") or {}).get("strongest_slot"),
+        }
+
+    def _build_delivery_package_index(
+        self,
+        *,
+        package_dir: Path,
+        artifact: dict[str, Any],
+        delivery_manifest: dict[str, Any],
+        package_artifacts: dict[str, Path],
+    ) -> dict[str, Any]:
+        file_index: list[dict[str, Any]] = []
+        for role, path in package_artifacts.items():
+            file_index.append({
+                "role": role,
+                "filename": path.name,
+                "path": str(path.resolve()),
+                "exists": path.exists(),
+                "size_bytes": path.stat().st_size if path.exists() else None,
+            })
+        return {
+            "artifact_type": "fsj_main_report_delivery_package_index",
+            "artifact_version": self.DELIVERY_PACKAGE_VERSION,
+            "artifact_id": artifact.get("artifact_id"),
+            "business_date": delivery_manifest.get("business_date"),
+            "report_run_id": delivery_manifest.get("report_run_id"),
+            "delivery_package_dir": str(package_dir.resolve()),
+            "package_state": delivery_manifest.get("package_state"),
+            "ready_for_delivery": delivery_manifest.get("ready_for_delivery"),
+            "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
+            "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
+            "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+            "browse_priority": ["html", "telegram_caption", "delivery_manifest", "evaluation", "qa", "manifest"],
+            "files": file_index,
+        }
+
+    def _build_delivery_package_browse_readme(self, package_index: dict[str, Any]) -> str:
+        support_summary = dict(package_index.get("support_summary_aggregate") or {})
+        lines = [
+            f"# MAIN Delivery Package Browse｜{package_index.get('business_date')}",
+            "",
+            "## Snapshot",
+            f"- artifact_id: `{package_index.get('artifact_id') or '-'}`",
+            f"- package_state: `{package_index.get('package_state') or '-'}`",
+            f"- ready_for_delivery: `{package_index.get('ready_for_delivery')}`",
+            f"- strongest_slot: `{(package_index.get('slot_evaluation') or {}).get('strongest_slot') or '-'}`",
+            f"- support_domains: `{', '.join(support_summary.get('domains') or []) or '-'}`",
+            f"- support_bundle_count: `{len(support_summary.get('bundle_ids') or [])}`",
+            "",
+            "## Files",
+        ]
+        for item in package_index.get("files") or []:
+            lines.append(
+                f"- {item.get('role')}: `{item.get('filename')}` exists=`{item.get('exists')}` size_bytes=`{item.get('size_bytes')}`"
+            )
+        lines.append("")
         return "\n".join(lines) + "\n"
 
 

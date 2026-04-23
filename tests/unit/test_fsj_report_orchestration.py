@@ -170,11 +170,16 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert any(item["artifact"] == "html" and item["exists"] is True for item in operator_review_bundle["artifact_checks"])
     assert workflow["package_artifacts"]["operator_review_bundle"].endswith("operator_review_bundle.json")
     assert workflow["package_artifacts"]["operator_review_readme"].endswith("OPERATOR_REVIEW.md")
+    assert workflow["package_artifacts"]["package_index"].endswith("package_index.json")
+    assert workflow["package_artifacts"]["package_browse_readme"].endswith("BROWSE_PACKAGE.md")
+    assert workflow["support_summary_aggregate"]["domains"] == ["macro"]
     assert "## Review Checklist" in operator_review_readme
     assert "## Operator Go / No-Go" in operator_review_readme
     assert "## Artifact Integrity" in operator_review_readme
+    assert "## Support Summary Aggregate" in operator_review_readme
     assert "recommended_action=send" in operator_summary
     assert "selected_package_dir=" in operator_summary
+    assert "package_index=" in operator_summary
 
 
 def test_main_report_morning_delivery_workflow_marks_review_required_for_provisional_candidate(tmp_path: Path) -> None:

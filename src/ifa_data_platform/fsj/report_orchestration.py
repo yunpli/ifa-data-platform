@@ -132,11 +132,14 @@ class MainReportMorningDeliveryOrchestrator:
                 "operator_summary": str(operator_summary_path.resolve()),
                 "operator_review_bundle": str(operator_review_bundle_path.resolve()),
                 "operator_review_readme": str(operator_review_readme_path.resolve()),
+                "package_index": str(Path(published["package_index_path"]).resolve()),
+                "package_browse_readme": str(Path(published["package_browse_readme_path"]).resolve()),
                 "delivery_zip": str(Path(published["delivery_zip_path"]).resolve()),
                 "telegram_caption": str(Path(published["telegram_caption_path"]).resolve()),
             },
             "quality_gate": delivery_manifest.get("quality_gate") or {},
             "slot_evaluation": delivery_manifest.get("slot_evaluation") or {},
+            "support_summary_aggregate": delivery_manifest.get("support_summary_aggregate") or {},
             "lineage": delivery_manifest.get("lineage") or {},
             "dispatch_decision": dispatch_decision,
             "review_manifest": review_manifest,
@@ -276,6 +279,7 @@ class MainReportMorningDeliveryOrchestrator:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
         quality_gate = dict(delivery_manifest.get("quality_gate") or {})
         selected = dict(dispatch_decision.get("selected") or {})
+        support_summary = dict(delivery_manifest.get("support_summary_aggregate") or {})
         lines = [
             f"MAIN morning delivery workflow｜{delivery_manifest.get('business_date')}",
             f"recommended_action={effective_action}｜dispatch_action={dispatch_decision.get('recommended_action')}｜selected_is_current={selected_is_current}",
@@ -284,12 +288,15 @@ class MainReportMorningDeliveryOrchestrator:
             f"selected_artifact_id={selected.get('artifact_id')}",
             f"selection_reason={dispatch_decision.get('selection_reason')}",
             f"quality_gate score={quality_gate.get('score')} blockers={quality_gate.get('blocker_count')} warnings={quality_gate.get('warning_count')} late_contract_mode={quality_gate.get('late_contract_mode')}",
+            f"support_summary domains={','.join(support_summary.get('domains') or []) or '-'} bundles={len(support_summary.get('bundle_ids') or [])} strongest_slot={support_summary.get('strongest_slot') or '-'}",
             f"selected_package_dir={selected_handoff.get('delivery_package_dir')}",
             f"selected_delivery_manifest={selected_handoff.get('delivery_manifest_path')}",
             f"selected_delivery_zip={selected_handoff.get('delivery_zip_path')}",
             f"selected_telegram_caption={selected_handoff.get('telegram_caption_path')}",
             f"delivery_zip={published.get('delivery_zip_path')}",
             f"caption={published.get('telegram_caption_path')}",
+            f"package_index={published.get('package_index_path')}",
+            f"package_browse_readme={published.get('package_browse_readme_path')}",
         ]
         return "\n".join(str(line) for line in lines) + "\n"
 
@@ -316,6 +323,8 @@ class MainReportMorningDeliveryOrchestrator:
             "report_manifest": published.get("manifest_path"),
             "delivery_zip": published.get("delivery_zip_path"),
             "telegram_caption": published.get("telegram_caption_path"),
+            "package_index": published.get("package_index_path"),
+            "package_browse_readme": published.get("package_browse_readme_path"),
         }
         artifact_checks = self._build_artifact_checks(package_artifacts)
         return {
@@ -339,6 +348,7 @@ class MainReportMorningDeliveryOrchestrator:
             },
             "quality_gate": delivery_manifest.get("quality_gate") or {},
             "slot_evaluation": delivery_manifest.get("slot_evaluation") or {},
+            "support_summary_aggregate": delivery_manifest.get("support_summary_aggregate") or {},
             "send_manifest": send_manifest,
             "review_manifest": review_manifest,
             "artifact_checks": artifact_checks,
@@ -357,6 +367,7 @@ class MainReportMorningDeliveryOrchestrator:
         current = dict(bundle.get("current_candidate") or {})
         quality_gate = dict(bundle.get("quality_gate") or {})
         slot_evaluation = dict(bundle.get("slot_evaluation") or {})
+        support_summary = dict(bundle.get("support_summary_aggregate") or {})
         send_manifest = dict(bundle.get("send_manifest") or {})
         review_manifest = dict(bundle.get("review_manifest") or {})
         handoff = dict(bundle.get("selected_handoff") or {})
@@ -384,6 +395,12 @@ class MainReportMorningDeliveryOrchestrator:
             f"- strongest_slot: `{slot_evaluation.get('strongest_slot') or '-'}`",
             f"- weakest_slot: `{slot_evaluation.get('weakest_slot') or '-'}`",
             f"- average_slot_score: `{slot_evaluation.get('average_slot_score')}`",
+            "",
+            "## Support Summary Aggregate",
+            f"- domains: `{', '.join(support_summary.get('domains') or []) or '-'}`",
+            f"- bundle_ids: `{', '.join(support_summary.get('bundle_ids') or []) or '-'}`",
+            f"- support_summary_count: `{support_summary.get('support_summary_count')}`",
+            f"- support_report_link_count: `{support_summary.get('report_link_count')}`",
             "",
             "## Immediate Next Step",
             f"- send_manifest.next_step: `{send_manifest.get('next_step')}`",

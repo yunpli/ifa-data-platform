@@ -384,9 +384,21 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["quality_gate"]["late_contract_mode"] == "full_close_package"
     assert delivery_manifest["lineage"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
+    assert delivery_manifest["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
+    assert delivery_manifest["support_summary_aggregate"]["bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert delivery_manifest["artifacts"]["evaluation"].endswith(".eval.json")
+    assert delivery_manifest["artifacts"]["package_index"] == "package_index.json"
+    assert delivery_manifest["artifacts"]["browse_readme"] == "BROWSE_PACKAGE.md"
     assert delivery_manifest["dispatch_advice"]["recommended_action"] == "send"
     assert published["dispatch_advice"]["artifact_id"] == published["artifact"]["artifact_id"]
+    assert Path(published["package_index_path"]).exists()
+    assert Path(published["package_browse_readme_path"]).exists()
+    package_index = json.loads(Path(published["package_index_path"]).read_text(encoding="utf-8"))
+    assert package_index["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
+    assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])
+    browse_readme = Path(published["package_browse_readme_path"]).read_text(encoding="utf-8")
+    assert "## Snapshot" in browse_readme
+    assert "## Files" in browse_readme
 
 
 def _assembled_support_section() -> dict:
@@ -620,6 +632,7 @@ def test_main_report_delivery_dispatch_helper_loads_and_discovers_delivery_packa
     assert loaded["telegram_caption_path"].endswith("telegram_caption.txt")
     assert loaded["delivery_zip_path"].endswith("artifact-ready.zip")
     assert loaded["report_evaluation"]["summary"]["strongest_slot"] == "late"
+    assert loaded["package_index"] == {}
     assert len(discovered) == 1
     assert discovered[0]["delivery_manifest_path"].endswith("delivery_manifest.json")
 
