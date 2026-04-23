@@ -7,7 +7,14 @@ import json
 
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator
-from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportHTMLRenderer, MainReportRenderingService
+from ifa_data_platform.fsj.report_rendering import (
+    MainReportArtifactPublishingService,
+    MainReportHTMLRenderer,
+    MainReportRenderingService,
+    SupportReportArtifactPublishingService,
+    SupportReportHTMLRenderer,
+    SupportReportRenderingService,
+)
 
 
 def _assembled_sections() -> dict:
@@ -376,6 +383,142 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["artifacts"]["evaluation"].endswith(".eval.json")
     assert delivery_manifest["dispatch_advice"]["recommended_action"] == "send"
     assert published["dispatch_advice"]["artifact_id"] == published["artifact"]["artifact_id"]
+
+
+def _assembled_support_section() -> dict:
+    return {
+        "artifact_type": "fsj_support_report_section",
+        "artifact_version": "v1",
+        "market": "a_share",
+        "business_date": "2099-04-22",
+        "agent_domain": "macro",
+        "slot": "early",
+        "section_key": "support_macro",
+        "section_render_key": "support.macro.early",
+        "title": "宏观 support｜盘前",
+        "status": "ready",
+        "bundle": {
+            "bundle_id": "bundle-support-macro-early",
+            "status": "active",
+            "supersedes_bundle_id": None,
+            "bundle_topic_key": "macro_early_support:2099-04-22",
+            "producer": "ifa_data_platform.fsj.early_macro_support_producer",
+            "producer_version": "phase1-macro-early-v1",
+            "section_type": "support",
+            "slot_run_id": "slot-run-support-macro-early",
+            "replay_id": "replay-support-macro-early",
+            "report_run_id": None,
+            "updated_at": "2099-04-22T08:56:00+08:00",
+        },
+        "summary": "宏观背景偏稳定，更多作为边界 support。",
+        "judgments": [
+            {
+                "object_key": "judgment:early:macro:risk_boundary",
+                "statement": "宏观更多用于约束风险预算，不直接改写主线。",
+                "judgment_action": "support",
+                "confidence": "medium",
+                "evidence_level": "E2",
+            }
+        ],
+        "signals": [
+            {
+                "object_key": "signal:early:macro:stability",
+                "statement": "利率/汇率未出现会破坏风险偏好的异常波动。",
+                "signal_strength": "medium",
+                "confidence": "medium",
+                "evidence_level": "E2",
+            }
+        ],
+        "facts": [
+            {
+                "object_key": "fact:early:macro:liquidity",
+                "statement": "最新流动性与政策背景未见明显收紧。",
+                "confidence": "high",
+                "evidence_level": "E1",
+            }
+        ],
+        "lineage": {
+            "bundle": {"bundle_id": "bundle-support-macro-early"},
+            "objects": [],
+            "edges": [],
+            "evidence_links": [{"ref_key": "source:early:macro"}],
+            "observed_records": [],
+            "report_links": [],
+        },
+    }
+
+
+class _StubSupportAssemblyService:
+    def __init__(self, artifact: dict) -> None:
+        self.artifact = artifact
+        self.calls: list[tuple[str, str, str]] = []
+
+    def assemble_support_section(self, *, business_date: str, agent_domain: str, slot: str) -> dict:
+        self.calls.append((business_date, agent_domain, slot))
+        return self.artifact
+
+
+def test_support_report_html_renderer_emits_standalone_support_html() -> None:
+    rendered = SupportReportHTMLRenderer().render(
+        _assembled_support_section(),
+        report_run_id="support-report-run-1",
+        artifact_uri="file:///tmp/support-macro-early.html",
+        generated_at=datetime(2099, 4, 22, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert rendered["artifact_type"] == "fsj_support_report_html"
+    assert "A股宏观 support 报告｜盘前｜2099-04-22" in rendered["title"]
+    assert "support 独立成文" in rendered["content"]
+    assert "MAIN 仅消费 concise support summary" in rendered["content"]
+    assert rendered["metadata"]["agent_domain"] == "macro"
+    assert rendered["metadata"]["section_render_key"] == "support.macro.early"
+    assert rendered["report_links"][0]["bundle_id"] == "bundle-support-macro-early"
+    assert rendered["report_links"][0]["section_render_key"] == "support.macro.early"
+
+
+def test_support_report_rendering_service_delegates_assembly_then_render() -> None:
+    stub = _StubSupportAssemblyService(_assembled_support_section())
+    service = SupportReportRenderingService(assembly_service=stub)
+
+    rendered = service.render_support_report_html(
+        business_date="2099-04-22",
+        agent_domain="macro",
+        slot="early",
+        report_run_id="support-report-run-2",
+        artifact_uri="file:///tmp/support-macro-early.html",
+    )
+
+    assert stub.calls == [("2099-04-22", "macro", "early")]
+    assert rendered["metadata"]["artifact_uri"] == "file:///tmp/support-macro-early.html"
+
+
+def test_support_report_artifact_publisher_writes_html_manifest_and_linkage(tmp_path: Path) -> None:
+    stub = _StubSupportAssemblyService(_assembled_support_section())
+    rendering_service = SupportReportRenderingService(assembly_service=stub)
+    store = _StubStore()
+    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+
+    published = publisher.publish_support_report_html(
+        business_date="2099-04-22",
+        agent_domain="macro",
+        slot="early",
+        output_dir=tmp_path,
+        report_run_id="support-report-run-3",
+        generated_at=datetime(2099, 4, 22, 9, 0, tzinfo=timezone.utc),
+    )
+
+    html_path = Path(published["html_path"])
+    manifest_path = Path(published["manifest_path"])
+    assert html_path.exists()
+    assert manifest_path.exists()
+    assert "宏观 support" in html_path.read_text(encoding="utf-8")
+    assert published["artifact"]["artifact_family"] == "support_domain_report"
+    assert published["artifact"]["agent_domain"] == "macro"
+    assert store.registered[0]["metadata_json"]["section_render_key"] == "support.macro.early"
+    assert [bundle_id for bundle_id, _ in store.attached] == ["bundle-support-macro-early"]
+    first_link = store.attached[0][1][0]
+    assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]
+    assert first_link["section_render_key"] == "support.macro.early"
 
 
 def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_path: Path) -> None:

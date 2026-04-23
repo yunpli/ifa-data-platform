@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ifa_data_platform.fsj.report_assembly import MainReportSectionAssembler
+from ifa_data_platform.fsj.report_assembly import MainReportSectionAssembler, SupportReportAssemblyService
 
 
 def _graph(
@@ -228,3 +228,43 @@ def test_report_assembly_merges_support_summaries_by_slot_without_inlining_suppo
     assert late["support_summaries"][0]["agent_domain"] == "commodities"
     assert late["support_summaries"][0]["producer_version"] == "phase1-commodities-late-v1"
     assert "objects" not in late["support_summaries"][0]
+
+
+class _StubSupportStore:
+    def __init__(self, graphs: list[dict]) -> None:
+        self.graphs = graphs
+        self.calls: list[dict] = []
+
+    def list_bundle_graphs(self, **kwargs):
+        self.calls.append(kwargs)
+        return list(self.graphs)
+
+
+def test_support_report_assembly_builds_separate_support_section_payload() -> None:
+    store = _StubSupportStore(
+        [
+            _graph(
+                slot="early",
+                section_key="support_macro",
+                bundle_id="bundle-support-macro-early",
+                agent_domain="macro",
+                summary="宏观背景偏稳定，更多作为边界 support。",
+                producer="ifa_data_platform.fsj.early_macro_support_producer",
+                producer_version="phase1-macro-early-v1",
+            )
+        ]
+    )
+    assembled = SupportReportAssemblyService(store).assemble_support_section(
+        business_date="2099-04-22",
+        agent_domain="macro",
+        slot="early",
+    )
+
+    assert assembled["artifact_type"] == "fsj_support_report_section"
+    assert assembled["status"] == "ready"
+    assert assembled["agent_domain"] == "macro"
+    assert assembled["section_render_key"] == "support.macro.early"
+    assert assembled["summary"] == "宏观背景偏稳定，更多作为边界 support。"
+    assert assembled["bundle"]["bundle_id"] == "bundle-support-macro-early"
+    assert assembled["lineage"]["report_links"] == []
+    assert store.calls[0]["section_keys"] == ["support_macro"]

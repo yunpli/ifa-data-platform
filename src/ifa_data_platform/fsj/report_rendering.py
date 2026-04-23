@@ -635,3 +635,273 @@ class MainReportArtifactPublishingService:
             f"renderer={((rendered.get('metadata') or {}).get('renderer_version') or '-')}",
         ]
         return "\n".join(lines) + "\n"
+
+
+class SupportReportHTMLRenderer:
+    def render(
+        self,
+        assembled: dict[str, Any],
+        *,
+        report_run_id: str | None = None,
+        artifact_uri: str | None = None,
+        generated_at: datetime | None = None,
+    ) -> dict[str, Any]:
+        generated_at = generated_at or datetime.now(timezone.utc)
+        domain = str(assembled.get("agent_domain") or "support")
+        slot = str(assembled.get("slot") or "")
+        title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)} support 报告｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
+        html = self._render_html(title=title, assembled=assembled, generated_at=generated_at)
+        bundle = dict(assembled.get("bundle") or {})
+        report_links = []
+        if bundle.get("bundle_id"):
+            report_links.append(
+                {
+                    "bundle_id": bundle.get("bundle_id"),
+                    "report_run_id": report_run_id,
+                    "artifact_type": "html",
+                    "artifact_uri": artifact_uri,
+                    "artifact_locator_json": {"renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer", "artifact_uri": artifact_uri},
+                    "section_render_key": assembled.get("section_render_key"),
+                }
+            )
+        metadata = {
+            "market": assembled.get("market"),
+            "business_date": assembled.get("business_date"),
+            "agent_domain": domain,
+            "slot": slot,
+            "section_key": assembled.get("section_key"),
+            "section_render_key": assembled.get("section_render_key"),
+            "source_artifact_type": assembled.get("artifact_type"),
+            "source_artifact_version": assembled.get("artifact_version"),
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "renderer_version": "v1",
+            "generated_at": generated_at.isoformat(),
+            "bundle_id": bundle.get("bundle_id"),
+            "producer_version": bundle.get("producer_version"),
+            "artifact_uri": artifact_uri,
+            "existing_report_links": list(((assembled.get("lineage") or {}).get("report_links") or [])),
+            "evidence_link_count": len(((assembled.get("lineage") or {}).get("evidence_links") or [])),
+        }
+        return RenderedFSJArtifact(
+            artifact_type="fsj_support_report_html",
+            artifact_version="v1",
+            render_format="html",
+            content_type="text/html",
+            title=title,
+            content=html,
+            metadata=metadata,
+            report_links=report_links,
+        ).as_dict()
+
+    def _render_html(self, *, title: str, assembled: dict[str, Any], generated_at: datetime) -> str:
+        bundle = dict(assembled.get("bundle") or {})
+        lineage = dict(assembled.get("lineage") or {})
+        evidence_keys = [str(item.get("ref_key")) for item in (lineage.get("evidence_links") or []) if item.get("ref_key")]
+        report_uris = [str(item.get("artifact_uri")) for item in (lineage.get("report_links") or []) if item.get("artifact_uri")]
+        return f"""<!DOCTYPE html>
+<html lang=\"zh-CN\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>{escape(title)}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #f4f6fb; color: #111827; }}
+    .page {{ max-width: 960px; margin: 0 auto; padding: 28px 24px 48px; }}
+    .hero {{ background: linear-gradient(135deg, #172554, #2563eb); color: white; border-radius: 20px; padding: 28px 32px; }}
+    .card {{ background: white; border-radius: 18px; padding: 24px 26px; margin-top: 20px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08); }}
+    .meta {{ opacity: 0.9; font-size: 14px; line-height: 1.6; }}
+    .pill {{ display: inline-block; padding: 4px 10px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 12px; margin-right: 8px; }}
+    .bucket {{ margin-top: 16px; }}
+    ul {{ margin: 8px 0 0 18px; padding: 0; }}
+    li {{ margin: 6px 0; line-height: 1.55; }}
+    .footnote {{ font-size: 12px; color: #64748b; margin-top: 18px; line-height: 1.6; }}
+    .mono {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+  </style>
+</head>
+<body>
+  <div class=\"page\">
+    <section class=\"hero\">
+      <h1>{escape(title)}</h1>
+      <div class=\"meta\">
+        业务日期：{escape(str(assembled.get('business_date') or '-'))} · 域：{escape(SUPPORT_DOMAIN_LABELS.get(str(assembled.get('agent_domain') or ''), str(assembled.get('agent_domain') or '-')))} · 时段：{escape(SUPPORT_SLOT_LABELS.get(str(assembled.get('slot') or ''), str(assembled.get('slot') or '-')))}<br/>
+        bundle：<span class=\"mono\">{escape(str(bundle.get('bundle_id') or '-'))}</span> · producer_version：<span class=\"mono\">{escape(str(bundle.get('producer_version') or '-'))}</span> · 生成时间：{escape(generated_at.isoformat())}
+      </div>
+    </section>
+
+    <section class=\"card\">
+      <span class=\"pill\">{escape(str(assembled.get('status') or 'unknown'))}</span>
+      <strong>support 摘要：</strong>{escape(str(assembled.get('summary') or '暂无摘要'))}
+      <div class=\"footnote\">本报告保持 support 独立成文，供审计 / 复核 / 回放使用；MAIN 仅消费 concise support summary，不内联 support 正文。</div>
+    </section>
+
+    <section class=\"card\">
+      <h2>Support 判断</h2>
+      {self._render_items(assembled.get('judgments') or [], fallback='暂无 support 判断')}
+      <div class=\"bucket\"><strong>Support 信号</strong>{self._render_items(assembled.get('signals') or [], fallback='暂无 support 信号')}</div>
+      <div class=\"bucket\"><strong>事实锚点</strong>{self._render_items(assembled.get('facts') or [], fallback='暂无事实锚点')}</div>
+      <div class=\"footnote\">lineage：slot_run_id=<span class=\"mono\">{escape(str(bundle.get('slot_run_id') or '-'))}</span> · replay_id=<span class=\"mono\">{escape(str(bundle.get('replay_id') or '-'))}</span> · evidence={escape(', '.join(evidence_keys[:4]) if evidence_keys else '-')} · prior_report_links={escape(', '.join(report_uris[:2]) if report_uris else '-')}</div>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
+    def _render_items(self, items: Sequence[dict[str, Any]], *, fallback: str) -> str:
+        if not items:
+            return f"<ul><li>{escape(fallback)}</li></ul>"
+        rendered: list[str] = []
+        for item in items:
+            statement = escape(str(item.get("statement") or "-"))
+            attrs: list[str] = []
+            if item.get("judgment_action"):
+                attrs.append(f"action={item['judgment_action']}")
+            if item.get("signal_strength"):
+                attrs.append(f"strength={item['signal_strength']}")
+            if item.get("confidence"):
+                attrs.append(f"confidence={item['confidence']}")
+            if item.get("evidence_level"):
+                attrs.append(f"evidence={item['evidence_level']}")
+            suffix = f" <span class=\"mono\">[{escape(', '.join(attrs))}]</span>" if attrs else ""
+            rendered.append(f"<li>{statement}{suffix}</li>")
+        return f"<ul>{''.join(rendered)}</ul>"
+
+
+class SupportReportRenderingService:
+    def __init__(
+        self,
+        assembly_service: SupportReportAssemblyService,
+        renderer: SupportReportHTMLRenderer | None = None,
+    ) -> None:
+        self.assembly_service = assembly_service
+        self.renderer = renderer or SupportReportHTMLRenderer()
+
+    def render_support_report_html(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        slot: str,
+        report_run_id: str | None = None,
+        artifact_uri: str | None = None,
+    ) -> dict[str, Any]:
+        assembled = self.assembly_service.assemble_support_section(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slot=slot,
+        )
+        return self.renderer.render(
+            assembled,
+            report_run_id=report_run_id,
+            artifact_uri=artifact_uri,
+        )
+
+
+class SupportReportArtifactPublishingService:
+    ARTIFACT_FAMILY = "support_domain_report"
+
+    def __init__(self, rendering_service: SupportReportRenderingService, store: FSJStore) -> None:
+        self.rendering_service = rendering_service
+        self.store = store
+
+    def publish_support_report_html(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        slot: str,
+        output_dir: str | Path,
+        report_run_id: str | None = None,
+        generated_at: datetime | None = None,
+    ) -> dict[str, Any]:
+        generated_at = generated_at or datetime.now(timezone.utc)
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
+        artifact_id = f"fsj-support-report:{agent_domain}:{slot}:{business_date}:{stamp}:{uuid4().hex[:8]}"
+        html_path = output_path / f"a_share_support_{agent_domain}_{slot}_{business_date}_{stamp}.html"
+        artifact_uri = html_path.resolve().as_uri()
+        effective_report_run_id = report_run_id or artifact_id
+
+        rendered = self.rendering_service.render_support_report_html(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slot=slot,
+            report_run_id=effective_report_run_id,
+            artifact_uri=artifact_uri,
+        )
+        html_path.write_text(rendered["content"], encoding="utf-8")
+
+        artifact_record = self.store.register_report_artifact(
+            {
+                "artifact_id": artifact_id,
+                "artifact_family": self.ARTIFACT_FAMILY,
+                "market": str(rendered["metadata"].get("market") or "a_share"),
+                "business_date": business_date,
+                "agent_domain": agent_domain,
+                "render_format": rendered["render_format"],
+                "artifact_type": rendered["artifact_type"],
+                "content_type": rendered["content_type"],
+                "title": rendered["title"],
+                "report_run_id": effective_report_run_id,
+                "artifact_uri": artifact_uri,
+                "status": "active",
+                "metadata_json": {
+                    **dict(rendered["metadata"]),
+                    "artifact_file_path": str(html_path.resolve()),
+                },
+            }
+        )
+
+        persisted_links: list[dict[str, Any]] = []
+        for link in rendered["report_links"]:
+            locator = dict(link.get("artifact_locator_json") or {})
+            locator.update(
+                {
+                    "report_artifact_id": artifact_record["artifact_id"],
+                    "artifact_file_path": str(html_path.resolve()),
+                }
+            )
+            persisted_links.extend(
+                self.store.attach_report_links(
+                    str(link["bundle_id"]),
+                    [
+                        {
+                            **link,
+                            "report_run_id": effective_report_run_id,
+                            "artifact_uri": artifact_uri,
+                            "artifact_locator_json": locator,
+                        }
+                    ],
+                )
+            )
+
+        manifest_path = output_path / f"a_share_support_{agent_domain}_{slot}_{business_date}_{stamp}.manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "artifact": artifact_record,
+                    "rendered": {
+                        "artifact_type": rendered["artifact_type"],
+                        "artifact_version": rendered["artifact_version"],
+                        "render_format": rendered["render_format"],
+                        "content_type": rendered["content_type"],
+                        "title": rendered["title"],
+                        "metadata": rendered["metadata"],
+                    },
+                    "report_links": rendered["report_links"],
+                    "persisted_report_links": persisted_links,
+                },
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+
+        return {
+            "artifact": artifact_record,
+            "html_path": str(html_path.resolve()),
+            "manifest_path": str(manifest_path.resolve()),
+            "rendered": rendered,
+            "persisted_report_links": persisted_links,
+        }

@@ -7,7 +7,7 @@ from typing import Any, Iterable, Sequence
 from sqlalchemy import text
 
 from .store import FSJStore
-from .support_common import SECTION_KEY_BY_DOMAIN, VALID_SUPPORT_AGENT_DOMAINS
+from .support_common import SECTION_KEY_BY_DOMAIN, VALID_SUPPORT_AGENT_DOMAINS, ensure_support_contract
 
 SLOT_ORDER: dict[str, int] = {"early": 10, "mid": 20, "late": 30}
 STATUS_ORDER: dict[str, int] = {"active": 0, "superseded": 1, "withdrawn": 2}
@@ -243,6 +243,18 @@ class MainReportSectionAssembler:
             return 0
 
 
+SUPPORT_DOMAIN_TITLES: dict[str, str] = {
+    "macro": "宏观 support",
+    "commodities": "商品 support",
+    "ai_tech": "AI / 科技 support",
+}
+
+SUPPORT_SLOT_TITLES: dict[str, str] = {
+    "early": "盘前",
+    "late": "收盘后",
+}
+
+
 class FSJReportAssemblyStore(FSJStore):
     def list_bundle_graphs(
         self,
@@ -316,3 +328,89 @@ class MainReportAssemblyService:
             include_empty=include_empty,
             support_bundle_graphs=support_graphs,
         )
+
+
+class SupportReportAssemblyService:
+    def __init__(self, store: FSJReportAssemblyStore) -> None:
+        self.store = store
+        self._main_assembler = MainReportSectionAssembler()
+
+    def assemble_support_section(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        slot: str,
+    ) -> dict[str, Any]:
+        section_key = SECTION_KEY_BY_DOMAIN[agent_domain]
+        ensure_support_contract(agent_domain=agent_domain, slot=slot, section_key=section_key)
+        graphs = self.store.list_bundle_graphs(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slots=[slot],
+            section_keys=[section_key],
+            statuses=["active", "superseded", "withdrawn"],
+        )
+        graph = self._main_assembler._select_effective_graphs(graphs).get((slot, section_key))
+        section_render_key = f"support.{agent_domain}.{slot}"
+        title = f"{SUPPORT_DOMAIN_TITLES.get(agent_domain, agent_domain)}｜{SUPPORT_SLOT_TITLES.get(slot, slot)}"
+
+        if graph is None:
+            return {
+                "artifact_type": "fsj_support_report_section",
+                "artifact_version": "v1",
+                "market": "a_share",
+                "business_date": business_date,
+                "agent_domain": agent_domain,
+                "slot": slot,
+                "section_key": section_key,
+                "section_render_key": section_render_key,
+                "title": title,
+                "status": "missing",
+                "bundle": None,
+                "summary": None,
+                "judgments": [],
+                "signals": [],
+                "facts": [],
+                "lineage": None,
+            }
+
+        bundle = dict(graph.get("bundle") or {})
+        objects = list(graph.get("objects") or [])
+        return {
+            "artifact_type": "fsj_support_report_section",
+            "artifact_version": "v1",
+            "market": str(bundle.get("market") or "a_share"),
+            "business_date": business_date,
+            "agent_domain": agent_domain,
+            "slot": slot,
+            "section_key": section_key,
+            "section_render_key": section_render_key,
+            "title": title,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": bundle.get("bundle_id"),
+                "status": bundle.get("status"),
+                "supersedes_bundle_id": bundle.get("supersedes_bundle_id"),
+                "bundle_topic_key": bundle.get("bundle_topic_key"),
+                "producer": bundle.get("producer"),
+                "producer_version": bundle.get("producer_version"),
+                "section_type": bundle.get("section_type"),
+                "slot_run_id": bundle.get("slot_run_id"),
+                "replay_id": bundle.get("replay_id"),
+                "report_run_id": bundle.get("report_run_id"),
+                "updated_at": bundle.get("updated_at"),
+            },
+            "summary": bundle.get("summary"),
+            "judgments": self._main_assembler._project_objects(objects, "judgment"),
+            "signals": self._main_assembler._project_objects(objects, "signal"),
+            "facts": self._main_assembler._project_objects(objects, "fact"),
+            "lineage": {
+                "bundle": bundle,
+                "objects": sorted(objects, key=lambda row: (str(row.get("fsj_kind") or ""), str(row.get("object_key") or ""))),
+                "edges": sorted(list(graph.get("edges") or []), key=lambda row: (str(row.get("edge_type") or ""), str(row.get("from_object_key") or ""), str(row.get("to_object_key") or ""))),
+                "evidence_links": sorted(list(graph.get("evidence_links") or []), key=lambda row: (str(row.get("evidence_role") or ""), str(row.get("object_key") or ""), str(row.get("ref_system") or ""), str(row.get("ref_key") or ""))),
+                "observed_records": sorted(list(graph.get("observed_records") or []), key=lambda row: (str(row.get("fsj_kind") or ""), str(row.get("object_key") or ""), str(row.get("source_layer") or ""), str(row.get("source_record_key") or ""))),
+                "report_links": sorted(list(graph.get("report_links") or []), key=lambda row: (str(row.get("artifact_type") or ""), str(row.get("section_render_key") or ""), str(row.get("artifact_uri") or ""))),
+            },
+        }
