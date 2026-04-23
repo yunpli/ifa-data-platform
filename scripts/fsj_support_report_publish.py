@@ -29,14 +29,32 @@ def main() -> None:
     parser.add_argument("--report-run-id")
     parser.add_argument("--generated-at", help="ISO8601 timestamp; defaults to current UTC time")
     parser.add_argument("--html-only", action="store_true", help="Only publish standalone HTML + manifest; skip QA/package surfaces")
+    parser.add_argument("--require-ready", action="store_true", help="Fail fast when the persisted support bundle is missing/non-ready instead of publishing a blocked placeholder package")
     args = parser.parse_args()
 
     store = FSJStore()
     assembly_store = FSJReportAssemblyStore()
+    assembly_service = SupportReportAssemblyService(store=assembly_store)
     rendering_service = SupportReportRenderingService(
-        assembly_service=SupportReportAssemblyService(store=assembly_store),
+        assembly_service=assembly_service,
     )
     publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    assembled = assembly_service.assemble_support_section(
+        business_date=args.business_date,
+        agent_domain=args.agent_domain,
+        slot=args.slot,
+    )
+    if args.require_ready and assembled.get("status") != "ready":
+        print(json.dumps({
+            "business_date": args.business_date,
+            "agent_domain": args.agent_domain,
+            "slot": args.slot,
+            "status": assembled.get("status") or "missing",
+            "section_render_key": assembled.get("section_render_key"),
+            "bundle": assembled.get("bundle"),
+            "reason": "persisted_support_bundle_not_ready",
+        }, ensure_ascii=False, indent=2, default=str))
+        raise SystemExit(2)
     if args.html_only:
         published = publisher.publish_support_report_html(
             business_date=args.business_date,
