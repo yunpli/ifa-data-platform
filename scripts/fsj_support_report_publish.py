@@ -5,6 +5,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from ifa_data_platform.fsj.report_assembly import FSJReportAssemblyStore, SupportReportAssemblyService
 from ifa_data_platform.fsj.report_rendering import SupportReportArtifactPublishingService, SupportReportRenderingService
@@ -18,6 +19,22 @@ def _parse_generated_at(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _resolve_canonical_publish_surface(*, business_date: str, agent_domain: str, store: FSJStore | None = None) -> dict[str, Any] | None:
+    store = store or FSJStore()
+    surface = store.get_active_report_delivery_surface(
+        business_date=business_date,
+        agent_domain=agent_domain,
+        artifact_family="support_domain_report",
+    )
+    if not surface:
+        return None
+    return {
+        "delivery_surface": surface,
+        "workflow_handoff": store.report_workflow_handoff_from_surface(surface),
+    }
+
 
 
 def main() -> None:
@@ -90,6 +107,21 @@ def main() -> None:
             "package_index_path": published["package_index_path"],
             "delivery_manifest": published["delivery_manifest"],
         }
+        canonical_surface = _resolve_canonical_publish_surface(
+            business_date=args.business_date,
+            agent_domain=args.agent_domain,
+            store=store,
+        )
+        if canonical_surface:
+            payload.update(canonical_surface)
+            workflow_handoff = dict(canonical_surface.get("workflow_handoff") or {})
+            manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
+            selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+            payload["delivery_package_dir"] = selected_handoff.get("selected_delivery_package_dir") or payload["delivery_package_dir"]
+            payload["delivery_manifest_path"] = manifest_pointers.get("delivery_manifest_path") or payload["delivery_manifest_path"]
+            payload["delivery_zip_path"] = manifest_pointers.get("delivery_zip_path") or payload["delivery_zip_path"]
+            payload["operator_summary_path"] = manifest_pointers.get("operator_review_readme_path") or payload["operator_summary_path"]
+            payload["package_index_path"] = manifest_pointers.get("package_index_path") or payload["package_index_path"]
     print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
 
 
