@@ -416,7 +416,7 @@ class UnifiedRuntimeDaemon:
         for ws in worker_states:
             active_started = ws.get("active_started_at")
             if active_started and getattr(active_started, 'tzinfo', None) is None:
-                    active_started = active_started.replace(tzinfo=timezone.utc)
+                active_started = active_started.replace(tzinfo=timezone.utc)
             last_heartbeat = ws.get("last_heartbeat_at")
             if last_heartbeat and getattr(last_heartbeat, 'tzinfo', None) is None:
                 last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
