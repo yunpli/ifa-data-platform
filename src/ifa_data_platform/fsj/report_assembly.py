@@ -308,6 +308,54 @@ class MainReportAssemblyService:
             section_keys=[spec.section_key for spec in self.assembler.specs],
             statuses=["active", "superseded", "withdrawn"],
         )
+        support_graphs = self._load_support_graphs(business_date=business_date)
+        return self.assembler.build(
+            graphs,
+            business_date=business_date,
+            market="a_share",
+            agent_domain="main",
+            include_empty=include_empty,
+            support_bundle_graphs=support_graphs,
+        )
+
+    def assemble_support_summary_aggregate(self, *, business_date: str, include_empty_slots: bool = False) -> dict[str, Any]:
+        support_graphs = self._load_support_graphs(business_date=business_date)
+        selected_by_slot = self.assembler._select_support_graphs(support_graphs)
+        slots = [spec.slot for spec in self.assembler.specs if spec.slot in {"early", "late"}]
+        slot_summaries: list[dict[str, Any]] = []
+        all_items: list[dict[str, Any]] = []
+        for slot in slots:
+            slot_items = [self.assembler._build_support_summary(graph) for graph in selected_by_slot.get(slot, [])]
+            if slot_items or include_empty_slots:
+                slot_summaries.append(
+                    {
+                        "slot": slot,
+                        "title": SUPPORT_SLOT_TITLES.get(slot, slot),
+                        "summary_count": len(slot_items),
+                        "agent_domains": [item.get("agent_domain") for item in slot_items if item.get("agent_domain")],
+                        "items": slot_items,
+                    }
+                )
+            all_items.extend(slot_items)
+        return {
+            "artifact_type": "fsj_support_summary_aggregate",
+            "artifact_version": "v1",
+            "market": "a_share",
+            "business_date": business_date,
+            "agent_domain": "main",
+            "consumer": "main",
+            "support_summary_domains": sorted({str(item.get("agent_domain")) for item in all_items if item.get("agent_domain")}),
+            "support_summary_count": len(all_items),
+            "slot_count": len(slot_summaries),
+            "slot_summaries": slot_summaries,
+            "items": all_items,
+            "business_rules": {
+                "support_reports_remain_separate": True,
+                "main_consumes_only_concise_support_summaries": True,
+            },
+        }
+
+    def _load_support_graphs(self, *, business_date: str) -> list[dict[str, Any]]:
         support_graphs: list[dict[str, Any]] = []
         support_slots = sorted({spec.slot for spec in self.assembler.specs if spec.slot in {"early", "late"}})
         for support_domain in sorted(VALID_SUPPORT_AGENT_DOMAINS):
@@ -320,14 +368,7 @@ class MainReportAssemblyService:
                     statuses=["active", "superseded", "withdrawn"],
                 )
             )
-        return self.assembler.build(
-            graphs,
-            business_date=business_date,
-            market="a_share",
-            agent_domain="main",
-            include_empty=include_empty,
-            support_bundle_graphs=support_graphs,
-        )
+        return support_graphs
 
 
 class SupportReportAssemblyService:

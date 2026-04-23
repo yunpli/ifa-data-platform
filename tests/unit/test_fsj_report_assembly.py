@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ifa_data_platform.fsj.report_assembly import MainReportSectionAssembler, SupportReportAssemblyService
+from ifa_data_platform.fsj.report_assembly import MainReportAssemblyService, MainReportSectionAssembler, SupportReportAssemblyService
 
 
 def _graph(
@@ -268,3 +268,62 @@ def test_support_report_assembly_builds_separate_support_section_payload() -> No
     assert assembled["bundle"]["bundle_id"] == "bundle-support-macro-early"
     assert assembled["lineage"]["report_links"] == []
     assert store.calls[0]["section_keys"] == ["support_macro"]
+
+
+def test_main_report_assembly_builds_concise_support_summary_aggregate_for_main() -> None:
+    store = _StubSupportStore(
+        [
+            _graph(
+                slot="early",
+                section_key="support_macro",
+                bundle_id="bundle-support-macro-early",
+                agent_domain="macro",
+                summary="宏观背景偏稳定，更多作为边界 support。",
+                producer="ifa_data_platform.fsj.early_macro_support_producer",
+                producer_version="phase1-macro-early-v1",
+            ),
+            _graph(
+                slot="early",
+                section_key="support_ai_tech",
+                bundle_id="bundle-support-ai-early",
+                agent_domain="ai_tech",
+                summary="AI 科技催化存在，但更适合作为 adjust 输入。",
+                producer="ifa_data_platform.fsj.early_ai_tech_support_producer",
+                producer_version="phase1-ai-tech-early-v1",
+            ),
+            _graph(
+                slot="late",
+                section_key="support_commodities",
+                bundle_id="bundle-support-commodities-late",
+                agent_domain="commodities",
+                summary="商品链条更像次日风险变量，不改写主线结论。",
+                producer="ifa_data_platform.fsj.late_commodities_support_producer",
+                producer_version="phase1-commodities-late-v1",
+            ),
+        ]
+    )
+    assembled = MainReportSectionAssembler()
+    service = MainReportAssemblyService(store, assembled)
+
+    aggregate = service.assemble_support_summary_aggregate(business_date="2099-04-22")
+
+    assert aggregate["artifact_type"] == "fsj_support_summary_aggregate"
+    assert aggregate["consumer"] == "main"
+    assert aggregate["support_summary_domains"] == ["ai_tech", "commodities", "macro"]
+    assert aggregate["support_summary_count"] == 3
+    assert aggregate["business_rules"]["support_reports_remain_separate"] is True
+    assert aggregate["business_rules"]["main_consumes_only_concise_support_summaries"] is True
+    assert [slot["slot"] for slot in aggregate["slot_summaries"]] == ["early", "late"]
+    assert [item["agent_domain"] for item in aggregate["slot_summaries"][0]["items"]] == ["ai_tech", "macro"]
+    assert aggregate["slot_summaries"][1]["items"][0]["bundle_id"] == "bundle-support-commodities-late"
+    assert "objects" not in aggregate["items"][0]
+
+
+def test_main_report_assembly_support_summary_aggregate_can_emit_empty_expected_slots() -> None:
+    service = MainReportAssemblyService(_StubSupportStore([]))
+
+    aggregate = service.assemble_support_summary_aggregate(business_date="2099-04-22", include_empty_slots=True)
+
+    assert aggregate["support_summary_count"] == 0
+    assert [slot["slot"] for slot in aggregate["slot_summaries"]] == ["early", "late"]
+    assert [slot["summary_count"] for slot in aggregate["slot_summaries"]] == [0, 0]
