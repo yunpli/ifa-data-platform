@@ -691,26 +691,70 @@ class FSJStore:
     def _report_delivery_surface_from_artifact(self, artifact: dict[str, Any]) -> dict[str, Any]:
         metadata = dict(artifact.get("metadata_json") or {})
         delivery_package = dict(metadata.get("delivery_package") or {})
+        workflow_linkage = dict(metadata.get("workflow_linkage") or {})
         if not delivery_package:
             return {
                 "artifact": artifact,
                 "delivery_package": None,
+                "workflow_linkage": workflow_linkage,
                 "send_ready": False,
                 "review_required": False,
             }
 
         quality_gate = dict(delivery_package.get("quality_gate") or metadata.get("quality_gate") or {})
-        workflow = dict(delivery_package.get("workflow") or {})
+        workflow = {
+            **dict(delivery_package.get("workflow") or {}),
+            **workflow_linkage,
+        }
         recommended_action = str(workflow.get("recommended_action") or "hold")
         return {
             "artifact": artifact,
             "delivery_package": {
                 **delivery_package,
                 "quality_gate": quality_gate,
+                "workflow": workflow,
             },
+            "workflow_linkage": workflow_linkage,
             "send_ready": bool(delivery_package.get("ready_for_delivery")) and recommended_action == "send",
             "review_required": recommended_action == "send_review",
         }
+
+    def persist_report_workflow_linkage(self, artifact_id: str, workflow_linkage: dict[str, Any]) -> dict[str, Any] | None:
+        self.ensure_schema()
+        normalized_linkage = dict(workflow_linkage or {})
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT metadata_json FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id=:artifact_id"),
+                {"artifact_id": artifact_id},
+            ).mappings().first()
+            if not row:
+                return None
+            metadata = dict(row.get("metadata_json") or {})
+            delivery_package = dict(metadata.get("delivery_package") or {})
+            delivery_workflow = {
+                **dict(delivery_package.get("workflow") or {}),
+                **normalized_linkage,
+            }
+            if delivery_package:
+                delivery_package["workflow"] = delivery_workflow
+            metadata["workflow_linkage"] = normalized_linkage
+            if delivery_package:
+                metadata["delivery_package"] = delivery_package
+            conn.execute(
+                text(
+                    """
+                    UPDATE ifa2.ifa_fsj_report_artifacts
+                       SET metadata_json=CAST(:metadata_json AS jsonb),
+                           updated_at=now()
+                     WHERE artifact_id=:artifact_id
+                    """
+                ),
+                {
+                    "artifact_id": artifact_id,
+                    "metadata_json": self._json_dumps(metadata),
+                },
+            )
+        return self.get_report_artifact(artifact_id)
 
     def get_active_bundle(self, *, business_date: str, slot: str, agent_domain: str, section_key: str, bundle_topic_key: str | None = None) -> dict[str, Any] | None:
         self.ensure_schema()

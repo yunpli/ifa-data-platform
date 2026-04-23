@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from ifa_data_platform.fsj import FSJStore
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
+from ifa_data_platform.fsj.report_orchestration import MainReportMorningDeliveryOrchestrator
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 
 DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
@@ -373,6 +374,12 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
     bundle_id = f'fsj:test:{uuid.uuid4()}:bundle'
     first: dict | None = None
     second: dict | None = None
+    workflow_result: dict | None = None
+    with engine().begin() as conn:
+        conn.execute(
+            text("DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE business_date=:business_date AND agent_domain='main' AND artifact_family='main_final_report'"),
+            {'business_date': business_date},
+        )
     try:
         store.upsert_bundle_graph(_sample_payload(bundle_id))
         publisher = MainReportArtifactPublishingService(
@@ -421,17 +428,50 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         assert helper_surfaces[1]['delivery_manifest_path'] == first['delivery_manifest_path']
         assert history_surfaces[1]['artifact']['status'] == 'superseded'
 
+        orchestrator = MainReportMorningDeliveryOrchestrator(
+            publisher=publisher,
+            dispatch_helper=MainReportDeliveryDispatchHelper(),
+        )
+        workflow_result = orchestrator.run_workflow(
+            business_date=business_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-delivery-surface-v3',
+            generated_at=datetime(2099, 4, 18, 12, 20, tzinfo=timezone.utc),
+            comparison_candidates=helper_surfaces,
+        )
+        refreshed_surface = store.get_active_report_delivery_surface(
+            business_date=business_date,
+            agent_domain='main',
+            artifact_family='main_final_report',
+        )
+        refreshed_helper_surfaces = MainReportDeliveryDispatchHelper().list_db_delivery_candidates(
+            business_date=business_date,
+            store=store,
+            limit=8,
+        )
+        assert refreshed_surface is not None
+        assert refreshed_surface['workflow_linkage']['send_manifest_path'] == workflow_result['send_manifest_path']
+        assert refreshed_surface['workflow_linkage']['review_manifest_path'] == workflow_result['review_manifest_path']
+        assert refreshed_surface['workflow_linkage']['workflow_manifest_path'] == workflow_result['workflow_manifest_path']
+        assert refreshed_surface['workflow_linkage']['selected_handoff']['selected_artifact_id'] == workflow_result['selected_handoff']['selected_artifact_id']
+        assert refreshed_helper_surfaces[0]['send_manifest_path'] == workflow_result['send_manifest_path']
+        assert refreshed_helper_surfaces[0]['review_manifest_path'] == workflow_result['review_manifest_path']
+        assert refreshed_helper_surfaces[0]['workflow_manifest_path'] == workflow_result['workflow_manifest_path']
+        assert refreshed_helper_surfaces[0]['selected_handoff']['selected_artifact_id'] == workflow_result['selected_handoff']['selected_artifact_id']
+
         active_artifact = store.get_active_report_artifact(
             business_date=business_date,
             agent_domain='main',
             artifact_family='main_final_report',
         )
         delivery_package = dict((active_artifact or {}).get('metadata_json', {}).get('delivery_package') or {})
-        assert delivery_package['delivery_package_dir'] == second['delivery_package_dir']
+        workflow_linkage = dict((active_artifact or {}).get('metadata_json', {}).get('workflow_linkage') or {})
+        assert delivery_package['delivery_package_dir'] == workflow_result['delivery_package_dir']
         assert delivery_package['artifacts']['delivery_manifest'] == 'delivery_manifest.json'
+        assert workflow_linkage['send_manifest_path'] == workflow_result['send_manifest_path']
     finally:
         _cleanup([bundle_id])
-        artifact_ids = [artifact['artifact']['artifact_id'] for artifact in (first, second) if artifact]
+        artifact_ids = [artifact['artifact']['artifact_id'] for artifact in (first, second, workflow_result) if artifact]
         if artifact_ids:
             with engine().begin() as conn:
                 conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id = ANY(CAST(:artifact_ids AS text[]))'), {'artifact_ids': artifact_ids})

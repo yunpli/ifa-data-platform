@@ -158,6 +158,31 @@ class MainReportMorningDeliveryOrchestrator:
         }
         workflow_manifest_path.write_text(json.dumps(workflow_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
+        if hasattr(self.publisher.store, "persist_report_workflow_linkage") and delivery_manifest.get("artifact_id"):
+            self.publisher.store.persist_report_workflow_linkage(
+                str(delivery_manifest["artifact_id"]),
+                {
+                    "artifact_version": self.WORKFLOW_VERSION,
+                    "workflow_state": send_manifest["workflow_state"],
+                    "recommended_action": effective_action,
+                    "dispatch_recommended_action": dispatch_decision.get("recommended_action"),
+                    "send_manifest_path": str(send_manifest_path.resolve()),
+                    "review_manifest_path": str(review_manifest_path.resolve()),
+                    "workflow_manifest_path": str(workflow_manifest_path.resolve()),
+                    "operator_summary_path": str(operator_summary_path.resolve()),
+                    "operator_review_bundle_path": str(operator_review_bundle_path.resolve()),
+                    "operator_review_readme_path": str(operator_review_readme_path.resolve()),
+                    "candidate_comparison_path": str(candidate_comparison_path.resolve()),
+                    "selected_handoff": selected_handoff,
+                    "selected_artifact_id": selected_handoff.get("selected_artifact_id"),
+                    "selected_report_run_id": selected_handoff.get("selected_report_run_id"),
+                    "selected_business_date": selected_handoff.get("selected_business_date"),
+                    "selected_delivery_manifest_path": selected_handoff.get("delivery_manifest_path"),
+                    "selected_delivery_zip_path": selected_handoff.get("delivery_zip_path"),
+                    "selected_delivery_package_dir": selected_handoff.get("delivery_package_dir"),
+                },
+            )
+
         return {
             **published,
             "workflow_manifest": workflow_manifest,

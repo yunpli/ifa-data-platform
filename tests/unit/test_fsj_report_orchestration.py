@@ -119,6 +119,7 @@ class _StubStore:
     def __init__(self) -> None:
         self.registered: list[dict] = []
         self.attached: list[tuple[str, list[dict]]] = []
+        self.persisted_workflow_linkages: list[tuple[str, dict]] = []
 
     def register_report_artifact(self, payload: dict) -> dict:
         self.registered.append(payload)
@@ -128,17 +129,21 @@ class _StubStore:
         self.attached.append((bundle_id, report_links))
         return report_links
 
+    def persist_report_workflow_linkage(self, artifact_id: str, workflow_linkage: dict) -> dict:
+        self.persisted_workflow_linkages.append((artifact_id, workflow_linkage))
+        return {"artifact_id": artifact_id, "metadata_json": {"workflow_linkage": workflow_linkage}}
 
-def _build_orchestrator() -> MainReportMorningDeliveryOrchestrator:
+
+def _build_orchestrator() -> tuple[MainReportMorningDeliveryOrchestrator, _StubStore]:
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
     publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
-    return MainReportMorningDeliveryOrchestrator(publisher=publisher)
+    return MainReportMorningDeliveryOrchestrator(publisher=publisher), store
 
 
 def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(tmp_path: Path) -> None:
-    orchestrator = _build_orchestrator()
+    orchestrator, store = _build_orchestrator()
 
     result = orchestrator.run_workflow(
         business_date="2099-04-22",
@@ -184,6 +189,13 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert "recommended_action=send" in operator_summary
     assert "selected_package_dir=" in operator_summary
     assert "package_index=" in operator_summary
+    assert store.persisted_workflow_linkages
+    persisted_artifact_id, linkage = store.persisted_workflow_linkages[-1]
+    assert persisted_artifact_id == result["artifact"]["artifact_id"]
+    assert linkage["send_manifest_path"] == result["send_manifest_path"]
+    assert linkage["review_manifest_path"] == result["review_manifest_path"]
+    assert linkage["workflow_manifest_path"] == result["workflow_manifest_path"]
+    assert linkage["selected_handoff"]["selected_artifact_id"] == result["artifact"]["artifact_id"]
 
 
 def test_main_report_morning_delivery_workflow_marks_review_required_for_provisional_candidate(tmp_path: Path) -> None:
@@ -216,7 +228,7 @@ def test_main_report_morning_delivery_workflow_marks_review_required_for_provisi
 
 
 def test_main_report_morning_delivery_workflow_marks_superseded_when_better_ready_candidate_exists(tmp_path: Path) -> None:
-    orchestrator = _build_orchestrator()
+    orchestrator, _ = _build_orchestrator()
     better_ready = {
         "artifact": {"artifact_id": "artifact-better-ready", "report_run_id": "run-better-ready", "business_date": "2099-04-22"},
         "delivery_package_dir": "/tmp/better-ready",

@@ -69,6 +69,7 @@ class MainReportDeliveryDispatchHelper:
         delivery_package = dict(surface.get("delivery_package") or {})
         if not delivery_package:
             return None
+        workflow_linkage = dict(surface.get("workflow_linkage") or {})
         return {
             "artifact": artifact,
             "delivery_package_dir": delivery_package.get("delivery_package_dir"),
@@ -77,6 +78,12 @@ class MainReportDeliveryDispatchHelper:
             "telegram_caption_path": delivery_package.get("telegram_caption_path"),
             "package_index_path": delivery_package.get("package_index_path"),
             "package_browse_readme_path": delivery_package.get("package_browse_readme_path"),
+            "send_manifest_path": workflow_linkage.get("send_manifest_path"),
+            "review_manifest_path": workflow_linkage.get("review_manifest_path"),
+            "workflow_manifest_path": workflow_linkage.get("workflow_manifest_path"),
+            "operator_review_bundle_path": workflow_linkage.get("operator_review_bundle_path"),
+            "operator_review_readme_path": workflow_linkage.get("operator_review_readme_path"),
+            "selected_handoff": dict(workflow_linkage.get("selected_handoff") or {}),
             "delivery_manifest": {
                 "artifact_id": artifact.get("artifact_id"),
                 "report_run_id": artifact.get("report_run_id"),
@@ -89,9 +96,11 @@ class MainReportDeliveryDispatchHelper:
                 "support_summary_aggregate": dict(delivery_package.get("support_summary_aggregate") or {}),
                 "dispatch_advice": dict(delivery_package.get("dispatch_advice") or {}),
                 "artifacts": dict(delivery_package.get("artifacts") or {}),
+                "workflow": dict(delivery_package.get("workflow") or {}),
             },
             "report_evaluation": {},
             "package_index": {},
+            "workflow_linkage": workflow_linkage,
             "source": source,
         }
 
