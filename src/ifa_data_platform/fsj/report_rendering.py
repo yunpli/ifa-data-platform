@@ -12,6 +12,7 @@ import re
 import shutil
 
 from .report_assembly import MainReportAssemblyService
+from .report_evaluation import MainReportEvaluationHarness
 from .report_quality import MainReportQAEvaluator
 from .store import FSJStore
 
@@ -346,10 +347,12 @@ class MainReportArtifactPublishingService:
         rendering_service: MainReportRenderingService,
         store: FSJStore,
         qa_evaluator: MainReportQAEvaluator | None = None,
+        evaluation_harness: MainReportEvaluationHarness | None = None,
     ) -> None:
         self.rendering_service = rendering_service
         self.store = store
         self.qa_evaluator = qa_evaluator or MainReportQAEvaluator()
+        self.evaluation_harness = evaluation_harness or MainReportEvaluationHarness()
 
     def publish_main_report_html(
         self,
@@ -382,6 +385,7 @@ class MainReportArtifactPublishingService:
             include_empty=include_empty,
         )
         evaluation = self.qa_evaluator.evaluate(assembled, rendered)
+        report_eval = self.evaluation_harness.evaluate(assembled, rendered, evaluation)
 
         artifact_record = self.store.register_report_artifact(
             {
@@ -407,6 +411,12 @@ class MainReportArtifactPublishingService:
                         "blocker_count": evaluation["summary"]["blocker_count"],
                         "warning_count": evaluation["summary"]["warning_count"],
                         "late_contract_mode": evaluation["summary"].get("late_contract_mode"),
+                    },
+                    "slot_evaluation": {
+                        "strongest_slot": report_eval["summary"].get("strongest_slot"),
+                        "weakest_slot": report_eval["summary"].get("weakest_slot"),
+                        "slot_scores": report_eval["summary"].get("slot_scores"),
+                        "progression": report_eval["summary"].get("progression"),
                     },
                 },
             }
@@ -438,6 +448,9 @@ class MainReportArtifactPublishingService:
         qa_path = output_path / f"a_share_main_report_{business_date}_{stamp}.qa.json"
         qa_path.write_text(json.dumps(evaluation, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
+        eval_path = output_path / f"a_share_main_report_{business_date}_{stamp}.eval.json"
+        eval_path.write_text(json.dumps(report_eval, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
         manifest_path = output_path / f"a_share_main_report_{business_date}_{stamp}.manifest.json"
         manifest = {
             "artifact": artifact_record,
@@ -450,6 +463,7 @@ class MainReportArtifactPublishingService:
                 "metadata": rendered["metadata"],
             },
             "qa": evaluation,
+            "evaluation": report_eval,
             "report_links": rendered["report_links"],
             "persisted_report_links": persisted_links,
         }
@@ -459,9 +473,11 @@ class MainReportArtifactPublishingService:
             "artifact": artifact_record,
             "html_path": str(html_path.resolve()),
             "qa_path": str(qa_path.resolve()),
+            "eval_path": str(eval_path.resolve()),
             "manifest_path": str(manifest_path.resolve()),
             "rendered": rendered,
             "evaluation": evaluation,
+            "report_evaluation": report_eval,
             "persisted_report_links": persisted_links,
         }
 
@@ -484,8 +500,10 @@ class MainReportArtifactPublishingService:
         generated_at = generated_at or datetime.now(timezone.utc)
         html_path = Path(published["html_path"])
         qa_path = Path(published["qa_path"])
+        eval_path = Path(published["eval_path"])
         manifest_path = Path(published["manifest_path"])
         evaluation = dict(published["evaluation"])
+        report_eval = dict(published["report_evaluation"])
         artifact = dict(published["artifact"])
         rendered = dict(published["rendered"])
 
@@ -500,9 +518,11 @@ class MainReportArtifactPublishingService:
 
         package_html_path = package_dir / html_path.name
         package_qa_path = package_dir / qa_path.name
+        package_eval_path = package_dir / eval_path.name
         package_manifest_path = package_dir / manifest_path.name
         shutil.copy2(html_path, package_html_path)
         shutil.copy2(qa_path, package_qa_path)
+        shutil.copy2(eval_path, package_eval_path)
         shutil.copy2(manifest_path, package_manifest_path)
 
         caption_text = self._build_delivery_caption(
@@ -536,9 +556,16 @@ class MainReportArtifactPublishingService:
                 "report_link_count": (evaluation.get("summary") or {}).get("report_link_count"),
                 "persisted_report_link_count": len(published.get("persisted_report_links") or []),
             },
+            "slot_evaluation": {
+                "strongest_slot": (report_eval.get("summary") or {}).get("strongest_slot"),
+                "weakest_slot": (report_eval.get("summary") or {}).get("weakest_slot"),
+                "slot_scores": (report_eval.get("summary") or {}).get("slot_scores"),
+                "progression": (report_eval.get("summary") or {}).get("progression"),
+            },
             "artifacts": {
                 "html": package_html_path.name,
                 "qa": package_qa_path.name,
+                "evaluation": package_eval_path.name,
                 "manifest": package_manifest_path.name,
                 "telegram_caption": caption_path.name,
             },
@@ -558,6 +585,7 @@ class MainReportArtifactPublishingService:
             "telegram_caption_path": str(caption_path.resolve()),
             "delivery_zip_path": str(zip_path.resolve()),
             "delivery_manifest": delivery_manifest,
+            "delivery_eval_path": str(package_eval_path.resolve()),
         }
 
     def _delivery_package_slug(self, *, business_date: str, generated_at: datetime, artifact_id: str) -> str:

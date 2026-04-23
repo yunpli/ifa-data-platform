@@ -310,9 +310,11 @@ def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_
 
     html_path = Path(published["html_path"])
     qa_path = Path(published["qa_path"])
+    eval_path = Path(published["eval_path"])
     manifest_path = Path(published["manifest_path"])
     assert html_path.exists()
     assert qa_path.exists()
+    assert eval_path.exists()
     assert manifest_path.exists()
     assert "盘前主结论" in html_path.read_text(encoding="utf-8")
     assert published["artifact"]["artifact_family"] == "main_final_report"
@@ -323,8 +325,12 @@ def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_
     qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
     assert qa_payload["ready_for_delivery"] is True
     assert qa_payload["summary"]["late_contract_mode"] == "full_close_package"
+    eval_payload = json.loads(eval_path.read_text(encoding="utf-8"))
+    assert eval_payload["artifact_type"] == "fsj_main_report_evaluation"
+    assert eval_payload["summary"]["slot_scores"]["late"] >= 0
     manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest_payload["qa"]["ready_for_delivery"] is True
+    assert manifest_payload["evaluation"]["artifact_type"] == "fsj_main_report_evaluation"
     assert [bundle_id for bundle_id, _ in store.attached] == ["bundle-early", "bundle-late"]
     first_link = store.attached[0][1][0]
     assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]
@@ -347,11 +353,13 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
 
     package_dir = Path(published["delivery_package_dir"])
     delivery_manifest_path = Path(published["delivery_manifest_path"])
+    delivery_eval_path = Path(published["delivery_eval_path"])
     caption_path = Path(published["telegram_caption_path"])
     zip_path = Path(published["delivery_zip_path"])
 
     assert package_dir.exists()
     assert delivery_manifest_path.exists()
+    assert delivery_eval_path.exists()
     assert caption_path.exists()
     assert zip_path.exists()
     assert Path(published["html_path"]).name in {path.name for path in package_dir.iterdir()}
@@ -363,6 +371,8 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["package_state"] == "ready"
     assert delivery_manifest["quality_gate"]["late_contract_mode"] == "full_close_package"
     assert delivery_manifest["lineage"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
+    assert delivery_manifest["artifacts"]["evaluation"].endswith(".eval.json")
 
 
 def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_path: Path) -> None:
