@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+
+_MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_main_delivery_status.py"
+_spec = importlib.util.spec_from_file_location("fsj_main_delivery_status_script", _MODULE_PATH)
+_module = importlib.util.module_from_spec(_spec)
+assert _spec is not None and _spec.loader is not None
+_spec.loader.exec_module(_module)
+_surface_summary = _module._surface_summary
+_print_text = _module._print_text
+
+
+def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_pointers() -> None:
+    surface = {
+        "artifact": {
+            "artifact_id": "artifact-active",
+            "report_run_id": "run-active",
+            "business_date": "2099-04-22",
+            "status": "active",
+            "supersedes_artifact_id": "artifact-old",
+        },
+        "delivery_package": {
+            "package_state": "ready",
+            "ready_for_delivery": True,
+            "quality_gate": {
+                "score": 98,
+                "blocker_count": 0,
+                "warning_count": 1,
+                "late_contract_mode": "full_close_package",
+            },
+            "dispatch_advice": {"recommended_action": "send"},
+            "workflow": {
+                "recommended_action": "send",
+                "workflow_state": "ready_to_send",
+            },
+            "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
+            "package_index_path": "/tmp/pkg/package_index.json",
+            "delivery_zip_path": "/tmp/pkg.zip",
+            "artifacts": {
+                "delivery_manifest": "delivery_manifest.json",
+                "send_manifest": "send_manifest.json",
+                "review_manifest": "review_manifest.json",
+                "workflow_manifest": "workflow_manifest.json",
+                "package_index": "package_index.json",
+            },
+        },
+        "workflow_linkage": {
+            "send_manifest_path": "/tmp/pkg/send_manifest.json",
+            "review_manifest_path": "/tmp/pkg/review_manifest.json",
+            "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
+            "selected_handoff": {
+                "selected_artifact_id": "artifact-active",
+                "selected_report_run_id": "run-active",
+                "selected_business_date": "2099-04-22",
+                "selected_is_current": True,
+                "delivery_package_dir": "/tmp/pkg",
+                "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
+                "delivery_zip_path": "/tmp/pkg.zip",
+            },
+        },
+        "send_ready": True,
+        "review_required": False,
+    }
+
+    summary = _surface_summary(surface)
+
+    assert summary["artifact"]["artifact_id"] == "artifact-active"
+    assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-active"
+    assert summary["selected_handoff"]["selected_is_current"] is True
+    assert summary["state"]["recommended_action"] == "send"
+    assert summary["state"]["workflow_state"] == "ready_to_send"
+    assert summary["state"]["send_ready"] is True
+    assert summary["manifest_pointers"]["send_manifest_path"] == "/tmp/pkg/send_manifest.json"
+    assert summary["manifest_pointers"]["workflow_manifest_path"] == "/tmp/pkg/workflow_manifest.json"
+    assert summary["version_pointers"]["send_manifest_version"] == "send_manifest.json"
+
+
+def test_print_text_emits_single_operator_read_surface(capsys) -> None:
+    payload = {
+        "business_date": "2099-04-22",
+        "active_surface": {
+            "artifact": {
+                "artifact_id": "artifact-active",
+                "report_run_id": "run-active",
+                "status": "active",
+            },
+            "selected_handoff": {
+                "selected_artifact_id": "artifact-selected",
+                "selected_is_current": False,
+            },
+            "state": {
+                "recommended_action": "send_review",
+                "workflow_state": "review_required",
+                "send_ready": False,
+                "review_required": True,
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "qa_score": 94,
+                "blocker_count": 0,
+                "warning_count": 2,
+            },
+            "manifest_pointers": {
+                "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
+                "send_manifest_path": "/tmp/pkg/send_manifest.json",
+                "review_manifest_path": "/tmp/pkg/review_manifest.json",
+                "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
+                "package_index_path": "/tmp/pkg/package_index.json",
+                "delivery_zip_path": "/tmp/pkg.zip",
+            },
+        },
+        "history": [{}, {}],
+    }
+
+    _print_text(payload)
+    output = capsys.readouterr().out
+
+    assert "business_date=2099-04-22" in output
+    assert "active_artifact_id=artifact-active" in output
+    assert "selected_artifact_id=artifact-selected" in output
+    assert "recommended_action=send_review" in output
+    assert "workflow_state=review_required" in output
+    assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
+    assert "history_count=2" in output
