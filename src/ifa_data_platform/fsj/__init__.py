@@ -22,6 +22,17 @@ from .mid_main_producer import (
     MidMainProducerInput,
     SqlMidMainInputReader,
 )
+from .macro_support_producer import (
+    EARLY_MACRO_SUPPORT_PRODUCER,
+    EARLY_MACRO_SUPPORT_PRODUCER_VERSION,
+    LATE_MACRO_SUPPORT_PRODUCER,
+    LATE_MACRO_SUPPORT_PRODUCER_VERSION,
+    EarlyMacroSupportProducer,
+    LateMacroSupportProducer,
+    MacroSupportAssembler,
+    MacroSupportProducerInput,
+    SqlMacroSupportInputReader,
+)
 from .report_assembly import (
     DEFAULT_MAIN_REPORT_SECTION_SPECS,
     FSJReportAssemblyStore,
@@ -47,6 +58,14 @@ __all__ = [
     "MidMainFSJAssembler",
     "MidMainFSJProducer",
     "MidMainProducerInput",
+    "EARLY_MACRO_SUPPORT_PRODUCER",
+    "EARLY_MACRO_SUPPORT_PRODUCER_VERSION",
+    "LATE_MACRO_SUPPORT_PRODUCER",
+    "LATE_MACRO_SUPPORT_PRODUCER_VERSION",
+    "EarlyMacroSupportProducer",
+    "LateMacroSupportProducer",
+    "MacroSupportAssembler",
+    "MacroSupportProducerInput",
     "DEFAULT_MAIN_REPORT_SECTION_SPECS",
     "FSJReportAssemblyStore",
     "FSJStore",
@@ -56,4 +75,5 @@ __all__ = [
     "SqlEarlyMainInputReader",
     "SqlLateMainInputReader",
     "SqlMidMainInputReader",
+    "SqlMacroSupportInputReader",
 ]
