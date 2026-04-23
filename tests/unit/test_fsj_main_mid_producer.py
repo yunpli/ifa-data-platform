@@ -1,6 +1,51 @@
 from __future__ import annotations
 
+from ifa_data_platform.fsj.llm_assist import (
+    FSJMidLLMAssistant,
+    FSJMidLLMRequest,
+    FSJMidLLMResult,
+    build_fsj_mid_evidence_packet,
+    build_fsj_mid_prompt,
+    parse_fsj_mid_result,
+)
 from ifa_data_platform.fsj.mid_main_producer import MidMainFSJAssembler, MidMainProducerInput
+
+
+class FakeMidLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_mid_main_v1"
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        return FSJMidLLMResult(
+            summary="A股盘中主线更新：机器人链条盘中 working 结构延续，当前可做 intraday adjust，但午后仍需继续验证。",
+            validation_signal_statement="盘中 working 结构、leader/event 与 validation_state=confirmed 共同支持机器人链条继续作为 intraday adjust 输入，但这仍是盘中验证，不是收盘最终确认。",
+            afternoon_signal_statement="午后继续验证点：跟踪机器人链条是否继续向 breadth/heat 扩散，并观察 validation_state 是否维持 confirmed 或转弱。",
+            judgment_statement="将机器人链条作为盘中主线修正输入：允许做 intraday thesis/adjust，但必须保留午后继续验证与失效边界，不把盘中 working 证据写成收盘结论。",
+            invalidators=[
+                "盘中 structure high layer 未继续刷新或关键表再次断档",
+                "leader/breadth/heat 之间无法形成一致强化",
+                "盘前预案锚点与盘中 working 证据出现明显背离",
+            ],
+            reasoning_trace=[
+                "intraday structure packet present",
+                "leader event packet present",
+                "intraday-only boundary preserved",
+            ],
+            provider="stub",
+            model_alias=self.model_alias,
+            model_id="grok-4.1-thinking",
+            prompt_version=self.prompt_version,
+            usage={"total_tokens": 287},
+            raw_response={"stub": True, "request_contract_mode": request.contract_mode},
+        )
+
+
+class FailingMidLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_mid_main_v1"
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        raise RuntimeError("synthetic mid llm failure")
 
 
 def _sample_input(*, has_sufficient_high: bool = True, has_any_high: bool = True, has_background: bool = True) -> MidMainProducerInput:
@@ -83,6 +128,45 @@ def _sample_input(*, has_sufficient_high: bool = True, has_any_high: bool = True
     )
 
 
+def test_build_fsj_mid_prompt_and_parser_contract() -> None:
+    data = _sample_input()
+    packet = build_fsj_mid_evidence_packet(
+        data,
+        contract_mode="intraday_structure",
+        completeness_label="complete",
+        degrade_reason=None,
+        freshness="fresh",
+    )
+    prompt = build_fsj_mid_prompt(
+        FSJMidLLMRequest(
+            business_date=data.business_date,
+            section_key=data.section_key,
+            contract_mode="intraday_structure",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet=packet,
+        )
+    )
+    assert prompt["request"]["evidence_packet"]["intraday_structure"]["breadth_sector_code"] == "BK0421"
+
+    result = parse_fsj_mid_result(
+        parsed={
+            "summary": "盘中结构延续，可做 intraday adjust，但午后仍需验证。",
+            "validation_signal_statement": "盘中 working 结构已支持当前验证状态，但仍属于盘中验证而非最终确认。",
+            "afternoon_signal_statement": "午后继续验证点：跟踪 breadth/heat 是否继续扩散。",
+            "judgment_statement": "允许做 intraday thesis/adjust，但要保留午后继续验证边界。",
+            "invalidators": ["a", "b"],
+            "reasoning_trace": ["x", "y"],
+        },
+        envelope={"provider": "stub", "model_alias": "grok41_thinking", "model_id": "grok-4.1-thinking", "usage": {"total_tokens": 11}},
+        prompt_version="fsj_mid_main_v1",
+        model_alias="grok41_thinking",
+    )
+    assert result.model_alias == "grok41_thinking"
+    assert result.invalidators == ["a", "b"]
+    assert result.audit_payload(input_digest="abc")["prompt_version"] == "fsj_mid_main_v1"
+
+
 def test_assembler_builds_mid_main_graph_with_fresh_intraday_structure() -> None:
     assembler = MidMainFSJAssembler()
     payload = assembler.build_bundle_graph(_sample_input(has_sufficient_high=True, has_any_high=True, has_background=True))
@@ -123,6 +207,36 @@ def test_assembler_builds_mid_main_graph_with_fresh_intraday_structure() -> None
     observed_records = payload["observed_records"]
     assert any(record["source_layer"] == "highfreq" for record in observed_records)
     assert any(record["source_layer"] == "lowfreq" for record in observed_records)
+
+
+def test_mid_assembler_applies_llm_text_without_changing_deterministic_shape() -> None:
+    assembler = MidMainFSJAssembler(llm_assistant=FSJMidLLMAssistant(FakeMidLLMClient()))
+    payload = assembler.build_bundle_graph(_sample_input())
+
+    judgment = next(obj for obj in payload["objects"] if obj["fsj_kind"] == "judgment")
+    validation_signal = next(obj for obj in payload["objects"] if obj["object_key"] == "signal:mid:plan_validation_state")
+    afternoon_signal = next(obj for obj in payload["objects"] if obj["object_key"] == "signal:mid:afternoon_tracking_state")
+
+    assert payload["bundle"]["summary"].startswith("A股盘中主线更新：机器人链条盘中 working 结构延续")
+    assert judgment["judgment_action"] == "adjust"
+    assert judgment["object_type"] == "thesis"
+    assert "intraday thesis/adjust" in judgment["statement"]
+    assert "盘中 working" in validation_signal["statement"]
+    assert "午后继续验证点" in afternoon_signal["statement"]
+    assert payload["bundle"]["payload_json"]["llm_assist"]["applied"] is True
+    assert payload["bundle"]["payload_json"]["llm_assist"]["model_alias"] == "grok41_thinking"
+    assert judgment["attributes_json"]["llm_assist_applied"] is True
+    assert judgment["attributes_json"]["llm_reasoning_trace"]
+
+
+def test_mid_assembler_falls_back_when_llm_fails() -> None:
+    assembler = MidMainFSJAssembler(llm_assistant=FSJMidLLMAssistant(FailingMidLLMClient()))
+    payload = assembler.build_bundle_graph(_sample_input())
+
+    judgment = next(obj for obj in payload["objects"] if obj["fsj_kind"] == "judgment")
+    assert "intraday thesis/adjust" in judgment["statement"]
+    assert payload["bundle"]["payload_json"]["llm_assist"]["applied"] is False
+    assert "synthetic mid llm failure" in payload["bundle"]["payload_json"]["llm_assist"]["error"]
 
 
 def test_assembler_degrades_to_monitoring_only_when_intraday_structure_missing() -> None:

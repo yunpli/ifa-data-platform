@@ -13,6 +13,7 @@ BUSINESS_REPO_PYTHON = Path("/Users/neoclaw/repos/ifa-data-platform/.venv/bin/py
 BUSINESS_REPO_CLI = BUSINESS_REPO_ROOT / "scripts/ifa_llm_cli.py"
 FSJ_LATE_PROMPT_VERSION = "fsj_late_main_v1"
 FSJ_EARLY_PROMPT_VERSION = "fsj_early_main_v1"
+FSJ_MID_PROMPT_VERSION = "fsj_mid_main_v1"
 FSJ_MODEL_ALIAS = "grok41_thinking"
 
 
@@ -99,6 +100,48 @@ class FSJEarlyLLMClient(Protocol):
     def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult: ...
 
 
+@dataclass(frozen=True)
+class FSJMidLLMRequest:
+    business_date: str
+    section_key: str
+    contract_mode: str
+    completeness_label: str
+    degrade_reason: str | None
+    evidence_packet: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class FSJMidLLMResult:
+    summary: str
+    validation_signal_statement: str
+    afternoon_signal_statement: str
+    judgment_statement: str
+    invalidators: list[str]
+    reasoning_trace: list[str]
+    provider: str | None
+    model_alias: str
+    model_id: str | None
+    prompt_version: str
+    usage: dict[str, Any] | None
+    raw_response: dict[str, Any] | list[Any] | None
+
+    def audit_payload(self, *, input_digest: str) -> dict[str, Any]:
+        return {
+            "applied": True,
+            "provider": self.provider,
+            "model_alias": self.model_alias,
+            "model_id": self.model_id,
+            "prompt_version": self.prompt_version,
+            "input_digest": input_digest,
+            "usage": self.usage,
+            "reasoning_trace": self.reasoning_trace,
+        }
+
+
+class FSJMidLLMClient(Protocol):
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult: ...
+
+
 class BusinessRepoLateLLMClient:
     def __init__(
         self,
@@ -167,6 +210,42 @@ class BusinessRepoEarlyLLMClient:
         return parse_fsj_early_result(parsed=parsed, envelope=envelope, prompt_version=self.prompt_version, model_alias=self.model_alias)
 
 
+
+
+class BusinessRepoMidLLMClient:
+    def __init__(
+        self,
+        *,
+        repo_root: Path = BUSINESS_REPO_ROOT,
+        python_bin: Path = BUSINESS_REPO_PYTHON,
+        cli_path: Path = BUSINESS_REPO_CLI,
+        model_alias: str = FSJ_MODEL_ALIAS,
+        prompt_version: str = FSJ_MID_PROMPT_VERSION,
+        timeout_seconds: int = 120,
+    ) -> None:
+        self.repo_root = repo_root
+        self.python_bin = python_bin
+        self.cli_path = cli_path
+        self.model_alias = model_alias
+        self.prompt_version = prompt_version
+        self.timeout_seconds = timeout_seconds
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        prompt = build_fsj_mid_prompt(request)
+        envelope = _run_business_repo_llm(
+            repo_root=self.repo_root,
+            python_bin=self.python_bin,
+            cli_path=self.cli_path,
+            model_alias=self.model_alias,
+            prompt=prompt,
+            timeout_seconds=self.timeout_seconds,
+        )
+        parsed = envelope.get("parsed_json")
+        if not isinstance(parsed, dict):
+            raise RuntimeError("llm response did not contain parsed_json object")
+        return parse_fsj_mid_result(parsed=parsed, envelope=envelope, prompt_version=self.prompt_version, model_alias=self.model_alias)
+
+
 class NoopLateLLMClient:
     def synthesize(self, request: FSJLateLLMRequest) -> FSJLateLLMResult:
         raise RuntimeError("llm assist disabled")
@@ -174,6 +253,11 @@ class NoopLateLLMClient:
 
 class NoopEarlyLLMClient:
     def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        raise RuntimeError("llm assist disabled")
+
+
+class NoopMidLLMClient:
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
         raise RuntimeError("llm assist disabled")
 
 
@@ -214,6 +298,27 @@ class FSJEarlyLLMAssistant:
                 "applied": False,
                 "model_alias": getattr(self.client, "model_alias", FSJ_MODEL_ALIAS),
                 "prompt_version": getattr(self.client, "prompt_version", FSJ_EARLY_PROMPT_VERSION),
+                "input_digest": input_digest,
+                "error": str(exc),
+            }
+
+
+class FSJMidLLMAssistant:
+    def __init__(self, client: FSJMidLLMClient | None = None) -> None:
+        self.client = client or BusinessRepoMidLLMClient()
+
+    def maybe_synthesize(self, request: FSJMidLLMRequest) -> tuple[FSJMidLLMResult | None, dict[str, Any]]:
+        input_digest = hashlib.sha1(
+            json.dumps(request.evidence_packet, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        try:
+            result = self.client.synthesize(request)
+            return result, result.audit_payload(input_digest=input_digest)
+        except Exception as exc:
+            return None, {
+                "applied": False,
+                "model_alias": getattr(self.client, "model_alias", FSJ_MODEL_ALIAS),
+                "prompt_version": getattr(self.client, "prompt_version", FSJ_MID_PROMPT_VERSION),
                 "input_digest": input_digest,
                 "error": str(exc),
             }
@@ -437,6 +542,123 @@ def build_fsj_early_evidence_packet(data: Any, *, contract_mode: str, completene
     }
 
 
+def build_fsj_mid_prompt(request: FSJMidLLMRequest) -> dict[str, Any]:
+    system = textwrap.dedent(
+        """
+        你是 A 股盘中主线更新的 business-layer synthesis assist。
+        你的职责只有：把已经给定、且可追溯的盘中 working 证据、盘前锚点和 T-1/文本背景整理成更高质量的中文结构化表达。
+
+        硬约束：
+        1. 不得发明未提供的数据、题材、涨跌幅、资金方向或午后结果。
+        2. 不得越权改变 contract_mode / completeness_label / degrade_reason。
+        3. 盘中输出只能写成“intraday adjust / 继续验证 / 观察项”，不得写成收盘最终确认。
+        4. early 预案与 T-1 背景只能作为锚点/对照，不得冒充盘中结构事实。
+        5. 输出必须是 JSON object，字段完整，invalidators 必须是字符串数组。
+        6. 语气要像生产级午盘更新：简洁、具体、边界清楚。
+
+        目标：
+        - summary：给 bundle 顶层 summary 用，一句话收敛盘中状态。
+        - validation_signal_statement：准确描述盘中验证状态，强调 working/intraday 边界。
+        - afternoon_signal_statement：给出午后继续验证点，不得写成已兑现结果。
+        - judgment_statement：形成最终 judgment 文案，但不改 judgment_action/object_type。
+        - invalidators：给出 2-4 条真正可执行的失效边界。
+        - reasoning_trace：2-4 条极短 bullet，说明你依据了哪些输入维度；不要暴露长推理。
+        """
+    ).strip()
+    return {
+        "system": system,
+        "instruction": "基于给定 evidence_packet 生成严格 JSON，不要输出 markdown 代码块。",
+        "required_json_schema": {
+            "summary": "string",
+            "validation_signal_statement": "string",
+            "afternoon_signal_statement": "string",
+            "judgment_statement": "string",
+            "invalidators": ["string"],
+            "reasoning_trace": ["string"],
+        },
+        "request": {
+            "business_date": request.business_date,
+            "section_key": request.section_key,
+            "contract_mode": request.contract_mode,
+            "completeness_label": request.completeness_label,
+            "degrade_reason": request.degrade_reason,
+            "evidence_packet": request.evidence_packet,
+        },
+    }
+
+
+def parse_fsj_mid_result(*, parsed: dict[str, Any], envelope: dict[str, Any], prompt_version: str, model_alias: str) -> FSJMidLLMResult:
+    summary = _require_text(parsed, "summary")
+    validation_signal_statement = _require_text(parsed, "validation_signal_statement")
+    afternoon_signal_statement = _require_text(parsed, "afternoon_signal_statement")
+    judgment_statement = _require_text(parsed, "judgment_statement")
+    invalidators = _require_text_list(parsed, "invalidators", min_items=2, max_items=4)
+    reasoning_trace = _require_text_list(parsed, "reasoning_trace", min_items=2, max_items=4)
+    _ensure_mid_intraday_boundary(summary, validation_signal_statement, afternoon_signal_statement, judgment_statement, invalidators)
+    return FSJMidLLMResult(
+        summary=summary,
+        validation_signal_statement=validation_signal_statement,
+        afternoon_signal_statement=afternoon_signal_statement,
+        judgment_statement=judgment_statement,
+        invalidators=invalidators,
+        reasoning_trace=reasoning_trace,
+        provider=envelope.get("provider"),
+        model_alias=envelope.get("model_alias") or model_alias,
+        model_id=envelope.get("model_id"),
+        prompt_version=prompt_version,
+        usage=envelope.get("usage") if isinstance(envelope.get("usage"), dict) else None,
+        raw_response=envelope.get("raw_response"),
+    )
+
+
+def build_fsj_mid_evidence_packet(data: Any, *, contract_mode: str, completeness_label: str, degrade_reason: str | None, freshness: str) -> dict[str, Any]:
+    return {
+        "summary_topic": data.summary_topic,
+        "contract_mode": contract_mode,
+        "completeness_label": completeness_label,
+        "degrade_reason": degrade_reason,
+        "freshness_label": freshness,
+        "intraday_structure": {
+            "stock_1m_count": data.stock_1m_count,
+            "stock_1m_latest_time": data.stock_1m_latest_time,
+            "breadth_count": data.breadth_count,
+            "breadth_latest_time": data.breadth_latest_time,
+            "breadth_sector_code": data.breadth_sector_code,
+            "breadth_spread_ratio": data.breadth_spread_ratio,
+            "heat_count": data.heat_count,
+            "heat_latest_time": data.heat_latest_time,
+            "heat_sector_code": data.heat_sector_code,
+            "heat_score": data.heat_score,
+            "signal_scope_count": data.signal_scope_count,
+            "signal_latest_time": data.signal_latest_time,
+            "latest_validation_state": data.latest_validation_state,
+            "latest_emotion_stage": data.latest_emotion_stage,
+            "latest_risk_state": data.latest_risk_state,
+        },
+        "intraday_leader_event": {
+            "leader_count": data.leader_count,
+            "leader_latest_time": data.leader_latest_time,
+            "leader_symbols": data.leader_symbols[:6],
+            "leader_confirmation_states": data.leader_confirmation_states[:6],
+            "event_count": data.event_count,
+            "event_latest_time": data.event_latest_time,
+            "event_titles": data.event_titles[:5],
+        },
+        "reference_context": {
+            "early_plan_summary": data.early_plan_summary,
+            "previous_late_summary": data.previous_late_summary,
+            "latest_text_count": data.latest_text_count,
+            "latest_text_titles": data.latest_text_titles[:6],
+        },
+        "guardrails": {
+            "has_any_high_evidence": data.has_any_high_evidence,
+            "has_sufficient_high_evidence": data.has_sufficient_high_evidence,
+            "freshness_label": freshness,
+            "monitoring_only": degrade_reason is not None,
+        },
+    }
+
+
 def _run_business_repo_llm(*, repo_root: Path, python_bin: Path, cli_path: Path, model_alias: str, prompt: dict[str, Any], timeout_seconds: int) -> dict[str, Any]:
     completed = subprocess.run(
         [
@@ -499,3 +721,14 @@ def _ensure_early_candidate_boundary(summary: str, candidate_signal_statement: s
         raise RuntimeError("invalid llm field: early candidate boundary violated")
     if "候选" not in candidate_signal_statement or "验证" not in candidate_signal_statement:
         raise RuntimeError("invalid llm field: early candidate boundary violated")
+
+
+def _ensure_mid_intraday_boundary(summary: str, validation_signal_statement: str, afternoon_signal_statement: str, judgment_statement: str, invalidators: list[str]) -> None:
+    joined = "\n".join([summary, validation_signal_statement, afternoon_signal_statement, judgment_statement, *invalidators])
+    banned_tokens = ["收盘最终确认", "晚报主线已确认", "已收盘", "final truth", "收盘结论已成立"]
+    if any(token in joined for token in banned_tokens):
+        raise RuntimeError("invalid llm field: mid intraday boundary violated")
+    if not any(token in validation_signal_statement for token in ["盘中", "working", "intraday"]):
+        raise RuntimeError("invalid llm field: mid intraday boundary violated")
+    if not any(token in afternoon_signal_statement for token in ["午后", "继续验证", "跟踪"]):
+        raise RuntimeError("invalid llm field: mid intraday boundary violated")

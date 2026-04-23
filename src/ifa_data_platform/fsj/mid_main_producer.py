@@ -8,6 +8,11 @@ from typing import Any, Protocol, Sequence
 from sqlalchemy import text
 
 from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.fsj.llm_assist import (
+    FSJMidLLMAssistant,
+    FSJMidLLMRequest,
+    build_fsj_mid_evidence_packet,
+)
 from ifa_data_platform.fsj.store import FSJStore
 
 MID_MAIN_PRODUCER = "ifa_data_platform.fsj.mid_main_producer"
@@ -305,6 +310,9 @@ class SqlMidMainInputReader:
 
 
 class MidMainFSJAssembler:
+    def __init__(self, *, llm_assistant: FSJMidLLMAssistant | None = None) -> None:
+        self.llm_assistant = llm_assistant or FSJMidLLMAssistant()
+
     def build_bundle_graph(self, data: MidMainProducerInput) -> dict[str, Any]:
         objects: list[dict[str, Any]] = []
         edges: list[dict[str, Any]] = []
@@ -312,8 +320,29 @@ class MidMainFSJAssembler:
         observed_records: list[dict[str, Any]] = []
 
         freshness = self._freshness_label(data)
+        completeness_label = self._completeness_label(data, freshness)
         degrade_reason = self._degrade_reason(data, freshness)
+        contract_mode = self._contract_mode(data, freshness)
         bundle_id = self._bundle_id(data)
+        llm_result = None
+        llm_audit: dict[str, Any] = {"applied": False, "reason": "mid_llm_assist_not_attempted"}
+        if data.has_any_high_evidence:
+            llm_result, llm_audit = self.llm_assistant.maybe_synthesize(
+                FSJMidLLMRequest(
+                    business_date=data.business_date,
+                    section_key=data.section_key,
+                    contract_mode=contract_mode,
+                    completeness_label=completeness_label,
+                    degrade_reason=degrade_reason,
+                    evidence_packet=build_fsj_mid_evidence_packet(
+                        data,
+                        contract_mode=contract_mode,
+                        completeness_label=completeness_label,
+                        degrade_reason=degrade_reason,
+                        freshness=freshness,
+                    ),
+                )
+            )
 
         high_fact_keys: list[str] = []
 
@@ -526,7 +555,7 @@ class MidMainFSJAssembler:
         signal_validation = self._append_signal(
             objects,
             object_key="signal:mid:plan_validation_state",
-            statement=self._validation_signal_statement(data, freshness),
+            statement=llm_result.validation_signal_statement if llm_result else self._validation_signal_statement(data, freshness),
             object_type=self._validation_signal_type(data, freshness),
             signal_strength=self._signal_strength(data, freshness),
             confidence="medium" if data.has_sufficient_high_evidence and freshness == "fresh" else "low",
@@ -551,7 +580,7 @@ class MidMainFSJAssembler:
         signal_afternoon = self._append_signal(
             objects,
             object_key="signal:mid:afternoon_tracking_state",
-            statement=self._afternoon_signal_statement(data, freshness),
+            statement=llm_result.afternoon_signal_statement if llm_result else self._afternoon_signal_statement(data, freshness),
             object_type="risk" if degrade_reason else "confirmation",
             signal_strength="low" if degrade_reason else "medium",
             confidence="low" if degrade_reason else "medium",
@@ -576,18 +605,20 @@ class MidMainFSJAssembler:
         judgment = self._append_judgment(
             objects,
             object_key="judgment:mid:mainline_update",
-            statement=self._judgment_statement(data, freshness),
+            statement=llm_result.judgment_statement if llm_result else self._judgment_statement(data, freshness),
             object_type="thesis" if data.has_sufficient_high_evidence and freshness == "fresh" else "watch_item",
             judgment_action="adjust" if data.has_sufficient_high_evidence and freshness == "fresh" else "watch",
             direction=self._judgment_direction(data),
             priority="p0",
             confidence="medium" if data.has_sufficient_high_evidence and freshness == "fresh" else "low",
-            invalidators=self._invalidators(data, freshness),
+            invalidators=llm_result.invalidators if llm_result else self._invalidators(data, freshness),
             attributes_json={
                 "contract_mode": "intraday_structure" if data.has_sufficient_high_evidence and freshness == "fresh" else "monitoring_only",
                 "freshness_label": freshness,
                 "degrade_reason": degrade_reason,
                 "requires_afternoon_validation": True,
+                "llm_assist_applied": bool(llm_result),
+                "llm_reasoning_trace": llm_result.reasoning_trace if llm_result else [],
                 "deferred": [
                     "support-agent merge not yet implemented",
                     "theme-chain explicit graph deferred",
@@ -638,8 +669,8 @@ class MidMainFSJAssembler:
             "slot_run_id": data.slot_run_id,
             "replay_id": data.replay_id,
             "report_run_id": data.report_run_id,
-            "summary": self._bundle_summary(data, freshness),
-            "payload_json": self._payload_meta(data, freshness, degrade_reason),
+            "summary": llm_result.summary if llm_result else self._bundle_summary(data, freshness),
+            "payload_json": self._payload_meta(data, freshness, completeness_label, degrade_reason, contract_mode, llm_audit),
         }
         return {
             "bundle": bundle,
@@ -765,7 +796,19 @@ class MidMainFSJAssembler:
             return "intraday_high_layer_stale_hard"
         return None
 
-    def _payload_meta(self, data: MidMainProducerInput, freshness: str, degrade_reason: str | None) -> dict[str, Any]:
+    def _completeness_label(self, data: MidMainProducerInput, freshness: str) -> str:
+        if data.has_sufficient_high_evidence and freshness == "fresh":
+            return "complete"
+        if data.has_any_high_evidence:
+            return "partial"
+        return "missing"
+
+    def _contract_mode(self, data: MidMainProducerInput, freshness: str) -> str:
+        if data.has_sufficient_high_evidence and freshness == "fresh":
+            return "intraday_structure"
+        return "monitoring_only"
+
+    def _payload_meta(self, data: MidMainProducerInput, freshness: str, completeness_label: str, degrade_reason: str | None, contract_mode: str, llm_audit: dict[str, Any]) -> dict[str, Any]:
         return {
             "schema_version": MID_MAIN_PRODUCER_VERSION,
             "contract_source": "A_SHARE_EARLY_MID_LATE_DATA_CONSUMPTION_CONTRACT_V1",
@@ -791,6 +834,8 @@ class MidMainFSJAssembler:
                     "automatic supersede orchestration",
                 ],
             },
+            "contract_mode": contract_mode,
+            "llm_assist": llm_audit,
             "degrade": {
                 "freshness_label": freshness,
                 "has_any_high_evidence": data.has_any_high_evidence,
