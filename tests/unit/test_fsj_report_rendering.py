@@ -329,3 +329,61 @@ def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_
     first_link = store.attached[0][1][0]
     assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]
     assert first_link["artifact_uri"] == html_path.as_uri()
+
+
+def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_files(tmp_path: Path) -> None:
+    stub = _StubAssemblyService(_assembled_sections())
+    rendering_service = MainReportRenderingService(assembly_service=stub)
+    store = _StubStore()
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+
+    published = publisher.publish_delivery_package(
+        business_date="2099-04-22",
+        output_dir=tmp_path,
+        include_empty=False,
+        report_run_id="report-run-delivery-1",
+        generated_at=datetime(2099, 4, 22, 9, 45, tzinfo=timezone.utc),
+    )
+
+    package_dir = Path(published["delivery_package_dir"])
+    delivery_manifest_path = Path(published["delivery_manifest_path"])
+    caption_path = Path(published["telegram_caption_path"])
+    zip_path = Path(published["delivery_zip_path"])
+
+    assert package_dir.exists()
+    assert delivery_manifest_path.exists()
+    assert caption_path.exists()
+    assert zip_path.exists()
+    assert Path(published["html_path"]).name in {path.name for path in package_dir.iterdir()}
+    caption_text = caption_path.read_text(encoding="utf-8")
+    assert "A股主报告交付包｜2099-04-22" in caption_text
+    assert "状态：READY｜score=" in caption_text
+    delivery_manifest = json.loads(delivery_manifest_path.read_text(encoding="utf-8"))
+    assert delivery_manifest["artifact_type"] == "fsj_main_report_delivery_package"
+    assert delivery_manifest["package_state"] == "ready"
+    assert delivery_manifest["quality_gate"]["late_contract_mode"] == "full_close_package"
+    assert delivery_manifest["lineage"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+
+
+def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_path: Path) -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][1]["signals"][0]["attributes_json"]["contract_mode"] = "historical_only"
+    stub = _StubAssemblyService(assembled)
+    rendering_service = MainReportRenderingService(assembly_service=stub)
+    store = _StubStore()
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+
+    published = publisher.publish_delivery_package(
+        business_date="2099-04-22",
+        output_dir=tmp_path,
+        include_empty=False,
+        report_run_id="report-run-delivery-blocked",
+        generated_at=datetime(2099, 4, 22, 9, 50, tzinfo=timezone.utc),
+    )
+
+    delivery_manifest = json.loads(Path(published["delivery_manifest_path"]).read_text(encoding="utf-8"))
+    caption_text = Path(published["telegram_caption_path"]).read_text(encoding="utf-8")
+    assert published["evaluation"]["ready_for_delivery"] is False
+    assert delivery_manifest["package_state"] == "blocked"
+    assert delivery_manifest["ready_for_delivery"] is False
+    assert "状态：BLOCKED｜score=" in caption_text

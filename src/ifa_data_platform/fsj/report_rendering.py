@@ -6,7 +6,10 @@ from html import escape
 from pathlib import Path
 from typing import Any, Sequence
 from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
 import json
+import re
+import shutil
 
 from .report_assembly import MainReportAssemblyService
 from .report_quality import MainReportQAEvaluator
@@ -336,6 +339,7 @@ class MainReportRenderingService:
 
 class MainReportArtifactPublishingService:
     ARTIFACT_FAMILY = "main_final_report"
+    DELIVERY_PACKAGE_VERSION = "v1"
 
     def __init__(
         self,
@@ -460,3 +464,126 @@ class MainReportArtifactPublishingService:
             "evaluation": evaluation,
             "persisted_report_links": persisted_links,
         }
+
+    def publish_delivery_package(
+        self,
+        *,
+        business_date: str,
+        output_dir: str | Path,
+        include_empty: bool = False,
+        report_run_id: str | None = None,
+        generated_at: datetime | None = None,
+    ) -> dict[str, Any]:
+        published = self.publish_main_report_html(
+            business_date=business_date,
+            output_dir=output_dir,
+            include_empty=include_empty,
+            report_run_id=report_run_id,
+            generated_at=generated_at,
+        )
+        generated_at = generated_at or datetime.now(timezone.utc)
+        html_path = Path(published["html_path"])
+        qa_path = Path(published["qa_path"])
+        manifest_path = Path(published["manifest_path"])
+        evaluation = dict(published["evaluation"])
+        artifact = dict(published["artifact"])
+        rendered = dict(published["rendered"])
+
+        package_slug = self._delivery_package_slug(
+            business_date=business_date,
+            generated_at=generated_at,
+            artifact_id=str(artifact["artifact_id"]),
+        )
+        root_output_dir = Path(output_dir)
+        package_dir = root_output_dir / package_slug
+        package_dir.mkdir(parents=True, exist_ok=True)
+
+        package_html_path = package_dir / html_path.name
+        package_qa_path = package_dir / qa_path.name
+        package_manifest_path = package_dir / manifest_path.name
+        shutil.copy2(html_path, package_html_path)
+        shutil.copy2(qa_path, package_qa_path)
+        shutil.copy2(manifest_path, package_manifest_path)
+
+        caption_text = self._build_delivery_caption(
+            business_date=business_date,
+            artifact=artifact,
+            evaluation=evaluation,
+            rendered=rendered,
+        )
+        caption_path = package_dir / "telegram_caption.txt"
+        caption_path.write_text(caption_text, encoding="utf-8")
+
+        delivery_manifest = {
+            "artifact_type": "fsj_main_report_delivery_package",
+            "artifact_version": self.DELIVERY_PACKAGE_VERSION,
+            "business_date": business_date,
+            "report_run_id": artifact.get("report_run_id"),
+            "artifact_id": artifact.get("artifact_id"),
+            "artifact_family": artifact.get("artifact_family"),
+            "package_state": "ready" if evaluation.get("ready_for_delivery") else "blocked",
+            "ready_for_delivery": bool(evaluation.get("ready_for_delivery")),
+            "quality_gate": {
+                "score": evaluation.get("score"),
+                "blocker_count": (evaluation.get("summary") or {}).get("blocker_count"),
+                "warning_count": (evaluation.get("summary") or {}).get("warning_count"),
+                "late_contract_mode": (evaluation.get("summary") or {}).get("late_contract_mode"),
+            },
+            "lineage": {
+                "bundle_ids": list((rendered.get("metadata") or {}).get("bundle_ids") or []),
+                "producer_versions": list((rendered.get("metadata") or {}).get("producer_versions") or []),
+                "support_summary_bundle_ids": list((rendered.get("metadata") or {}).get("support_summary_bundle_ids") or []),
+                "report_link_count": (evaluation.get("summary") or {}).get("report_link_count"),
+                "persisted_report_link_count": len(published.get("persisted_report_links") or []),
+            },
+            "artifacts": {
+                "html": package_html_path.name,
+                "qa": package_qa_path.name,
+                "manifest": package_manifest_path.name,
+                "telegram_caption": caption_path.name,
+            },
+        }
+        delivery_manifest_path = package_dir / "delivery_manifest.json"
+        delivery_manifest_path.write_text(json.dumps(delivery_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        zip_path = root_output_dir / f"{package_slug}.zip"
+        with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zf:
+            for path in sorted(package_dir.iterdir()):
+                zf.write(path, arcname=f"{package_dir.name}/{path.name}")
+
+        return {
+            **published,
+            "delivery_package_dir": str(package_dir.resolve()),
+            "delivery_manifest_path": str(delivery_manifest_path.resolve()),
+            "telegram_caption_path": str(caption_path.resolve()),
+            "delivery_zip_path": str(zip_path.resolve()),
+            "delivery_manifest": delivery_manifest,
+        }
+
+    def _delivery_package_slug(self, *, business_date: str, generated_at: datetime, artifact_id: str) -> str:
+        stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
+        safe_artifact_id = re.sub(r"[^A-Za-z0-9._-]+", "-", artifact_id).strip("-")
+        return f"a_share_main_report_delivery_{business_date}_{stamp}_{safe_artifact_id[-24:]}"
+
+    def _build_delivery_caption(
+        self,
+        *,
+        business_date: str,
+        artifact: dict[str, Any],
+        evaluation: dict[str, Any],
+        rendered: dict[str, Any],
+    ) -> str:
+        summary = dict(evaluation.get("summary") or {})
+        quality_state = "READY" if evaluation.get("ready_for_delivery") else "BLOCKED"
+        lines = [
+            f"A股主报告交付包｜{business_date}",
+            f"状态：{quality_state}｜score={evaluation.get('score', '-')}",
+            f"artifact_id：{artifact.get('artifact_id')}",
+            f"report_run_id：{artifact.get('report_run_id') or '-'}",
+            f"late_contract_mode：{summary.get('late_contract_mode') or '-'}",
+            f"blockers={summary.get('blocker_count', 0)}｜warnings={summary.get('warning_count', 0)}",
+            f"sections={summary.get('ready_section_count', 0)}/{summary.get('section_count', 0)} ready",
+            f"support_summaries={summary.get('support_summary_count', 0)}｜report_links={summary.get('report_link_count', 0)}",
+            f"renderer={((rendered.get('metadata') or {}).get('renderer_version') or '-')}",
+        ]
+        return "\n".join(lines) + "\n"
