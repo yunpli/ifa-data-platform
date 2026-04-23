@@ -40,6 +40,12 @@ from .report_assembly import (
     MainReportSectionAssembler,
     MainReportSectionSpec,
 )
+from .report_rendering import (
+    MainReportHTMLRenderer,
+    MainReportRenderingService,
+    RENDERER_NAME,
+    RENDERER_VERSION,
+)
 from .store import FSJStore
 
 __all__ = [
@@ -70,8 +76,12 @@ __all__ = [
     "FSJReportAssemblyStore",
     "FSJStore",
     "MainReportAssemblyService",
+    "MainReportHTMLRenderer",
+    "MainReportRenderingService",
     "MainReportSectionAssembler",
     "MainReportSectionSpec",
+    "RENDERER_NAME",
+    "RENDERER_VERSION",
     "SqlEarlyMainInputReader",
     "SqlLateMainInputReader",
     "SqlMidMainInputReader",
