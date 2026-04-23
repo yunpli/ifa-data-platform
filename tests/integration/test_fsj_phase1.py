@@ -363,3 +363,51 @@ def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active
         if first and second:
             with engine().begin() as conn:
                 conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id IN (:a, :b)'), {'a': first['artifact']['artifact_id'], 'b': second['artifact']['artifact_id']})
+
+
+def test_main_report_delivery_surface_is_queryable_from_active_artifact(tmp_path) -> None:
+    store = FSJStore()
+    store.ensure_schema()
+    bundle_id = f'fsj:test:{uuid.uuid4()}:bundle'
+    published: dict | None = None
+    try:
+        store.upsert_bundle_graph(_sample_payload(bundle_id))
+        publisher = MainReportArtifactPublishingService(
+            rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='delivery summary')),
+            store=store,
+        )
+        published = publisher.publish_delivery_package(
+            business_date='2099-04-18',
+            output_dir=tmp_path,
+            report_run_id='report-run-delivery-surface',
+            generated_at=datetime(2099, 4, 18, 12, 10, tzinfo=timezone.utc),
+        )
+
+        surface = store.get_active_report_delivery_surface(
+            business_date='2099-04-18',
+            agent_domain='main',
+            artifact_family='main_final_report',
+        )
+        assert surface is not None
+        assert surface['artifact']['artifact_id'] == published['artifact']['artifact_id']
+        assert surface['delivery_package']['delivery_manifest_path'] == published['delivery_manifest_path']
+        assert surface['delivery_package']['delivery_zip_path'] == published['delivery_zip_path']
+        assert surface['delivery_package']['telegram_caption_path'] == published['telegram_caption_path']
+        assert surface['delivery_package']['ready_for_delivery'] == published['delivery_manifest']['ready_for_delivery']
+        assert surface['delivery_package']['workflow']['recommended_action'] == published['delivery_manifest']['dispatch_advice']['recommended_action']
+        assert surface['send_ready'] == (published['delivery_manifest']['ready_for_delivery'] and published['delivery_manifest']['dispatch_advice']['recommended_action'] == 'send')
+        assert surface['review_required'] == (published['delivery_manifest']['dispatch_advice']['recommended_action'] == 'send_review')
+
+        active_artifact = store.get_active_report_artifact(
+            business_date='2099-04-18',
+            agent_domain='main',
+            artifact_family='main_final_report',
+        )
+        delivery_package = dict((active_artifact or {}).get('metadata_json', {}).get('delivery_package') or {})
+        assert delivery_package['delivery_package_dir'] == published['delivery_package_dir']
+        assert delivery_package['artifacts']['delivery_manifest'] == 'delivery_manifest.json'
+    finally:
+        _cleanup([bundle_id])
+        if published:
+            with engine().begin() as conn:
+                conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id=:artifact_id'), {'artifact_id': published['artifact']['artifact_id']})

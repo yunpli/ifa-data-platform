@@ -615,6 +615,44 @@ class FSJStore:
             ).mappings().first()
         return self._mapping_to_dict(row) if row else None
 
+    def get_active_report_delivery_surface(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        artifact_family: str,
+    ) -> dict[str, Any] | None:
+        artifact = self.get_active_report_artifact(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+        )
+        if artifact is None:
+            return None
+
+        metadata = dict(artifact.get("metadata_json") or {})
+        delivery_package = dict(metadata.get("delivery_package") or {})
+        if not delivery_package:
+            return {
+                "artifact": artifact,
+                "delivery_package": None,
+                "send_ready": False,
+                "review_required": False,
+            }
+
+        quality_gate = dict(delivery_package.get("quality_gate") or metadata.get("quality_gate") or {})
+        workflow = dict(delivery_package.get("workflow") or {})
+        recommended_action = str(workflow.get("recommended_action") or "hold")
+        return {
+            "artifact": artifact,
+            "delivery_package": {
+                **delivery_package,
+                "quality_gate": quality_gate,
+            },
+            "send_ready": bool(delivery_package.get("ready_for_delivery")) and recommended_action == "send",
+            "review_required": recommended_action == "send_review",
+        }
+
     def get_active_bundle(self, *, business_date: str, slot: str, agent_domain: str, section_key: str, bundle_topic_key: str | None = None) -> dict[str, Any] | None:
         self.ensure_schema()
         sql = """

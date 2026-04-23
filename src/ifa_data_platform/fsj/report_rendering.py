@@ -699,8 +699,51 @@ class MainReportArtifactPublishingService:
             for path in sorted(package_dir.iterdir()):
                 zf.write(path, arcname=f"{package_dir.name}/{path.name}")
 
+        published_artifact = self.store.register_report_artifact(
+            {
+                "artifact_id": artifact["artifact_id"],
+                "artifact_family": artifact["artifact_family"],
+                "market": artifact["market"],
+                "business_date": artifact["business_date"],
+                "agent_domain": artifact["agent_domain"],
+                "render_format": artifact["render_format"],
+                "artifact_type": artifact["artifact_type"],
+                "content_type": artifact["content_type"],
+                "title": artifact["title"],
+                "report_run_id": artifact.get("report_run_id"),
+                "artifact_uri": artifact.get("artifact_uri"),
+                "status": artifact["status"],
+                "supersedes_artifact_id": artifact.get("supersedes_artifact_id"),
+                "metadata_json": {
+                    **dict(artifact.get("metadata_json") or {}),
+                    "delivery_package": {
+                        "delivery_package_dir": str(package_dir.resolve()),
+                        "delivery_manifest_path": str(delivery_manifest_path.resolve()),
+                        "delivery_zip_path": str(zip_path.resolve()),
+                        "telegram_caption_path": str(caption_path.resolve()),
+                        "package_index_path": str(package_index_path.resolve()),
+                        "package_browse_readme_path": str(browse_readme_path.resolve()),
+                        "delivery_eval_path": str(package_eval_path.resolve()),
+                        "generated_at_utc": generated_at.isoformat(),
+                        "package_state": delivery_manifest.get("package_state"),
+                        "ready_for_delivery": delivery_manifest.get("ready_for_delivery"),
+                        "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
+                        "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
+                        "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+                        "dispatch_advice": dict(delivery_manifest.get("dispatch_advice") or {}),
+                        "artifacts": dict(delivery_manifest.get("artifacts") or {}),
+                        "workflow": {
+                            "recommended_action": dict(delivery_manifest.get("dispatch_advice") or {}).get("recommended_action"),
+                            "selection_reason": dict(delivery_manifest.get("dispatch_advice") or {}).get("selection_reason"),
+                        },
+                    },
+                },
+            }
+        )
+
         return {
             **published,
+            "artifact": published_artifact,
             "delivery_package_dir": str(package_dir.resolve()),
             "delivery_manifest_path": str(delivery_manifest_path.resolve()),
             "telegram_caption_path": str(caption_path.resolve()),
