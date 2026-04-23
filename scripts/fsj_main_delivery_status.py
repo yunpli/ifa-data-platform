@@ -17,72 +17,8 @@ def _safe_dict(value: Any) -> dict[str, Any]:
     return dict(value or {})
 
 
-def _surface_summary(surface: dict[str, Any]) -> dict[str, Any]:
-    handoff = _safe_dict(surface.get("workflow_handoff"))
-    if handoff:
-        return handoff
-
-    artifact = _safe_dict(surface.get("artifact"))
-    delivery_package = _safe_dict(surface.get("delivery_package"))
-    workflow_linkage = _safe_dict(surface.get("workflow_linkage"))
-    workflow = _safe_dict(delivery_package.get("workflow"))
-    quality_gate = _safe_dict(delivery_package.get("quality_gate"))
-    selected_handoff = _safe_dict(workflow_linkage.get("selected_handoff"))
-    artifacts = _safe_dict(delivery_package.get("artifacts"))
-    dispatch_advice = _safe_dict(delivery_package.get("dispatch_advice"))
-    return {
-        "artifact": {
-            "artifact_id": artifact.get("artifact_id"),
-            "report_run_id": artifact.get("report_run_id"),
-            "business_date": artifact.get("business_date"),
-            "status": artifact.get("status"),
-            "supersedes_artifact_id": artifact.get("supersedes_artifact_id"),
-            "created_at": artifact.get("created_at"),
-            "updated_at": artifact.get("updated_at"),
-        },
-        "selected_handoff": {
-            "selected_artifact_id": selected_handoff.get("selected_artifact_id"),
-            "selected_report_run_id": selected_handoff.get("selected_report_run_id"),
-            "selected_business_date": selected_handoff.get("selected_business_date"),
-            "selected_is_current": selected_handoff.get("selected_is_current"),
-            "selected_delivery_package_dir": selected_handoff.get("delivery_package_dir"),
-            "selected_delivery_manifest_path": selected_handoff.get("delivery_manifest_path"),
-            "selected_delivery_zip_path": selected_handoff.get("delivery_zip_path"),
-            "selected_telegram_caption_path": selected_handoff.get("telegram_caption_path"),
-        },
-        "state": {
-            "package_state": delivery_package.get("package_state"),
-            "ready_for_delivery": delivery_package.get("ready_for_delivery"),
-            "recommended_action": workflow.get("recommended_action") or dispatch_advice.get("recommended_action"),
-            "workflow_state": workflow.get("workflow_state"),
-            "send_ready": bool(surface.get("send_ready")),
-            "review_required": bool(surface.get("review_required")),
-            "qa_score": quality_gate.get("score"),
-            "blocker_count": quality_gate.get("blocker_count"),
-            "warning_count": quality_gate.get("warning_count"),
-            "late_contract_mode": quality_gate.get("late_contract_mode"),
-        },
-        "manifest_pointers": {
-            "delivery_manifest_path": delivery_package.get("delivery_manifest_path"),
-            "send_manifest_path": workflow_linkage.get("send_manifest_path"),
-            "review_manifest_path": workflow_linkage.get("review_manifest_path"),
-            "workflow_manifest_path": workflow_linkage.get("workflow_manifest_path"),
-            "operator_review_bundle_path": workflow_linkage.get("operator_review_bundle_path"),
-            "operator_review_readme_path": workflow_linkage.get("operator_review_readme_path"),
-            "package_index_path": delivery_package.get("package_index_path"),
-            "package_browse_readme_path": delivery_package.get("package_browse_readme_path"),
-            "telegram_caption_path": delivery_package.get("telegram_caption_path"),
-            "delivery_zip_path": delivery_package.get("delivery_zip_path"),
-        },
-        "version_pointers": {
-            "artifact_version": artifact.get("artifact_version"),
-            "delivery_manifest_version": artifacts.get("delivery_manifest"),
-            "send_manifest_version": artifacts.get("send_manifest"),
-            "review_manifest_version": artifacts.get("review_manifest"),
-            "workflow_manifest_version": artifacts.get("workflow_manifest"),
-            "package_index_version": artifacts.get("package_index"),
-        },
-    }
+def _surface_summary(surface: dict[str, Any], *, store: FSJStore | None = None) -> dict[str, Any]:
+    return (store or FSJStore()).report_workflow_handoff_from_surface(surface)
 
 
 def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: str | None = None) -> dict[str, Any] | None:

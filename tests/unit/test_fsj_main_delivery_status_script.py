@@ -51,7 +51,7 @@ def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_poin
         }
     }
 
-    summary = _surface_summary(surface)
+    summary = _surface_summary(surface, store=type("_Store", (), {"report_workflow_handoff_from_surface": lambda self, value: value["workflow_handoff"]})())
 
     assert summary["artifact"]["artifact_id"] == "artifact-active"
     assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-active"
@@ -62,6 +62,41 @@ def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_poin
     assert summary["manifest_pointers"]["send_manifest_path"] == "/tmp/pkg/send_manifest.json"
     assert summary["manifest_pointers"]["workflow_manifest_path"] == "/tmp/pkg/workflow_manifest.json"
     assert summary["version_pointers"]["send_manifest_version"] == "send_manifest.json"
+
+
+def test_surface_summary_falls_back_to_store_normalized_handoff() -> None:
+    surface = {
+        "artifact": {
+            "artifact_id": "artifact-active",
+            "report_run_id": "run-active",
+            "business_date": "2099-04-22",
+            "status": "active",
+        },
+        "delivery_package": {
+            "package_state": "ready",
+            "ready_for_delivery": True,
+        },
+        "workflow_linkage": {
+            "send_manifest_path": "/tmp/pkg/send_manifest.json",
+        },
+    }
+
+    class _DummyStore:
+        def report_workflow_handoff_from_surface(self, value: dict) -> dict:
+            assert value is surface
+            return {
+                "artifact": {"artifact_id": "artifact-normalized"},
+                "selected_handoff": {"selected_artifact_id": "artifact-normalized"},
+                "state": {"recommended_action": "send"},
+                "manifest_pointers": {"send_manifest_path": "/normalized/send_manifest.json"},
+                "version_pointers": {},
+            }
+
+    summary = _surface_summary(surface, store=_DummyStore())
+
+    assert summary["artifact"]["artifact_id"] == "artifact-normalized"
+    assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-normalized"
+    assert summary["manifest_pointers"]["send_manifest_path"] == "/normalized/send_manifest.json"
 
 
 def test_print_text_emits_single_operator_read_surface(capsys) -> None:
@@ -135,6 +170,15 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
 
         def list_report_delivery_surfaces(self, **_: object) -> list[dict]:
             return []
+
+        def report_workflow_handoff_from_surface(self, surface: dict) -> dict:
+            return {
+                "artifact": {"artifact_id": surface["artifact"]["artifact_id"]},
+                "selected_handoff": {},
+                "state": {},
+                "manifest_pointers": {},
+                "version_pointers": {},
+            }
 
     class _DummyHelper:
         def list_db_delivery_candidates(self, **_: object) -> list[dict]:

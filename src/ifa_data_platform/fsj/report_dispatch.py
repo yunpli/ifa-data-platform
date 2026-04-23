@@ -64,28 +64,30 @@ class DeliveryDispatchCandidate:
 class MainReportDeliveryDispatchHelper:
     """Select the best MAIN delivery package for send / send-review orchestration."""
 
-    def _published_candidate_from_surface(self, surface: dict[str, Any], *, source: str) -> dict[str, Any] | None:
+    def _published_candidate_from_surface(self, surface: dict[str, Any], *, source: str, store: FSJStore | None = None) -> dict[str, Any] | None:
         artifact = dict(surface.get("artifact") or {})
         delivery_package = dict(surface.get("delivery_package") or {})
         if not delivery_package:
             return None
+        store = store or FSJStore()
         workflow_linkage = dict(surface.get("workflow_linkage") or {})
-        workflow_handoff = dict(surface.get("workflow_handoff") or {})
+        workflow_handoff = store.report_workflow_handoff_from_surface(surface)
         manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
+        selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
         return {
             "artifact": artifact,
-            "delivery_package_dir": delivery_package.get("delivery_package_dir"),
-            "delivery_manifest_path": manifest_pointers.get("delivery_manifest_path") or delivery_package.get("delivery_manifest_path"),
-            "delivery_zip_path": manifest_pointers.get("delivery_zip_path") or delivery_package.get("delivery_zip_path"),
-            "telegram_caption_path": manifest_pointers.get("telegram_caption_path") or delivery_package.get("telegram_caption_path"),
-            "package_index_path": manifest_pointers.get("package_index_path") or delivery_package.get("package_index_path"),
-            "package_browse_readme_path": manifest_pointers.get("package_browse_readme_path") or delivery_package.get("package_browse_readme_path"),
-            "send_manifest_path": manifest_pointers.get("send_manifest_path") or workflow_linkage.get("send_manifest_path"),
-            "review_manifest_path": manifest_pointers.get("review_manifest_path") or workflow_linkage.get("review_manifest_path"),
-            "workflow_manifest_path": manifest_pointers.get("workflow_manifest_path") or workflow_linkage.get("workflow_manifest_path"),
-            "operator_review_bundle_path": manifest_pointers.get("operator_review_bundle_path") or workflow_linkage.get("operator_review_bundle_path"),
-            "operator_review_readme_path": manifest_pointers.get("operator_review_readme_path") or workflow_linkage.get("operator_review_readme_path"),
-            "selected_handoff": dict((workflow_handoff.get("selected_handoff") or workflow_linkage.get("selected_handoff")) or {}),
+            "delivery_package_dir": selected_handoff.get("selected_delivery_package_dir") or delivery_package.get("delivery_package_dir"),
+            "delivery_manifest_path": manifest_pointers.get("delivery_manifest_path"),
+            "delivery_zip_path": manifest_pointers.get("delivery_zip_path"),
+            "telegram_caption_path": manifest_pointers.get("telegram_caption_path"),
+            "package_index_path": manifest_pointers.get("package_index_path"),
+            "package_browse_readme_path": manifest_pointers.get("package_browse_readme_path"),
+            "send_manifest_path": manifest_pointers.get("send_manifest_path"),
+            "review_manifest_path": manifest_pointers.get("review_manifest_path"),
+            "workflow_manifest_path": manifest_pointers.get("workflow_manifest_path"),
+            "operator_review_bundle_path": manifest_pointers.get("operator_review_bundle_path"),
+            "operator_review_readme_path": manifest_pointers.get("operator_review_readme_path"),
+            "selected_handoff": selected_handoff,
             "delivery_manifest": {
                 "artifact_id": artifact.get("artifact_id"),
                 "report_run_id": artifact.get("report_run_id"),
@@ -121,7 +123,7 @@ class MainReportDeliveryDispatchHelper:
         )
         if not surface:
             return None
-        return self._published_candidate_from_surface(surface, source="db_active_delivery_surface")
+        return self._published_candidate_from_surface(surface, source="db_active_delivery_surface", store=store)
 
     def list_db_delivery_candidates(
         self,
@@ -141,7 +143,7 @@ class MainReportDeliveryDispatchHelper:
         results: list[dict[str, Any]] = []
         for index, surface in enumerate(surfaces):
             source = "db_active_delivery_surface" if index == 0 and (surface.get("artifact") or {}).get("status") == "active" else "db_delivery_history_surface"
-            candidate = self._published_candidate_from_surface(surface, source=source)
+            candidate = self._published_candidate_from_surface(surface, source=source, store=store)
             if candidate:
                 results.append(candidate)
         return results

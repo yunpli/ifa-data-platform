@@ -794,6 +794,20 @@ class FSJStore:
             "review_required": recommended_action == "send_review",
         }
 
+    def report_workflow_handoff_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any]:
+        normalized_surface = dict(surface or {})
+        handoff = dict(normalized_surface.get("workflow_handoff") or {})
+        if handoff:
+            return handoff
+        artifact = dict(normalized_surface.get("artifact") or {})
+        delivery_package = normalized_surface.get("delivery_package")
+        workflow_linkage = normalized_surface.get("workflow_linkage")
+        return self._report_workflow_handoff_from_artifact(
+            artifact,
+            delivery_package=dict(delivery_package or {}) or None,
+            workflow_linkage=dict(workflow_linkage or {}) or None,
+        )
+
     def _report_workflow_handoff_from_artifact(
         self,
         artifact: dict[str, Any],
