@@ -2,7 +2,10 @@
 
 ## Scope
 
-This is the thinnest honest operator-grade proof package for the 2026-04-23 A-lane work. It packages only evidence that already exists on disk and does **not** claim full `P0-4` closure.
+This is the proof package for the 2026-04-23 A-lane work.
+
+It was originally authored before the final green MAIN package existed. The final authoritative closeout now lives at:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
 
 Covered seams:
 1. early support standalone live proof
@@ -20,11 +23,11 @@ Canonical roadmap reference:
 
 | Roadmap item | Status on 2026-04-23 evidence | Basis |
 |---|---|---|
-| `P0-1` early slot closure | **Substantially proven, not final-green** | support standalone early is live-proven and early MAIN acceptance packaging now exists under publish + QA + eval, but dispatch-ready green acceptance is still not claimed |
-| `P0-3` late slot closure | **Partial-to-strong** | late support standalone is live-proven; late MAIN canonical operator seam is live-proven for persist + publish surface, but publish package remains blocked for delivery |
-| `P1-1` support standalone production path | **Proven for early and late support publish surfaces evidenced here** | support batch operator outputs exist as standalone packaged artifacts |
-| `P1-2` MAIN/support artifact convergence | **Proven only at concise-support-summary convergence level evidenced here** | late MAIN package cites six support-summary bundle IDs across early/late and shows bounded support-summary aggregation rather than inlining full bodies |
-| `P0-4` SLA proof package | **This document is a skeleton package, not final closure** | evidence is coherent enough for operator review, but full repeatable SLA validation closure is still incomplete |
+| `P0-1` early slot closure | **Accepted** | final green MAIN package includes complete `early`/`mid`/`late` section readiness and retains early-slot lineage |
+| `P0-3` late slot closure | **Accepted** | final green MAIN delivery manifest is `ready`, `ready_for_delivery=true`, strongest slot `late` |
+| `P1-1` support standalone production path | **Accepted on evidenced 2026-04-23 bar** | early and late support publish surfaces were already proven and their lineage persists into the final package |
+| `P1-2` MAIN/support artifact convergence | **Accepted** | final green MAIN manifest preserves six support-summary bundle IDs across early/late support domains without losing bounded-summary structure |
+| `P0-4` SLA proof package | **Accepted** | final authoritative closeout package now exists and is green |
 
 ## Evidence index
 
@@ -211,20 +214,17 @@ This package does **not** claim any of the following:
 - repeatable multi-day SLA validation procedure already finalized
 - complete operator runbook proving one-command repeatability across all required slots with all gates green
 
-## What remains missing before full P0-4 can be called done
+## Final closure update
 
-1. **Repeatable procedure**
-   - one explicit validation recipe that an operator can rerun end-to-end for the required slots without ad hoc interpretation
+The missing item list above is now materially closed for the 2026-04-23 acceptance slice.
 
-2. **Green delivery state at MAIN**
-   - the remaining material blocker is now the non-green delivery posture / final acceptance packaging closure, not absence of early MAIN evidence
-   - current MAIN packages still show hold-blocked delivery posture under the intended SLA acceptance bar
+Authoritative final closeout:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
 
-3. **Final acceptance summary**
-   - one authoritative pass/fail ledger across `P0-1`, `P0-3`, `P1-1`, `P1-2`, and `P0-4`
+Authoritative green artifact root:
+- `artifacts/subA_green_verify_20260423/report_publish/a_share_main_report_delivery_2026-04-23_20260423T233908Z_0260423T233908Z-c3d34c54/`
 
-4. **Potentially stronger concise-summary validation**
-   - optional but desirable: direct artifact inspection or automated check proving support summaries remain bounded and never inline full support report bodies
+What remains outside this proof package is only broader future work, not the 2026-04-23 P0-4 acceptance decision.
 
 ## Verification notes
 

@@ -2,32 +2,35 @@
 
 ## Scope
 
-This is the thinnest honest operator-grade acceptance layer above:
+This is the acceptance ledger that originally captured the pre-green 2026-04-23 state.
+
+It now sits below the final authoritative closeout:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
 - `docs/FSJ_P0_4_ACCEPTANCE_RECIPE_2026-04-23.md`
 - `docs/FSJ_SLA_PROOF_PACKAGE_2026-04-23.md`
 - `docs/PRODUCTION_GRADE_A_SHARE_SYSTEM_ROADMAP_2026-04-23.md`
 
-It does **not** claim full `P0-4` closure.
-It defines:
-1. one repeatable operator validation recipe,
-2. one authoritative pass/fail table for the currently evidenced seams,
-3. one explicit missing-items list before `P0-4` can be marked done.
+Use this file for the historical partial-proof ledger.
+Use `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` for the final authoritative verdict.
 
 ---
 
 ## Current truth
 
-As of the evidence packaged on `2026-04-23`:
-- there is real evidence for early support standalone publish,
-- there is real evidence for early MAIN acceptance packaging reaching persisted + publish + QA + eval under the same operator-grade proof standard,
-- there is real evidence for late support standalone publish, including one blocked first run and one converged 3/3-ready run,
-- there is real evidence for the late MAIN canonical operator seam reaching persisted + publish-surface generated,
-- there is **not** yet evidence for a green late MAIN delivery-ready outcome,
-- there is **not** yet a final unified acceptance packaging layer that closes the remaining explicit ledger items for full `P0-4`,
-- therefore `P0-4` remains **open**.
+Historical truth captured by this ledger revision:
+- early support standalone publish was evidenced,
+- early MAIN acceptance packaging was evidenced,
+- late support standalone convergence was evidenced,
+- late MAIN canonical persist + publish seam was evidenced,
+- but the then-current MAIN package still appeared blocked/hold.
 
-Authoritative upstream proof package:
-- `docs/FSJ_SLA_PROOF_PACKAGE_2026-04-23.md`
+This is **no longer the final truth**.
+
+Final authoritative truth now lives at:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
+
+That final closeout upgrades the verdict based on the green package rooted at:
+- `artifacts/subA_green_verify_20260423/report_publish/a_share_main_report_delivery_2026-04-23_20260423T233908Z_0260423T233908Z-c3d34c54/`
 
 ---
 
@@ -253,8 +256,8 @@ Expected repository state discipline:
 
 ## Resulting acceptance statement for this revision
 
-Authoritative statement:
+Historical statement from this ledger revision:
 - **`P0-4 acceptance ledger/runbook skeleton added`**
 
-Authoritative non-statement:
-- **`P0-4 fully accepted` has not been earned yet**; the remaining material blocker is late delivery-green / final acceptance packaging closure, not absence of early MAIN evidence.
+Superseding final statement:
+- **`P0-4 acceptance closed`** per `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`.

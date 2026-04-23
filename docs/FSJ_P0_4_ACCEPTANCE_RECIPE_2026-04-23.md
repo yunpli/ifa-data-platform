@@ -7,30 +7,24 @@ This is the thinnest honest **rerunnable command-based acceptance recipe** above
 - `docs/FSJ_P0_4_ACCEPTANCE_LEDGER_2026-04-23.md`
 - `docs/PRODUCTION_GRADE_A_SHARE_SYSTEM_ROADMAP_2026-04-23.md`
 
-It defines one practical operator recipe that can be rerun to regenerate the **currently proven** evidence classes:
-1. early support standalone publish,
-2. early MAIN acceptance package ingredients already evidenced on disk,
-3. late support standalone publish,
-4. late MAIN canonical operator seam,
-5. concise early/late support-summary linkage as seen from late MAIN artifacts.
+It defines the practical operator recipe beneath the final closeout.
 
-It does **not** claim full `P0-4` closure.
-It does **not** claim `mid` coverage.
-It does **not** require a green delivery-ready MAIN outcome.
+Final authoritative verdict:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
+
+This recipe remains useful as the reproduce-on-demand layer for the acceptance surfaces, but it is no longer the top-level verdict doc.
 
 ---
 
 ## Current truth
 
-As of `2026-04-23`, the currently evidenced and rerunnable seams are:
-- early support standalone: **proven green** (`ready=3`, `blocked=0`),
-- early MAIN acceptance package: **now evidenced under publish + QA + eval packaging**, with strongest slot `early` and complete packaged section presence,
-- late support standalone: **proven as a real seam with honest blocked-first then converged evidence**,
-- late MAIN canonical operator seam: **proven for persist + publish surface generation**,
-- MAIN delivery posture: **still blocked / hold**, not SLA-green,
-- concise support-summary convergence: **proven narrowly** via six lineage-traceable support-summary bundle IDs across early + late.
+As of the final 2026-04-23 closeout, the authoritative acceptance truth is:
+- final MAIN package is green,
+- `ready_for_delivery=true`,
+- all three slots score 100,
+- concise support-summary lineage remains intact across six support summaries.
 
-Therefore this recipe can honestly reproduce a stronger acceptance package than before, but still not full `P0-4 done`.
+This recipe still documents how to rerun the underlying operator seams, while the final verdict is carried by the final closeout doc.
 
 ---
 
@@ -204,12 +198,13 @@ Apply these outcome labels only:
 - `support-summary convergence reproduced`
 - `partial P0-4 acceptance recipe rerun completed`
 
-### Forbidden over-claims
-Do **not** label the rerun as:
-- `P0-4 done`
-- `full SLA closure`
+### Final labeling note
+For the 2026-04-23 evidenced package, the final closeout now allows:
+- `P0-4 acceptance closed`
 - `all-slot acceptance complete`
-- `dispatch-ready proven`
+- `dispatch-ready proven` **for the cited final package only**
+
+Do not extend that claim beyond the exact artifact root cited in `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`.
 
 ---
 
@@ -266,5 +261,8 @@ This recipe document itself does **not** fabricate new evidence; it standardizes
 Use this document for:
 - **how to rerun** the currently proven acceptance seams.
 
+Use `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` for:
+- the final authoritative verdict.
+
 Use `docs/FSJ_P0_4_ACCEPTANCE_LEDGER_2026-04-23.md` for:
-- **how to score** the resulting evidence honestly.
+- the historical pre-green scoring layer.

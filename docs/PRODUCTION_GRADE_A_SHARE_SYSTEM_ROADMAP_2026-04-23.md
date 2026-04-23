@@ -165,7 +165,7 @@ Core contracts and slices exist, but full slot-by-slot production closure is not
 ---
 
 ### P0-4. SLA proof package
-**Status:** Not started as formal proof package  
+**Status:** Acceptance-closed for the 2026-04-23 evidenced package  
 **Target:** operator-grade proof that required outputs can be produced within slot deadlines
 
 **Tasks**
@@ -178,7 +178,7 @@ Core contracts and slices exist, but full slot-by-slot production closure is not
 ---
 
 ### P0-5. Truthful send-readiness discipline
-**Status:** Partially landed  
+**Status:** Acceptance-closed on the 2026-04-23 evidenced package  
 **Target:** no false-ready / false-sendable state
 
 **Tasks**
