@@ -12,6 +12,18 @@ VALID_LATE_CONTRACT_MODES: set[str] = {
     "provisional_close_only",
     "historical_only",
 }
+MAIN_SOURCE_HEALTH_BLOCKING_REASONS: set[str] = {
+    "same_day_final_structure_missing",
+}
+MAIN_SOURCE_HEALTH_WARNING_REASONS: set[str] = {
+    "missing_preopen_high_layer",
+    "missing_intraday_structure",
+}
+SUPPORT_SOURCE_HEALTH_WARNING_REASONS: set[str] = {
+    "missing_background_support",
+    "missing_macro_snapshot",
+    "missing_ai_tech_snapshot",
+}
 
 
 @dataclass(frozen=True)
@@ -52,6 +64,7 @@ class MainReportQAEvaluator:
 
         self._check_top_level(assembled, rendered, html, issues)
         self._check_section_coverage(sections, issues)
+        source_health = self._source_health_summary(sections, issues)
 
         slot_status: dict[str, str] = {}
         late_contract_mode: str | None = None
@@ -94,6 +107,7 @@ class MainReportQAEvaluator:
                 "expected_slots": list(EXPECTED_SLOTS),
                 "slot_status": slot_status,
                 "late_contract_mode": late_contract_mode,
+                "source_health": source_health,
                 "report_link_count": len(rendered_links),
                 "existing_report_link_count": len(metadata.get("existing_report_links") or []),
                 "html_bytes": len(html.encode("utf-8")),
@@ -198,6 +212,57 @@ class MainReportQAEvaluator:
             ready = False
         return ready, blockers, warnings
 
+    def _source_health_summary(self, sections: Sequence[dict[str, Any]], issues: list[QualityIssue]) -> dict[str, Any]:
+        slot_items: list[dict[str, Any]] = []
+        blocked_slots = 0
+        degraded_slots = 0
+
+        for section in sections:
+            slot = str(section.get("slot") or "")
+            lineage = dict(section.get("lineage") or {})
+            raw_bundle = dict(lineage.get("bundle") or {})
+            payload = dict(raw_bundle.get("payload_json") or {})
+            degrade = dict(payload.get("degrade") or {})
+            degrade_reason = str(degrade.get("degrade_reason") or degrade.get("reason") or "")
+            contract_mode = str(degrade.get("contract_mode") or payload.get("contract_mode") or "")
+            completeness_label = str(degrade.get("completeness_label") or "")
+
+            severity = "healthy"
+            if degrade_reason in MAIN_SOURCE_HEALTH_BLOCKING_REASONS:
+                severity = "blocked"
+            elif degrade_reason in MAIN_SOURCE_HEALTH_WARNING_REASONS or degrade_reason:
+                severity = "degraded"
+
+            if severity == "blocked":
+                blocked_slots += 1
+                issues.append(QualityIssue("error", "source_health_blocked", f"{slot} slot required source family missing: {degrade_reason}", slot=slot or None, section_render_key=str(section.get("section_render_key") or "") or None))
+            elif severity == "degraded":
+                degraded_slots += 1
+                issues.append(QualityIssue("warning", "source_health_degraded", f"{slot} slot source health degraded: {degrade_reason}", slot=slot or None, section_render_key=str(section.get("section_render_key") or "") or None))
+
+            if slot:
+                slot_items.append(
+                    {
+                        "slot": slot,
+                        "status": severity,
+                        "degrade_reason": degrade_reason or None,
+                        "contract_mode": contract_mode or None,
+                        "completeness_label": completeness_label or None,
+                    }
+                )
+
+        overall_status = "healthy"
+        if blocked_slots:
+            overall_status = "blocked"
+        elif degraded_slots:
+            overall_status = "degraded"
+        return {
+            "overall_status": overall_status,
+            "blocking_slot_count": blocked_slots,
+            "degraded_slot_count": degraded_slots,
+            "slots": slot_items,
+        }
+
 
 class SupportReportQAEvaluator:
     """Deterministic QA gate for standalone support HTML artifacts."""
@@ -210,6 +275,7 @@ class SupportReportQAEvaluator:
 
         self._check_top_level(assembled, rendered, html, issues)
         self._check_section(assembled, report_links, issues)
+        source_health = self._source_health_summary(assembled, issues)
 
         blockers = sum(1 for issue in issues if issue.severity == "error")
         warnings = sum(1 for issue in issues if issue.severity == "warning")
@@ -229,6 +295,7 @@ class SupportReportQAEvaluator:
                 "section_key": assembled.get("section_key"),
                 "section_render_key": assembled.get("section_render_key"),
                 "status": assembled.get("status"),
+                "source_health": source_health,
                 "report_link_count": len(report_links),
                 "existing_report_link_count": len(metadata.get("existing_report_links") or []),
                 "evidence_link_count": int(metadata.get("evidence_link_count") or 0),
@@ -279,3 +346,28 @@ class SupportReportQAEvaluator:
             issues.append(QualityIssue("warning", "section_empty_body", "ready support section 没有 judgments/signals/facts，业务含量偏弱", slot=slot or None, section_render_key=section_render_key or None))
         if bundle_id and not any(str(link.get("bundle_id") or "") == bundle_id for link in report_links):
             issues.append(QualityIssue("error", "report_link_missing", "ready support section 未生成 report_link", slot=slot or None, section_render_key=section_render_key or None))
+
+    def _source_health_summary(self, assembled: dict[str, Any], issues: list[QualityIssue]) -> dict[str, Any]:
+        lineage = dict(assembled.get("lineage") or {})
+        raw_bundle = dict(lineage.get("bundle") or {})
+        payload = dict(raw_bundle.get("payload_json") or {})
+        degrade = dict(payload.get("degrade") or {})
+        degrade_reason = str(degrade.get("degrade_reason") or degrade.get("reason") or "")
+
+        status = "healthy"
+        if degrade_reason in SUPPORT_SOURCE_HEALTH_WARNING_REASONS or degrade_reason:
+            status = "degraded"
+            issues.append(
+                QualityIssue(
+                    "warning",
+                    "support_source_health_degraded",
+                    f"support source health degraded: {degrade_reason}",
+                    slot=str(assembled.get("slot") or "") or None,
+                    section_render_key=str(assembled.get("section_render_key") or "") or None,
+                )
+            )
+
+        return {
+            "overall_status": status,
+            "degrade_reason": degrade_reason or None,
+        }

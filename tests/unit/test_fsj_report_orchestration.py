@@ -56,10 +56,10 @@ def _assembled_sections() -> dict:
                     "replay_id": "replay-early-support-macro",
                     "report_run_id": None,
                     "updated_at": "2099-04-22T08:56:00+08:00",
-                    "lineage": {"report_links": [], "evidence_links": [{"ref_key": "source:early:macro"}]},
+                    "lineage": {"bundle": {"payload_json": {"degrade": {"reason": "missing_background_support"}}}, "report_links": [], "evidence_links": [{"ref_key": "source:early:macro"}]},
                 }],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-early"},
+                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [{"ref_key": "source:early:robotics"}],
@@ -99,7 +99,7 @@ def _assembled_sections() -> dict:
                 }],
                 "facts": [],
                 "support_summaries": [],
-                "lineage": {"bundle": {"bundle_id": "bundle-late"}, "objects": [], "edges": [], "evidence_links": [], "observed_records": [], "report_links": [], "support_bundle_ids": []},
+                "lineage": {"bundle": {"bundle_id": "bundle-late", "payload_json": {"degrade": {}}}, "objects": [], "edges": [], "evidence_links": [], "observed_records": [], "report_links": [], "support_bundle_ids": []},
             },
         ],
     }
@@ -168,6 +168,7 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert workflow["selected_handoff"]["selected_is_current"] is True
     assert review_manifest["blocking_items"] == []
     assert any(item["item"] == "quality_gate_ready_for_delivery" and item["status"] == "pass" for item in review_manifest["checklist"])
+    assert any(item["item"] == "source_health_overall_status" and item["status"] == "warn" for item in review_manifest["checklist"])
     assert operator_review_bundle["recommended_action"] == "send"
     assert operator_review_bundle["candidate_overview"]["candidate_count"] == 1
     assert operator_review_bundle["operator_go_no_go"]["decision"] == "GO"
@@ -187,6 +188,7 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert "## Artifact Integrity" in operator_review_readme
     assert "## Support Summary Aggregate" in operator_review_readme
     assert "recommended_action=send" in operator_summary
+    assert "source_health overall=degraded" in operator_summary
     assert "selected_package_dir=" in operator_summary
     assert "package_index=" in operator_summary
     assert store.persisted_workflow_linkages

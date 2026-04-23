@@ -90,6 +90,7 @@ def _assembled_sections() -> dict:
                         "report_run_id": None,
                         "updated_at": "2099-04-22T08:57:00+08:00",
                         "lineage": {
+                            "bundle": {"payload_json": {"degrade": {"reason": "missing_background_support"}}},
                             "report_links": [
                                 {
                                     "artifact_type": "html",
@@ -117,6 +118,7 @@ def _assembled_sections() -> dict:
                         "report_run_id": None,
                         "updated_at": "2099-04-22T08:56:00+08:00",
                         "lineage": {
+                            "bundle": {"payload_json": {"degrade": {}}},
                             "report_links": [],
                             "evidence_links": [
                                 {"ref_key": "source:early:macro"},
@@ -125,7 +127,7 @@ def _assembled_sections() -> dict:
                     },
                 ],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-early"},
+                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [
@@ -180,7 +182,7 @@ def _assembled_sections() -> dict:
                 "facts": [],
                 "support_summaries": [],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-late"},
+                    "bundle": {"bundle_id": "bundle-late", "payload_json": {"degrade": {}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [],
@@ -254,6 +256,7 @@ def test_main_report_qa_evaluator_emits_delivery_ready_verdict_for_contract_comp
     assert evaluation["artifact_type"] == "fsj_main_report_qa"
     assert evaluation["ready_for_delivery"] is True
     assert evaluation["summary"]["late_contract_mode"] == "full_close_package"
+    assert evaluation["summary"]["source_health"]["overall_status"] == "degraded"
     assert evaluation["summary"]["blocker_count"] == 0
     assert evaluation["summary"]["warning_count"] >= 1
     assert any(issue["code"] == "slot_missing" and issue.get("slot") == "mid" for issue in evaluation["issues"])
@@ -304,6 +307,30 @@ def test_main_report_qa_evaluator_blocks_historical_only_late_report() -> None:
     assert evaluation["ready_for_delivery"] is False
     assert evaluation["summary"]["late_contract_mode"] == "historical_only"
     assert any(issue["code"] == "late_historical_only" for issue in evaluation["issues"])
+
+
+def test_main_report_qa_evaluator_blocks_when_late_source_health_is_missing_required_family() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][1]["lineage"]["bundle"]["payload_json"] = {
+        "degrade": {
+            "degrade_reason": "same_day_final_structure_missing",
+            "contract_mode": "post_close_observation_only",
+            "completeness_label": "sparse",
+        }
+    }
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-2b",
+        artifact_uri="file:///tmp/final-late-source-health-blocked.html",
+        generated_at=datetime(2099, 4, 22, 8, 0, tzinfo=timezone.utc),
+    )
+
+    evaluation = MainReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert evaluation["ready_for_delivery"] is False
+    assert evaluation["summary"]["source_health"]["overall_status"] == "blocked"
+    assert evaluation["summary"]["source_health"]["blocking_slot_count"] == 1
+    assert any(issue["code"] == "source_health_blocked" and issue.get("slot") == "late" for issue in evaluation["issues"])
 
 
 def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_wiring(tmp_path: Path) -> None:
@@ -382,6 +409,7 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["artifact_type"] == "fsj_main_report_delivery_package"
     assert delivery_manifest["package_state"] == "ready"
     assert delivery_manifest["quality_gate"]["late_contract_mode"] == "full_close_package"
+    assert delivery_manifest["quality_gate"]["source_health"]["overall_status"] == "degraded"
     assert delivery_manifest["lineage"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
     assert delivery_manifest["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
@@ -395,6 +423,7 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert Path(published["package_browse_readme_path"]).exists()
     package_index = json.loads(Path(published["package_index_path"]).read_text(encoding="utf-8"))
     assert package_index["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
+    assert delivery_manifest["quality_gate"]["source_health"]["degraded_slot_count"] == 1
     assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])
     browse_readme = Path(published["package_browse_readme_path"]).read_text(encoding="utf-8")
     assert "## Snapshot" in browse_readme
@@ -454,7 +483,7 @@ def _assembled_support_section() -> dict:
             }
         ],
         "lineage": {
-            "bundle": {"bundle_id": "bundle-support-macro-early"},
+            "bundle": {"bundle_id": "bundle-support-macro-early", "payload_json": {"degrade": {"reason": "missing_background_support"}}},
             "objects": [],
             "edges": [],
             "evidence_links": [{"ref_key": "source:early:macro"}],
@@ -490,6 +519,23 @@ def test_support_report_html_renderer_emits_standalone_support_html() -> None:
     assert rendered["metadata"]["section_render_key"] == "support.macro.early"
     assert rendered["report_links"][0]["bundle_id"] == "bundle-support-macro-early"
     assert rendered["report_links"][0]["section_render_key"] == "support.macro.early"
+
+
+def test_support_report_qa_evaluator_surfaces_degraded_source_health_without_blocking_delivery() -> None:
+    assembled = _assembled_support_section()
+    rendered = SupportReportHTMLRenderer().render(
+        assembled,
+        report_run_id="support-report-run-qa-1",
+        artifact_uri="file:///tmp/support-macro-early-qa.html",
+        generated_at=datetime(2099, 4, 22, 8, 0, tzinfo=timezone.utc),
+    )
+
+    qa = SupportReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert qa["ready_for_delivery"] is True
+    assert qa["summary"]["source_health"]["overall_status"] == "degraded"
+    assert qa["summary"]["source_health"]["degrade_reason"] == "missing_background_support"
+    assert any(issue["code"] == "support_source_health_degraded" for issue in qa["issues"])
 
 
 def test_support_report_rendering_service_delegates_assembly_then_render() -> None:
@@ -551,6 +597,7 @@ def test_support_report_qa_evaluator_accepts_ready_support_html() -> None:
     assert qa["artifact_type"] == "fsj_support_report_qa"
     assert qa["ready_for_delivery"] is True
     assert qa["summary"]["agent_domain"] == "macro"
+    assert qa["summary"]["source_health"]["overall_status"] == "degraded"
     assert qa["summary"]["slot"] == "early"
     assert qa["summary"]["report_link_count"] == 1
 
@@ -581,6 +628,7 @@ def test_support_report_artifact_publisher_builds_delivery_package(tmp_path: Pat
     assert delivery_manifest["artifact_type"] == "fsj_support_report_delivery_package"
     assert delivery_manifest["package_state"] == "ready"
     assert delivery_manifest["quality_gate"]["score"] == published["qa"]["score"]
+    assert delivery_manifest["quality_gate"]["source_health"]["overall_status"] == "degraded"
     assert delivery_manifest["lineage"]["bundle_id"] == "bundle-support-macro-early"
     assert package_index["artifact_type"] == "fsj_support_report_delivery_package_index"
     assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])

@@ -263,6 +263,7 @@ class MainReportMorningDeliveryOrchestrator:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
         quality_gate = dict(delivery_manifest.get("quality_gate") or {})
         dispatch_recommended_action = str(dispatch_decision.get("recommended_action") or "hold")
+        source_health = dict(quality_gate.get("source_health") or {})
         checklist = [
             {
                 "item": "confirm_selected_candidate",
@@ -273,6 +274,11 @@ class MainReportMorningDeliveryOrchestrator:
                 "item": "quality_gate_ready_for_delivery",
                 "status": "pass" if delivery_manifest.get("ready_for_delivery") else "fail",
                 "detail": f"package_state={delivery_manifest.get('package_state')} score={quality_gate.get('score')}",
+            },
+            {
+                "item": "source_health_overall_status",
+                "status": "fail" if source_health.get("overall_status") == "blocked" else ("warn" if source_health.get("overall_status") == "degraded" else "pass"),
+                "detail": f"source_health={source_health.get('overall_status') or 'healthy'} blocking_slots={source_health.get('blocking_slot_count', 0)} degraded_slots={source_health.get('degraded_slot_count', 0)}",
             },
             {
                 "item": "late_contract_mode",
@@ -317,6 +323,7 @@ class MainReportMorningDeliveryOrchestrator:
         quality_gate = dict(delivery_manifest.get("quality_gate") or {})
         selected = dict(dispatch_decision.get("selected") or {})
         support_summary = dict(delivery_manifest.get("support_summary_aggregate") or {})
+        source_health = dict(quality_gate.get("source_health") or {})
         lines = [
             f"MAIN morning delivery workflow｜{delivery_manifest.get('business_date')}",
             f"recommended_action={effective_action}｜dispatch_action={dispatch_decision.get('recommended_action')}｜selected_is_current={selected_is_current}",
@@ -325,6 +332,7 @@ class MainReportMorningDeliveryOrchestrator:
             f"selected_artifact_id={selected.get('artifact_id')}",
             f"selection_reason={dispatch_decision.get('selection_reason')}",
             f"quality_gate score={quality_gate.get('score')} blockers={quality_gate.get('blocker_count')} warnings={quality_gate.get('warning_count')} late_contract_mode={quality_gate.get('late_contract_mode')}",
+            f"source_health overall={source_health.get('overall_status') or 'healthy'} blocking_slots={source_health.get('blocking_slot_count', 0)} degraded_slots={source_health.get('degraded_slot_count', 0)}",
             f"support_summary domains={','.join(support_summary.get('domains') or []) or '-'} bundles={len(support_summary.get('bundle_ids') or [])} strongest_slot={support_summary.get('strongest_slot') or '-'}",
             f"selected_package_dir={selected_handoff.get('delivery_package_dir')}",
             f"selected_delivery_manifest={selected_handoff.get('delivery_manifest_path')}",
@@ -416,6 +424,7 @@ class MainReportMorningDeliveryOrchestrator:
         operator_go_no_go = dict(bundle.get("operator_go_no_go") or {})
         candidate_comparison = dict(bundle.get("candidate_comparison") or {})
 
+        source_health = dict(quality_gate.get("source_health") or {})
         lines = [
             f"# MAIN Operator Review｜{bundle.get('business_date')}",
             "",
@@ -432,6 +441,9 @@ class MainReportMorningDeliveryOrchestrator:
             f"- blockers: `{quality_gate.get('blocker_count')}`",
             f"- warnings: `{quality_gate.get('warning_count')}`",
             f"- late_contract_mode: `{quality_gate.get('late_contract_mode') or '-'}`",
+            f"- source_health: `{source_health.get('overall_status') or 'healthy'}`",
+            f"- blocking_slot_count: `{source_health.get('blocking_slot_count', 0)}`",
+            f"- degraded_slot_count: `{source_health.get('degraded_slot_count', 0)}`",
             f"- strongest_slot: `{slot_evaluation.get('strongest_slot') or '-'}`",
             f"- weakest_slot: `{slot_evaluation.get('weakest_slot') or '-'}`",
             f"- average_slot_score: `{slot_evaluation.get('average_slot_score')}`",

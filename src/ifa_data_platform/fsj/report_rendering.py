@@ -632,6 +632,7 @@ class MainReportArtifactPublishingService:
                 "blocker_count": (evaluation.get("summary") or {}).get("blocker_count"),
                 "warning_count": (evaluation.get("summary") or {}).get("warning_count"),
                 "late_contract_mode": (evaluation.get("summary") or {}).get("late_contract_mode"),
+                "source_health": (evaluation.get("summary") or {}).get("source_health") or {},
             },
             "lineage": {
                 "bundle_ids": list((rendered.get("metadata") or {}).get("bundle_ids") or []),
@@ -1218,6 +1219,7 @@ class SupportReportArtifactPublishingService:
                 "score": qa.get("score"),
                 "blocker_count": (qa.get("summary") or {}).get("blocker_count"),
                 "warning_count": (qa.get("summary") or {}).get("warning_count"),
+                "source_health": (qa.get("summary") or {}).get("source_health") or {},
             },
             "lineage": {
                 "bundle_id": (rendered.get("metadata") or {}).get("bundle_id"),
