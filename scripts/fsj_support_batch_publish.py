@@ -57,9 +57,24 @@ def main() -> None:
     root.mkdir(parents=True, exist_ok=True)
 
     results: list[dict] = []
+    persist_script = Path(__file__).with_name("fsj_support_bundle_persist.py")
     publish_script = Path(__file__).with_name("fsj_support_report_publish.py")
     python_bin = sys.executable
     stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
+
+    persist_root = root / "persist"
+    persist_cmd = [
+        python_bin,
+        str(persist_script),
+        "--business-date", args.business_date,
+        "--slot", args.slot,
+        "--output-root", str(persist_root),
+    ]
+    for domain in domains:
+        persist_cmd.extend(["--agent-domain", domain])
+    persist_completed = subprocess.run(persist_cmd, capture_output=True, text=True)
+    persist_stdout = persist_completed.stdout.strip()
+    persist_summary = json.loads(persist_stdout) if persist_stdout else {}
 
     for domain in domains:
         domain_dir = root / domain
@@ -93,12 +108,16 @@ def main() -> None:
 
     summary = {
         "artifact_type": "fsj_support_batch_publish_summary",
-        "artifact_version": "v1",
+        "artifact_version": "v2",
         "business_date": args.business_date,
         "slot": args.slot,
         "generated_at_utc": generated_at.isoformat(),
         "domains": domains,
         "require_ready": bool(args.require_ready),
+        "persist": {
+            **persist_summary,
+            "exit_code": persist_completed.returncode,
+        },
         "ready_count": sum(1 for item in results if item["status"] == "ready" and item.get("package_state", "ready") == "ready"),
         "blocked_count": sum(1 for item in results if item["status"] != "ready" or item.get("package_state") == "blocked"),
         "results": results,
