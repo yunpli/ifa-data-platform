@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ifa_data_platform.fsj.macro_support_producer import MacroSupportAssembler, MacroSupportProducerInput
+from ifa_data_platform.fsj.macro_support_producer import MacroSupportAssembler, MacroSupportProducerInput, SqlMacroSupportInputReader
 from ifa_data_platform.fsj.support_common import SupportSnapshot, SupportTextItem
 
 
@@ -122,3 +122,64 @@ def test_late_macro_support_can_confirm_background_mode() -> None:
     assert judgment["object_type"] == "support"
     assert judgment["judgment_action"] == "confirm"
     assert bundle["payload_json"]["degrade"]["has_background_support"] is True
+
+
+def test_sql_reader_late_uses_north_money_column(monkeypatch) -> None:
+    class _FakeResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def mappings(self):
+            return self
+
+        def all(self):
+            return self._rows
+
+        def one(self):
+            return self._rows[0]
+
+        def first(self):
+            return self._rows[0] if self._rows else None
+
+    class _FakeConn:
+        def execute(self, stmt, params):
+            sql = str(stmt)
+            if "from ifa2.macro_history" in sql and "row_number() over" in sql:
+                return _FakeResult([
+                    {"macro_series": "CN_M2", "indicator_name": "中国M2", "report_date": "2099-04-22", "value": 8.4, "unit": "%"}
+                ])
+            if "from ifa2.news_history" in sql:
+                return _FakeResult([])
+            if "from ifa2.announcements_history" in sql:
+                return _FakeResult([])
+            if "from ifa2.ifa_archive_macro_daily" in sql:
+                return _FakeResult([{"cnt": 3, "latest_business_date": "2099-04-21"}])
+            if "from ifa2.ifa_archive_news_daily" in sql:
+                return _FakeResult([{"cnt": 5}])
+            if "agent_domain = 'main'" in sql:
+                return _FakeResult([{"summary": "main late summary"}])
+            if "agent_domain = 'macro'" in sql:
+                return _FakeResult([{"summary": "previous macro summary"}])
+            if "from ifa2.northbound_flow_history" in sql:
+                assert "north_money as northbound_net_flow" in sql
+                return _FakeResult([{"northbound_net_flow": 306404.91}])
+            raise AssertionError(sql)
+
+    class _FakeEngine:
+        def begin(self):
+            class _Ctx:
+                def __enter__(self_inner):
+                    return _FakeConn()
+
+                def __exit__(self_inner, exc_type, exc, tb):
+                    return False
+
+            return _Ctx()
+
+    monkeypatch.setattr("ifa_data_platform.fsj.macro_support_producer.make_engine", lambda: _FakeEngine())
+
+    payload = SqlMacroSupportInputReader().read(business_date="2099-04-22", slot="late")
+
+    assert payload.northbound_net_flow == 306404.91
+    assert payload.archive_macro_count == 3
+    assert payload.prior_main_summary == "main late summary"

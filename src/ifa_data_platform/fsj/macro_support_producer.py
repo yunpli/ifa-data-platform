@@ -199,7 +199,7 @@ class SqlMacroSupportInputReader:
                 flow_row = conn.execute(
                     text(
                         """
-                        select net_flow_amount
+                        select north_money as northbound_net_flow
                         from ifa2.northbound_flow_history
                         where trade_date = cast(:business_date as date)
                         order by trade_date desc
@@ -229,7 +229,7 @@ class SqlMacroSupportInputReader:
             archive_macro_count=int(archive_row["cnt"] or 0),
             archive_macro_latest_business_date=archive_row.get("latest_business_date"),
             archive_news_count=int((archive_news_row or {}).get("cnt") or 0),
-            northbound_net_flow=(None if flow_row is None else flow_row.get("net_flow_amount")),
+            northbound_net_flow=(None if flow_row is None else flow_row.get("northbound_net_flow")),
             prior_main_summary=None if prior_main_row is None else prior_main_row.get("summary"),
             previous_support_summary=None if prior_support_row is None else prior_support_row.get("summary"),
         )
