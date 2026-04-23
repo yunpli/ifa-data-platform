@@ -150,6 +150,8 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     workflow = json.loads(Path(result["workflow_manifest_path"]).read_text(encoding="utf-8"))
     send_manifest = json.loads(Path(result["send_manifest_path"]).read_text(encoding="utf-8"))
     review_manifest = json.loads(Path(result["review_manifest_path"]).read_text(encoding="utf-8"))
+    operator_review_bundle = json.loads(Path(result["operator_review_bundle_path"]).read_text(encoding="utf-8"))
+    operator_review_readme = Path(result["operator_review_readme_path"]).read_text(encoding="utf-8")
     operator_summary = Path(result["operator_summary_path"]).read_text(encoding="utf-8")
 
     assert result["dispatch_decision"]["recommended_action"] == "send"
@@ -161,6 +163,11 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert workflow["selected_handoff"]["selected_is_current"] is True
     assert review_manifest["blocking_items"] == []
     assert any(item["item"] == "quality_gate_ready_for_delivery" and item["status"] == "pass" for item in review_manifest["checklist"])
+    assert operator_review_bundle["recommended_action"] == "send"
+    assert operator_review_bundle["candidate_overview"]["candidate_count"] == 1
+    assert workflow["package_artifacts"]["operator_review_bundle"].endswith("operator_review_bundle.json")
+    assert workflow["package_artifacts"]["operator_review_readme"].endswith("OPERATOR_REVIEW.md")
+    assert "## Review Checklist" in operator_review_readme
     assert "recommended_action=send" in operator_summary
     assert "selected_package_dir=" in operator_summary
 
@@ -223,6 +230,8 @@ def test_main_report_morning_delivery_workflow_marks_superseded_when_better_read
     workflow = json.loads(Path(result["workflow_manifest_path"]).read_text(encoding="utf-8"))
     send_manifest = json.loads(Path(result["send_manifest_path"]).read_text(encoding="utf-8"))
     review_manifest = json.loads(Path(result["review_manifest_path"]).read_text(encoding="utf-8"))
+    operator_review_bundle = json.loads(Path(result["operator_review_bundle_path"]).read_text(encoding="utf-8"))
+    operator_review_readme = Path(result["operator_review_readme_path"]).read_text(encoding="utf-8")
 
     assert result["dispatch_decision"]["selected"]["artifact_id"] == "artifact-better-ready"
     assert workflow["workflow_state"] == "superseded_by_better_candidate"
@@ -230,4 +239,7 @@ def test_main_report_morning_delivery_workflow_marks_superseded_when_better_read
     assert send_manifest["selected_is_current"] is False
     assert send_manifest["next_step"] == "switch_to_selected_package_and_do_not_send_current"
     assert "current_package_not_selected" in send_manifest["send_blockers"]
+    assert operator_review_bundle["candidate_overview"]["selected_artifact_id"] == "artifact-better-ready"
+    assert "## Alternative Candidates" in operator_review_readme
+    assert "artifact-better-ready" in operator_review_readme
     assert any(item["item"] == "confirm_selected_candidate" and item["status"] == "warn" for item in review_manifest["checklist"])

@@ -89,15 +89,29 @@ class MainReportMorningDeliveryOrchestrator:
             effective_action=effective_action,
             selected_handoff=selected_handoff,
         )
+        operator_review_bundle = self._build_operator_review_bundle(
+            published=published,
+            dispatch_decision=dispatch_decision,
+            selected_is_current=selected_is_current,
+            effective_action=effective_action,
+            selected_handoff=selected_handoff,
+            send_manifest=send_manifest,
+            review_manifest=review_manifest,
+        )
+        operator_review_readme = self._build_operator_review_readme(operator_review_bundle)
 
         send_manifest_path = package_dir / "send_manifest.json"
         review_manifest_path = package_dir / "review_manifest.json"
         operator_summary_path = package_dir / "operator_summary.txt"
+        operator_review_bundle_path = package_dir / "operator_review_bundle.json"
+        operator_review_readme_path = package_dir / "OPERATOR_REVIEW.md"
         workflow_manifest_path = package_dir / "workflow_manifest.json"
 
         send_manifest_path.write_text(json.dumps(send_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
         review_manifest_path.write_text(json.dumps(review_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
         operator_summary_path.write_text(operator_summary, encoding="utf-8")
+        operator_review_bundle_path.write_text(json.dumps(operator_review_bundle, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        operator_review_readme_path.write_text(operator_review_readme, encoding="utf-8")
 
         workflow_manifest = {
             "artifact_type": "fsj_main_report_delivery_workflow",
@@ -116,6 +130,8 @@ class MainReportMorningDeliveryOrchestrator:
                 "send_manifest": str(send_manifest_path.resolve()),
                 "review_manifest": str(review_manifest_path.resolve()),
                 "operator_summary": str(operator_summary_path.resolve()),
+                "operator_review_bundle": str(operator_review_bundle_path.resolve()),
+                "operator_review_readme": str(operator_review_readme_path.resolve()),
                 "delivery_zip": str(Path(published["delivery_zip_path"]).resolve()),
                 "telegram_caption": str(Path(published["telegram_caption_path"]).resolve()),
             },
@@ -125,6 +141,7 @@ class MainReportMorningDeliveryOrchestrator:
             "dispatch_decision": dispatch_decision,
             "review_manifest": review_manifest,
             "send_manifest": send_manifest,
+            "operator_review_bundle": operator_review_bundle,
         }
         workflow_manifest_path.write_text(json.dumps(workflow_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
@@ -138,6 +155,10 @@ class MainReportMorningDeliveryOrchestrator:
             "review_manifest_path": str(review_manifest_path.resolve()),
             "operator_summary": operator_summary,
             "operator_summary_path": str(operator_summary_path.resolve()),
+            "operator_review_bundle": operator_review_bundle,
+            "operator_review_bundle_path": str(operator_review_bundle_path.resolve()),
+            "operator_review_readme": operator_review_readme,
+            "operator_review_readme_path": str(operator_review_readme_path.resolve()),
             "dispatch_decision": dispatch_decision,
             "selected_handoff": selected_handoff,
         }
@@ -271,6 +292,126 @@ class MainReportMorningDeliveryOrchestrator:
             f"caption={published.get('telegram_caption_path')}",
         ]
         return "\n".join(str(line) for line in lines) + "\n"
+
+    def _build_operator_review_bundle(
+        self,
+        *,
+        published: dict[str, Any],
+        dispatch_decision: dict[str, Any],
+        selected_is_current: bool,
+        effective_action: str,
+        selected_handoff: dict[str, Any],
+        send_manifest: dict[str, Any],
+        review_manifest: dict[str, Any],
+    ) -> dict[str, Any]:
+        delivery_manifest = dict(published.get("delivery_manifest") or {})
+        current_candidate = self.dispatch_helper.candidate_from_published(published).as_dict()
+        alternatives = list(dispatch_decision.get("alternatives") or [])
+        package_artifacts = {
+            "delivery_package_dir": published.get("delivery_package_dir"),
+            "html": published.get("html_path"),
+            "delivery_manifest": published.get("delivery_manifest_path"),
+            "qa": published.get("qa_path"),
+            "evaluation": published.get("eval_path"),
+            "report_manifest": published.get("manifest_path"),
+            "delivery_zip": published.get("delivery_zip_path"),
+            "telegram_caption": published.get("telegram_caption_path"),
+        }
+        return {
+            "artifact_type": "fsj_main_report_operator_review_bundle",
+            "artifact_version": self.WORKFLOW_VERSION,
+            "business_date": delivery_manifest.get("business_date"),
+            "report_run_id": delivery_manifest.get("report_run_id"),
+            "artifact_id": delivery_manifest.get("artifact_id"),
+            "recommended_action": effective_action,
+            "workflow_state": send_manifest.get("workflow_state"),
+            "selection_reason": dispatch_decision.get("selection_reason"),
+            "selected_is_current": selected_is_current,
+            "selected_handoff": selected_handoff,
+            "dispatch_decision": dispatch_decision,
+            "current_candidate": current_candidate,
+            "candidate_overview": {
+                "candidate_count": dispatch_decision.get("candidate_count"),
+                "ready_candidate_count": dispatch_decision.get("ready_candidate_count"),
+                "selected_artifact_id": (dispatch_decision.get("selected") or {}).get("artifact_id"),
+                "alternative_artifact_ids": [item.get("artifact_id") for item in alternatives],
+            },
+            "quality_gate": delivery_manifest.get("quality_gate") or {},
+            "slot_evaluation": delivery_manifest.get("slot_evaluation") or {},
+            "send_manifest": send_manifest,
+            "review_manifest": review_manifest,
+            "package_artifacts": package_artifacts,
+        }
+
+    def _build_operator_review_readme(self, bundle: dict[str, Any]) -> str:
+        selected = dict((bundle.get("dispatch_decision") or {}).get("selected") or {})
+        current = dict(bundle.get("current_candidate") or {})
+        quality_gate = dict(bundle.get("quality_gate") or {})
+        slot_evaluation = dict(bundle.get("slot_evaluation") or {})
+        send_manifest = dict(bundle.get("send_manifest") or {})
+        review_manifest = dict(bundle.get("review_manifest") or {})
+        handoff = dict(bundle.get("selected_handoff") or {})
+        checklist = list(review_manifest.get("checklist") or [])
+        artifact_paths = dict(bundle.get("package_artifacts") or {})
+
+        lines = [
+            f"# MAIN Operator Review｜{bundle.get('business_date')}",
+            "",
+            "## Decision",
+            f"- recommended_action: `{bundle.get('recommended_action')}`",
+            f"- workflow_state: `{bundle.get('workflow_state')}`",
+            f"- selection_reason: `{bundle.get('selection_reason')}`",
+            f"- selected_is_current: `{bundle.get('selected_is_current')}`",
+            f"- current_artifact_id: `{current.get('artifact_id') or '-'}`",
+            f"- selected_artifact_id: `{selected.get('artifact_id') or '-'}`",
+            "",
+            "## Quality Gate",
+            f"- score: `{quality_gate.get('score')}`",
+            f"- blockers: `{quality_gate.get('blocker_count')}`",
+            f"- warnings: `{quality_gate.get('warning_count')}`",
+            f"- late_contract_mode: `{quality_gate.get('late_contract_mode') or '-'}`",
+            f"- strongest_slot: `{slot_evaluation.get('strongest_slot') or '-'}`",
+            f"- weakest_slot: `{slot_evaluation.get('weakest_slot') or '-'}`",
+            f"- average_slot_score: `{slot_evaluation.get('average_slot_score')}`",
+            "",
+            "## Immediate Next Step",
+            f"- send_manifest.next_step: `{send_manifest.get('next_step')}`",
+            f"- review_manifest.next_step: `{review_manifest.get('next_step')}`",
+            f"- send_blockers: `{', '.join(send_manifest.get('send_blockers') or []) or '-'}`",
+            "",
+            "## Review Checklist",
+        ]
+        for item in checklist:
+            lines.append(f"- [{item.get('status')}] {item.get('item')}: {item.get('detail')}")
+
+        lines.extend([
+            "",
+            "## Selected Handoff",
+            f"- delivery_package_dir: `{handoff.get('delivery_package_dir') or '-'}`",
+            f"- delivery_manifest_path: `{handoff.get('delivery_manifest_path') or '-'}`",
+            f"- delivery_zip_path: `{handoff.get('delivery_zip_path') or '-'}`",
+            f"- telegram_caption_path: `{handoff.get('telegram_caption_path') or '-'}`",
+            "",
+            "## Package Artifacts",
+        ])
+        for key, value in artifact_paths.items():
+            lines.append(f"- {key}: `{value or '-'}`")
+
+        alternatives = list(((bundle.get("dispatch_decision") or {}).get("alternatives") or []))
+        if alternatives:
+            lines.extend(["", "## Alternative Candidates"])
+            for item in alternatives:
+                lines.append(
+                    "- "
+                    f"artifact_id=`{item.get('artifact_id')}` "
+                    f"ready=`{item.get('ready_for_delivery')}` "
+                    f"qa=`{item.get('qa_score')}` "
+                    f"slot=`{item.get('strongest_slot') or '-'}` "
+                    f"package=`{item.get('delivery_package_dir') or '-'}`"
+                )
+
+        lines.append("")
+        return "\n".join(lines)
 
     def _build_selected_handoff(
         self,
