@@ -28,6 +28,20 @@ pid_command() {
   ps -p "$pid" -o command= 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
 }
 
+find_matching_daemon_pids() {
+  ps -axo pid=,command= | awk -v pat="$DAEMON_MATCH_PATTERN" 'index($0, pat) > 0 {print $1}'
+}
+
+first_matching_daemon_pid() {
+  local matched_process
+  while IFS= read -r matched_process; do
+    [[ "$matched_process" =~ ^[0-9]+$ ]] || continue
+    echo "$matched_process"
+    return 0
+  done < <(find_matching_daemon_pids)
+  return 1
+}
+
 pid_is_expected_daemon() {
   local pid="$1"
   if ! kill -0 "$pid" 2>/dev/null; then
@@ -54,22 +68,51 @@ cmd_status() {
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid=$(read_pid) || {
+      local discovered_pid
+      discovered_pid=$(first_matching_daemon_pid || true)
+      if [[ -n "$discovered_pid" ]]; then
+        echo "$discovered_pid" > "$PID_FILE"
+        echo "alive pid=$discovered_pid source=process_scan refreshed_pid_file=1"
+        ps -p "$discovered_pid" -o pid=,ppid=,pgid=,etime=,state=,command=
+        exit 0
+      fi
       echo "stale_pid_file reason=invalid_pid_contents"
       exit 1
     }
     if pid_is_expected_daemon "$pid"; then
-      echo "alive pid=$pid"
+      echo "alive pid=$pid source=pid_file"
       ps -p "$pid" -o pid=,ppid=,pgid=,etime=,state=,command=
       exit 0
     fi
     local command
     command=$(pid_command "$pid")
+    local discovered_pid
+    discovered_pid=$(first_matching_daemon_pid || true)
+    if [[ -n "$discovered_pid" ]]; then
+      echo "$discovered_pid" > "$PID_FILE"
+      if [[ -n "$command" ]]; then
+        report_stale_pid "$pid" "command_mismatch" "$command"
+      else
+        report_stale_pid "$pid" "not_running"
+      fi
+      echo "alive pid=$discovered_pid source=process_scan refreshed_pid_file=1"
+      ps -p "$discovered_pid" -o pid=,ppid=,pgid=,etime=,state=,command=
+      exit 0
+    fi
     if [[ -n "$command" ]]; then
       report_stale_pid "$pid" "command_mismatch" "$command"
     else
       report_stale_pid "$pid" "not_running"
     fi
     exit 1
+  fi
+  local discovered_pid
+  discovered_pid=$(first_matching_daemon_pid || true)
+  if [[ -n "$discovered_pid" ]]; then
+    echo "$discovered_pid" > "$PID_FILE"
+    echo "alive pid=$discovered_pid source=process_scan refreshed_pid_file=1"
+    ps -p "$discovered_pid" -o pid=,ppid=,pgid=,etime=,state=,command=
+    exit 0
   fi
   echo "not_running"
   exit 1
@@ -116,11 +159,19 @@ cmd_start() {
     }
     if [[ -n "$pid" ]]; then
       if pid_is_expected_daemon "$pid"; then
-        echo "already_running pid=$pid"
+        echo "already_running pid=$pid source=pid_file"
         exit 0
       fi
       rm -f "$PID_FILE"
     fi
+  fi
+
+  local discovered_pid
+  discovered_pid=$(first_matching_daemon_pid || true)
+  if [[ -n "$discovered_pid" ]]; then
+    echo "$discovered_pid" > "$PID_FILE"
+    echo "already_running pid=$discovered_pid source=process_scan refreshed_pid_file=1"
+    exit 0
   fi
 
   "$PY" scripts/runtime_preflight.py --repair --out "$PREFLIGHT_JSON"

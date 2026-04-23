@@ -51,7 +51,7 @@ def test_unified_daemon_service_status_rejects_reused_pid(tmp_path: Path):
                 **os.environ,
                 'LOG_DIR': str(log_dir),
                 'PID_FILE': str(pid_file),
-                'DAEMON_MATCH_PATTERN': 'ifa_data_platform.runtime.unified_daemon --loop',
+                'DAEMON_MATCH_PATTERN': 'ifa_data_platform.runtime.unified_daemon --loop --sentinel no-such-daemon',
             },
         )
         assert proc.returncode == 1
@@ -91,3 +91,101 @@ def test_unified_daemon_service_stop_clears_stale_pid_without_killing_other_proc
     finally:
         sleeper.terminate()
         sleeper.wait(timeout=5)
+
+
+def test_unified_daemon_service_status_recovers_when_pid_file_is_stale_but_real_daemon_exists(tmp_path: Path):
+    sentinel = 'test-status-recover-stale'
+    stale = subprocess.Popen(['sleep', '30'])
+    daemon = subprocess.Popen([
+        'python3', '-c', 'import time; time.sleep(30)', '-m', 'ifa_data_platform.runtime.unified_daemon', '--loop', '--sentinel', sentinel
+    ])
+    try:
+        log_dir = tmp_path / 'service'
+        pid_file = log_dir / 'unified_daemon.pid'
+        log_dir.mkdir(parents=True)
+        pid_file.write_text(f'{stale.pid}\n')
+
+        proc = subprocess.run(
+            ['zsh', 'scripts/unified_daemon_service.sh', 'status'],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'LOG_DIR': str(log_dir),
+                'PID_FILE': str(pid_file),
+                'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
+            },
+        )
+        assert proc.returncode == 0
+        assert 'stale_pid_file' in proc.stdout
+        assert f'pid={stale.pid}' in proc.stdout
+        assert f'alive pid={daemon.pid} source=process_scan refreshed_pid_file=1' in proc.stdout
+        assert pid_file.read_text().strip() == str(daemon.pid)
+    finally:
+        stale.terminate()
+        stale.wait(timeout=5)
+        daemon.terminate()
+        daemon.wait(timeout=5)
+
+
+
+def test_unified_daemon_service_status_recovers_without_pid_file_when_real_daemon_exists(tmp_path: Path):
+    sentinel = 'test-status-recover-no-pid'
+    daemon = subprocess.Popen([
+        'python3', '-c', 'import time; time.sleep(30)', '-m', 'ifa_data_platform.runtime.unified_daemon', '--loop', '--sentinel', sentinel
+    ])
+    try:
+        log_dir = tmp_path / 'service'
+        pid_file = log_dir / 'unified_daemon.pid'
+        log_dir.mkdir(parents=True)
+
+        proc = subprocess.run(
+            ['zsh', 'scripts/unified_daemon_service.sh', 'status'],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'LOG_DIR': str(log_dir),
+                'PID_FILE': str(pid_file),
+                'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
+            },
+        )
+        assert proc.returncode == 0
+        assert f'alive pid={daemon.pid} source=process_scan refreshed_pid_file=1' in proc.stdout
+        assert pid_file.read_text().strip() == str(daemon.pid)
+    finally:
+        daemon.terminate()
+        daemon.wait(timeout=5)
+
+
+def test_unified_daemon_service_start_detects_existing_daemon_via_process_scan(tmp_path: Path):
+    sentinel = 'test-start-detect-existing'
+    daemon = subprocess.Popen([
+        'python3', '-c', 'import time; time.sleep(30)', '-m', 'ifa_data_platform.runtime.unified_daemon', '--loop', '--sentinel', sentinel
+    ])
+    try:
+        log_dir = tmp_path / 'service'
+        pid_file = log_dir / 'unified_daemon.pid'
+        log_dir.mkdir(parents=True)
+
+        proc = subprocess.run(
+            ['zsh', 'scripts/unified_daemon_service.sh', 'start'],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'LOG_DIR': str(log_dir),
+                'PID_FILE': str(pid_file),
+                'PREFLIGHT_JSON': str(log_dir / 'runtime_preflight_latest.json'),
+                'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
+            },
+        )
+        assert proc.returncode == 0
+        assert f'already_running pid={daemon.pid} source=process_scan refreshed_pid_file=1' in proc.stdout
+        assert pid_file.read_text().strip() == str(daemon.pid)
+    finally:
+        daemon.terminate()
+        daemon.wait(timeout=5)
