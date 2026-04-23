@@ -19,54 +19,36 @@ resolve_latest_main_business_date = _module.resolve_latest_main_business_date
 
 def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_pointers() -> None:
     surface = {
-        "artifact": {
-            "artifact_id": "artifact-active",
-            "report_run_id": "run-active",
-            "business_date": "2099-04-22",
-            "status": "active",
-            "supersedes_artifact_id": "artifact-old",
-        },
-        "delivery_package": {
-            "package_state": "ready",
-            "ready_for_delivery": True,
-            "quality_gate": {
-                "score": 98,
-                "blocker_count": 0,
-                "warning_count": 1,
-                "late_contract_mode": "full_close_package",
+        "workflow_handoff": {
+            "artifact": {
+                "artifact_id": "artifact-active",
+                "report_run_id": "run-active",
+                "business_date": "2099-04-22",
+                "status": "active",
+                "supersedes_artifact_id": "artifact-old",
             },
-            "dispatch_advice": {"recommended_action": "send"},
-            "workflow": {
-                "recommended_action": "send",
-                "workflow_state": "ready_to_send",
-            },
-            "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
-            "package_index_path": "/tmp/pkg/package_index.json",
-            "delivery_zip_path": "/tmp/pkg.zip",
-            "artifacts": {
-                "delivery_manifest": "delivery_manifest.json",
-                "send_manifest": "send_manifest.json",
-                "review_manifest": "review_manifest.json",
-                "workflow_manifest": "workflow_manifest.json",
-                "package_index": "package_index.json",
-            },
-        },
-        "workflow_linkage": {
-            "send_manifest_path": "/tmp/pkg/send_manifest.json",
-            "review_manifest_path": "/tmp/pkg/review_manifest.json",
-            "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
             "selected_handoff": {
                 "selected_artifact_id": "artifact-active",
                 "selected_report_run_id": "run-active",
                 "selected_business_date": "2099-04-22",
                 "selected_is_current": True,
-                "delivery_package_dir": "/tmp/pkg",
-                "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
-                "delivery_zip_path": "/tmp/pkg.zip",
+                "selected_delivery_package_dir": "/tmp/pkg",
+                "selected_delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
+                "selected_delivery_zip_path": "/tmp/pkg.zip",
             },
-        },
-        "send_ready": True,
-        "review_required": False,
+            "state": {
+                "recommended_action": "send",
+                "workflow_state": "ready_to_send",
+                "send_ready": True,
+            },
+            "manifest_pointers": {
+                "send_manifest_path": "/tmp/pkg/send_manifest.json",
+                "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
+            },
+            "version_pointers": {
+                "send_manifest_version": "send_manifest.json",
+            },
+        }
     }
 
     summary = _surface_summary(surface)

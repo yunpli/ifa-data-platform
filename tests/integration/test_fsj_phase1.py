@@ -501,7 +501,10 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         assert helper_surfaces[0]['source'] == 'db_active_delivery_surface'
         assert helper_surfaces[1]['source'] == 'db_delivery_history_surface'
         assert helper_surfaces[0]['delivery_manifest']['dispatch_advice']['recommended_action'] == second['delivery_manifest']['dispatch_advice']['recommended_action']
+        assert helper_surfaces[0]['workflow_handoff']['selected_handoff']['selected_artifact_id'] == second['artifact']['artifact_id']
+        assert helper_surfaces[0]['workflow_handoff']['manifest_pointers']['delivery_manifest_path'] == second['delivery_manifest_path']
         assert helper_surfaces[1]['delivery_manifest_path'] == first['delivery_manifest_path']
+        assert history_surfaces[0]['workflow_handoff']['selected_handoff']['selected_artifact_id'] == second['artifact']['artifact_id']
         assert history_surfaces[1]['artifact']['status'] == 'superseded'
 
         orchestrator = MainReportMorningDeliveryOrchestrator(

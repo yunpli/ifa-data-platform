@@ -18,6 +18,10 @@ def _safe_dict(value: Any) -> dict[str, Any]:
 
 
 def _surface_summary(surface: dict[str, Any]) -> dict[str, Any]:
+    handoff = _safe_dict(surface.get("workflow_handoff"))
+    if handoff:
+        return handoff
+
     artifact = _safe_dict(surface.get("artifact"))
     delivery_package = _safe_dict(surface.get("delivery_package"))
     workflow_linkage = _safe_dict(surface.get("workflow_linkage"))

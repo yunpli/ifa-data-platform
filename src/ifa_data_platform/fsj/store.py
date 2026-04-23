@@ -761,6 +761,11 @@ class FSJStore:
                 "artifact": artifact,
                 "delivery_package": None,
                 "workflow_linkage": workflow_linkage,
+                "workflow_handoff": self._report_workflow_handoff_from_artifact(
+                    artifact,
+                    delivery_package=None,
+                    workflow_linkage=workflow_linkage,
+                ),
                 "send_ready": False,
                 "review_required": False,
             }
@@ -771,16 +776,93 @@ class FSJStore:
             **workflow_linkage,
         }
         recommended_action = str(workflow.get("recommended_action") or "hold")
+        normalized_delivery_package = {
+            **delivery_package,
+            "quality_gate": quality_gate,
+            "workflow": workflow,
+        }
         return {
             "artifact": artifact,
-            "delivery_package": {
-                **delivery_package,
-                "quality_gate": quality_gate,
-                "workflow": workflow,
-            },
+            "delivery_package": normalized_delivery_package,
             "workflow_linkage": workflow_linkage,
+            "workflow_handoff": self._report_workflow_handoff_from_artifact(
+                artifact,
+                delivery_package=normalized_delivery_package,
+                workflow_linkage=workflow_linkage,
+            ),
             "send_ready": bool(delivery_package.get("ready_for_delivery")) and recommended_action == "send",
             "review_required": recommended_action == "send_review",
+        }
+
+    def _report_workflow_handoff_from_artifact(
+        self,
+        artifact: dict[str, Any],
+        *,
+        delivery_package: dict[str, Any] | None,
+        workflow_linkage: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        normalized_artifact = dict(artifact or {})
+        normalized_delivery_package = dict(delivery_package or {})
+        normalized_workflow_linkage = dict(workflow_linkage or {})
+        workflow = dict(normalized_delivery_package.get("workflow") or {})
+        quality_gate = dict(normalized_delivery_package.get("quality_gate") or {})
+        selected_handoff = dict(normalized_workflow_linkage.get("selected_handoff") or {})
+        artifacts = dict(normalized_delivery_package.get("artifacts") or {})
+        dispatch_advice = dict(normalized_delivery_package.get("dispatch_advice") or {})
+        recommended_action = workflow.get("recommended_action") or dispatch_advice.get("recommended_action") or "hold"
+        resolved_selected_handoff = {
+            "selected_artifact_id": selected_handoff.get("selected_artifact_id") or normalized_artifact.get("artifact_id"),
+            "selected_report_run_id": selected_handoff.get("selected_report_run_id") or normalized_artifact.get("report_run_id"),
+            "selected_business_date": selected_handoff.get("selected_business_date") or normalized_artifact.get("business_date"),
+            "selected_is_current": selected_handoff.get("selected_is_current") if "selected_is_current" in selected_handoff else True,
+            "selected_delivery_package_dir": selected_handoff.get("delivery_package_dir") or normalized_delivery_package.get("delivery_package_dir"),
+            "selected_delivery_manifest_path": selected_handoff.get("delivery_manifest_path") or normalized_delivery_package.get("delivery_manifest_path"),
+            "selected_delivery_zip_path": selected_handoff.get("delivery_zip_path") or normalized_delivery_package.get("delivery_zip_path"),
+            "selected_telegram_caption_path": selected_handoff.get("telegram_caption_path") or normalized_delivery_package.get("telegram_caption_path"),
+        }
+        return {
+            "artifact": {
+                "artifact_id": normalized_artifact.get("artifact_id"),
+                "report_run_id": normalized_artifact.get("report_run_id"),
+                "business_date": normalized_artifact.get("business_date"),
+                "status": normalized_artifact.get("status"),
+                "supersedes_artifact_id": normalized_artifact.get("supersedes_artifact_id"),
+                "created_at": normalized_artifact.get("created_at"),
+                "updated_at": normalized_artifact.get("updated_at"),
+            },
+            "selected_handoff": resolved_selected_handoff,
+            "state": {
+                "package_state": normalized_delivery_package.get("package_state"),
+                "ready_for_delivery": normalized_delivery_package.get("ready_for_delivery"),
+                "recommended_action": recommended_action,
+                "workflow_state": workflow.get("workflow_state"),
+                "send_ready": bool(normalized_delivery_package.get("ready_for_delivery")) and recommended_action == "send",
+                "review_required": recommended_action == "send_review",
+                "qa_score": quality_gate.get("score"),
+                "blocker_count": quality_gate.get("blocker_count"),
+                "warning_count": quality_gate.get("warning_count"),
+                "late_contract_mode": quality_gate.get("late_contract_mode"),
+            },
+            "manifest_pointers": {
+                "delivery_manifest_path": normalized_delivery_package.get("delivery_manifest_path"),
+                "send_manifest_path": normalized_workflow_linkage.get("send_manifest_path"),
+                "review_manifest_path": normalized_workflow_linkage.get("review_manifest_path"),
+                "workflow_manifest_path": normalized_workflow_linkage.get("workflow_manifest_path"),
+                "operator_review_bundle_path": normalized_workflow_linkage.get("operator_review_bundle_path"),
+                "operator_review_readme_path": normalized_workflow_linkage.get("operator_review_readme_path"),
+                "package_index_path": normalized_delivery_package.get("package_index_path"),
+                "package_browse_readme_path": normalized_delivery_package.get("package_browse_readme_path"),
+                "telegram_caption_path": normalized_delivery_package.get("telegram_caption_path"),
+                "delivery_zip_path": normalized_delivery_package.get("delivery_zip_path"),
+            },
+            "version_pointers": {
+                "artifact_version": normalized_artifact.get("artifact_version"),
+                "delivery_manifest_version": artifacts.get("delivery_manifest"),
+                "send_manifest_version": artifacts.get("send_manifest"),
+                "review_manifest_version": artifacts.get("review_manifest"),
+                "workflow_manifest_version": artifacts.get("workflow_manifest"),
+                "package_index_version": artifacts.get("package_index"),
+            },
         }
 
     def persist_report_workflow_linkage(self, artifact_id: str, workflow_linkage: dict[str, Any]) -> dict[str, Any] | None:

@@ -70,20 +70,22 @@ class MainReportDeliveryDispatchHelper:
         if not delivery_package:
             return None
         workflow_linkage = dict(surface.get("workflow_linkage") or {})
+        workflow_handoff = dict(surface.get("workflow_handoff") or {})
+        manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
         return {
             "artifact": artifact,
             "delivery_package_dir": delivery_package.get("delivery_package_dir"),
-            "delivery_manifest_path": delivery_package.get("delivery_manifest_path"),
-            "delivery_zip_path": delivery_package.get("delivery_zip_path"),
-            "telegram_caption_path": delivery_package.get("telegram_caption_path"),
-            "package_index_path": delivery_package.get("package_index_path"),
-            "package_browse_readme_path": delivery_package.get("package_browse_readme_path"),
-            "send_manifest_path": workflow_linkage.get("send_manifest_path"),
-            "review_manifest_path": workflow_linkage.get("review_manifest_path"),
-            "workflow_manifest_path": workflow_linkage.get("workflow_manifest_path"),
-            "operator_review_bundle_path": workflow_linkage.get("operator_review_bundle_path"),
-            "operator_review_readme_path": workflow_linkage.get("operator_review_readme_path"),
-            "selected_handoff": dict(workflow_linkage.get("selected_handoff") or {}),
+            "delivery_manifest_path": manifest_pointers.get("delivery_manifest_path") or delivery_package.get("delivery_manifest_path"),
+            "delivery_zip_path": manifest_pointers.get("delivery_zip_path") or delivery_package.get("delivery_zip_path"),
+            "telegram_caption_path": manifest_pointers.get("telegram_caption_path") or delivery_package.get("telegram_caption_path"),
+            "package_index_path": manifest_pointers.get("package_index_path") or delivery_package.get("package_index_path"),
+            "package_browse_readme_path": manifest_pointers.get("package_browse_readme_path") or delivery_package.get("package_browse_readme_path"),
+            "send_manifest_path": manifest_pointers.get("send_manifest_path") or workflow_linkage.get("send_manifest_path"),
+            "review_manifest_path": manifest_pointers.get("review_manifest_path") or workflow_linkage.get("review_manifest_path"),
+            "workflow_manifest_path": manifest_pointers.get("workflow_manifest_path") or workflow_linkage.get("workflow_manifest_path"),
+            "operator_review_bundle_path": manifest_pointers.get("operator_review_bundle_path") or workflow_linkage.get("operator_review_bundle_path"),
+            "operator_review_readme_path": manifest_pointers.get("operator_review_readme_path") or workflow_linkage.get("operator_review_readme_path"),
+            "selected_handoff": dict((workflow_handoff.get("selected_handoff") or workflow_linkage.get("selected_handoff")) or {}),
             "delivery_manifest": {
                 "artifact_id": artifact.get("artifact_id"),
                 "report_run_id": artifact.get("report_run_id"),
@@ -101,6 +103,7 @@ class MainReportDeliveryDispatchHelper:
             "report_evaluation": {},
             "package_index": {},
             "workflow_linkage": workflow_linkage,
+            "workflow_handoff": workflow_handoff,
             "source": source,
         }
 
