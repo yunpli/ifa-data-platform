@@ -7,6 +7,11 @@ from typing import Any, Protocol, Sequence
 from sqlalchemy import text
 
 from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.fsj.llm_assist import (
+    FSJLateLLMAssistant,
+    FSJLateLLMRequest,
+    build_fsj_late_evidence_packet,
+)
 from ifa_data_platform.fsj.store import FSJStore
 
 LATE_MAIN_PRODUCER = "ifa_data_platform.fsj.late_main_producer"
@@ -377,6 +382,9 @@ class SqlLateMainInputReader:
 
 
 class LateMainFSJAssembler:
+    def __init__(self, *, llm_assistant: FSJLateLLMAssistant | None = None) -> None:
+        self.llm_assistant = llm_assistant or FSJLateLLMAssistant()
+
     def build_bundle_graph(self, data: LateMainProducerInput) -> dict[str, Any]:
         objects: list[dict[str, Any]] = []
         edges: list[dict[str, Any]] = []
@@ -387,6 +395,24 @@ class LateMainFSJAssembler:
         completeness_label = self._completeness_label(data)
         degrade_reason = self._degrade_reason(data)
         contract_mode = self._contract_mode(data)
+        llm_result = None
+        llm_audit: dict[str, Any] = {"applied": False, "reason": "late_llm_assist_not_attempted"}
+        if data.full_close_ready or data.provisional_close_only:
+            llm_result, llm_audit = self.llm_assistant.maybe_synthesize(
+                FSJLateLLMRequest(
+                    business_date=data.business_date,
+                    section_key=data.section_key,
+                    contract_mode=contract_mode,
+                    completeness_label=completeness_label,
+                    degrade_reason=degrade_reason,
+                    evidence_packet=build_fsj_late_evidence_packet(
+                        data,
+                        contract_mode=contract_mode,
+                        completeness_label=completeness_label,
+                        degrade_reason=degrade_reason,
+                    ),
+                )
+            )
 
         primary_fact_keys: list[str] = []
         context_fact_keys: list[str] = []
@@ -631,7 +657,7 @@ class LateMainFSJAssembler:
         signal_close_state = self._append_signal(
             objects,
             object_key="signal:late:close_package_state",
-            statement=self._close_signal_statement(data),
+            statement=llm_result.close_signal_statement if llm_result else self._close_signal_statement(data),
             object_type="confirmation" if data.full_close_ready else "risk",
             signal_strength="medium" if data.full_close_ready else "low",
             confidence="medium" if data.has_same_day_final_structure else "low",
@@ -657,7 +683,7 @@ class LateMainFSJAssembler:
         signal_context = self._append_signal(
             objects,
             object_key="signal:late:intraday_to_close_context",
-            statement=self._context_signal_statement(data),
+            statement=llm_result.context_signal_statement if llm_result else self._context_signal_statement(data),
             object_type="confirmation" if data.has_intraday_context else "risk",
             signal_strength="low" if not data.has_intraday_context else "medium",
             confidence="low" if not data.has_intraday_context else "medium",
@@ -682,13 +708,13 @@ class LateMainFSJAssembler:
         judgment = self._append_judgment(
             objects,
             object_key="judgment:late:mainline_close",
-            statement=self._judgment_statement(data),
+            statement=llm_result.judgment_statement if llm_result else self._judgment_statement(data),
             object_type="thesis" if data.full_close_ready else "watch_item",
             judgment_action="confirm" if data.full_close_ready else ("monitor" if data.provisional_close_only else "watch"),
             direction="conditional" if data.full_close_ready else "mixed",
             priority="p0",
             confidence="high" if data.full_close_ready else ("medium" if data.provisional_close_only else "low"),
-            invalidators=self._invalidators(data),
+            invalidators=llm_result.invalidators if llm_result else self._invalidators(data),
             attributes_json={
                 "contract_mode": contract_mode,
                 "provisional_close_only": data.provisional_close_only,
@@ -701,6 +727,8 @@ class LateMainFSJAssembler:
                     "report artifact linking deferred",
                     "supersede/orchestration policy deferred",
                 ],
+                "llm_assist_applied": bool(llm_result),
+                "llm_reasoning_trace": llm_result.reasoning_trace if llm_result else [],
             },
         )
         for signal_key in [signal_close_state["object_key"], signal_context["object_key"]]:
@@ -746,8 +774,8 @@ class LateMainFSJAssembler:
             "slot_run_id": data.slot_run_id,
             "replay_id": data.replay_id,
             "report_run_id": data.report_run_id,
-            "summary": self._bundle_summary(data),
-            "payload_json": self._payload_meta(data, completeness_label, degrade_reason, contract_mode),
+            "summary": llm_result.summary if llm_result else self._bundle_summary(data),
+            "payload_json": self._payload_meta(data, completeness_label, degrade_reason, contract_mode, llm_audit),
         }
         return {
             "bundle": bundle,
@@ -873,7 +901,7 @@ class LateMainFSJAssembler:
             return "post_close_observation_only"
         return "historical_reference_only"
 
-    def _payload_meta(self, data: LateMainProducerInput, completeness_label: str, degrade_reason: str | None, contract_mode: str) -> dict[str, Any]:
+    def _payload_meta(self, data: LateMainProducerInput, completeness_label: str, degrade_reason: str | None, contract_mode: str, llm_audit: dict[str, Any]) -> dict[str, Any]:
         return {
             "schema_version": LATE_MAIN_PRODUCER_VERSION,
             "contract_source": "A_SHARE_EARLY_MID_LATE_DATA_CONSUMPTION_CONTRACT_V1",
@@ -911,6 +939,7 @@ class LateMainFSJAssembler:
                 "has_same_day_stable_market_support": data.has_same_day_stable_market_support,
                 "has_same_day_low_text": data.has_same_day_low_text,
             },
+            "llm_assist": llm_audit,
         }
 
     def _bundle_summary(self, data: LateMainProducerInput) -> str:
