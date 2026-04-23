@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+import json
+
+from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportHTMLRenderer, MainReportRenderingService
 
 
@@ -153,7 +156,19 @@ def _assembled_sections() -> dict:
                 },
                 "summary": "收盘确认主线强化，但高位分歧增大。",
                 "judgments": [],
-                "signals": [],
+                "signals": [
+                    {
+                        "object_key": "signal:late:close_package_state",
+                        "statement": "same-day final market packet ready，收盘 close package 可用。",
+                        "signal_strength": "high",
+                        "confidence": "high",
+                        "evidence_level": "E1",
+                        "attributes_json": {
+                            "contract_mode": "full_close_package",
+                            "provisional_close_only": False,
+                        },
+                    }
+                ],
                 "facts": [],
                 "support_summaries": [],
                 "lineage": {
@@ -213,6 +228,25 @@ class _StubAssemblyService:
         return self.artifact
 
 
+def test_main_report_qa_evaluator_emits_delivery_ready_verdict_for_contract_complete_report() -> None:
+    assembled = _assembled_sections()
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-1",
+        artifact_uri="file:///tmp/final.html",
+        generated_at=datetime(2099, 4, 22, 8, 0, tzinfo=timezone.utc),
+    )
+
+    evaluation = MainReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert evaluation["artifact_type"] == "fsj_main_report_qa"
+    assert evaluation["ready_for_delivery"] is True
+    assert evaluation["summary"]["late_contract_mode"] == "full_close_package"
+    assert evaluation["summary"]["blocker_count"] == 0
+    assert evaluation["summary"]["warning_count"] >= 1
+    assert any(issue["code"] == "slot_missing" and issue.get("slot") == "mid" for issue in evaluation["issues"])
+
+
 def test_main_report_rendering_service_delegates_assembly_then_render() -> None:
     stub = _StubAssemblyService(_assembled_sections())
     service = MainReportRenderingService(assembly_service=stub)
@@ -243,7 +277,24 @@ class _StubStore:
         return report_links
 
 
-def test_main_report_artifact_publisher_writes_html_and_manifest_with_report_wiring(tmp_path: Path) -> None:
+def test_main_report_qa_evaluator_blocks_historical_only_late_report() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][1]["signals"][0]["attributes_json"]["contract_mode"] = "historical_only"
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-2",
+        artifact_uri="file:///tmp/final-historical-only.html",
+        generated_at=datetime(2099, 4, 22, 8, 0, tzinfo=timezone.utc),
+    )
+
+    evaluation = MainReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert evaluation["ready_for_delivery"] is False
+    assert evaluation["summary"]["late_contract_mode"] == "historical_only"
+    assert any(issue["code"] == "late_historical_only" for issue in evaluation["issues"])
+
+
+def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_wiring(tmp_path: Path) -> None:
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
@@ -258,14 +309,22 @@ def test_main_report_artifact_publisher_writes_html_and_manifest_with_report_wir
     )
 
     html_path = Path(published["html_path"])
+    qa_path = Path(published["qa_path"])
     manifest_path = Path(published["manifest_path"])
     assert html_path.exists()
+    assert qa_path.exists()
     assert manifest_path.exists()
     assert "盘前主结论" in html_path.read_text(encoding="utf-8")
     assert published["artifact"]["artifact_family"] == "main_final_report"
     assert published["artifact"]["report_run_id"] == "report-run-final-1"
     assert store.registered[0]["metadata_json"]["artifact_file_path"] == str(html_path)
+    assert store.registered[0]["metadata_json"]["quality_gate"]["ready_for_delivery"] is True
     assert store.registered[0]["metadata_json"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
+    assert qa_payload["ready_for_delivery"] is True
+    assert qa_payload["summary"]["late_contract_mode"] == "full_close_package"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest_payload["qa"]["ready_for_delivery"] is True
     assert [bundle_id for bundle_id, _ in store.attached] == ["bundle-early", "bundle-late"]
     first_link = store.attached[0][1][0]
     assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]

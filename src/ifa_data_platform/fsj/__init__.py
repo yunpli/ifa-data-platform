@@ -51,6 +51,7 @@ from .report_assembly import (
     MainReportSectionAssembler,
     MainReportSectionSpec,
 )
+from .report_quality import MainReportQAEvaluator
 from .report_rendering import (
     MainReportArtifactPublishingService,
     MainReportHTMLRenderer,
@@ -98,6 +99,7 @@ __all__ = [
     "MainReportAssemblyService",
     "MainReportArtifactPublishingService",
     "MainReportHTMLRenderer",
+    "MainReportQAEvaluator",
     "MainReportRenderingService",
     "MainReportSectionAssembler",
     "MainReportSectionSpec",

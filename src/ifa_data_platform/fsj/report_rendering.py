@@ -9,6 +9,7 @@ from uuid import uuid4
 import json
 
 from .report_assembly import MainReportAssemblyService
+from .report_quality import MainReportQAEvaluator
 from .store import FSJStore
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
@@ -340,9 +341,11 @@ class MainReportArtifactPublishingService:
         self,
         rendering_service: MainReportRenderingService,
         store: FSJStore,
+        qa_evaluator: MainReportQAEvaluator | None = None,
     ) -> None:
         self.rendering_service = rendering_service
         self.store = store
+        self.qa_evaluator = qa_evaluator or MainReportQAEvaluator()
 
     def publish_main_report_html(
         self,
@@ -370,6 +373,12 @@ class MainReportArtifactPublishingService:
         )
         html_path.write_text(rendered["content"], encoding="utf-8")
 
+        assembled = self.rendering_service.assembly_service.assemble_main_sections(
+            business_date=business_date,
+            include_empty=include_empty,
+        )
+        evaluation = self.qa_evaluator.evaluate(assembled, rendered)
+
         artifact_record = self.store.register_report_artifact(
             {
                 "artifact_id": artifact_id,
@@ -388,6 +397,13 @@ class MainReportArtifactPublishingService:
                     **dict(rendered["metadata"]),
                     "artifact_file_path": str(html_path.resolve()),
                     "bundle_ids": list(rendered["metadata"].get("bundle_ids") or []),
+                    "quality_gate": {
+                        "ready_for_delivery": evaluation["ready_for_delivery"],
+                        "score": evaluation["score"],
+                        "blocker_count": evaluation["summary"]["blocker_count"],
+                        "warning_count": evaluation["summary"]["warning_count"],
+                        "late_contract_mode": evaluation["summary"].get("late_contract_mode"),
+                    },
                 },
             }
         )
@@ -415,6 +431,9 @@ class MainReportArtifactPublishingService:
                 )
             )
 
+        qa_path = output_path / f"a_share_main_report_{business_date}_{stamp}.qa.json"
+        qa_path.write_text(json.dumps(evaluation, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
         manifest_path = output_path / f"a_share_main_report_{business_date}_{stamp}.manifest.json"
         manifest = {
             "artifact": artifact_record,
@@ -426,6 +445,7 @@ class MainReportArtifactPublishingService:
                 "title": rendered["title"],
                 "metadata": rendered["metadata"],
             },
+            "qa": evaluation,
             "report_links": rendered["report_links"],
             "persisted_report_links": persisted_links,
         }
@@ -434,7 +454,9 @@ class MainReportArtifactPublishingService:
         return {
             "artifact": artifact_record,
             "html_path": str(html_path.resolve()),
+            "qa_path": str(qa_path.resolve()),
             "manifest_path": str(manifest_path.resolve()),
             "rendered": rendered,
+            "evaluation": evaluation,
             "persisted_report_links": persisted_links,
         }
