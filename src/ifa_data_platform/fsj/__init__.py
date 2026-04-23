@@ -33,6 +33,17 @@ from .macro_support_producer import (
     MacroSupportProducerInput,
     SqlMacroSupportInputReader,
 )
+from .ai_tech_support_producer import (
+    EARLY_AI_TECH_SUPPORT_PRODUCER,
+    EARLY_AI_TECH_SUPPORT_PRODUCER_VERSION,
+    LATE_AI_TECH_SUPPORT_PRODUCER,
+    LATE_AI_TECH_SUPPORT_PRODUCER_VERSION,
+    AITechSupportAssembler,
+    AITechSupportProducerInput,
+    EarlyAITechSupportProducer,
+    LateAITechSupportProducer,
+    SqlAITechSupportInputReader,
+)
 from .report_assembly import (
     DEFAULT_MAIN_REPORT_SECTION_SPECS,
     FSJReportAssemblyStore,
@@ -73,6 +84,14 @@ __all__ = [
     "LateMacroSupportProducer",
     "MacroSupportAssembler",
     "MacroSupportProducerInput",
+    "EARLY_AI_TECH_SUPPORT_PRODUCER",
+    "EARLY_AI_TECH_SUPPORT_PRODUCER_VERSION",
+    "LATE_AI_TECH_SUPPORT_PRODUCER",
+    "LATE_AI_TECH_SUPPORT_PRODUCER_VERSION",
+    "AITechSupportAssembler",
+    "AITechSupportProducerInput",
+    "EarlyAITechSupportProducer",
+    "LateAITechSupportProducer",
     "DEFAULT_MAIN_REPORT_SECTION_SPECS",
     "FSJReportAssemblyStore",
     "FSJStore",
@@ -88,4 +107,5 @@ __all__ = [
     "SqlLateMainInputReader",
     "SqlMidMainInputReader",
     "SqlMacroSupportInputReader",
+    "SqlAITechSupportInputReader",
 ]
