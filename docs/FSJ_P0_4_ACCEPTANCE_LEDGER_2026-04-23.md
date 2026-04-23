@@ -19,10 +19,11 @@ It defines:
 
 As of the evidence packaged on `2026-04-23`:
 - there is real evidence for early support standalone publish,
+- there is real evidence for early MAIN acceptance packaging reaching persisted + publish + QA + eval under the same operator-grade proof standard,
 - there is real evidence for late support standalone publish, including one blocked first run and one converged 3/3-ready run,
 - there is real evidence for the late MAIN canonical operator seam reaching persisted + publish-surface generated,
 - there is **not** yet evidence for a green late MAIN delivery-ready outcome,
-- there is **not** yet one full-slot (`early` + `mid` + `late`) SLA acceptance pass under a single repeatable recipe,
+- there is **not** yet a final unified acceptance packaging layer that closes the remaining explicit ledger items for full `P0-4`,
 - therefore `P0-4` remains **open**.
 
 Authoritative upstream proof package:
@@ -60,7 +61,30 @@ Pass rule:
 - operator summary shows `ready=3`, `blocked=0`
 - all three domain artifact paths exist
 
-### Step 3 — Validate late support standalone evidence exists and honest convergence is preserved
+### Step 3 — Validate early MAIN acceptance evidence exists and is packaged under the same publish + QA + eval standard
+Operator must confirm:
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/early_main_bundle.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.html`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.manifest.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.qa.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.eval.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/delivery_manifest.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/operator_summary.txt`
+
+Pass rule:
+- early main bundle exists and shows slot `early`
+- publish package contains HTML + manifest + QA + eval outputs
+- delivery manifest exists
+- QA summary shows all three sections present with `slot_status` ready for `early`, `mid`, `late`
+- eval summary shows strongest slot `early`
+
+Important non-pass caveat:
+- this step validates early MAIN acceptance evidence exists under the same publish + QA + eval packaging standard
+- it does **not** convert the package into dispatch-ready green acceptance
+- the packaged current candidate is still hold-blocked and not the selected dispatch candidate
+
+### Step 4 — Validate late support standalone evidence exists and honest convergence is preserved
 Operator must confirm both the failed/partial live seam and the later converged seam:
 - `artifacts/fsj_support_batch_20260423_late_liveproof_subA/operator_summary.txt`
 - `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/operator_summary.txt`
@@ -73,7 +97,7 @@ Pass rule:
 - convergence summary shows `ready=3`, `blocked=0`
 - all three converged late support artifact paths exist
 
-### Step 4 — Validate late MAIN canonical operator seam exists
+### Step 5 — Validate late MAIN canonical operator seam exists
 Operator must confirm:
 - `artifacts/fsj_main_late_liveproof_20260423_subA/operator_summary.txt`
 - `artifacts/fsj_main_late_liveproof_20260423_subA/main_late_publish_summary.json`
@@ -93,7 +117,7 @@ Important non-pass caveat:
 - it does **not** require `ready_for_delivery=true`
 - if package state is blocked/hold, the seam is still considered evidenced but **not** SLA-green
 
-### Step 5 — Validate concise-support convergence evidence exists
+### Step 6 — Validate concise-support convergence evidence exists
 Operator must confirm:
 - `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/main_publish.json`
 - `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch.json`
@@ -104,10 +128,10 @@ Pass rule:
 - bundle IDs include both early and late support summaries
 - evidence shows concise summary linkage rather than requiring full support-body embedding to prove convergence
 
-### Step 6 — Apply acceptance ledger below
+### Step 7 — Apply acceptance ledger below
 Operator must use the pass/fail ledger in the next section as the authoritative verdict table for this package revision.
 
-### Step 7 — Final acceptance rule for this skeleton
+### Step 8 — Final acceptance rule for this skeleton
 Current package revision may be called only:
 - **"P0-4 acceptance ledger skeleton present and evidence-backed"**
 
@@ -124,13 +148,14 @@ Current package revision may **not** be called:
 |---|---|---|---|---|
 | Early support standalone publish exists for all three support domains | `P1-1`, supports `P0-1` | `artifacts/fsj_support_batch_20260423_liveproof_subA/operator_summary.txt` + three early support HTML artifacts | **PASS** | Summary shows `ready=3`, `blocked=0`; all three support domain outputs exist |
 | Late support standalone seam is evidenced honestly, including recovery to 3/3 ready | `P1-1`, supports `P0-3` | initial late summary + convergence late summary + three late support HTML artifacts | **PASS** | Evidence preserves initial macro-missing state and later 3/3-ready convergence |
+| Early MAIN acceptance evidence exists under publish + QA + eval packaging | `P0-1`, supports `P0-4` | `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/early_main_bundle.json` + `publish.json` + HTML/manifest/QA/eval + delivery package artifacts | **PASS** | Early MAIN bundle exists, packaged publish artifacts exist, QA/eval artifacts exist, and slot evaluation shows strongest slot `early` with complete `early`/`mid`/`late` section presence in the packaged report |
 | Late MAIN canonical operator seam persists canonical bundle and produces publish surface | `P0-3`, supports `P0-4` | `artifacts/fsj_main_late_liveproof_20260423_subA/operator_summary.txt` + `main_late_publish_summary.json` + publish artifacts | **PASS** | Persisted bundle exists, publish artifacts exist, delivery package surface exists |
-| Late MAIN is dispatch-ready under SLA acceptance bar | `P0-3`, `P0-4`, `P0-5` | `main_late_publish_summary.json` delivery package block | **FAIL** | `package_state=blocked`, `ready_for_delivery=false`, `recommended_action=hold`, QA score `34` |
+| Late MAIN is dispatch-ready under SLA acceptance bar | `P0-3`, `P0-4`, `P0-5` | `main_late_publish_summary.json` delivery package block + early MAIN acceptance package delivery block | **FAIL** | available MAIN acceptance packages still show blocked/hold delivery posture rather than green dispatch-ready acceptance |
 | MAIN/support concise-summary convergence is evidenced | `P1-2`, supports `P0-4` | `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/main_publish.json` + late MAIN summary | **PASS (narrow)** | Six support summaries are lineage-traceable across early/late support evidence |
 | One repeatable operator acceptance recipe exists for the SLA proof package | `P0-4` | this document | **PASS (skeleton only)** | This runbook defines one recipe, but not yet a full green all-slot procedure |
 | One authoritative pass/fail acceptance ledger exists for currently evidenced seams | `P0-4` | this document | **PASS (skeleton only)** | This table is the single acceptance verdict layer above the proof package |
-| Full-slot SLA proof (`early` + `mid` + `late`) under one acceptance standard | `P0-4` | no complete package yet | **FAIL** | current evidence is partial and late-heavy; `mid` remains missing from acceptance package |
-| Full `P0-4` closure | `P0-4` | depends on green all-slot repeatable acceptance | **FAIL** | missing repeatable all-slot closure and green dispatch-ready late MAIN result |
+| Full-slot SLA proof (`early` + `mid` + `late`) under one acceptance standard | `P0-4` | early MAIN acceptance package + support evidence + late MAIN liveproof package | **PARTIAL PASS / NOT FINAL** | a three-slot packaged report now exists, but final closure is still blocked by non-green delivery posture and unfinished final acceptance packaging/ledger closure |
+| Full `P0-4` closure | `P0-4` | depends on green final acceptance packaging and closed ledger items | **FAIL** | remaining blocker is no longer early MAIN readiness; it is late delivery-green / final acceptance packaging closure |
 
 ---
 
@@ -157,6 +182,16 @@ Current package revision may **not** be called:
 - `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html`
 - `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/ai_tech/a_share_support_ai_tech_late_2026-04-23_20260423T122043Z.html`
 
+### Early MAIN acceptance package
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/early_main_bundle.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.html`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.manifest.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.qa.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.eval.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/delivery_manifest.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/operator_summary.txt`
+
 ### Late MAIN canonical operator seam
 - `artifacts/fsj_main_late_liveproof_20260423_subA/operator_summary.txt`
 - `artifacts/fsj_main_late_liveproof_20260423_subA/main_late_publish_summary.json`
@@ -172,25 +207,21 @@ Current package revision may **not** be called:
 
 ## Explicit missing requirements before full P0-4 can be called done
 
-1. **All-slot coverage under one recipe**
-   - acceptance package must cover `early`, `mid`, and `late` under one uniform operator procedure
-   - current package does not close `mid`
+1. **Green MAIN delivery state for final acceptance**
+   - final acceptance package must produce a delivery-ready, non-held MAIN result under the intended SLA bar
+   - current evidenced MAIN packages still show `package_state=blocked`, `ready_for_delivery=false`, `recommended_action=hold`
 
-2. **Green late MAIN delivery state**
-   - canonical late MAIN seam must produce a delivery package with non-blocked send posture
-   - current evidence shows `package_state=blocked`, `ready_for_delivery=false`, `recommended_action=hold`
-
-3. **One rerunnable acceptance command set**
+2. **One rerunnable acceptance command set**
    - recipe still references a fixed evidence package rather than a fully codified rerun command list that regenerates the same acceptance package on demand
 
-4. **Per-slot timing / SLA measurement table**
+3. **Per-slot timing / SLA measurement table**
    - current proof package cites artifact outcomes, not a complete per-slot timing ledger against explicit deadlines
 
-5. **Final acceptance verdict artifact across roadmap items**
+4. **Final acceptance verdict artifact across roadmap items**
    - future package should include one operator-facing final acceptance summary covering `P0-1`, `P0-2`, `P0-3`, `P1-1`, `P1-2`, `P0-4`, `P0-5`
    - current ledger covers only the evidenced subset above
 
-6. **Optional but stronger bounded-summary validation**
+5. **Optional but stronger bounded-summary validation**
    - desirable follow-up: direct automated assertion that MAIN summary convergence never inlines full support report bodies beyond the allowed concise summary boundary
 
 ---
@@ -198,8 +229,8 @@ Current package revision may **not** be called:
 ## Intentionally not covered yet
 
 This ledger revision intentionally does **not** attempt to:
-- prove full early MAIN closure,
-- prove full mid MAIN closure,
+- re-litigate whether early MAIN evidence exists,
+- certify full dispatch-ready send success,
 - prove full send/dispatch success,
 - replace a future slot-by-slot SLA timing report,
 - certify semantic correctness of every report sentence,
@@ -226,4 +257,4 @@ Authoritative statement:
 - **`P0-4 acceptance ledger/runbook skeleton added`**
 
 Authoritative non-statement:
-- **`P0-4 fully accepted` has not been earned yet**.
+- **`P0-4 fully accepted` has not been earned yet**; the remaining material blocker is late delivery-green / final acceptance packaging closure, not absence of early MAIN evidence.

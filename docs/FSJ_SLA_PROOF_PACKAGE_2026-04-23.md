@@ -6,9 +6,10 @@ This is the thinnest honest operator-grade proof package for the 2026-04-23 A-la
 
 Covered seams:
 1. early support standalone live proof
-2. late support standalone live proof
-3. late MAIN canonical operator seam live proof
-4. concise-support-only convergence proof where already evidenced
+2. early MAIN acceptance package proof
+3. late support standalone live proof
+4. late MAIN canonical operator seam live proof
+5. concise-support-only convergence proof where already evidenced
 
 Canonical roadmap reference:
 - `docs/PRODUCTION_GRADE_A_SHARE_SYSTEM_ROADMAP_2026-04-23.md`
@@ -19,7 +20,7 @@ Canonical roadmap reference:
 
 | Roadmap item | Status on 2026-04-23 evidence | Basis |
 |---|---|---|
-| `P0-1` early slot closure | **Partial** | support standalone early is live-proven; this package does not add a full MAIN early SLA closure proof |
+| `P0-1` early slot closure | **Substantially proven, not final-green** | support standalone early is live-proven and early MAIN acceptance packaging now exists under publish + QA + eval, but dispatch-ready green acceptance is still not claimed |
 | `P0-3` late slot closure | **Partial-to-strong** | late support standalone is live-proven; late MAIN canonical operator seam is live-proven for persist + publish surface, but publish package remains blocked for delivery |
 | `P1-1` support standalone production path | **Proven for early and late support publish surfaces evidenced here** | support batch operator outputs exist as standalone packaged artifacts |
 | `P1-2` MAIN/support artifact convergence | **Proven only at concise-support-summary convergence level evidenced here** | late MAIN package cites six support-summary bundle IDs across early/late and shows bounded support-summary aggregation rather than inlining full bodies |
@@ -54,7 +55,42 @@ Roadmap mapping:
 Package verdict:
 - **Proven**: operator-grade early support standalone publishing exists for all three support domains.
 
-### B. Late support standalone live proof
+### B. Early MAIN acceptance package proof
+
+Primary package roots:
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/early_main_bundle.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish.json`
+
+Evidence from the packaged early MAIN bundle:
+- bundle id = `fsj:a_share:2026-04-23:early:main:pre_open_main:2ae1ab6e33c3e4bb`
+- slot = `early`
+- producer version = `phase1-main-early-v1`
+- contract mode = `candidate_with_open_validation`
+
+Representative packaged outputs:
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.html`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.manifest.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.qa.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.eval.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/delivery_manifest.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/operator_summary.txt`
+
+Verdict from QA/eval/delivery package:
+- QA summary shows `section_count=3`, `ready_section_count=3`, `slot_status.early=ready`, `slot_status.mid=ready`, `slot_status.late=ready`
+- eval summary shows strongest slot = `early`
+- delivery package exists with package artifacts fully materialized on disk
+- delivery posture is still `package_state=blocked`, `ready_for_delivery=false`, recommended action=`hold`
+- workflow state shows `selected_is_current=false`, so this package is evidence-grade but not dispatch-selected
+
+Roadmap mapping:
+- primary: `P0-1`
+- supporting: `P0-4`
+
+Package verdict:
+- **Proven**: early MAIN acceptance evidence now exists under the same publish + QA + eval standard as the other acceptance surfaces.
+- **Not claimed**: dispatch-ready green acceptance for the packaged candidate.
+
+### C. Late support standalone live proof
 
 Primary live proof summary:
 - `artifacts/fsj_support_batch_20260423_late_liveproof_subA/operator_summary.txt`
@@ -90,7 +126,7 @@ Roadmap mapping:
 Package verdict:
 - **Proven with nuance**: late support standalone lane is evidenced as a real live seam; first late liveproof showed macro not yet ready, and the same day convergence proof package showed the lane reaching 3/3 ready.
 
-### C. Late MAIN canonical operator seam live proof
+### D. Late MAIN canonical operator seam live proof
 
 Canonical operator seam summary:
 - `artifacts/fsj_main_late_liveproof_20260423_subA/operator_summary.txt`
@@ -123,7 +159,7 @@ Package verdict:
 - **Proven at canonical operator seam level**: the late MAIN operator path persists the canonical bundle and produces a publish package surface.
 - **Not proven as dispatch-ready SLA success**: the resulting delivery package is explicitly blocked and held.
 
-### D. Concise-support-only convergence proof
+### E. Concise-support-only convergence proof
 
 Convergence package:
 - `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/main_publish.json`
@@ -169,7 +205,7 @@ No evidence artifacts were rewritten. Existing artifact paths are cited as-is.
 
 This package does **not** claim any of the following:
 - full `P0-4` closure
-- full early MAIN SLA closure
+- dispatch-ready green MAIN closure
 - full mid slot SLA closure
 - dispatch-ready late MAIN success
 - repeatable multi-day SLA validation procedure already finalized
@@ -181,15 +217,13 @@ This package does **not** claim any of the following:
    - one explicit validation recipe that an operator can rerun end-to-end for the required slots without ad hoc interpretation
 
 2. **Green delivery state at MAIN**
-   - canonical late MAIN seam must reach delivery-ready / not-held state when evaluated under the intended SLA acceptance bar
+   - the remaining material blocker is now the non-green delivery posture / final acceptance packaging closure, not absence of early MAIN evidence
+   - current MAIN packages still show hold-blocked delivery posture under the intended SLA acceptance bar
 
-3. **Full slot coverage**
-   - early / mid / late proof package should be gathered under one acceptance standard, not partial slot-specific fragments
-
-4. **Final acceptance summary**
+3. **Final acceptance summary**
    - one authoritative pass/fail ledger across `P0-1`, `P0-3`, `P1-1`, `P1-2`, and `P0-4`
 
-5. **Potentially stronger concise-summary validation**
+4. **Potentially stronger concise-summary validation**
    - optional but desirable: direct artifact inspection or automated check proving support summaries remain bounded and never inline full support report bodies
 
 ## Verification notes

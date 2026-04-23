@@ -9,13 +9,14 @@ This is the thinnest honest **rerunnable command-based acceptance recipe** above
 
 It defines one practical operator recipe that can be rerun to regenerate the **currently proven** evidence classes:
 1. early support standalone publish,
-2. late support standalone publish,
-3. late MAIN canonical operator seam,
-4. concise early/late support-summary linkage as seen from late MAIN artifacts.
+2. early MAIN acceptance package ingredients already evidenced on disk,
+3. late support standalone publish,
+4. late MAIN canonical operator seam,
+5. concise early/late support-summary linkage as seen from late MAIN artifacts.
 
 It does **not** claim full `P0-4` closure.
 It does **not** claim `mid` coverage.
-It does **not** require a green delivery-ready late MAIN outcome.
+It does **not** require a green delivery-ready MAIN outcome.
 
 ---
 
@@ -23,12 +24,13 @@ It does **not** require a green delivery-ready late MAIN outcome.
 
 As of `2026-04-23`, the currently evidenced and rerunnable seams are:
 - early support standalone: **proven green** (`ready=3`, `blocked=0`),
+- early MAIN acceptance package: **now evidenced under publish + QA + eval packaging**, with strongest slot `early` and complete packaged section presence,
 - late support standalone: **proven as a real seam with honest blocked-first then converged evidence**,
 - late MAIN canonical operator seam: **proven for persist + publish surface generation**,
-- late MAIN delivery posture: **still blocked / hold**, not SLA-green,
+- MAIN delivery posture: **still blocked / hold**, not SLA-green,
 - concise support-summary convergence: **proven narrowly** via six lineage-traceable support-summary bundle IDs across early + late.
 
-Therefore this recipe can honestly reproduce only a **partial acceptance package**, not full `P0-4 done`.
+Therefore this recipe can honestly reproduce a stronger acceptance package than before, but still not full `P0-4 done`.
 
 ---
 
@@ -65,6 +67,12 @@ artifacts/fsj_p0_4_acceptance_recipe_20260423/late_support
 artifacts/fsj_p0_4_acceptance_recipe_20260423/late_main
 ```
 
+Already evidenced early MAIN acceptance package root for this revision:
+
+```bash
+artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z
+```
+
 ### Step 1 — regenerate early support standalone evidence
 
 ```bash
@@ -84,7 +92,27 @@ Expected acceptance reading:
 - acceptance pass condition for this seam:
   - `operator_summary.txt` shows `ready=3` and `blocked=0`
 
-### Step 2 — regenerate late support standalone evidence
+### Step 2 — validate the now-proven early MAIN acceptance package
+
+Operator must confirm these already-evidenced paths exist:
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/early_main_bundle.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.html`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.qa.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_2026-04-23_20260423T140218Z.eval.json`
+- `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/publish/a_share_main_report_delivery_2026-04-23_20260423T140218Z_0260423T140218Z-c3993a90/delivery_manifest.json`
+
+Acceptance reading:
+- early bundle shows slot `early`
+- QA shows `section_count=3` and `ready_section_count=3`
+- eval shows strongest slot `early`
+- delivery package exists but may still be hold-blocked
+
+Acceptance rule for this seam:
+- **PASS (early MAIN acceptance evidenced)** if the package contains bundle + HTML + QA + eval + delivery manifest and the packaged evaluation shows strongest slot `early`
+- this step is evidence-validation, not a requirement to regenerate a green dispatch package
+
+### Step 3 — regenerate late support standalone evidence
 
 ```bash
 cd /Users/neoclaw/repos/ifa-data-platform
@@ -105,7 +133,7 @@ Acceptance rule for this seam:
 - **PASS (late support seam reproduced)** if the run produces a truthful `operator_summary.txt` and per-domain outputs/statuses,
 - **STRONG PASS (late support convergence reproduced)** only if `ready=3` and `blocked=0`.
 
-### Step 3 — regenerate late MAIN canonical operator seam
+### Step 4 — regenerate late MAIN canonical operator seam
 
 ```bash
 cd /Users/neoclaw/repos/ifa-data-platform
@@ -129,7 +157,7 @@ Important honesty boundary:
 - it does **not** require `ready_for_delivery=true`,
 - blocked/hold remains a valid reproduced result for this partial acceptance recipe.
 
-### Step 4 — inspect concise support-summary convergence from the late MAIN package
+### Step 5 — inspect concise support-summary convergence from the late MAIN package
 
 After Step 3, inspect the generated late MAIN summary and delivery manifest for:
 - `support_summary_count = 6`
@@ -193,26 +221,24 @@ This recipe covers only these currently evidenced classes:
 3. early support can be checked for 3/3-ready reproduction,
 4. late support can be checked for truthful blocked-or-converged reproduction,
 5. late MAIN can be checked for persist + publish surface generation,
-6. concise support-summary lineage can be checked from the generated late MAIN package.
+6. concise support-summary lineage can be checked from the generated late MAIN package,
+7. early MAIN evidence can be scored as present under the same publish + QA + eval standard even while final delivery remains blocked.
 
 ---
 
 ## What still requires new evidence
 
-1. **Mid slot acceptance evidence**
-   - this recipe does not regenerate or validate `mid`
-
-2. **One all-slot SLA package**
-   - this recipe does not close `early + mid + late` under one final acceptance bar
-
-3. **Green dispatch-ready late MAIN outcome**
+1. **Green dispatch-ready MAIN outcome**
    - current proven state is still blocked/hold
    - a future package must prove non-blocked send-readiness
 
-4. **Per-slot timing / deadline proof**
+2. **Final all-doc acceptance packaging closure**
+   - the remaining work is to collapse the now-broader evidence set into one final accepted operator package / ledger closure without truth gaps
+
+3. **Per-slot timing / deadline proof**
    - this recipe proves command surfaces and artifact outcomes, not slot-timing measurements against SLA deadlines
 
-5. **Final P0-4 acceptance artifact**
+4. **Final P0-4 acceptance artifact**
    - this recipe is a thin reproduce-on-demand layer, not the final closure document
 
 ---
@@ -225,10 +251,11 @@ During packaging, the following were verified live:
 - the cited artifact roots for early support, late support, late convergence, and late MAIN exist,
 - operator summaries confirm:
   - early support `ready=3`, `blocked=0`,
+  - early MAIN acceptance package exists with bundle + HTML + QA + eval + delivery-manifest artifacts,
   - late live proof `ready=2`, `blocked=1`,
   - late convergence `ready=3`, `blocked=0`,
   - late MAIN `persist_status=persisted`, `publish_status=ready`,
-- late MAIN packaged delivery surface still shows blocked/hold rather than delivery-ready green.
+- current MAIN delivery packages still show blocked/hold rather than delivery-ready green.
 
 This recipe document itself does **not** fabricate new evidence; it standardizes how an operator can rerun the already-proven seams on demand.
 
