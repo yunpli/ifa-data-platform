@@ -5,6 +5,7 @@ from typing import Any, Sequence
 
 
 EXPECTED_SLOTS: tuple[str, ...] = ("early", "mid", "late")
+EXPECTED_SUPPORT_SLOTS: tuple[str, ...] = ("early", "late")
 VALID_SUPPORT_DOMAINS: set[str] = {"macro", "commodities", "ai_tech"}
 VALID_LATE_CONTRACT_MODES: set[str] = {
     "full_close_package",
@@ -196,3 +197,85 @@ class MainReportQAEvaluator:
         if late_contract_mode == "historical_only":
             ready = False
         return ready, blockers, warnings
+
+
+class SupportReportQAEvaluator:
+    """Deterministic QA gate for standalone support HTML artifacts."""
+
+    def evaluate(self, assembled: dict[str, Any], rendered: dict[str, Any]) -> dict[str, Any]:
+        issues: list[QualityIssue] = []
+        html = str(rendered.get("content") or "")
+        metadata = dict(rendered.get("metadata") or {})
+        report_links = list(rendered.get("report_links") or [])
+
+        self._check_top_level(assembled, rendered, html, issues)
+        self._check_section(assembled, report_links, issues)
+
+        blockers = sum(1 for issue in issues if issue.severity == "error")
+        warnings = sum(1 for issue in issues if issue.severity == "warning")
+        ready_for_delivery = blockers == 0 and str(assembled.get("status") or "") == "ready"
+        score = max(0, 100 - blockers * 25 - warnings * 8)
+
+        return {
+            "artifact_type": "fsj_support_report_qa",
+            "artifact_version": "v1",
+            "ready_for_delivery": ready_for_delivery,
+            "score": score,
+            "summary": {
+                "business_date": assembled.get("business_date"),
+                "market": assembled.get("market"),
+                "agent_domain": assembled.get("agent_domain"),
+                "slot": assembled.get("slot"),
+                "section_key": assembled.get("section_key"),
+                "section_render_key": assembled.get("section_render_key"),
+                "status": assembled.get("status"),
+                "report_link_count": len(report_links),
+                "existing_report_link_count": len(metadata.get("existing_report_links") or []),
+                "evidence_link_count": int(metadata.get("evidence_link_count") or 0),
+                "html_bytes": len(html.encode("utf-8")),
+                "blocker_count": blockers,
+                "warning_count": warnings,
+            },
+            "issues": [issue.as_dict() for issue in issues],
+        }
+
+    def _check_top_level(self, assembled: dict[str, Any], rendered: dict[str, Any], html: str, issues: list[QualityIssue]) -> None:
+        if assembled.get("market") != "a_share":
+            issues.append(QualityIssue("error", "market_not_a_share", "assembled.market 必须为 a_share"))
+        domain = str(assembled.get("agent_domain") or "")
+        if domain not in VALID_SUPPORT_DOMAINS:
+            issues.append(QualityIssue("error", "support_domain_invalid", f"assembled.agent_domain 非法: {domain or '-'}"))
+        slot = str(assembled.get("slot") or "")
+        if slot not in EXPECTED_SUPPORT_SLOTS:
+            issues.append(QualityIssue("error", "support_slot_invalid", f"assembled.slot 非法: {slot or '-'}", slot=slot or None))
+        if rendered.get("render_format") != "html" or rendered.get("content_type") != "text/html":
+            issues.append(QualityIssue("error", "render_format_invalid", "support rendered artifact 必须是 text/html", slot=slot or None))
+        lowered = html.lower()
+        if "<!doctype html>" not in lowered:
+            issues.append(QualityIssue("error", "missing_doctype", "HTML 缺少 <!DOCTYPE html>", slot=slot or None))
+        if "<html" not in lowered or "<body" not in lowered or "</html>" not in lowered:
+            issues.append(QualityIssue("error", "html_shell_incomplete", "HTML 壳不完整，缺少 html/body 包裹", slot=slot or None))
+        if len(html.encode("utf-8")) < 800:
+            issues.append(QualityIssue("warning", "html_too_small", "HTML 体积过小，可能不是完整 support 报告", slot=slot or None))
+        if any(token in html for token in (">None<", " undefined", "null</", "[object Object]")):
+            issues.append(QualityIssue("error", "html_placeholder_leak", "HTML 中出现 None/undefined/null 等占位泄漏", slot=slot or None))
+
+    def _check_section(self, assembled: dict[str, Any], report_links: Sequence[dict[str, Any]], issues: list[QualityIssue]) -> None:
+        slot = str(assembled.get("slot") or "")
+        section_render_key = str(assembled.get("section_render_key") or "")
+        status = str(assembled.get("status") or "unknown")
+        bundle = dict(assembled.get("bundle") or {})
+        if status != "ready":
+            issues.append(QualityIssue("error", "support_section_not_ready", "support section 未 ready", slot=slot or None, section_render_key=section_render_key or None))
+            return
+        bundle_id = str(bundle.get("bundle_id") or "")
+        if not bundle_id:
+            issues.append(QualityIssue("error", "bundle_id_missing", "ready support section 缺少 bundle_id", slot=slot or None, section_render_key=section_render_key or None))
+        if not str(assembled.get("summary") or "").strip():
+            issues.append(QualityIssue("error", "summary_missing", "ready support section 缺少 summary", slot=slot or None, section_render_key=section_render_key or None))
+        if not bundle.get("slot_run_id") or not bundle.get("replay_id"):
+            issues.append(QualityIssue("error", "lineage_ids_missing", "ready support section 缺少 slot_run_id/replay_id", slot=slot or None, section_render_key=section_render_key or None))
+        if not ((assembled.get("judgments") or []) or (assembled.get("signals") or []) or (assembled.get("facts") or [])):
+            issues.append(QualityIssue("warning", "section_empty_body", "ready support section 没有 judgments/signals/facts，业务含量偏弱", slot=slot or None, section_render_key=section_render_key or None))
+        if bundle_id and not any(str(link.get("bundle_id") or "") == bundle_id for link in report_links):
+            issues.append(QualityIssue("error", "report_link_missing", "ready support section 未生成 report_link", slot=slot or None, section_render_key=section_render_key or None))

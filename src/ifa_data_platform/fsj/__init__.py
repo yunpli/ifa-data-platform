@@ -65,13 +65,16 @@ from .report_assembly import (
 )
 from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
-from .report_quality import MainReportQAEvaluator
+from .report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
 from .report_rendering import (
     MainReportArtifactPublishingService,
     MainReportHTMLRenderer,
     MainReportRenderingService,
     RENDERER_NAME,
     RENDERER_VERSION,
+    SupportReportArtifactPublishingService,
+    SupportReportHTMLRenderer,
+    SupportReportRenderingService,
 )
 from .store import FSJStore
 
@@ -127,7 +130,11 @@ __all__ = [
     "MainReportRenderingService",
     "MainReportSectionAssembler",
     "MainReportSectionSpec",
+    "SupportReportArtifactPublishingService",
     "SupportReportAssemblyService",
+    "SupportReportHTMLRenderer",
+    "SupportReportQAEvaluator",
+    "SupportReportRenderingService",
     "RENDERER_NAME",
     "RENDERER_VERSION",
     "SqlEarlyMainInputReader",

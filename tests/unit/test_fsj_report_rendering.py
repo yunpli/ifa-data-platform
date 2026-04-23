@@ -6,7 +6,7 @@ from pathlib import Path
 import json
 
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
-from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator
+from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
 from ifa_data_platform.fsj.report_rendering import (
     MainReportArtifactPublishingService,
     MainReportHTMLRenderer,
@@ -535,6 +535,56 @@ def test_support_report_artifact_publisher_writes_html_manifest_and_linkage(tmp_
     first_link = store.attached[0][1][0]
     assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]
     assert first_link["section_render_key"] == "support.macro.early"
+
+
+def test_support_report_qa_evaluator_accepts_ready_support_html() -> None:
+    assembled = _assembled_support_section()
+    rendered = SupportReportHTMLRenderer().render(
+        assembled,
+        report_run_id="support-report-run-qa",
+        artifact_uri="file:///tmp/support-macro-early.html",
+        generated_at=datetime(2099, 4, 22, 9, 0, tzinfo=timezone.utc),
+    )
+
+    qa = SupportReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert qa["artifact_type"] == "fsj_support_report_qa"
+    assert qa["ready_for_delivery"] is True
+    assert qa["summary"]["agent_domain"] == "macro"
+    assert qa["summary"]["slot"] == "early"
+    assert qa["summary"]["report_link_count"] == 1
+
+
+def test_support_report_artifact_publisher_builds_delivery_package(tmp_path: Path) -> None:
+    stub = _StubSupportAssemblyService(_assembled_support_section())
+    rendering_service = SupportReportRenderingService(assembly_service=stub)
+    store = _StubStore()
+    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+
+    published = publisher.publish_delivery_package(
+        business_date="2099-04-22",
+        agent_domain="macro",
+        slot="early",
+        output_dir=tmp_path,
+        report_run_id="support-report-run-4",
+        generated_at=datetime(2099, 4, 22, 10, 0, tzinfo=timezone.utc),
+    )
+
+    package_dir = Path(published["delivery_package_dir"])
+    delivery_manifest = json.loads(Path(published["delivery_manifest_path"]).read_text(encoding="utf-8"))
+    package_index = json.loads(Path(published["package_index_path"]).read_text(encoding="utf-8"))
+    operator_summary = Path(published["operator_summary_path"]).read_text(encoding="utf-8")
+
+    assert package_dir.exists()
+    assert Path(published["qa_path"]).exists()
+    assert Path(published["delivery_zip_path"]).exists()
+    assert delivery_manifest["artifact_type"] == "fsj_support_report_delivery_package"
+    assert delivery_manifest["package_state"] == "ready"
+    assert delivery_manifest["quality_gate"]["score"] == published["qa"]["score"]
+    assert delivery_manifest["lineage"]["bundle_id"] == "bundle-support-macro-early"
+    assert package_index["artifact_type"] == "fsj_support_report_delivery_package_index"
+    assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])
+    assert "Support delivery package｜2099-04-22｜macro｜early" in operator_summary
 
 
 def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_path: Path) -> None:

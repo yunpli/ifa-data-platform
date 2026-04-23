@@ -14,7 +14,7 @@ import shutil
 from .report_assembly import MainReportAssemblyService, SupportReportAssemblyService
 from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
-from .report_quality import MainReportQAEvaluator
+from .report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
 from .store import FSJStore
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
@@ -983,10 +983,17 @@ class SupportReportRenderingService:
 
 class SupportReportArtifactPublishingService:
     ARTIFACT_FAMILY = "support_domain_report"
+    DELIVERY_PACKAGE_VERSION = "v1"
 
-    def __init__(self, rendering_service: SupportReportRenderingService, store: FSJStore) -> None:
+    def __init__(
+        self,
+        rendering_service: SupportReportRenderingService,
+        store: FSJStore,
+        qa_evaluator: SupportReportQAEvaluator | None = None,
+    ) -> None:
         self.rendering_service = rendering_service
         self.store = store
+        self.qa_evaluator = qa_evaluator or SupportReportQAEvaluator()
 
     def publish_support_report_html(
         self,
@@ -1090,3 +1097,225 @@ class SupportReportArtifactPublishingService:
             "rendered": rendered,
             "persisted_report_links": persisted_links,
         }
+
+    def publish_delivery_package(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        slot: str,
+        output_dir: str | Path,
+        report_run_id: str | None = None,
+        generated_at: datetime | None = None,
+    ) -> dict[str, Any]:
+        published = self.publish_support_report_html(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slot=slot,
+            output_dir=output_dir,
+            report_run_id=report_run_id,
+            generated_at=generated_at,
+        )
+        generated_at = generated_at or datetime.now(timezone.utc)
+        html_path = Path(published["html_path"])
+        manifest_path = Path(published["manifest_path"])
+        rendered = dict(published["rendered"])
+        artifact = dict(published["artifact"])
+        assembled = self.rendering_service.assembly_service.assemble_support_section(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slot=slot,
+        )
+        qa = self.qa_evaluator.evaluate(assembled, rendered)
+        qa_path = Path(output_dir) / f"a_share_support_{agent_domain}_{slot}_{business_date}_{generated_at.strftime('%Y%m%dT%H%M%SZ')}.qa.json"
+        qa_path.write_text(json.dumps(qa, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        package_slug = self._delivery_package_slug(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slot=slot,
+            generated_at=generated_at,
+            artifact_id=str(artifact["artifact_id"]),
+        )
+        root_output_dir = Path(output_dir)
+        package_dir = root_output_dir / package_slug
+        package_dir.mkdir(parents=True, exist_ok=True)
+
+        package_html_path = package_dir / html_path.name
+        package_qa_path = package_dir / qa_path.name
+        package_manifest_path = package_dir / manifest_path.name
+        shutil.copy2(html_path, package_html_path)
+        shutil.copy2(qa_path, package_qa_path)
+        shutil.copy2(manifest_path, package_manifest_path)
+
+        operator_summary = self._build_operator_summary(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            slot=slot,
+            artifact=artifact,
+            qa=qa,
+            rendered=rendered,
+        )
+        operator_summary_path = package_dir / "operator_summary.txt"
+        operator_summary_path.write_text(operator_summary, encoding="utf-8")
+
+        delivery_manifest = {
+            "artifact_type": "fsj_support_report_delivery_package",
+            "artifact_version": self.DELIVERY_PACKAGE_VERSION,
+            "business_date": business_date,
+            "agent_domain": agent_domain,
+            "slot": slot,
+            "generated_at_utc": generated_at.isoformat(),
+            "report_run_id": artifact.get("report_run_id"),
+            "artifact_id": artifact.get("artifact_id"),
+            "artifact_family": artifact.get("artifact_family"),
+            "package_state": "ready" if qa.get("ready_for_delivery") else "blocked",
+            "ready_for_delivery": bool(qa.get("ready_for_delivery")),
+            "quality_gate": {
+                "score": qa.get("score"),
+                "blocker_count": (qa.get("summary") or {}).get("blocker_count"),
+                "warning_count": (qa.get("summary") or {}).get("warning_count"),
+            },
+            "lineage": {
+                "bundle_id": (rendered.get("metadata") or {}).get("bundle_id"),
+                "producer_version": (rendered.get("metadata") or {}).get("producer_version"),
+                "section_render_key": (rendered.get("metadata") or {}).get("section_render_key"),
+                "report_link_count": (qa.get("summary") or {}).get("report_link_count"),
+                "persisted_report_link_count": len(published.get("persisted_report_links") or []),
+                "evidence_link_count": (qa.get("summary") or {}).get("evidence_link_count"),
+            },
+            "artifacts": {
+                "html": package_html_path.name,
+                "qa": package_qa_path.name,
+                "manifest": package_manifest_path.name,
+                "operator_summary": operator_summary_path.name,
+            },
+        }
+        delivery_manifest_path = package_dir / "delivery_manifest.json"
+        delivery_manifest_path.write_text(json.dumps(delivery_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        package_index = self._build_delivery_package_index(
+            package_dir=package_dir,
+            artifact=artifact,
+            delivery_manifest=delivery_manifest,
+            package_artifacts={
+                "html": package_html_path,
+                "qa": package_qa_path,
+                "manifest": package_manifest_path,
+                "operator_summary": operator_summary_path,
+                "delivery_manifest": delivery_manifest_path,
+            },
+        )
+        package_index_path = package_dir / "package_index.json"
+        package_index_path.write_text(json.dumps(package_index, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        browse_readme_path = package_dir / "BROWSE_PACKAGE.md"
+        browse_readme_path.write_text(self._build_delivery_package_browse_readme(package_index), encoding="utf-8")
+
+        delivery_manifest["artifacts"]["delivery_manifest"] = delivery_manifest_path.name
+        delivery_manifest["artifacts"]["package_index"] = package_index_path.name
+        delivery_manifest["artifacts"]["browse_readme"] = browse_readme_path.name
+        delivery_manifest_path.write_text(json.dumps(delivery_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        zip_path = root_output_dir / f"{package_slug}.zip"
+        with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zf:
+            for path in sorted(package_dir.iterdir()):
+                zf.write(path, arcname=f"{package_dir.name}/{path.name}")
+
+        return {
+            **published,
+            "qa": qa,
+            "qa_path": str(package_qa_path.resolve()),
+            "delivery_package_dir": str(package_dir.resolve()),
+            "delivery_manifest_path": str(delivery_manifest_path.resolve()),
+            "delivery_zip_path": str(zip_path.resolve()),
+            "operator_summary": operator_summary,
+            "operator_summary_path": str(operator_summary_path.resolve()),
+            "delivery_manifest": delivery_manifest,
+            "package_index": package_index,
+            "package_index_path": str(package_index_path.resolve()),
+            "package_browse_readme_path": str(browse_readme_path.resolve()),
+        }
+
+    def _delivery_package_slug(self, *, business_date: str, agent_domain: str, slot: str, generated_at: datetime, artifact_id: str) -> str:
+        stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
+        safe_artifact_id = re.sub(r"[^A-Za-z0-9._-]+", "-", artifact_id).strip("-")
+        return f"a_share_support_report_delivery_{agent_domain}_{slot}_{business_date}_{stamp}_{safe_artifact_id[-24:]}"
+
+    def _build_operator_summary(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        slot: str,
+        artifact: dict[str, Any],
+        qa: dict[str, Any],
+        rendered: dict[str, Any],
+    ) -> str:
+        quality = dict(qa.get("summary") or {})
+        metadata = dict(rendered.get("metadata") or {})
+        lines = [
+            f"Support delivery package｜{business_date}｜{agent_domain}｜{slot}",
+            f"ready_for_delivery={qa.get('ready_for_delivery')}｜score={qa.get('score')}",
+            f"artifact_id={artifact.get('artifact_id')}",
+            f"report_run_id={artifact.get('report_run_id') or '-'}",
+            f"bundle_id={metadata.get('bundle_id') or '-'}",
+            f"section_render_key={metadata.get('section_render_key') or '-'}",
+            f"producer_version={metadata.get('producer_version') or '-'}",
+            f"blockers={quality.get('blocker_count', 0)}｜warnings={quality.get('warning_count', 0)}｜evidence_links={quality.get('evidence_link_count', 0)}",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def _build_delivery_package_index(
+        self,
+        *,
+        package_dir: Path,
+        artifact: dict[str, Any],
+        delivery_manifest: dict[str, Any],
+        package_artifacts: dict[str, Path],
+    ) -> dict[str, Any]:
+        file_index: list[dict[str, Any]] = []
+        for role, path in package_artifacts.items():
+            file_index.append({
+                "role": role,
+                "filename": path.name,
+                "path": str(path.resolve()),
+                "exists": path.exists(),
+                "size_bytes": path.stat().st_size if path.exists() else None,
+            })
+        return {
+            "artifact_type": "fsj_support_report_delivery_package_index",
+            "artifact_version": self.DELIVERY_PACKAGE_VERSION,
+            "artifact_id": artifact.get("artifact_id"),
+            "business_date": delivery_manifest.get("business_date"),
+            "agent_domain": delivery_manifest.get("agent_domain"),
+            "slot": delivery_manifest.get("slot"),
+            "report_run_id": delivery_manifest.get("report_run_id"),
+            "delivery_package_dir": str(package_dir.resolve()),
+            "package_state": delivery_manifest.get("package_state"),
+            "ready_for_delivery": delivery_manifest.get("ready_for_delivery"),
+            "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
+            "lineage": dict(delivery_manifest.get("lineage") or {}),
+            "browse_priority": ["html", "operator_summary", "delivery_manifest", "qa", "manifest"],
+            "files": file_index,
+        }
+
+    def _build_delivery_package_browse_readme(self, package_index: dict[str, Any]) -> str:
+        lines = [
+            f"# Support Delivery Package Browse｜{package_index.get('business_date')}",
+            "",
+            "## Snapshot",
+            f"- artifact_id: `{package_index.get('artifact_id') or '-'}`",
+            f"- agent_domain: `{package_index.get('agent_domain') or '-'}`",
+            f"- slot: `{package_index.get('slot') or '-'}`",
+            f"- package_state: `{package_index.get('package_state') or '-'}`",
+            f"- ready_for_delivery: `{package_index.get('ready_for_delivery')}`",
+            "",
+            "## Files",
+        ]
+        for item in package_index.get("files") or []:
+            lines.append(
+                f"- {item.get('role')}: `{item.get('filename')}` exists=`{item.get('exists')}` size_bytes=`{item.get('size_bytes')}`"
+            )
+        lines.append("")
+        return "\n".join(lines) + "\n"
