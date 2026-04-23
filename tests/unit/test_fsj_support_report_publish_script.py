@@ -81,7 +81,11 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
                 "state": {
                     "workflow_state": "ready_to_send",
                     "recommended_action": "send",
+                    "dispatch_recommended_action": "send",
                     "package_state": "ready",
+                    "next_step": "dispatch_send_manifest",
+                    "selection_reason": "support_ready_candidate domain=macro",
+                    "dispatch_selected_artifact_id": "artifact-db",
                 },
                 "manifest_pointers": {
                     "delivery_manifest_path": "/tmp/db/pkg/delivery_manifest.json",
@@ -98,6 +102,10 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
     payload = json.loads(capsys.readouterr().out)
     assert payload["artifact"]["artifact_id"] == "artifact-raw"
     assert payload["workflow_handoff"]["artifact"]["artifact_id"] == "artifact-db"
+    assert payload["workflow_handoff"]["state"]["dispatch_recommended_action"] == "send"
+    assert payload["workflow_handoff"]["state"]["next_step"] == "dispatch_send_manifest"
+    assert payload["workflow_handoff"]["state"]["selection_reason"] == "support_ready_candidate domain=macro"
+    assert payload["workflow_handoff"]["state"]["dispatch_selected_artifact_id"] == "artifact-db"
     assert payload["delivery_package_dir"] == "/tmp/db/pkg"
     assert payload["delivery_manifest_path"] == "/tmp/db/pkg/delivery_manifest.json"
     assert payload["delivery_zip_path"] == "/tmp/db/pkg.zip"
