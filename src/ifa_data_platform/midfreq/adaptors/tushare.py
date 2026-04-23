@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -37,6 +38,8 @@ class MidfreqTushareAdaptor(BaseAdaptor):
 
     Persists canonical data to current tables.
     """
+
+    SECTOR_PERFORMANCE_FETCH_BUDGET_SEC = 300
 
     def __init__(self) -> None:
         self._client: Optional[TushareClient] = None
@@ -831,6 +834,12 @@ class MidfreqTushareAdaptor(BaseAdaptor):
         - ths_daily(ts_code='<.TI>', trade_date=...)
 
         This replaces the previously inactive SW .SI -> index_daily path.
+
+        Production guardrail: this fanout is correctness-first but historically could
+        hold the whole midfreq lane open for an unbounded amount of wall-clock time
+        when upstream THS requests degraded across many sectors. We enforce an
+        explicit dataset budget so the runtime can finalize the worker instead of
+        leaving a pending run stuck in `running`.
         """
         if not trade_date:
             trade_date = self._get_last_trading_day()
@@ -839,6 +848,8 @@ class MidfreqTushareAdaptor(BaseAdaptor):
                     "%Y%m%d"
                 )
 
+        budget_sec = self.SECTOR_PERFORMANCE_FETCH_BUDGET_SEC
+        deadline = time.monotonic() + budget_sec
         parsed_records = []
         try:
             sectors = self.client.query(
@@ -852,6 +863,11 @@ class MidfreqTushareAdaptor(BaseAdaptor):
             return [], trade_date
 
         for sector in sectors:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    "sector_performance fetch exceeded "
+                    f"{budget_sec}s budget after {len(parsed_records)} rows"
+                )
             index_code = sector.get("ts_code", "")
             if not index_code or not str(index_code).endswith('.TI'):
                 continue
