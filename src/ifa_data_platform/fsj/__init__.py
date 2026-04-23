@@ -22,6 +22,13 @@ from .mid_main_producer import (
     MidMainProducerInput,
     SqlMidMainInputReader,
 )
+from .report_assembly import (
+    DEFAULT_MAIN_REPORT_SECTION_SPECS,
+    FSJReportAssemblyStore,
+    MainReportAssemblyService,
+    MainReportSectionAssembler,
+    MainReportSectionSpec,
+)
 from .store import FSJStore
 
 __all__ = [
@@ -40,7 +47,12 @@ __all__ = [
     "MidMainFSJAssembler",
     "MidMainFSJProducer",
     "MidMainProducerInput",
+    "DEFAULT_MAIN_REPORT_SECTION_SPECS",
+    "FSJReportAssemblyStore",
     "FSJStore",
+    "MainReportAssemblyService",
+    "MainReportSectionAssembler",
+    "MainReportSectionSpec",
     "SqlEarlyMainInputReader",
     "SqlLateMainInputReader",
     "SqlMidMainInputReader",
