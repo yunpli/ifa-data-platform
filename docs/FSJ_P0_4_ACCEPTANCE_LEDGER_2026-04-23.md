@@ -3,6 +3,7 @@
 ## Scope
 
 This is the thinnest honest operator-grade acceptance layer above:
+- `docs/FSJ_P0_4_ACCEPTANCE_RECIPE_2026-04-23.md`
 - `docs/FSJ_SLA_PROOF_PACKAGE_2026-04-23.md`
 - `docs/PRODUCTION_GRADE_A_SHARE_SYSTEM_ROADMAP_2026-04-23.md`
 
