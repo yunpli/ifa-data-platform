@@ -11,7 +11,8 @@ import json
 import re
 import shutil
 
-from .report_assembly import MainReportAssemblyService
+from .report_assembly import MainReportAssemblyService, SupportReportAssemblyService
+from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
 from .report_quality import MainReportQAEvaluator
 from .store import FSJStore
@@ -28,6 +29,10 @@ SUPPORT_DOMAIN_LABELS: dict[str, str] = {
     "macro": "宏观",
     "commodities": "商品",
     "ai_tech": "AI / 科技",
+}
+SUPPORT_SLOT_LABELS: dict[str, str] = {
+    "early": "盘前",
+    "late": "收盘后",
 }
 
 
@@ -353,6 +358,7 @@ class MainReportArtifactPublishingService:
         self.store = store
         self.qa_evaluator = qa_evaluator or MainReportQAEvaluator()
         self.evaluation_harness = evaluation_harness or MainReportEvaluationHarness()
+        self.dispatch_helper = MainReportDeliveryDispatchHelper()
 
     def publish_main_report_html(
         self,
@@ -538,6 +544,7 @@ class MainReportArtifactPublishingService:
             "artifact_type": "fsj_main_report_delivery_package",
             "artifact_version": self.DELIVERY_PACKAGE_VERSION,
             "business_date": business_date,
+            "generated_at_utc": generated_at.isoformat(),
             "report_run_id": artifact.get("report_run_id"),
             "artifact_id": artifact.get("artifact_id"),
             "artifact_family": artifact.get("artifact_family"),
@@ -561,6 +568,8 @@ class MainReportArtifactPublishingService:
                 "weakest_slot": (report_eval.get("summary") or {}).get("weakest_slot"),
                 "slot_scores": (report_eval.get("summary") or {}).get("slot_scores"),
                 "progression": (report_eval.get("summary") or {}).get("progression"),
+                "average_slot_score": (report_eval.get("summary") or {}).get("average_slot_score"),
+                "slot_score_span": (report_eval.get("summary") or {}).get("slot_score_span"),
             },
             "artifacts": {
                 "html": package_html_path.name,
@@ -570,6 +579,16 @@ class MainReportArtifactPublishingService:
                 "telegram_caption": caption_path.name,
             },
         }
+        preview_payload = {
+            **published,
+            "delivery_package_dir": str(package_dir.resolve()),
+            "delivery_manifest_path": str((package_dir / 'delivery_manifest.json').resolve()),
+            "telegram_caption_path": str(caption_path.resolve()),
+            "delivery_zip_path": str((root_output_dir / f"{package_slug}.zip").resolve()),
+            "delivery_manifest": delivery_manifest,
+            "delivery_eval_path": str(package_eval_path.resolve()),
+        }
+        delivery_manifest["dispatch_advice"] = self.dispatch_helper.summarize_candidate(preview_payload)
         delivery_manifest_path = package_dir / "delivery_manifest.json"
         delivery_manifest_path.write_text(json.dumps(delivery_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
@@ -586,6 +605,7 @@ class MainReportArtifactPublishingService:
             "delivery_zip_path": str(zip_path.resolve()),
             "delivery_manifest": delivery_manifest,
             "delivery_eval_path": str(package_eval_path.resolve()),
+            "dispatch_advice": delivery_manifest.get("dispatch_advice"),
         }
 
     def _delivery_package_slug(self, *, business_date: str, generated_at: datetime, artifact_id: str) -> str:

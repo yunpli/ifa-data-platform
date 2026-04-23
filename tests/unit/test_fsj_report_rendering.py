@@ -5,6 +5,7 @@ from pathlib import Path
 
 import json
 
+from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportHTMLRenderer, MainReportRenderingService
 
@@ -373,6 +374,8 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["lineage"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
     assert delivery_manifest["artifacts"]["evaluation"].endswith(".eval.json")
+    assert delivery_manifest["dispatch_advice"]["recommended_action"] == "send"
+    assert published["dispatch_advice"]["artifact_id"] == published["artifact"]["artifact_id"]
 
 
 def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_path: Path) -> None:
@@ -396,4 +399,74 @@ def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_p
     assert published["evaluation"]["ready_for_delivery"] is False
     assert delivery_manifest["package_state"] == "blocked"
     assert delivery_manifest["ready_for_delivery"] is False
+    assert delivery_manifest["dispatch_advice"]["recommended_action"] == "hold"
     assert "状态：BLOCKED｜score=" in caption_text
+
+
+def test_main_report_delivery_dispatch_helper_prefers_ready_best_candidate() -> None:
+    helper = MainReportDeliveryDispatchHelper()
+    ready_late = {
+        "artifact": {"artifact_id": "artifact-ready-late", "report_run_id": "run-ready-late", "business_date": "2099-04-22"},
+        "delivery_package_dir": "/tmp/ready-late",
+        "delivery_manifest_path": "/tmp/ready-late/delivery_manifest.json",
+        "delivery_zip_path": "/tmp/ready-late.zip",
+        "delivery_manifest": {
+            "artifact_id": "artifact-ready-late",
+            "business_date": "2099-04-22",
+            "report_run_id": "run-ready-late",
+            "package_state": "ready",
+            "ready_for_delivery": True,
+            "quality_gate": {"score": 88, "blocker_count": 0, "warning_count": 2, "late_contract_mode": "full_close_package"},
+            "slot_evaluation": {"strongest_slot": "late", "weakest_slot": "early", "slot_scores": {"early": 70, "mid": 80, "late": 92}, "average_slot_score": 80.7, "slot_score_span": 22},
+        },
+        "report_evaluation": {"summary": {"slot_scores": {"early": 70, "mid": 80, "late": 92}, "average_slot_score": 80.7, "slot_score_span": 22, "strongest_slot": "late", "weakest_slot": "early"}},
+    }
+    blocked_mid = {
+        "artifact": {"artifact_id": "artifact-blocked-mid", "report_run_id": "run-blocked-mid", "business_date": "2099-04-22"},
+        "delivery_package_dir": "/tmp/blocked-mid",
+        "delivery_manifest_path": "/tmp/blocked-mid/delivery_manifest.json",
+        "delivery_zip_path": "/tmp/blocked-mid.zip",
+        "delivery_manifest": {
+            "artifact_id": "artifact-blocked-mid",
+            "business_date": "2099-04-22",
+            "report_run_id": "run-blocked-mid",
+            "package_state": "blocked",
+            "ready_for_delivery": False,
+            "quality_gate": {"score": 96, "blocker_count": 2, "warning_count": 0, "late_contract_mode": "historical_only"},
+            "slot_evaluation": {"strongest_slot": "mid", "weakest_slot": "early", "slot_scores": {"early": 80, "mid": 98, "late": 40}, "average_slot_score": 72.7, "slot_score_span": 58},
+        },
+        "report_evaluation": {"summary": {"slot_scores": {"early": 80, "mid": 98, "late": 40}, "average_slot_score": 72.7, "slot_score_span": 58, "strongest_slot": "mid", "weakest_slot": "early"}},
+    }
+
+    decision = helper.choose_best([blocked_mid, ready_late])
+
+    assert decision["recommended_action"] == "send"
+    assert decision["selected"]["artifact_id"] == "artifact-ready-late"
+    assert decision["ready_candidate_count"] == 1
+    assert decision["alternatives"][0]["artifact_id"] == "artifact-blocked-mid"
+
+
+def test_main_report_delivery_dispatch_helper_falls_back_to_send_review_for_best_available_provisional_candidate() -> None:
+    helper = MainReportDeliveryDispatchHelper()
+    provisional = {
+        "artifact": {"artifact_id": "artifact-provisional", "report_run_id": "run-provisional", "business_date": "2099-04-22"},
+        "delivery_package_dir": "/tmp/provisional",
+        "delivery_manifest_path": "/tmp/provisional/delivery_manifest.json",
+        "delivery_zip_path": "/tmp/provisional.zip",
+        "delivery_manifest": {
+            "artifact_id": "artifact-provisional",
+            "business_date": "2099-04-22",
+            "report_run_id": "run-provisional",
+            "package_state": "blocked",
+            "ready_for_delivery": False,
+            "quality_gate": {"score": 79, "blocker_count": 1, "warning_count": 1, "late_contract_mode": "provisional_close_only"},
+            "slot_evaluation": {"strongest_slot": "late", "weakest_slot": "early", "slot_scores": {"early": 65, "mid": 72, "late": 90}},
+        },
+        "report_evaluation": {"summary": {"slot_scores": {"early": 65, "mid": 72, "late": 90}, "average_slot_score": 75.7, "slot_score_span": 25, "strongest_slot": "late", "weakest_slot": "early"}},
+    }
+
+    decision = helper.choose_best([provisional])
+
+    assert decision["recommended_action"] == "send_review"
+    assert decision["selected"]["artifact_id"] == "artifact-provisional"
+    assert decision["selection_reason"] == "best_available_candidate provisional_close_only_requires_review"
