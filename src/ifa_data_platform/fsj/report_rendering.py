@@ -12,12 +12,17 @@ from .report_assembly import MainReportAssemblyService
 from .store import FSJStore
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
-RENDERER_VERSION = "v1"
+RENDERER_VERSION = "v2"
 
 SLOT_LABELS: dict[str, str] = {
     "early": "早报 / 盘前",
     "mid": "中报 / 盘中",
     "late": "晚报 / 收盘后",
+}
+SUPPORT_DOMAIN_LABELS: dict[str, str] = {
+    "macro": "宏观",
+    "commodities": "商品",
+    "ai_tech": "AI / 科技",
 }
 
 
@@ -76,15 +81,22 @@ class MainReportHTMLRenderer:
             "bundle_ids": [section.get("bundle", {}).get("bundle_id") for section in sections if section.get("bundle")],
             "producer_versions": [section.get("bundle", {}).get("producer_version") for section in sections if section.get("bundle")],
             "artifact_uri": artifact_uri,
+            "support_summary_domains": list(assembled.get("support_summary_domains") or []),
+            "support_summary_bundle_ids": [item.get("bundle_id") for section in sections for item in (section.get("support_summaries") or []) if item.get("bundle_id")],
             "existing_report_links": [
                 link
                 for section in sections
                 for link in ((section.get("lineage") or {}).get("report_links") or [])
+            ] + [
+                link
+                for section in sections
+                for item in (section.get("support_summaries") or [])
+                for link in (((item.get("lineage") or {}).get("report_links") or []))
             ],
         }
         return RenderedFSJArtifact(
             artifact_type="fsj_main_report_html",
-            artifact_version="v1",
+            artifact_version="v2",
             render_format="html",
             content_type="text/html",
             title=title,
@@ -123,6 +135,12 @@ class MainReportHTMLRenderer:
     .summary-box {{ border: 1px solid #dbe3f1; border-radius: 14px; padding: 14px 16px; background: #f8fbff; }}
     .summary-box .slot {{ font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; }}
     .summary-box .headline {{ margin-top: 8px; font-size: 15px; font-weight: 600; line-height: 1.5; }}
+    .support-inline {{ margin-top: 10px; font-size: 12px; color: #475569; line-height: 1.6; }}
+    .support-block {{ margin-top: 16px; padding: 14px 16px; border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; }}
+    .support-item {{ margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; }}
+    .support-item:first-child {{ margin-top: 0; padding-top: 0; border-top: none; }}
+    .support-domain {{ font-size: 12px; color: #334155; text-transform: uppercase; letter-spacing: 0.05em; }}
+    .support-summary {{ margin-top: 6px; font-size: 14px; line-height: 1.6; }}
     .section {{ border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 20px; }}
     .section:first-child {{ border-top: none; padding-top: 0; margin-top: 0; }}
     .section-meta {{ color: #64748b; font-size: 13px; margin-bottom: 14px; }}
@@ -149,7 +167,7 @@ class MainReportHTMLRenderer:
       <h2>执行摘要</h2>
       <div class=\"summary-grid\">{executive}</div>
       <div class=\"footnote\">
-        本报告由 FSJ section assembly 直接渲染，保留 bundle / producer_version / replay_id / report_link 钩子，适合作为首个可发送 HTML 成品。
+        本报告由 FSJ section assembly 直接渲染，保留 bundle / producer_version / replay_id / report_link 钩子；support 内容仅以 concise summary merge 进入主报告，不内联 support report 正文。
       </div>
     </section>
 
@@ -167,12 +185,22 @@ class MainReportHTMLRenderer:
         for section in sections:
             label = SLOT_LABELS.get(str(section.get("slot") or ""), str(section.get("slot") or "未命名时段"))
             headline = section.get("summary") or "暂无摘要"
+            support_line = self._render_support_inline(section.get("support_summaries") or [])
             boxes.append(
-                f"<div class=\"summary-box\"><div class=\"slot\">{escape(label)}</div><div class=\"headline\">{escape(str(headline))}</div></div>"
+                f"<div class=\"summary-box\"><div class=\"slot\">{escape(label)}</div><div class=\"headline\">{escape(str(headline))}</div>{support_line}</div>"
             )
         if not boxes:
             boxes.append("<div class=\"summary-box\"><div class=\"slot\">EMPTY</div><div class=\"headline\">暂无可渲染章节</div></div>")
         return "".join(boxes)
+
+    def _render_support_inline(self, support_summaries: Sequence[dict[str, Any]]) -> str:
+        if not support_summaries:
+            return ""
+        text = " · ".join(
+            f"{SUPPORT_DOMAIN_LABELS.get(str(item.get('agent_domain') or ''), str(item.get('agent_domain') or 'support'))}：{str(item.get('summary') or '暂无摘要')}"
+            for item in support_summaries
+        )
+        return f"<div class=\"support-inline\"><strong>support 摘要：</strong>{escape(text)}</div>"
 
     def _render_section(self, section: dict[str, Any]) -> str:
         bundle = section.get("bundle") or {}
@@ -183,12 +211,14 @@ class MainReportHTMLRenderer:
         judgments = self._render_items(section.get("judgments") or [], fallback="暂无主判断")
         signals = self._render_items(section.get("signals") or [], fallback="暂无关键验证信号")
         facts = self._render_items(section.get("facts") or [], fallback="暂无事实锚点")
+        support_block = self._render_support_block(section.get("support_summaries") or [])
         evidence_keys = [str(item.get("ref_key")) for item in (lineage.get("evidence_links") or []) if item.get("ref_key")]
         report_uris = [str(item.get("artifact_uri")) for item in (lineage.get("report_links") or []) if item.get("artifact_uri")]
         lineage_note = "；".join(
             part for part in [
                 f"evidence={', '.join(evidence_keys[:3])}" if evidence_keys else "",
                 f"report_links={', '.join(report_uris[:2])}" if report_uris else "",
+                f"support_bundle_ids={', '.join(lineage.get('support_bundle_ids') or [])}" if (lineage.get('support_bundle_ids') or []) else "",
             ] if part
         ) or "无既有 report link"
         return f"""
@@ -199,6 +229,7 @@ class MainReportHTMLRenderer:
             时段：{escape(slot_label)} · bundle：<span class=\"mono\">{escape(str(bundle.get('bundle_id') or '-'))}</span> · producer_version：<span class=\"mono\">{escape(str(bundle.get('producer_version') or '-'))}</span>
           </div>
           <div><strong>摘要：</strong>{escape(str(section.get('summary') or '暂无摘要'))}</div>
+          {support_block}
           <div class=\"bucket\"><strong>主判断</strong>{judgments}</div>
           <div class=\"bucket\"><strong>关键验证 / 信号</strong>{signals}</div>
           <div class=\"bucket\"><strong>事实锚点</strong>{facts}</div>
@@ -207,6 +238,27 @@ class MainReportHTMLRenderer:
           </div>
         </div>
         """
+
+    def _render_support_block(self, support_summaries: Sequence[dict[str, Any]]) -> str:
+        if not support_summaries:
+            return ""
+        items: list[str] = []
+        for item in support_summaries:
+            domain_label = SUPPORT_DOMAIN_LABELS.get(str(item.get("agent_domain") or ""), str(item.get("agent_domain") or "support"))
+            report_uris = [str(link.get("artifact_uri")) for link in (((item.get("lineage") or {}).get("report_links") or [])) if link.get("artifact_uri")]
+            evidence_keys = [str(link.get("ref_key")) for link in (((item.get("lineage") or {}).get("evidence_links") or [])) if link.get("ref_key")]
+            foot = "；".join(
+                part for part in [
+                    f"bundle_id={item.get('bundle_id')}" if item.get("bundle_id") else "",
+                    f"producer_version={item.get('producer_version')}" if item.get("producer_version") else "",
+                    f"report_links={', '.join(report_uris[:2])}" if report_uris else "",
+                    f"evidence={', '.join(evidence_keys[:2])}" if evidence_keys else "",
+                ] if part
+            )
+            items.append(
+                f"<div class=\"support-item\"><div class=\"support-domain\">{escape(domain_label)}</div><div class=\"support-summary\">{escape(str(item.get('summary') or '暂无摘要'))}</div><div class=\"footnote\">{escape(foot or '仅注入 concise support summary')}</div></div>"
+            )
+        return f"<div class=\"support-block\"><strong>Support 摘要（非全文）</strong>{''.join(items)}</div>"
 
     def _render_items(self, items: Sequence[dict[str, Any]], *, fallback: str) -> str:
         if not items:

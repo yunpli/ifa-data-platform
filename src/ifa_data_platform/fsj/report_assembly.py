@@ -7,6 +7,7 @@ from typing import Any, Iterable, Sequence
 from sqlalchemy import text
 
 from .store import FSJStore
+from .support_common import SECTION_KEY_BY_DOMAIN, VALID_SUPPORT_AGENT_DOMAINS
 
 SLOT_ORDER: dict[str, int] = {"early": 10, "mid": 20, "late": 30}
 STATUS_ORDER: dict[str, int] = {"active": 0, "superseded": 1, "withdrawn": 2}
@@ -58,22 +59,26 @@ class MainReportSectionAssembler:
         market: str = "a_share",
         agent_domain: str = "main",
         include_empty: bool = False,
+        support_bundle_graphs: Sequence[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         selected = self._select_effective_graphs(bundle_graphs)
+        support_selected = self._select_support_graphs(support_bundle_graphs or [])
         sections: list[dict[str, Any]] = []
         for spec in self.specs:
             graph = selected.get((spec.slot, spec.section_key))
-            if graph is None and not include_empty:
+            support_summaries = support_selected.get(spec.slot, [])
+            if graph is None and not include_empty and not support_summaries:
                 continue
-            sections.append(self._build_section(spec, graph))
+            sections.append(self._build_section(spec, graph, support_summaries=support_summaries))
 
         return {
             "artifact_type": "fsj_main_report_sections",
-            "artifact_version": "v1",
+            "artifact_version": "v2",
             "market": market,
             "business_date": business_date,
             "agent_domain": agent_domain,
             "section_count": len(sections),
+            "support_summary_domains": sorted({item["agent_domain"] for section in sections for item in (section.get("support_summaries") or [])}),
             "sections": sections,
         }
 
@@ -91,6 +96,27 @@ class MainReportSectionAssembler:
             selected[key] = sorted(graphs, key=self._bundle_rank)[0]
         return selected
 
+    def _select_support_graphs(self, support_bundle_graphs: Sequence[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for graph in support_bundle_graphs:
+            bundle = graph.get("bundle") or {}
+            slot = str(bundle.get("slot") or "")
+            agent_domain = str(bundle.get("agent_domain") or "")
+            section_key = str(bundle.get("section_key") or "")
+            if agent_domain not in VALID_SUPPORT_AGENT_DOMAINS:
+                continue
+            if not slot or SECTION_KEY_BY_DOMAIN.get(agent_domain) != section_key:
+                continue
+            grouped.setdefault((slot, agent_domain), []).append(graph)
+
+        selected_by_slot: dict[str, list[dict[str, Any]]] = {}
+        for (slot, agent_domain), graphs in grouped.items():
+            selected_by_slot.setdefault(slot, []).append(sorted(graphs, key=self._bundle_rank)[0])
+
+        for slot, graphs in selected_by_slot.items():
+            graphs.sort(key=lambda graph: str((graph.get("bundle") or {}).get("agent_domain") or ""))
+        return selected_by_slot
+
     def _bundle_rank(self, graph: dict[str, Any]) -> tuple[int, int, str, str]:
         bundle = graph.get("bundle") or {}
         status = str(bundle.get("status") or "withdrawn")
@@ -104,7 +130,7 @@ class MainReportSectionAssembler:
             bundle_id,
         )
 
-    def _build_section(self, spec: MainReportSectionSpec, graph: dict[str, Any] | None) -> dict[str, Any]:
+    def _build_section(self, spec: MainReportSectionSpec, graph: dict[str, Any] | None, *, support_summaries: Sequence[dict[str, Any]]) -> dict[str, Any]:
         if graph is None:
             return {
                 "slot": spec.slot,
@@ -118,6 +144,7 @@ class MainReportSectionAssembler:
                 "judgments": [],
                 "signals": [],
                 "facts": [],
+                "support_summaries": [self._build_support_summary(graph) for graph in support_summaries],
                 "lineage": None,
             }
 
@@ -147,6 +174,7 @@ class MainReportSectionAssembler:
             "judgments": self._project_objects(objects, "judgment"),
             "signals": self._project_objects(objects, "signal"),
             "facts": self._project_objects(objects, "fact"),
+            "support_summaries": [self._build_support_summary(support_graph) for support_graph in support_summaries],
             "lineage": {
                 "bundle": bundle,
                 "objects": sorted(objects, key=lambda row: (str(row.get("fsj_kind") or ""), str(row.get("object_key") or ""))),
@@ -154,6 +182,29 @@ class MainReportSectionAssembler:
                 "evidence_links": sorted(list(graph.get("evidence_links") or []), key=lambda row: (str(row.get("evidence_role") or ""), str(row.get("object_key") or ""), str(row.get("ref_system") or ""), str(row.get("ref_key") or ""))),
                 "observed_records": sorted(list(graph.get("observed_records") or []), key=lambda row: (str(row.get("fsj_kind") or ""), str(row.get("object_key") or ""), str(row.get("source_layer") or ""), str(row.get("source_record_key") or ""))),
                 "report_links": sorted(list(graph.get("report_links") or []), key=lambda row: (str(row.get("artifact_type") or ""), str(row.get("section_render_key") or ""), str(row.get("artifact_uri") or ""))),
+                "support_bundle_ids": [item["bundle_id"] for item in [self._build_support_summary(support_graph) for support_graph in support_summaries]],
+            },
+        }
+
+    def _build_support_summary(self, graph: dict[str, Any]) -> dict[str, Any]:
+        bundle = dict(graph.get("bundle") or {})
+        return {
+            "bundle_id": bundle.get("bundle_id"),
+            "slot": bundle.get("slot"),
+            "agent_domain": bundle.get("agent_domain"),
+            "section_key": bundle.get("section_key"),
+            "bundle_topic_key": bundle.get("bundle_topic_key"),
+            "status": bundle.get("status"),
+            "summary": bundle.get("summary"),
+            "producer": bundle.get("producer"),
+            "producer_version": bundle.get("producer_version"),
+            "slot_run_id": bundle.get("slot_run_id"),
+            "replay_id": bundle.get("replay_id"),
+            "report_run_id": bundle.get("report_run_id"),
+            "updated_at": bundle.get("updated_at"),
+            "lineage": {
+                "report_links": sorted(list(graph.get("report_links") or []), key=lambda row: (str(row.get("artifact_type") or ""), str(row.get("section_render_key") or ""), str(row.get("artifact_uri") or ""))),
+                "evidence_links": sorted(list(graph.get("evidence_links") or []), key=lambda row: (str(row.get("evidence_role") or ""), str(row.get("object_key") or ""), str(row.get("ref_system") or ""), str(row.get("ref_key") or ""))),
             },
         }
 
@@ -245,10 +296,23 @@ class MainReportAssemblyService:
             section_keys=[spec.section_key for spec in self.assembler.specs],
             statuses=["active", "superseded", "withdrawn"],
         )
+        support_graphs: list[dict[str, Any]] = []
+        support_slots = sorted({spec.slot for spec in self.assembler.specs if spec.slot in {"early", "late"}})
+        for support_domain in sorted(VALID_SUPPORT_AGENT_DOMAINS):
+            support_graphs.extend(
+                self.store.list_bundle_graphs(
+                    business_date=business_date,
+                    agent_domain=support_domain,
+                    slots=support_slots,
+                    section_keys=[SECTION_KEY_BY_DOMAIN[support_domain]],
+                    statuses=["active", "superseded", "withdrawn"],
+                )
+            )
         return self.assembler.build(
             graphs,
             business_date=business_date,
             market="a_share",
             agent_domain="main",
             include_empty=include_empty,
+            support_bundle_graphs=support_graphs,
         )

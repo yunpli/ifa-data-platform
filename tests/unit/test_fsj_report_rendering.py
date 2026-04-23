@@ -9,11 +9,12 @@ from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingS
 def _assembled_sections() -> dict:
     return {
         "artifact_type": "fsj_main_report_sections",
-        "artifact_version": "v1",
+        "artifact_version": "v2",
         "market": "a_share",
         "business_date": "2099-04-22",
         "agent_domain": "main",
         "section_count": 2,
+        "support_summary_domains": ["ai_tech", "macro"],
         "sections": [
             {
                 "slot": "early",
@@ -62,6 +63,56 @@ def _assembled_sections() -> dict:
                         "evidence_level": "E1",
                     }
                 ],
+                "support_summaries": [
+                    {
+                        "bundle_id": "bundle-support-ai-early",
+                        "slot": "early",
+                        "agent_domain": "ai_tech",
+                        "section_key": "support_ai_tech",
+                        "bundle_topic_key": "ai_tech_early_support:2099-04-22",
+                        "status": "active",
+                        "summary": "AI 科技催化存在，但更适合作为主判断的 adjust 输入。",
+                        "producer": "ifa_data_platform.fsj.early_ai_tech_support_producer",
+                        "producer_version": "phase1-ai-tech-early-v1",
+                        "slot_run_id": "slot-run-early-support-ai",
+                        "replay_id": "replay-early-support-ai",
+                        "report_run_id": None,
+                        "updated_at": "2099-04-22T08:57:00+08:00",
+                        "lineage": {
+                            "report_links": [
+                                {
+                                    "artifact_type": "html",
+                                    "artifact_uri": "file:///tmp/support-ai-early.html",
+                                    "section_render_key": "support.ai_tech.early",
+                                }
+                            ],
+                            "evidence_links": [
+                                {"ref_key": "source:early:ai-tech"},
+                            ],
+                        },
+                    },
+                    {
+                        "bundle_id": "bundle-support-macro-early",
+                        "slot": "early",
+                        "agent_domain": "macro",
+                        "section_key": "support_macro",
+                        "bundle_topic_key": "macro_early_support:2099-04-22",
+                        "status": "active",
+                        "summary": "宏观背景偏稳定，更多作为边界 support。",
+                        "producer": "ifa_data_platform.fsj.early_macro_support_producer",
+                        "producer_version": "phase1-macro-early-v1",
+                        "slot_run_id": "slot-run-early-support-macro",
+                        "replay_id": "replay-early-support-macro",
+                        "report_run_id": None,
+                        "updated_at": "2099-04-22T08:56:00+08:00",
+                        "lineage": {
+                            "report_links": [],
+                            "evidence_links": [
+                                {"ref_key": "source:early:macro"},
+                            ],
+                        },
+                    },
+                ],
                 "lineage": {
                     "bundle": {"bundle_id": "bundle-early"},
                     "objects": [],
@@ -77,6 +128,7 @@ def _assembled_sections() -> dict:
                             "section_render_key": "main.pre_open",
                         }
                     ],
+                    "support_bundle_ids": ["bundle-support-ai-early", "bundle-support-macro-early"],
                 },
             },
             {
@@ -103,6 +155,7 @@ def _assembled_sections() -> dict:
                 "judgments": [],
                 "signals": [],
                 "facts": [],
+                "support_summaries": [],
                 "lineage": {
                     "bundle": {"bundle_id": "bundle-late"},
                     "objects": [],
@@ -110,6 +163,7 @@ def _assembled_sections() -> dict:
                     "evidence_links": [],
                     "observed_records": [],
                     "report_links": [],
+                    "support_bundle_ids": [],
                 },
             },
         ],
@@ -127,6 +181,7 @@ def test_main_report_html_renderer_emits_sendable_html_with_lineage_hooks() -> N
     )
 
     assert rendered["artifact_type"] == "fsj_main_report_html"
+    assert rendered["artifact_version"] == "v2"
     assert rendered["render_format"] == "html"
     assert rendered["content_type"] == "text/html"
     assert "A股主报告｜2099-04-22" in rendered["title"]
@@ -134,8 +189,15 @@ def test_main_report_html_renderer_emits_sendable_html_with_lineage_hooks() -> N
     assert "收盘主结论" in rendered["content"]
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
+    assert "Support 摘要（非全文）" in rendered["content"]
+    assert "AI / 科技" in rendered["content"]
+    assert "宏观" in rendered["content"]
+    assert "support-ai-early.html" in rendered["content"]
     assert rendered["metadata"]["source_artifact_type"] == "fsj_main_report_sections"
+    assert rendered["metadata"]["support_summary_domains"] == ["ai_tech", "macro"]
+    assert rendered["metadata"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert rendered["metadata"]["existing_report_links"][0]["artifact_uri"] == "file:///tmp/earlier-early.md"
+    assert rendered["metadata"]["existing_report_links"][1]["artifact_uri"] == "file:///tmp/support-ai-early.html"
     assert [link["bundle_id"] for link in rendered["report_links"]] == ["bundle-early", "bundle-late"]
     assert all(link["artifact_type"] == "html" for link in rendered["report_links"])
     assert rendered["report_links"][0]["section_render_key"] == "main.pre_open"
@@ -203,6 +265,7 @@ def test_main_report_artifact_publisher_writes_html_and_manifest_with_report_wir
     assert published["artifact"]["artifact_family"] == "main_final_report"
     assert published["artifact"]["report_run_id"] == "report-run-final-1"
     assert store.registered[0]["metadata_json"]["artifact_file_path"] == str(html_path)
+    assert store.registered[0]["metadata_json"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert [bundle_id for bundle_id, _ in store.attached] == ["bundle-early", "bundle-late"]
     first_link = store.attached[0][1][0]
     assert first_link["artifact_locator_json"]["report_artifact_id"] == published["artifact"]["artifact_id"]
