@@ -213,10 +213,14 @@ def test_main_report_html_renderer_emits_sendable_html_with_lineage_hooks() -> N
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
     assert "Support 摘要（非全文）" in rendered["content"]
+    assert "执行覆盖" in rendered["content"]
+    assert "晚报合同口径" in rendered["content"]
+    assert "正式收盘口径" in rendered["content"]
     assert "AI / 科技" in rendered["content"]
     assert "宏观" in rendered["content"]
     assert "support-ai-early.html" in rendered["content"]
     assert rendered["metadata"]["source_artifact_type"] == "fsj_main_report_sections"
+    assert rendered["metadata"]["renderer_version"] == "v3"
     assert rendered["metadata"]["support_summary_domains"] == ["ai_tech", "macro"]
     assert rendered["metadata"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert rendered["metadata"]["existing_report_links"][0]["artifact_uri"] == "file:///tmp/earlier-early.md"

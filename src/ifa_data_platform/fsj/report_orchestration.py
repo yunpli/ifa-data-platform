@@ -317,6 +317,7 @@ class MainReportMorningDeliveryOrchestrator:
             "delivery_zip": published.get("delivery_zip_path"),
             "telegram_caption": published.get("telegram_caption_path"),
         }
+        artifact_checks = self._build_artifact_checks(package_artifacts)
         return {
             "artifact_type": "fsj_main_report_operator_review_bundle",
             "artifact_version": self.WORKFLOW_VERSION,
@@ -340,6 +341,14 @@ class MainReportMorningDeliveryOrchestrator:
             "slot_evaluation": delivery_manifest.get("slot_evaluation") or {},
             "send_manifest": send_manifest,
             "review_manifest": review_manifest,
+            "artifact_checks": artifact_checks,
+            "operator_go_no_go": self._build_operator_go_no_go(
+                selected_is_current=selected_is_current,
+                effective_action=effective_action,
+                send_manifest=send_manifest,
+                review_manifest=review_manifest,
+                artifact_checks=artifact_checks,
+            ),
             "package_artifacts": package_artifacts,
         }
 
@@ -353,6 +362,8 @@ class MainReportMorningDeliveryOrchestrator:
         handoff = dict(bundle.get("selected_handoff") or {})
         checklist = list(review_manifest.get("checklist") or [])
         artifact_paths = dict(bundle.get("package_artifacts") or {})
+        artifact_checks = list(bundle.get("artifact_checks") or [])
+        operator_go_no_go = dict(bundle.get("operator_go_no_go") or {})
 
         lines = [
             f"# MAIN Operator Review｜{bundle.get('business_date')}",
@@ -379,10 +390,23 @@ class MainReportMorningDeliveryOrchestrator:
             f"- review_manifest.next_step: `{review_manifest.get('next_step')}`",
             f"- send_blockers: `{', '.join(send_manifest.get('send_blockers') or []) or '-'}`",
             "",
+            "## Operator Go / No-Go",
+            f"- decision: `{operator_go_no_go.get('decision') or '-'}`",
+            f"- rationale: `{operator_go_no_go.get('rationale') or '-'}`",
+            f"- artifact_integrity_ok: `{operator_go_no_go.get('artifact_integrity_ok')}`",
+            f"- missing_artifacts: `{', '.join(operator_go_no_go.get('missing_artifacts') or []) or '-'}`",
+            "",
             "## Review Checklist",
         ]
         for item in checklist:
             lines.append(f"- [{item.get('status')}] {item.get('item')}: {item.get('detail')}")
+
+        if artifact_checks:
+            lines.extend(["", "## Artifact Integrity"])
+            for item in artifact_checks:
+                lines.append(
+                    f"- [{item.get('status')}] {item.get('artifact')}: exists=`{item.get('exists')}` path=`{item.get('path') or '-'}`"
+                )
 
         lines.extend([
             "",
@@ -412,6 +436,59 @@ class MainReportMorningDeliveryOrchestrator:
 
         lines.append("")
         return "\n".join(lines)
+
+    def _build_artifact_checks(self, package_artifacts: dict[str, Any]) -> list[dict[str, Any]]:
+        checks: list[dict[str, Any]] = []
+        for name, value in package_artifacts.items():
+            if name == "delivery_package_dir":
+                continue
+            path = str(value or "").strip()
+            exists = bool(path) and Path(path).exists()
+            checks.append({
+                "artifact": name,
+                "path": path or None,
+                "exists": exists,
+                "status": "pass" if exists else "fail",
+            })
+        return checks
+
+    def _build_operator_go_no_go(
+        self,
+        *,
+        selected_is_current: bool,
+        effective_action: str,
+        send_manifest: dict[str, Any],
+        review_manifest: dict[str, Any],
+        artifact_checks: Sequence[dict[str, Any]],
+    ) -> dict[str, Any]:
+        missing_artifacts = [item["artifact"] for item in artifact_checks if not item.get("exists")]
+        artifact_integrity_ok = not missing_artifacts
+        review_blocked = bool(review_manifest.get("blocking_items"))
+        send_blocked = bool(send_manifest.get("send_blockers"))
+        if not selected_is_current:
+            decision = "NO_GO"
+            rationale = "current package is not the selected dispatch candidate"
+        elif not artifact_integrity_ok:
+            decision = "NO_GO"
+            rationale = "required delivery artifacts are missing"
+        elif review_blocked:
+            decision = "NO_GO"
+            rationale = "review manifest contains blocking items"
+        elif effective_action == "send_review" or send_blocked:
+            decision = "REVIEW"
+            rationale = "manual review is required before sending"
+        elif effective_action == "send":
+            decision = "GO"
+            rationale = "quality gate and artifact integrity both pass"
+        else:
+            decision = "NO_GO"
+            rationale = "workflow recommends hold"
+        return {
+            "decision": decision,
+            "rationale": rationale,
+            "artifact_integrity_ok": artifact_integrity_ok,
+            "missing_artifacts": missing_artifacts,
+        }
 
     def _build_selected_handoff(
         self,

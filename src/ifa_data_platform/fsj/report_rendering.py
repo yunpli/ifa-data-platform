@@ -18,7 +18,7 @@ from .report_quality import MainReportQAEvaluator
 from .store import FSJStore
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
-RENDERER_VERSION = "v2"
+RENDERER_VERSION = "v3"
 
 SLOT_LABELS: dict[str, str] = {
     "early": "早报 / 盘前",
@@ -124,6 +124,7 @@ class MainReportHTMLRenderer:
         generated_at: datetime,
     ) -> str:
         executive = self._build_executive_summary(sections)
+        institutional_panel = self._build_institutional_panel(assembled, sections)
         section_html = "\n".join(self._render_section(section) for section in sections)
         return f"""<!DOCTYPE html>
 <html lang=\"zh-CN\">
@@ -145,6 +146,11 @@ class MainReportHTMLRenderer:
     .summary-box {{ border: 1px solid #dbe3f1; border-radius: 14px; padding: 14px 16px; background: #f8fbff; }}
     .summary-box .slot {{ font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; }}
     .summary-box .headline {{ margin-top: 8px; font-size: 15px; font-weight: 600; line-height: 1.5; }}
+    .panel-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }}
+    .panel-box {{ border-radius: 16px; padding: 16px 18px; background: linear-gradient(180deg, #ffffff, #f8fbff); border: 1px solid #dbe3f1; }}
+    .panel-label {{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }}
+    .panel-value {{ margin-top: 8px; font-size: 22px; font-weight: 700; color: #0f172a; }}
+    .panel-detail {{ margin-top: 6px; font-size: 13px; color: #475569; line-height: 1.55; }}
     .support-inline {{ margin-top: 10px; font-size: 12px; color: #475569; line-height: 1.6; }}
     .support-block {{ margin-top: 16px; padding: 14px 16px; border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; }}
     .support-item {{ margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; }}
@@ -176,6 +182,7 @@ class MainReportHTMLRenderer:
     <section class=\"card\">
       <h2>执行摘要</h2>
       <div class=\"summary-grid\">{executive}</div>
+      <div class=\"panel-grid\">{institutional_panel}</div>
       <div class=\"footnote\">
         本报告由 FSJ section assembly 直接渲染，保留 bundle / producer_version / replay_id / report_link 钩子；support 内容仅以 concise summary merge 进入主报告，不内联 support report 正文。
       </div>
@@ -202,6 +209,70 @@ class MainReportHTMLRenderer:
         if not boxes:
             boxes.append("<div class=\"summary-box\"><div class=\"slot\">EMPTY</div><div class=\"headline\">暂无可渲染章节</div></div>")
         return "".join(boxes)
+
+    def _build_institutional_panel(self, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> str:
+        ready_sections = [section for section in sections if str(section.get("status") or "") == "ready"]
+        support_summaries = [item for section in sections for item in (section.get("support_summaries") or [])]
+        support_domains = sorted({
+            SUPPORT_DOMAIN_LABELS.get(str(item.get("agent_domain") or ""), str(item.get("agent_domain") or "support"))
+            for item in support_summaries
+        })
+        late_mode = self._late_contract_mode(sections)
+        slot_labels = [SLOT_LABELS.get(str(section.get("slot") or ""), str(section.get("slot") or "-")) for section in ready_sections]
+        strongest_slot = max(
+            sections,
+            key=lambda section: (
+                1 if str(section.get("status") or "") == "ready" else 0,
+                len(section.get("judgments") or []) + len(section.get("signals") or []) + len(section.get("facts") or []),
+            ),
+            default=None,
+        )
+        strongest_slot_label = SLOT_LABELS.get(str((strongest_slot or {}).get("slot") or ""), str((strongest_slot or {}).get("slot") or "-"))
+        panel_items = [
+            {
+                "label": "执行覆盖",
+                "value": f"{len(ready_sections)}/{len(sections) or 0}",
+                "detail": f"ready 时段：{', '.join(slot_labels) if slot_labels else '暂无 ready section'}",
+            },
+            {
+                "label": "晚报合同口径",
+                "value": self._late_mode_label(late_mode),
+                "detail": "full_close_package 才是标准送达口径；provisional_close_only 需人工复核。",
+            },
+            {
+                "label": "Support 覆盖",
+                "value": str(len(support_summaries)),
+                "detail": f"域：{', '.join(support_domains) if support_domains else '无 support summary merge'}",
+            },
+            {
+                "label": "主强时段",
+                "value": strongest_slot_label,
+                "detail": f"section_count={assembled.get('section_count') or len(sections)} · support_domains={len(support_domains)}",
+            },
+        ]
+        return "".join(
+            f"<div class=\"panel-box\"><div class=\"panel-label\">{escape(item['label'])}</div><div class=\"panel-value\">{escape(item['value'])}</div><div class=\"panel-detail\">{escape(item['detail'])}</div></div>"
+            for item in panel_items
+        )
+
+    def _late_contract_mode(self, sections: Sequence[dict[str, Any]]) -> str | None:
+        for section in sections:
+            if str(section.get("slot") or "") != "late":
+                continue
+            for signal in section.get("signals") or []:
+                attrs = dict(signal.get("attributes_json") or {})
+                mode = attrs.get("contract_mode")
+                if mode:
+                    return str(mode)
+        return None
+
+    def _late_mode_label(self, mode: str | None) -> str:
+        mapping = {
+            "full_close_package": "正式收盘口径",
+            "provisional_close_only": "临时收盘口径",
+            "historical_only": "历史回放口径",
+        }
+        return mapping.get(str(mode or ""), str(mode or "未声明"))
 
     def _render_support_inline(self, support_summaries: Sequence[dict[str, Any]]) -> str:
         if not support_summaries:

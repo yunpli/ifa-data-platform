@@ -165,9 +165,14 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert any(item["item"] == "quality_gate_ready_for_delivery" and item["status"] == "pass" for item in review_manifest["checklist"])
     assert operator_review_bundle["recommended_action"] == "send"
     assert operator_review_bundle["candidate_overview"]["candidate_count"] == 1
+    assert operator_review_bundle["operator_go_no_go"]["decision"] == "GO"
+    assert operator_review_bundle["operator_go_no_go"]["artifact_integrity_ok"] is True
+    assert any(item["artifact"] == "html" and item["exists"] is True for item in operator_review_bundle["artifact_checks"])
     assert workflow["package_artifacts"]["operator_review_bundle"].endswith("operator_review_bundle.json")
     assert workflow["package_artifacts"]["operator_review_readme"].endswith("OPERATOR_REVIEW.md")
     assert "## Review Checklist" in operator_review_readme
+    assert "## Operator Go / No-Go" in operator_review_readme
+    assert "## Artifact Integrity" in operator_review_readme
     assert "recommended_action=send" in operator_summary
     assert "selected_package_dir=" in operator_summary
 
@@ -197,6 +202,7 @@ def test_main_report_morning_delivery_workflow_marks_review_required_for_provisi
     assert workflow["workflow_state"] == "review_required"
     assert review_manifest["next_step"] == "review_current_package_then_send_if_accepted"
     assert any(item["item"] == "late_contract_mode" and item["status"] == "warn" for item in review_manifest["checklist"])
+    assert result["operator_review_bundle"]["operator_go_no_go"]["decision"] == "REVIEW"
     assert review_manifest["warning_items"]
 
 
@@ -240,6 +246,7 @@ def test_main_report_morning_delivery_workflow_marks_superseded_when_better_read
     assert send_manifest["next_step"] == "switch_to_selected_package_and_do_not_send_current"
     assert "current_package_not_selected" in send_manifest["send_blockers"]
     assert operator_review_bundle["candidate_overview"]["selected_artifact_id"] == "artifact-better-ready"
+    assert operator_review_bundle["operator_go_no_go"]["decision"] == "NO_GO"
     assert "## Alternative Candidates" in operator_review_readme
     assert "artifact-better-ready" in operator_review_readme
     assert any(item["item"] == "confirm_selected_candidate" and item["status"] == "warn" for item in review_manifest["checklist"])
