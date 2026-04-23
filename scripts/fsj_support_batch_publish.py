@@ -55,8 +55,12 @@ def _build_operator_summary(*, business_date: str, slot: str, generated_at: date
         lines.append(
             f"- {item['agent_domain']}: status={item['status']} bundle_id={item.get('bundle_id') or '-'} "
             f"package_state={item.get('package_state') or '-'} workflow_state={state.get('workflow_state') or '-'} "
-            f"recommended_action={state.get('recommended_action') or '-'} artifact_id={artifact.get('artifact_id') or '-'} "
-            f"selected_artifact_id={selected_handoff.get('selected_artifact_id') or '-'} output_dir={item.get('output_dir') or '-'}"
+            f"recommended_action={state.get('recommended_action') or '-'} dispatch_recommended_action={state.get('dispatch_recommended_action') or '-'} "
+            f"selected_is_current={selected_handoff.get('selected_is_current')} artifact_id={artifact.get('artifact_id') or '-'} "
+            f"selected_artifact_id={selected_handoff.get('selected_artifact_id') or '-'} dispatch_selected_artifact_id={state.get('dispatch_selected_artifact_id') or '-'} output_dir={item.get('output_dir') or '-'}"
+        )
+        lines.append(
+            f"  next_step={state.get('next_step') or '-'} selection_reason={state.get('selection_reason') or '-'}"
         )
         if manifest_pointers:
             lines.append(

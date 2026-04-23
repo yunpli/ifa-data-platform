@@ -52,8 +52,12 @@ def _build_operator_summary(*, business_date: str, generated_at: datetime, persi
         artifact = dict(workflow_handoff.get("artifact") or publish.get("artifact") or {})
         lines.append(
             f"- publish: workflow_state={state.get('workflow_state') or '-'} recommended_action={state.get('recommended_action') or '-'} "
+            f"dispatch_recommended_action={state.get('dispatch_recommended_action') or '-'} selected_is_current={selected_handoff.get('selected_is_current')} "
             f"package_state={state.get('package_state') or '-'} artifact_id={artifact.get('artifact_id') or '-'} "
-            f"selected_artifact_id={selected_handoff.get('selected_artifact_id') or '-'} output_dir={publish.get('output_dir') or '-'}"
+            f"selected_artifact_id={selected_handoff.get('selected_artifact_id') or '-'} dispatch_selected_artifact_id={state.get('dispatch_selected_artifact_id') or '-'} output_dir={publish.get('output_dir') or '-'}"
+        )
+        lines.append(
+            f"  next_step={state.get('next_step') or '-'} selection_reason={state.get('selection_reason') or '-'}"
         )
         lines.append(
             f"  delivery_manifest_path={manifest_pointers.get('delivery_manifest_path') or '-'} send_manifest_path={manifest_pointers.get('send_manifest_path') or '-'}"

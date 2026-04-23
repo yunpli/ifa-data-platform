@@ -38,8 +38,13 @@ def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_poin
             },
             "state": {
                 "recommended_action": "send",
+                "dispatch_recommended_action": "send",
                 "workflow_state": "ready_to_send",
                 "send_ready": True,
+                "next_step": "dispatch_send_manifest",
+                "selection_reason": "best_ready_candidate strongest_slot=late qa_score=96",
+                "dispatch_selected_artifact_id": "artifact-active",
+                "send_blockers": [],
             },
             "manifest_pointers": {
                 "send_manifest_path": "/tmp/pkg/send_manifest.json",
@@ -57,8 +62,13 @@ def test_surface_summary_exposes_active_artifact_handoff_state_and_manifest_poin
     assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-active"
     assert summary["selected_handoff"]["selected_is_current"] is True
     assert summary["state"]["recommended_action"] == "send"
+    assert summary["state"]["dispatch_recommended_action"] == "send"
     assert summary["state"]["workflow_state"] == "ready_to_send"
     assert summary["state"]["send_ready"] is True
+    assert summary["state"]["next_step"] == "dispatch_send_manifest"
+    assert summary["state"]["selection_reason"] == "best_ready_candidate strongest_slot=late qa_score=96"
+    assert summary["state"]["dispatch_selected_artifact_id"] == "artifact-active"
+    assert summary["state"]["send_blockers"] == []
     assert summary["manifest_pointers"]["send_manifest_path"] == "/tmp/pkg/send_manifest.json"
     assert summary["manifest_pointers"]["workflow_manifest_path"] == "/tmp/pkg/workflow_manifest.json"
     assert summary["version_pointers"]["send_manifest_version"] == "send_manifest.json"
@@ -120,9 +130,13 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
             },
             "state": {
                 "recommended_action": "send_review",
+                "dispatch_recommended_action": "send",
                 "workflow_state": "review_required",
                 "send_ready": False,
                 "review_required": True,
+                "next_step": "operator_review_selected_candidate",
+                "selection_reason": "best_ready_candidate strongest_slot=late qa_score=94",
+                "dispatch_selected_artifact_id": "artifact-selected",
                 "package_state": "ready",
                 "ready_for_delivery": True,
                 "qa_score": 94,
@@ -152,7 +166,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "active_artifact_id=artifact-active" in output
     assert "selected_artifact_id=artifact-selected" in output
     assert "recommended_action=send_review" in output
+    assert "dispatch_recommended_action=send" in output
     assert "workflow_state=review_required" in output
+    assert "next_step=operator_review_selected_candidate" in output
+    assert "selection_reason=best_ready_candidate strongest_slot=late qa_score=94" in output
+    assert "dispatch_selected_artifact_id=artifact-selected" in output
     assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
     assert "history_count=2" in output
 

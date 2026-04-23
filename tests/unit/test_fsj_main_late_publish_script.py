@@ -59,7 +59,15 @@ def test_main_persists_then_publishes_and_writes_summary(
         lambda **_: {
             "artifact": {"artifact_id": "artifact-db", "report_run_id": "run-db"},
             "selected_handoff": {"selected_artifact_id": "artifact-db", "selected_is_current": True},
-            "state": {"workflow_state": "ready_to_send", "recommended_action": "send", "package_state": "ready"},
+            "state": {
+                "workflow_state": "ready_to_send",
+                "recommended_action": "send",
+                "dispatch_recommended_action": "send",
+                "package_state": "ready",
+                "next_step": "dispatch_send_manifest",
+                "selection_reason": "best_ready_candidate strongest_slot=late qa_score=97",
+                "dispatch_selected_artifact_id": "artifact-db",
+            },
             "manifest_pointers": {
                 "delivery_manifest_path": "/tmp/db/delivery_manifest.json",
                 "send_manifest_path": "/tmp/db/send_manifest.json",
@@ -106,7 +114,12 @@ def test_main_persists_then_publishes_and_writes_summary(
     operator_summary = (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
     assert "FSJ MAIN late publish｜2026-04-23｜late" in operator_summary
     assert "workflow_state=ready_to_send" in operator_summary
+    assert "dispatch_recommended_action=send" in operator_summary
+    assert "selected_is_current=True" in operator_summary
     assert "selected_artifact_id=artifact-db" in operator_summary
+    assert "dispatch_selected_artifact_id=artifact-db" in operator_summary
+    assert "next_step=dispatch_send_manifest" in operator_summary
+    assert "selection_reason=best_ready_candidate strongest_slot=late qa_score=97" in operator_summary
     assert "send_manifest_path=/tmp/db/send_manifest.json" in operator_summary
 
 

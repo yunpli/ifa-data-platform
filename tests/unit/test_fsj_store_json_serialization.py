@@ -29,3 +29,57 @@ def test_json_dumps_normalizes_non_native_json_types() -> None:
         "dt": "2026-04-23T11:42:00",
         "path": "/tmp/example",
     }
+
+
+def test_report_workflow_handoff_projection_preserves_operator_readiness_fields() -> None:
+    from ifa_data_platform.fsj.store import FSJStore
+
+    store = FSJStore()
+    summary = store.report_workflow_handoff_from_surface({
+        "artifact": {
+            "artifact_id": "artifact-current",
+            "report_run_id": "run-current",
+            "business_date": "2099-04-22",
+            "status": "active",
+        },
+        "delivery_package": {
+            "package_state": "ready",
+            "ready_for_delivery": True,
+            "quality_gate": {
+                "score": 93,
+                "blocker_count": 0,
+                "warning_count": 1,
+                "late_contract_mode": "full_close_package",
+            },
+            "workflow": {
+                "recommended_action": "send_review",
+                "dispatch_recommended_action": "send",
+                "workflow_state": "selected_candidate_mismatch",
+                "next_step": "operator_review_selected_candidate",
+                "selection_reason": "best_ready_candidate strongest_slot=late qa_score=93",
+                "dispatch_selected_artifact_id": "artifact-selected",
+                "send_blockers": ["selected_candidate_differs_from_current"],
+            },
+        },
+        "workflow_linkage": {
+            "selected_handoff": {
+                "selected_artifact_id": "artifact-selected",
+                "selected_report_run_id": "run-selected",
+                "selected_business_date": "2099-04-22",
+                "selected_is_current": False,
+                "delivery_package_dir": "/tmp/selected-pkg",
+                "delivery_manifest_path": "/tmp/selected-pkg/delivery_manifest.json",
+                "delivery_zip_path": "/tmp/selected-pkg.zip",
+                "telegram_caption_path": "/tmp/selected-pkg/telegram_caption.txt",
+            },
+            "send_manifest_path": "/tmp/current/send_manifest.json",
+        },
+    })
+
+    assert summary["selected_handoff"]["selected_is_current"] is False
+    assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-selected"
+    assert summary["state"]["dispatch_recommended_action"] == "send"
+    assert summary["state"]["next_step"] == "operator_review_selected_candidate"
+    assert summary["state"]["selection_reason"] == "best_ready_candidate strongest_slot=late qa_score=93"
+    assert summary["state"]["dispatch_selected_artifact_id"] == "artifact-selected"
+    assert summary["state"]["send_blockers"] == ["selected_candidate_differs_from_current"]

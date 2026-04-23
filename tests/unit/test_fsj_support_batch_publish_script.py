@@ -88,8 +88,16 @@ def test_main_persists_before_publish_and_writes_batch_summary(
             },
             "workflow_handoff": {
                 "artifact": {"artifact_id": f"artifact-{kwargs['agent_domain']}"},
-                "selected_handoff": {"selected_artifact_id": f"artifact-{kwargs['agent_domain']}"},
-                "state": {"workflow_state": "ready_to_send", "recommended_action": "send", "package_state": "ready"},
+                "selected_handoff": {"selected_artifact_id": f"artifact-{kwargs['agent_domain']}", "selected_is_current": True},
+                "state": {
+                    "workflow_state": "ready_to_send",
+                    "recommended_action": "send",
+                    "dispatch_recommended_action": "send",
+                    "package_state": "ready",
+                    "next_step": "dispatch_send_manifest",
+                    "selection_reason": f"support_ready_candidate domain={kwargs['agent_domain']}",
+                    "dispatch_selected_artifact_id": f"artifact-{kwargs['agent_domain']}",
+                },
                 "manifest_pointers": {
                     "delivery_manifest_path": f"/tmp/db/{kwargs['agent_domain']}/delivery_manifest.json",
                     "send_manifest_path": f"/tmp/db/{kwargs['agent_domain']}/send_manifest.json",
@@ -117,6 +125,11 @@ def test_main_persists_before_publish_and_writes_batch_summary(
     operator_summary = (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
     assert "FSJ support batch publish｜2026-04-23｜early" in operator_summary
     assert "workflow_state=ready_to_send" in operator_summary
+    assert "dispatch_recommended_action=send" in operator_summary
+    assert "selected_is_current=True" in operator_summary
+    assert "dispatch_selected_artifact_id=artifact-macro" in operator_summary
+    assert "next_step=dispatch_send_manifest" in operator_summary
+    assert "selection_reason=support_ready_candidate domain=macro" in operator_summary
     assert "send_manifest_path=/tmp/db/macro/send_manifest.json" in operator_summary
 
 
