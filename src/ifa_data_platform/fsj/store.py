@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
@@ -196,6 +199,19 @@ class FSJStore:
     def __init__(self) -> None:
         self.engine = make_engine()
 
+    @staticmethod
+    def _json_default(value: Any) -> Any:
+        if isinstance(value, Decimal):
+            return int(value) if value == value.to_integral_value() else float(value)
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        if isinstance(value, Path):
+            return str(value)
+        return str(value)
+
+    def _json_dumps(self, value: Any) -> str:
+        return json.dumps(value, ensure_ascii=False, default=self._json_default)
+
     def ensure_schema(self) -> None:
         with self.engine.begin() as conn:
             for ddl in SCHEMA_DDL:
@@ -266,7 +282,7 @@ class FSJStore:
                     "replay_id": bundle.get("replay_id"),
                     "report_run_id": bundle.get("report_run_id"),
                     "summary": bundle["summary"],
-                    "payload_json": json.dumps(bundle.get("payload_json") or {}, ensure_ascii=False),
+                    "payload_json": self._json_dumps(bundle.get("payload_json") or {}),
                 },
             )
 
@@ -319,10 +335,10 @@ class FSJStore:
                         "horizon": obj.get("horizon"),
                         "evidence_level": obj.get("evidence_level"),
                         "confidence": obj.get("confidence"),
-                        "entity_refs": json.dumps(obj.get("entity_refs") or [], ensure_ascii=False),
-                        "metric_refs": json.dumps(obj.get("metric_refs") or [], ensure_ascii=False),
-                        "invalidators": json.dumps(obj.get("invalidators") or [], ensure_ascii=False),
-                        "attributes_json": json.dumps(obj.get("attributes_json") or {}, ensure_ascii=False),
+                        "entity_refs": self._json_dumps(obj.get("entity_refs") or []),
+                        "metric_refs": self._json_dumps(obj.get("metric_refs") or []),
+                        "invalidators": self._json_dumps(obj.get("invalidators") or []),
+                        "attributes_json": self._json_dumps(obj.get("attributes_json") or {}),
                     },
                 )
 
@@ -354,7 +370,7 @@ class FSJStore:
                         "to_fsj_kind": edge["to_fsj_kind"],
                         "to_object_key": edge["to_object_key"],
                         "role": edge.get("role"),
-                        "attributes_json": json.dumps(edge.get("attributes_json") or {}, ensure_ascii=False),
+                        "attributes_json": self._json_dumps(edge.get("attributes_json") or {}),
                     },
                 )
 
@@ -384,7 +400,7 @@ class FSJStore:
                         "ref_family": link.get("ref_family"),
                         "ref_table": link.get("ref_table"),
                         "ref_key": link.get("ref_key"),
-                        "ref_locator_json": json.dumps(link.get("ref_locator_json") or {}, ensure_ascii=False),
+                        "ref_locator_json": self._json_dumps(link.get("ref_locator_json") or {}),
                         "observed_at": link.get("observed_at"),
                     },
                 )
@@ -415,7 +431,7 @@ class FSJStore:
                         "source_table": record.get("source_table"),
                         "source_record_key": record.get("source_record_key"),
                         "observed_label": record.get("observed_label"),
-                        "observed_payload_json": json.dumps(record.get("observed_payload_json") or {}, ensure_ascii=False),
+                        "observed_payload_json": self._json_dumps(record.get("observed_payload_json") or {}),
                     },
                 )
 
@@ -440,7 +456,7 @@ class FSJStore:
                         "report_run_id": report.get("report_run_id"),
                         "artifact_type": report["artifact_type"],
                         "artifact_uri": report.get("artifact_uri"),
-                        "artifact_locator_json": json.dumps(report.get("artifact_locator_json") or {}, ensure_ascii=False),
+                        "artifact_locator_json": self._json_dumps(report.get("artifact_locator_json") or {}),
                         "section_render_key": report.get("section_render_key"),
                     },
                 )
@@ -471,7 +487,7 @@ class FSJStore:
                         "report_run_id": report.get("report_run_id"),
                         "artifact_type": report["artifact_type"],
                         "artifact_uri": report.get("artifact_uri"),
-                        "artifact_locator_json": json.dumps(report.get("artifact_locator_json") or {}, ensure_ascii=False),
+                        "artifact_locator_json": self._json_dumps(report.get("artifact_locator_json") or {}),
                         "section_render_key": report.get("section_render_key"),
                     },
                 )
@@ -580,7 +596,7 @@ class FSJStore:
                     "artifact_uri": payload.get("artifact_uri"),
                     "status": payload["status"],
                     "supersedes_artifact_id": payload.get("supersedes_artifact_id"),
-                    "metadata_json": json.dumps(payload.get("metadata_json") or {}, ensure_ascii=False),
+                    "metadata_json": self._json_dumps(payload.get("metadata_json") or {}),
                 },
             )
         return self.get_report_artifact(payload["artifact_id"]) or payload

@@ -100,6 +100,13 @@ def object_id(prefix: str, *parts: str) -> str:
 
 
 
+def coalesce_support_lineage_ids(*, business_date: str, slot: str, agent_domain: str, slot_run_id: str | None, replay_id: str | None) -> tuple[str, str]:
+    effective_slot_run_id = slot_run_id or f"fsj-support-slot:{business_date}:{slot}:{agent_domain}"
+    effective_replay_id = replay_id or f"fsj-support-replay:{business_date}:{slot}:{agent_domain}"
+    return effective_slot_run_id, effective_replay_id
+
+
+
 def make_fact_object(
     *,
     bundle_id: str,

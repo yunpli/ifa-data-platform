@@ -20,6 +20,7 @@ from ifa_data_platform.fsj.support_common import (
     make_judgment_object,
     make_signal_object,
     support_relation_edge,
+    coalesce_support_lineage_ids,
 )
 
 EARLY_AI_TECH_SUPPORT_PRODUCER = "ifa_data_platform.fsj.ai_tech_support_producer"
@@ -278,6 +279,14 @@ class AITechSupportAssembler:
         bundle_id = self._bundle_id(data)
         plan = self._plan(data)
 
+        slot_run_id, replay_id = coalesce_support_lineage_ids(
+            business_date=data.business_date,
+            slot=data.slot,
+            agent_domain=data.agent_domain,
+            slot_run_id=data.slot_run_id,
+            replay_id=data.replay_id,
+        )
+
         bundle_payload = {
             "primary_relation": plan.primary_relation,
             "secondary_relations": plan.secondary_relations,
@@ -320,8 +329,8 @@ class AITechSupportAssembler:
             "producer_version": EARLY_AI_TECH_SUPPORT_PRODUCER_VERSION if data.slot == "early" else LATE_AI_TECH_SUPPORT_PRODUCER_VERSION,
             "assembly_mode": "rule_assembled",
             "status": "active",
-            "slot_run_id": data.slot_run_id,
-            "replay_id": data.replay_id,
+            "slot_run_id": slot_run_id,
+            "replay_id": replay_id,
             "report_run_id": data.report_run_id,
             "summary": plan.summary,
             "payload_json": bundle_payload,
@@ -491,7 +500,7 @@ class AITechSupportAssembler:
                 "ref_locator_json": {"row_count": data.archive_sector_count},
             }
         )
-        if data.replay_id:
+        if replay_id:
             evidence_links.append(
                 {
                     "bundle_id": bundle_id,
@@ -501,8 +510,8 @@ class AITechSupportAssembler:
                     "ref_system": "runtime",
                     "ref_family": data.slot,
                     "ref_table": None,
-                    "ref_key": data.replay_id,
-                    "ref_locator_json": {"slot_run_id": data.slot_run_id},
+                    "ref_key": replay_id,
+                    "ref_locator_json": {"slot_run_id": slot_run_id},
                 }
             )
 
