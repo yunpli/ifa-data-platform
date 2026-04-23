@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy import text
 
 from ifa_data_platform.fsj import FSJStore
+from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 
 DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
@@ -388,12 +389,20 @@ def test_main_report_delivery_surface_is_queryable_from_active_artifact(tmp_path
             agent_domain='main',
             artifact_family='main_final_report',
         )
+        helper_surface = MainReportDeliveryDispatchHelper().load_active_published_candidate(
+            business_date='2099-04-18',
+            store=store,
+        )
         assert surface is not None
+        assert helper_surface is not None
         assert surface['artifact']['artifact_id'] == published['artifact']['artifact_id']
+        assert helper_surface['artifact']['artifact_id'] == published['artifact']['artifact_id']
         assert surface['delivery_package']['delivery_manifest_path'] == published['delivery_manifest_path']
         assert surface['delivery_package']['delivery_zip_path'] == published['delivery_zip_path']
         assert surface['delivery_package']['telegram_caption_path'] == published['telegram_caption_path']
         assert surface['delivery_package']['ready_for_delivery'] == published['delivery_manifest']['ready_for_delivery']
+        assert helper_surface['delivery_manifest']['dispatch_advice']['recommended_action'] == published['delivery_manifest']['dispatch_advice']['recommended_action']
+        assert helper_surface['delivery_manifest_path'] == published['delivery_manifest_path']
         assert surface['delivery_package']['workflow']['recommended_action'] == published['delivery_manifest']['dispatch_advice']['recommended_action']
         assert surface['send_ready'] == (published['delivery_manifest']['ready_for_delivery'] and published['delivery_manifest']['dispatch_advice']['recommended_action'] == 'send')
         assert surface['review_required'] == (published['delivery_manifest']['dispatch_advice']['recommended_action'] == 'send_review')

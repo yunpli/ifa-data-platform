@@ -25,6 +25,7 @@ def _parse_generated_at(value: str | None) -> datetime | None:
 def _load_comparison_candidates(
     *,
     helper: MainReportDeliveryDispatchHelper,
+    store: FSJStore,
     compare_under_output_dir: str | None,
     comparison_package_dir: list[str],
     comparison_manifest: list[str],
@@ -39,6 +40,10 @@ def _load_comparison_candidates(
         if manifest_path and manifest_path not in seen_manifest_paths:
             candidates.append(candidate)
             seen_manifest_paths.add(manifest_path)
+
+    db_active = helper.load_active_published_candidate(business_date=business_date, store=store)
+    if db_active:
+        _append(db_active)
 
     if compare_under_output_dir:
         for candidate in helper.discover_published_candidates(compare_under_output_dir, business_date=business_date, limit=compare_limit):
@@ -64,8 +69,10 @@ def main() -> None:
     args = parser.parse_args()
 
     helper = MainReportDeliveryDispatchHelper()
+    store = FSJStore()
     comparison_candidates = _load_comparison_candidates(
         helper=helper,
+        store=store,
         compare_under_output_dir=args.compare_under_output_dir,
         comparison_package_dir=args.comparison_package_dir,
         comparison_manifest=args.comparison_manifest,
@@ -73,7 +80,6 @@ def main() -> None:
         compare_limit=args.compare_limit,
     )
 
-    store = FSJStore()
     assembly_store = FSJReportAssemblyStore()
     rendering_service = MainReportRenderingService(
         assembly_service=MainReportAssemblyService(store=assembly_store),

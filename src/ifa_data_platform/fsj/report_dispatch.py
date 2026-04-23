@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Sequence
 import json
 
+from .store import FSJStore
+
 
 SLOT_PRIORITY: dict[str, int] = {"late": 30, "mid": 20, "early": 10}
 
@@ -61,6 +63,50 @@ class DeliveryDispatchCandidate:
 
 class MainReportDeliveryDispatchHelper:
     """Select the best MAIN delivery package for send / send-review orchestration."""
+
+    def load_active_published_candidate(
+        self,
+        *,
+        business_date: str,
+        store: FSJStore | None = None,
+    ) -> dict[str, Any] | None:
+        store = store or FSJStore()
+        surface = store.get_active_report_delivery_surface(
+            business_date=business_date,
+            agent_domain="main",
+            artifact_family="main_final_report",
+        )
+        if not surface:
+            return None
+        artifact = dict(surface.get("artifact") or {})
+        delivery_package = dict(surface.get("delivery_package") or {})
+        if not delivery_package:
+            return None
+        return {
+            "artifact": artifact,
+            "delivery_package_dir": delivery_package.get("delivery_package_dir"),
+            "delivery_manifest_path": delivery_package.get("delivery_manifest_path"),
+            "delivery_zip_path": delivery_package.get("delivery_zip_path"),
+            "telegram_caption_path": delivery_package.get("telegram_caption_path"),
+            "package_index_path": delivery_package.get("package_index_path"),
+            "package_browse_readme_path": delivery_package.get("package_browse_readme_path"),
+            "delivery_manifest": {
+                "artifact_id": artifact.get("artifact_id"),
+                "report_run_id": artifact.get("report_run_id"),
+                "business_date": artifact.get("business_date"),
+                "artifact_family": artifact.get("artifact_family"),
+                "package_state": delivery_package.get("package_state"),
+                "ready_for_delivery": delivery_package.get("ready_for_delivery"),
+                "quality_gate": dict(delivery_package.get("quality_gate") or {}),
+                "slot_evaluation": dict(delivery_package.get("slot_evaluation") or {}),
+                "support_summary_aggregate": dict(delivery_package.get("support_summary_aggregate") or {}),
+                "dispatch_advice": dict(delivery_package.get("dispatch_advice") or {}),
+                "artifacts": dict(delivery_package.get("artifacts") or {}),
+            },
+            "report_evaluation": {},
+            "package_index": {},
+            "source": "db_active_delivery_surface",
+        }
 
     def candidate_from_published(self, published: dict[str, Any]) -> DeliveryDispatchCandidate:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
