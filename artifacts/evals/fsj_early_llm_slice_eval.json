@@ -1,0 +1,87 @@
+{
+  "fixture": {
+    "business_date": "2099-04-22",
+    "slot": "early",
+    "section_key": "pre_open_main",
+    "section_type": "thesis",
+    "bundle_topic_key": "mainline_candidate:2099-04-22",
+    "summary_topic": "A股盘前主线预案",
+    "trading_day_open": true,
+    "trading_day_label": "open",
+    "focus_symbols": [
+      "300024.SZ",
+      "002031.SZ",
+      "601127.SH"
+    ],
+    "focus_list_types": [
+      "focus",
+      "key_focus"
+    ],
+    "auction_count": 18,
+    "auction_snapshot_time": "2099-04-22T09:27:00+08:00",
+    "event_count": 6,
+    "event_latest_time": "2099-04-22T09:25:00+08:00",
+    "event_titles": [
+      "机器人链条隔夜催化",
+      "算力链订单更新"
+    ],
+    "leader_count": 4,
+    "leader_symbols": [
+      "300024.SZ",
+      "002031.SZ"
+    ],
+    "signal_scope_count": 1,
+    "latest_signal_state": "candidate_confirming",
+    "text_catalyst_count": 3,
+    "text_catalyst_titles": [
+      "机器人政策催化",
+      "AI 应用发布",
+      "龙头预告更新"
+    ],
+    "previous_archive_summary": "昨日机器人主线维持高位扩散",
+    "replay_id": "replay-early-2099-04-22",
+    "slot_run_id": "slot-run-early-2099-04-22",
+    "report_run_id": null
+  },
+  "baseline": {
+    "summary": "A股盘前主线预案：已基于盘前 high+reference 形成待开盘验证的主线候选。",
+    "judgment_statement": "将当前候选主线作为开盘首要验证对象；若竞价强度和事件延续性无法继续兑现，则立即降回观察项。",
+    "score": {
+      "specific_sector_named": 0,
+      "candidate_boundary_explicit": 0,
+      "preopen_grounding_explicit": 1,
+      "clear_invalidators": 1,
+      "summary_non_generic": 1,
+      "total": 3
+    }
+  },
+  "llm_assisted": {
+    "summary": "A股盘前主线预案：机器人链条在竞价、事件流与 focus seed 上形成优先候选，但仍需开盘验证后才能升级。",
+    "judgment_statement": "将机器人链条列为开盘首要验证候选：若竞价承接、事件延续和 seed 对齐不能继续兑现，立即降回观察项，不把盘前候选升级成已确认判断。",
+    "score": {
+      "specific_sector_named": 1,
+      "candidate_boundary_explicit": 0,
+      "preopen_grounding_explicit": 1,
+      "clear_invalidators": 1,
+      "summary_non_generic": 1,
+      "total": 4
+    },
+    "llm_audit": {
+      "applied": true,
+      "provider": "eval-stub",
+      "model_alias": "grok41_thinking",
+      "model_id": "grok-4.1-thinking",
+      "prompt_version": "fsj_early_main_v1",
+      "input_digest": "76416666eb8e76d398fcf4819b540a8859fb1a3e",
+      "usage": {
+        "total_tokens": 333
+      },
+      "reasoning_trace": [
+        "auction packet present",
+        "event and leader packet present",
+        "candidate boundary preserved"
+      ]
+    }
+  },
+  "delta": 1
+}

@@ -10,6 +10,11 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.fsj.llm_assist import (
+    FSJEarlyLLMAssistant,
+    FSJEarlyLLMRequest,
+    build_fsj_early_evidence_packet,
+)
 from ifa_data_platform.fsj.store import FSJStore
 
 BJ_TZ = ZoneInfo("Asia/Shanghai")
@@ -248,6 +253,9 @@ class SqlEarlyMainInputReader:
 
 
 class EarlyMainFSJAssembler:
+    def __init__(self, *, llm_assistant: FSJEarlyLLMAssistant | None = None) -> None:
+        self.llm_assistant = llm_assistant or FSJEarlyLLMAssistant()
+
     def build_bundle_graph(self, data: EarlyMainProducerInput) -> dict[str, Any]:
         object_records: list[dict[str, Any]] = []
         edges: list[dict[str, Any]] = []
@@ -255,7 +263,28 @@ class EarlyMainFSJAssembler:
         observed_records: list[dict[str, Any]] = []
 
         bundle_id = self._bundle_id(data)
-        payload_meta = self._payload_meta(data)
+        completeness_label = self._completeness_label(data)
+        degrade_reason = self._degrade_reason(data)
+        contract_mode = self._contract_mode(data)
+        llm_result = None
+        llm_audit: dict[str, Any] = {"applied": False, "reason": "early_llm_assist_not_attempted"}
+        if data.has_high_evidence or data.has_low_evidence:
+            llm_result, llm_audit = self.llm_assistant.maybe_synthesize(
+                FSJEarlyLLMRequest(
+                    business_date=data.business_date,
+                    section_key=data.section_key,
+                    contract_mode=contract_mode,
+                    completeness_label=completeness_label,
+                    degrade_reason=degrade_reason,
+                    evidence_packet=build_fsj_early_evidence_packet(
+                        data,
+                        contract_mode=contract_mode,
+                        completeness_label=completeness_label,
+                        degrade_reason=degrade_reason,
+                    ),
+                )
+            )
+        payload_meta = self._payload_meta(data, completeness_label, degrade_reason, contract_mode, llm_audit)
 
         fact_market = self._append_fact(
             object_records,
@@ -435,12 +464,14 @@ class EarlyMainFSJAssembler:
             object_records,
             data=data,
             object_key="signal:early:mainline_candidate_state",
-            statement=self._signal_statement(data),
+            statement=llm_result.candidate_signal_statement if llm_result else self._signal_statement(data),
             signal_strength="medium" if data.has_high_evidence else "low",
             confidence="medium" if (data.has_high_evidence or data.has_low_evidence) else "low",
             attributes_json={
                 "based_on_fact_keys": extra_fact_keys,
-                "degrade_reason": None if data.has_high_evidence else "high_layer_missing_so_candidate_only",
+                "degrade_reason": degrade_reason,
+                "llm_assist_applied": bool(llm_result),
+                "llm_reasoning_trace": llm_result.reasoning_trace if llm_result else [],
             },
         )
         for fact_key in extra_fact_keys:
@@ -459,21 +490,23 @@ class EarlyMainFSJAssembler:
             object_records,
             data=data,
             object_key="judgment:early:mainline_plan",
-            statement=self._judgment_statement(data),
+            statement=llm_result.judgment_statement if llm_result else self._judgment_statement(data),
             object_type="thesis" if data.has_high_evidence else "watch_item",
             judgment_action="validate" if data.has_high_evidence else "watch",
             direction="conditional",
             priority="p0",
             confidence="medium" if data.has_high_evidence else "low",
-            invalidators=self._invalidators(data),
+            invalidators=llm_result.invalidators if llm_result else self._invalidators(data),
             attributes_json={
                 "required_open_validation": True,
-                "contract_mode": "candidate_only" if not data.has_high_evidence else "candidate_with_open_validation",
+                "contract_mode": contract_mode,
                 "deferred": [
                     "support-agent merge not yet implemented",
                     "section-level multi-judgment expansion deferred",
                     "no late/final evidence implied in early slot",
                 ],
+                "llm_assist_applied": bool(llm_result),
+                "llm_reasoning_trace": llm_result.reasoning_trace if llm_result else [],
             },
         )
         edges.append(
@@ -518,7 +551,7 @@ class EarlyMainFSJAssembler:
             "slot_run_id": data.slot_run_id,
             "replay_id": data.replay_id,
             "report_run_id": data.report_run_id,
-            "summary": self._bundle_summary(data),
+            "summary": llm_result.summary if llm_result else self._bundle_summary(data),
             "payload_json": payload_meta,
         }
         return {
@@ -617,7 +650,7 @@ class EarlyMainFSJAssembler:
         digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
         return f"fsj:a_share:{data.business_date}:{data.slot}:main:{data.section_key}:{digest}"
 
-    def _payload_meta(self, data: EarlyMainProducerInput) -> dict[str, Any]:
+    def _payload_meta(self, data: EarlyMainProducerInput, completeness_label: str, degrade_reason: str | None, contract_mode: str, llm_audit: dict[str, Any]) -> dict[str, Any]:
         return {
             "schema_version": EARLY_MAIN_PRODUCER_VERSION,
             "contract_source": "A_SHARE_EARLY_MID_LATE_DATA_CONSUMPTION_CONTRACT_V1",
@@ -643,10 +676,14 @@ class EarlyMainFSJAssembler:
                 ],
             },
             "degrade": {
+                "contract_mode": contract_mode,
+                "completeness_label": completeness_label,
+                "degrade_reason": degrade_reason,
                 "has_high_evidence": data.has_high_evidence,
                 "has_low_evidence": data.has_low_evidence,
-                "candidate_only": not data.has_high_evidence,
+                "candidate_only": contract_mode == "candidate_only",
             },
+            "llm_assist": llm_audit,
         }
 
     def _bundle_summary(self, data: EarlyMainProducerInput) -> str:
@@ -685,6 +722,27 @@ class EarlyMainFSJAssembler:
         if data.has_low_evidence:
             return "仅将隔夜催化对应方向列为观察候选，不输出‘今日主线已成立’式判断。"
         return "本时段只保留 focus 观察池和开盘验证计划，不形成正式 thesis judgment。"
+
+    def _completeness_label(self, data: EarlyMainProducerInput) -> str:
+        if data.has_high_evidence:
+            return "complete"
+        if data.has_low_evidence:
+            return "partial"
+        return "sparse"
+
+    def _degrade_reason(self, data: EarlyMainProducerInput) -> str | None:
+        if data.has_high_evidence:
+            return None
+        if data.has_low_evidence:
+            return "missing_preopen_high_layer"
+        return "observation_scope_only"
+
+    def _contract_mode(self, data: EarlyMainProducerInput) -> str:
+        if data.has_high_evidence:
+            return "candidate_with_open_validation"
+        if data.has_low_evidence:
+            return "candidate_only"
+        return "watchlist_only"
 
     def _invalidators(self, data: EarlyMainProducerInput) -> list[str]:
         invalidators = [
