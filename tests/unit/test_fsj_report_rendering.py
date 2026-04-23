@@ -603,6 +603,9 @@ def test_main_report_delivery_dispatch_helper_prefers_ready_best_candidate() -> 
     assert decision["selected"]["artifact_id"] == "artifact-ready-late"
     assert decision["ready_candidate_count"] == 1
     assert decision["alternatives"][0]["artifact_id"] == "artifact-blocked-mid"
+    assert decision["ranked_candidates"][0]["artifact_id"] == "artifact-ready-late"
+    assert decision["ranked_candidates"][1]["delta_vs_selected"]["qa_score_delta"] == 8
+    assert decision["ranked_candidates"][1]["delta_vs_selected"]["ready_state_change"] == "False->True"
 
 
 def test_main_report_delivery_dispatch_helper_loads_and_discovers_delivery_packages(tmp_path: Path) -> None:
@@ -657,7 +660,10 @@ def test_main_report_delivery_dispatch_helper_falls_back_to_send_review_for_best
     }
 
     decision = helper.choose_best([provisional])
+    comparison = helper.build_candidate_comparison([provisional], current_artifact_id="artifact-provisional")
 
     assert decision["recommended_action"] == "send_review"
     assert decision["selected"]["artifact_id"] == "artifact-provisional"
     assert decision["selection_reason"] == "best_available_candidate provisional_close_only_requires_review"
+    assert comparison["selected_artifact_id"] == "artifact-provisional"
+    assert comparison["current_vs_selected"]["delta_current_vs_selected"]["qa_score_delta"] == 0

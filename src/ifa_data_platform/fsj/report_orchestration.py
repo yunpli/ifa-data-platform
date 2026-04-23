@@ -89,9 +89,15 @@ class MainReportMorningDeliveryOrchestrator:
             effective_action=effective_action,
             selected_handoff=selected_handoff,
         )
+        candidate_comparison = self.dispatch_helper.build_candidate_comparison(
+            candidates,
+            selected_artifact_id=selected_artifact_id,
+            current_artifact_id=active_artifact_id,
+        )
         operator_review_bundle = self._build_operator_review_bundle(
             published=published,
             dispatch_decision=dispatch_decision,
+            candidate_comparison=candidate_comparison,
             selected_is_current=selected_is_current,
             effective_action=effective_action,
             selected_handoff=selected_handoff,
@@ -105,6 +111,7 @@ class MainReportMorningDeliveryOrchestrator:
         operator_summary_path = package_dir / "operator_summary.txt"
         operator_review_bundle_path = package_dir / "operator_review_bundle.json"
         operator_review_readme_path = package_dir / "OPERATOR_REVIEW.md"
+        candidate_comparison_path = package_dir / "candidate_comparison.json"
         workflow_manifest_path = package_dir / "workflow_manifest.json"
 
         send_manifest_path.write_text(json.dumps(send_manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
@@ -112,6 +119,7 @@ class MainReportMorningDeliveryOrchestrator:
         operator_summary_path.write_text(operator_summary, encoding="utf-8")
         operator_review_bundle_path.write_text(json.dumps(operator_review_bundle, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
         operator_review_readme_path.write_text(operator_review_readme, encoding="utf-8")
+        candidate_comparison_path.write_text(json.dumps(candidate_comparison, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
         workflow_manifest = {
             "artifact_type": "fsj_main_report_delivery_workflow",
@@ -132,6 +140,7 @@ class MainReportMorningDeliveryOrchestrator:
                 "operator_summary": str(operator_summary_path.resolve()),
                 "operator_review_bundle": str(operator_review_bundle_path.resolve()),
                 "operator_review_readme": str(operator_review_readme_path.resolve()),
+                "candidate_comparison": str(candidate_comparison_path.resolve()),
                 "package_index": str(Path(published["package_index_path"]).resolve()),
                 "package_browse_readme": str(Path(published["package_browse_readme_path"]).resolve()),
                 "delivery_zip": str(Path(published["delivery_zip_path"]).resolve()),
@@ -142,6 +151,7 @@ class MainReportMorningDeliveryOrchestrator:
             "support_summary_aggregate": delivery_manifest.get("support_summary_aggregate") or {},
             "lineage": delivery_manifest.get("lineage") or {},
             "dispatch_decision": dispatch_decision,
+            "candidate_comparison": candidate_comparison,
             "review_manifest": review_manifest,
             "send_manifest": send_manifest,
             "operator_review_bundle": operator_review_bundle,
@@ -160,6 +170,8 @@ class MainReportMorningDeliveryOrchestrator:
             "operator_summary_path": str(operator_summary_path.resolve()),
             "operator_review_bundle": operator_review_bundle,
             "operator_review_bundle_path": str(operator_review_bundle_path.resolve()),
+            "candidate_comparison": candidate_comparison,
+            "candidate_comparison_path": str(candidate_comparison_path.resolve()),
             "operator_review_readme": operator_review_readme,
             "operator_review_readme_path": str(operator_review_readme_path.resolve()),
             "dispatch_decision": dispatch_decision,
@@ -305,6 +317,7 @@ class MainReportMorningDeliveryOrchestrator:
         *,
         published: dict[str, Any],
         dispatch_decision: dict[str, Any],
+        candidate_comparison: dict[str, Any],
         selected_is_current: bool,
         effective_action: str,
         selected_handoff: dict[str, Any],
@@ -339,6 +352,7 @@ class MainReportMorningDeliveryOrchestrator:
             "selected_is_current": selected_is_current,
             "selected_handoff": selected_handoff,
             "dispatch_decision": dispatch_decision,
+            "candidate_comparison": candidate_comparison,
             "current_candidate": current_candidate,
             "candidate_overview": {
                 "candidate_count": dispatch_decision.get("candidate_count"),
@@ -375,6 +389,7 @@ class MainReportMorningDeliveryOrchestrator:
         artifact_paths = dict(bundle.get("package_artifacts") or {})
         artifact_checks = list(bundle.get("artifact_checks") or [])
         operator_go_no_go = dict(bundle.get("operator_go_no_go") or {})
+        candidate_comparison = dict(bundle.get("candidate_comparison") or {})
 
         lines = [
             f"# MAIN Operator Review｜{bundle.get('business_date')}",
@@ -417,6 +432,40 @@ class MainReportMorningDeliveryOrchestrator:
         ]
         for item in checklist:
             lines.append(f"- [{item.get('status')}] {item.get('item')}: {item.get('detail')}")
+
+        ranked_candidates = list(candidate_comparison.get("ranked_candidates") or [])
+        if ranked_candidates:
+            lines.extend(["", "## Candidate Comparison"])
+            for item in ranked_candidates:
+                delta = dict(item.get("delta_vs_selected") or {})
+                lines.append(
+                    "- "
+                    f"rank=`{item.get('rank')}` "
+                    f"artifact_id=`{item.get('artifact_id')}` "
+                    f"ready=`{item.get('ready_for_delivery')}` "
+                    f"qa=`{item.get('qa_score')}` "
+                    f"avg_slot=`{item.get('average_slot_score')}` "
+                    f"slot=`{item.get('strongest_slot') or '-'}` "
+                    f"delta_vs_selected.qa=`{delta.get('qa_score_delta')}` "
+                    f"delta_vs_selected.avg_slot=`{delta.get('average_slot_score_delta')}` "
+                    f"delta_vs_selected.ready=`{delta.get('ready_state_change')}`"
+                )
+        current_vs_selected = dict(candidate_comparison.get("current_vs_selected") or {})
+        if current_vs_selected:
+            delta = dict(current_vs_selected.get("delta_current_vs_selected") or {})
+            lines.extend([
+                "",
+                "## Current vs Selected Delta",
+                f"- current_rank: `{current_vs_selected.get('current_rank')}`",
+                f"- selected_rank: `{current_vs_selected.get('selected_rank')}`",
+                f"- qa_score_delta: `{delta.get('qa_score_delta')}`",
+                f"- average_slot_score_delta: `{delta.get('average_slot_score_delta')}`",
+                f"- blocker_count_delta: `{delta.get('blocker_count_delta')}`",
+                f"- warning_count_delta: `{delta.get('warning_count_delta')}`",
+                f"- ready_for_delivery_change: `{delta.get('ready_for_delivery_change')}`",
+                f"- strongest_slot_change: `{delta.get('strongest_slot_change')}`",
+                f"- late_contract_mode_change: `{delta.get('late_contract_mode_change')}`",
+            ])
 
         if artifact_checks:
             lines.extend(["", "## Artifact Integrity"])

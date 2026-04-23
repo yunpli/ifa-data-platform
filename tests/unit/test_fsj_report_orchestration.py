@@ -170,8 +170,12 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert any(item["artifact"] == "html" and item["exists"] is True for item in operator_review_bundle["artifact_checks"])
     assert workflow["package_artifacts"]["operator_review_bundle"].endswith("operator_review_bundle.json")
     assert workflow["package_artifacts"]["operator_review_readme"].endswith("OPERATOR_REVIEW.md")
+    assert workflow["package_artifacts"]["candidate_comparison"].endswith("candidate_comparison.json")
     assert workflow["package_artifacts"]["package_index"].endswith("package_index.json")
     assert workflow["package_artifacts"]["package_browse_readme"].endswith("BROWSE_PACKAGE.md")
+    assert result["candidate_comparison"]["ranked_candidates"][0]["artifact_id"] == result["dispatch_decision"]["selected"]["artifact_id"]
+    assert Path(result["candidate_comparison_path"]).exists()
+    assert "## Candidate Comparison" in operator_review_readme
     assert workflow["support_summary_aggregate"]["domains"] == ["macro"]
     assert "## Review Checklist" in operator_review_readme
     assert "## Operator Go / No-Go" in operator_review_readme
@@ -252,6 +256,8 @@ def test_main_report_morning_delivery_workflow_marks_superseded_when_better_read
     assert "current_package_not_selected" in send_manifest["send_blockers"]
     assert operator_review_bundle["candidate_overview"]["selected_artifact_id"] == "artifact-better-ready"
     assert operator_review_bundle["operator_go_no_go"]["decision"] == "NO_GO"
+    assert operator_review_bundle["candidate_comparison"]["current_vs_selected"]["selected_artifact_id"] == "artifact-better-ready"
     assert "## Alternative Candidates" in operator_review_readme
+    assert "## Current vs Selected Delta" in operator_review_readme
     assert "artifact-better-ready" in operator_review_readme
     assert any(item["item"] == "confirm_selected_candidate" and item["status"] == "warn" for item in review_manifest["checklist"])

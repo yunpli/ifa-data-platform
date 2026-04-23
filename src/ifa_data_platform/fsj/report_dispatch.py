@@ -170,13 +170,15 @@ class MainReportDeliveryDispatchHelper:
                 "recommended_action": "hold",
                 "selected": None,
                 "alternatives": [],
+                "ranked_candidates": [],
                 "selection_reason": "no_candidates",
             }
 
         ready = [candidate for candidate in candidates if candidate.ready_for_delivery]
         pool = ready or list(candidates)
         selected = max(pool, key=lambda item: item.rank_tuple())
-        alternatives = [candidate for candidate in sorted(candidates, key=lambda item: item.rank_tuple(), reverse=True) if candidate.artifact_id != selected.artifact_id]
+        ranked = sorted(candidates, key=lambda item: item.rank_tuple(), reverse=True)
+        alternatives = [candidate for candidate in ranked if candidate.artifact_id != selected.artifact_id]
         recommended_action = self._recommended_action(selected)
         return {
             "artifact_type": "fsj_main_report_dispatch_decision",
@@ -188,6 +190,51 @@ class MainReportDeliveryDispatchHelper:
             "selection_reason": self._selection_reason(selected),
             "selected": selected.as_dict(),
             "alternatives": [candidate.as_dict() for candidate in alternatives],
+            "ranked_candidates": [
+                {
+                    **candidate.as_dict(),
+                    "rank": index,
+                    "recommended_action": self._recommended_action(candidate),
+                    "selection_reason": self._selection_reason(candidate),
+                    "delta_vs_selected": self._delta_vs_selected(selected, candidate),
+                }
+                for index, candidate in enumerate(ranked, start=1)
+            ],
+        }
+
+    def build_candidate_comparison(
+        self,
+        published_candidates: Sequence[dict[str, Any]],
+        *,
+        selected_artifact_id: str | None = None,
+        current_artifact_id: str | None = None,
+    ) -> dict[str, Any]:
+        decision = self.choose_best(published_candidates)
+        ranked = list(decision.get("ranked_candidates") or [])
+        selected = dict(decision.get("selected") or {})
+        if selected_artifact_id and selected.get("artifact_id") != selected_artifact_id:
+            selected = next((item for item in ranked if item.get("artifact_id") == selected_artifact_id), selected)
+        current = next((item for item in ranked if item.get("artifact_id") == current_artifact_id), None) if current_artifact_id else None
+        current_vs_selected = None
+        if current and selected:
+            current_vs_selected = {
+                "current_artifact_id": current.get("artifact_id"),
+                "selected_artifact_id": selected.get("artifact_id"),
+                "current_rank": current.get("rank"),
+                "selected_rank": selected.get("rank"),
+                "delta_current_vs_selected": self._dict_delta(current, selected),
+                "delta_selected_vs_current": self._dict_delta(selected, current),
+            }
+        return {
+            "artifact_type": "fsj_main_report_candidate_comparison",
+            "artifact_version": "v1",
+            "business_date": decision.get("business_date"),
+            "candidate_count": decision.get("candidate_count"),
+            "ready_candidate_count": decision.get("ready_candidate_count"),
+            "selected_artifact_id": selected.get("artifact_id") if selected else None,
+            "current_artifact_id": current_artifact_id,
+            "ranked_candidates": ranked,
+            "current_vs_selected": current_vs_selected,
         }
 
     def _recommended_action(self, candidate: DeliveryDispatchCandidate) -> str:
@@ -217,3 +264,43 @@ class MainReportDeliveryDispatchHelper:
         if not values:
             return 0
         return max(values) - min(values)
+
+    def _delta_vs_selected(self, selected: DeliveryDispatchCandidate, candidate: DeliveryDispatchCandidate) -> dict[str, Any]:
+        if candidate.artifact_id == selected.artifact_id:
+            return {
+                "selected": True,
+                "qa_score_delta": 0,
+                "average_slot_score_delta": 0.0,
+                "warning_count_delta": 0,
+                "blocker_count_delta": 0,
+                "slot_score_span_delta": 0,
+                "ready_state_change": "same",
+                "late_contract_mode_change": "same",
+                "strongest_slot_change": "same",
+            }
+        return {
+            "selected": False,
+            "qa_score_delta": candidate.qa_score - selected.qa_score,
+            "average_slot_score_delta": round(candidate.average_slot_score - selected.average_slot_score, 1),
+            "warning_count_delta": candidate.warning_count - selected.warning_count,
+            "blocker_count_delta": candidate.blocker_count - selected.blocker_count,
+            "slot_score_span_delta": candidate.slot_score_span - selected.slot_score_span,
+            "ready_state_change": self._change_label(candidate.ready_for_delivery, selected.ready_for_delivery),
+            "late_contract_mode_change": self._change_label(candidate.late_contract_mode, selected.late_contract_mode),
+            "strongest_slot_change": self._change_label(candidate.strongest_slot, selected.strongest_slot),
+        }
+
+    def _dict_delta(self, baseline: dict[str, Any], reference: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "qa_score_delta": int(baseline.get("qa_score") or 0) - int(reference.get("qa_score") or 0),
+            "average_slot_score_delta": round(float(baseline.get("average_slot_score") or 0.0) - float(reference.get("average_slot_score") or 0.0), 1),
+            "warning_count_delta": int(baseline.get("warning_count") or 0) - int(reference.get("warning_count") or 0),
+            "blocker_count_delta": int(baseline.get("blocker_count") or 0) - int(reference.get("blocker_count") or 0),
+            "slot_score_span_delta": int(baseline.get("slot_score_span") or 0) - int(reference.get("slot_score_span") or 0),
+            "ready_for_delivery_change": self._change_label(baseline.get("ready_for_delivery"), reference.get("ready_for_delivery")),
+            "late_contract_mode_change": self._change_label(baseline.get("late_contract_mode"), reference.get("late_contract_mode")),
+            "strongest_slot_change": self._change_label(baseline.get("strongest_slot"), reference.get("strongest_slot")),
+        }
+
+    def _change_label(self, value: Any, reference: Any) -> str:
+        return "same" if value == reference else f"{value}->{reference}"
