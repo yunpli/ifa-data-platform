@@ -156,9 +156,13 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert workflow["workflow_state"] == "ready_to_send"
     assert send_manifest["recommended_action"] == "send"
     assert send_manifest["workflow_state"] == "ready_to_send"
+    assert send_manifest["next_step"] == "send_selected_package_to_primary_channel"
+    assert send_manifest["send_blockers"] == []
+    assert workflow["selected_handoff"]["selected_is_current"] is True
     assert review_manifest["blocking_items"] == []
     assert any(item["item"] == "quality_gate_ready_for_delivery" and item["status"] == "pass" for item in review_manifest["checklist"])
     assert "recommended_action=send" in operator_summary
+    assert "selected_package_dir=" in operator_summary
 
 
 def test_main_report_morning_delivery_workflow_marks_review_required_for_provisional_candidate(tmp_path: Path) -> None:
@@ -184,6 +188,7 @@ def test_main_report_morning_delivery_workflow_marks_review_required_for_provisi
     assert workflow["recommended_action"] == "send_review"
     assert workflow["dispatch_recommended_action"] == "send"
     assert workflow["workflow_state"] == "review_required"
+    assert review_manifest["next_step"] == "review_current_package_then_send_if_accepted"
     assert any(item["item"] == "late_contract_mode" and item["status"] == "warn" for item in review_manifest["checklist"])
     assert review_manifest["warning_items"]
 
@@ -221,5 +226,8 @@ def test_main_report_morning_delivery_workflow_marks_superseded_when_better_read
 
     assert result["dispatch_decision"]["selected"]["artifact_id"] == "artifact-better-ready"
     assert workflow["workflow_state"] == "superseded_by_better_candidate"
+    assert workflow["selected_handoff"]["selected_artifact_id"] == "artifact-better-ready"
     assert send_manifest["selected_is_current"] is False
+    assert send_manifest["next_step"] == "switch_to_selected_package_and_do_not_send_current"
+    assert "current_package_not_selected" in send_manifest["send_blockers"]
     assert any(item["item"] == "confirm_selected_candidate" and item["status"] == "warn" for item in review_manifest["checklist"])

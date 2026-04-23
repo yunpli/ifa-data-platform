@@ -19,7 +19,7 @@ class MainReportWorkflowCandidate:
 class MainReportMorningDeliveryOrchestrator:
     """Single-call workflow for MAIN package + eval + dispatch + review/send manifests."""
 
-    WORKFLOW_VERSION = "v1"
+    WORKFLOW_VERSION = "v2"
 
     def __init__(
         self,
@@ -62,23 +62,32 @@ class MainReportMorningDeliveryOrchestrator:
             dispatch_decision=dispatch_decision,
             selected_is_current=selected_is_current,
         )
+        selected_handoff = self._build_selected_handoff(
+            published=published,
+            dispatch_decision=dispatch_decision,
+            selected_is_current=selected_is_current,
+            effective_action=effective_action,
+        )
         send_manifest = self._build_send_manifest(
             published=published,
             dispatch_decision=dispatch_decision,
             selected_is_current=selected_is_current,
             effective_action=effective_action,
+            selected_handoff=selected_handoff,
         )
         review_manifest = self._build_review_manifest(
             published=published,
             dispatch_decision=dispatch_decision,
             selected_is_current=selected_is_current,
             effective_action=effective_action,
+            selected_handoff=selected_handoff,
         )
         operator_summary = self._build_operator_summary(
             published=published,
             dispatch_decision=dispatch_decision,
             selected_is_current=selected_is_current,
             effective_action=effective_action,
+            selected_handoff=selected_handoff,
         )
 
         send_manifest_path = package_dir / "send_manifest.json"
@@ -101,6 +110,7 @@ class MainReportMorningDeliveryOrchestrator:
             "selected_candidate": dispatch_selected,
             "selected_is_current": selected_is_current,
             "current_candidate": self.dispatch_helper.candidate_from_published(published).as_dict(),
+            "selected_handoff": selected_handoff,
             "package_artifacts": {
                 "delivery_manifest": str(Path(published["delivery_manifest_path"]).resolve()),
                 "send_manifest": str(send_manifest_path.resolve()),
@@ -129,6 +139,7 @@ class MainReportMorningDeliveryOrchestrator:
             "operator_summary": operator_summary,
             "operator_summary_path": str(operator_summary_path.resolve()),
             "dispatch_decision": dispatch_decision,
+            "selected_handoff": selected_handoff,
         }
 
     def _build_send_manifest(
@@ -138,6 +149,7 @@ class MainReportMorningDeliveryOrchestrator:
         dispatch_decision: dict[str, Any],
         selected_is_current: bool,
         effective_action: str,
+        selected_handoff: dict[str, Any],
     ) -> dict[str, Any]:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
         dispatch_recommended_action = str(dispatch_decision.get("recommended_action") or "hold")
@@ -149,6 +161,11 @@ class MainReportMorningDeliveryOrchestrator:
             "review_manifest": str(Path(published["delivery_package_dir"]) / "review_manifest.json"),
             "telegram_caption": published.get("telegram_caption_path"),
         }
+        send_blockers = self._send_blockers(
+            effective_action=effective_action,
+            selected_is_current=selected_is_current,
+            ready_for_delivery=current_candidate.ready_for_delivery,
+        )
         return {
             "artifact_type": "fsj_main_report_send_manifest",
             "artifact_version": self.WORKFLOW_VERSION,
@@ -161,6 +178,9 @@ class MainReportMorningDeliveryOrchestrator:
             "selected_is_current": selected_is_current,
             "ready_for_delivery": current_candidate.ready_for_delivery,
             "dispatch_selected_artifact_id": (dispatch_decision.get("selected") or {}).get("artifact_id"),
+            "selected_handoff": selected_handoff,
+            "send_blockers": send_blockers,
+            "next_step": self._next_step_text(effective_action, selected_is_current, bool(send_blockers)),
             "channel_plan": {
                 "primary_channel": "telegram_document",
                 "caption_path": published.get("telegram_caption_path"),
@@ -177,6 +197,7 @@ class MainReportMorningDeliveryOrchestrator:
         dispatch_decision: dict[str, Any],
         selected_is_current: bool,
         effective_action: str,
+        selected_handoff: dict[str, Any],
     ) -> dict[str, Any]:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
         quality_gate = dict(delivery_manifest.get("quality_gate") or {})
@@ -203,6 +224,8 @@ class MainReportMorningDeliveryOrchestrator:
                 "detail": f"effective_action={effective_action} dispatch_action={dispatch_recommended_action}",
             },
         ]
+        blocking_items = [item for item in checklist if item["status"] == "fail"]
+        warning_items = [item for item in checklist if item["status"] == "warn"]
         return {
             "artifact_type": "fsj_main_report_review_manifest",
             "artifact_version": self.WORKFLOW_VERSION,
@@ -213,9 +236,11 @@ class MainReportMorningDeliveryOrchestrator:
             "dispatch_recommended_action": dispatch_recommended_action,
             "selected_is_current": selected_is_current,
             "selection_reason": dispatch_decision.get("selection_reason"),
+            "selected_handoff": selected_handoff,
+            "next_step": self._next_step_text(effective_action, selected_is_current, bool(blocking_items)),
             "checklist": checklist,
-            "blocking_items": [item for item in checklist if item["status"] == "fail"],
-            "warning_items": [item for item in checklist if item["status"] == "warn"],
+            "blocking_items": blocking_items,
+            "warning_items": warning_items,
         }
 
     def _build_operator_summary(
@@ -225,6 +250,7 @@ class MainReportMorningDeliveryOrchestrator:
         dispatch_decision: dict[str, Any],
         selected_is_current: bool,
         effective_action: str,
+        selected_handoff: dict[str, Any],
     ) -> str:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
         quality_gate = dict(delivery_manifest.get("quality_gate") or {})
@@ -232,14 +258,52 @@ class MainReportMorningDeliveryOrchestrator:
         lines = [
             f"MAIN morning delivery workflow｜{delivery_manifest.get('business_date')}",
             f"recommended_action={effective_action}｜dispatch_action={dispatch_decision.get('recommended_action')}｜selected_is_current={selected_is_current}",
+            f"next_step={self._next_step_text(effective_action, selected_is_current, not bool(delivery_manifest.get('ready_for_delivery')))}",
             f"current_artifact_id={delivery_manifest.get('artifact_id')}",
             f"selected_artifact_id={selected.get('artifact_id')}",
             f"selection_reason={dispatch_decision.get('selection_reason')}",
             f"quality_gate score={quality_gate.get('score')} blockers={quality_gate.get('blocker_count')} warnings={quality_gate.get('warning_count')} late_contract_mode={quality_gate.get('late_contract_mode')}",
+            f"selected_package_dir={selected_handoff.get('delivery_package_dir')}",
+            f"selected_delivery_manifest={selected_handoff.get('delivery_manifest_path')}",
+            f"selected_delivery_zip={selected_handoff.get('delivery_zip_path')}",
+            f"selected_telegram_caption={selected_handoff.get('telegram_caption_path')}",
             f"delivery_zip={published.get('delivery_zip_path')}",
             f"caption={published.get('telegram_caption_path')}",
         ]
         return "\n".join(str(line) for line in lines) + "\n"
+
+    def _build_selected_handoff(
+        self,
+        *,
+        published: dict[str, Any],
+        dispatch_decision: dict[str, Any],
+        selected_is_current: bool,
+        effective_action: str,
+    ) -> dict[str, Any]:
+        current_delivery_manifest = dict(published.get("delivery_manifest") or {})
+        selected = dict(dispatch_decision.get("selected") or {})
+        selected_dir = selected.get("delivery_package_dir") or published.get("delivery_package_dir")
+        selected_manifest = selected.get("delivery_manifest_path") or published.get("delivery_manifest_path")
+        selected_zip = selected.get("delivery_zip_path") or published.get("delivery_zip_path")
+        if selected_is_current:
+            selected_caption = published.get("telegram_caption_path")
+        else:
+            selected_caption = None
+            if selected_dir:
+                candidate = Path(str(selected_dir)) / "telegram_caption.txt"
+                if candidate.exists():
+                    selected_caption = str(candidate.resolve())
+        return {
+            "selected_is_current": selected_is_current,
+            "effective_action": effective_action,
+            "selected_artifact_id": selected.get("artifact_id") or current_delivery_manifest.get("artifact_id"),
+            "selected_report_run_id": selected.get("report_run_id") or current_delivery_manifest.get("report_run_id"),
+            "selected_business_date": selected.get("business_date") or current_delivery_manifest.get("business_date"),
+            "delivery_package_dir": selected_dir,
+            "delivery_manifest_path": selected_manifest,
+            "delivery_zip_path": selected_zip,
+            "telegram_caption_path": selected_caption,
+        }
 
     def _effective_action(
         self,
@@ -255,6 +319,27 @@ class MainReportMorningDeliveryOrchestrator:
         if quality_gate.get("late_contract_mode") == "provisional_close_only":
             return "send_review"
         return dispatch_action
+
+    def _send_blockers(self, *, effective_action: str, selected_is_current: bool, ready_for_delivery: bool) -> list[str]:
+        blockers: list[str] = []
+        if not selected_is_current:
+            blockers.append("current_package_not_selected")
+        if effective_action == "hold":
+            blockers.append("recommended_action_hold")
+        if effective_action == "send_review":
+            blockers.append("manual_review_required")
+        if not ready_for_delivery:
+            blockers.append("quality_gate_not_ready")
+        return blockers
+
+    def _next_step_text(self, effective_action: str, selected_is_current: bool, has_blockers: bool) -> str:
+        if effective_action == "send" and selected_is_current and not has_blockers:
+            return "send_selected_package_to_primary_channel"
+        if effective_action == "send_review" and selected_is_current:
+            return "review_current_package_then_send_if_accepted"
+        if not selected_is_current:
+            return "switch_to_selected_package_and_do_not_send_current"
+        return "hold_and_fix_quality_gate_before_send"
 
     def _workflow_state(self, recommended_action: str, selected_is_current: bool) -> str:
         if recommended_action == "send" and selected_is_current:

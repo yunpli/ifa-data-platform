@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Sequence
+import json
 
 
 SLOT_PRIORITY: dict[str, int] = {"late": 30, "mid": 20, "early": 10}
@@ -93,6 +95,59 @@ class MainReportDeliveryDispatchHelper:
             "recommended_action": self._recommended_action(candidate),
             "selection_reason": self._selection_reason(candidate),
         }
+
+    def load_published_candidate(self, path: str | Path) -> dict[str, Any]:
+        input_path = Path(path)
+        manifest_path = input_path / "delivery_manifest.json" if input_path.is_dir() else input_path
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        package_dir = manifest_path.parent
+        artifact = {
+            "artifact_id": payload.get("artifact_id"),
+            "report_run_id": payload.get("report_run_id"),
+            "business_date": payload.get("business_date"),
+            "artifact_family": payload.get("artifact_family"),
+        }
+        eval_name = str((payload.get("artifacts") or {}).get("evaluation") or "").strip()
+        report_evaluation: dict[str, Any] = {}
+        if eval_name:
+            report_eval_path = package_dir / eval_name
+            try:
+                report_evaluation = json.loads(report_eval_path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                report_evaluation = {}
+        caption_path = package_dir / str((payload.get("artifacts") or {}).get("telegram_caption") or "telegram_caption.txt")
+        zip_candidates = sorted(package_dir.parent.glob(f"{package_dir.name}.zip"))
+        return {
+            "artifact": artifact,
+            "delivery_package_dir": str(package_dir.resolve()),
+            "delivery_manifest_path": str(manifest_path.resolve()),
+            "delivery_zip_path": str(zip_candidates[0].resolve()) if zip_candidates else None,
+            "telegram_caption_path": str(caption_path.resolve()) if caption_path.exists() else None,
+            "delivery_manifest": payload,
+            "report_evaluation": report_evaluation,
+        }
+
+    def discover_published_candidates(
+        self,
+        root_dir: str | Path,
+        *,
+        business_date: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        root = Path(root_dir)
+        if not root.exists():
+            return []
+        manifests = sorted(root.glob("a_share_main_report_delivery_*/delivery_manifest.json"), reverse=True)
+        results: list[dict[str, Any]] = []
+        for manifest_path in manifests:
+            published = self.load_published_candidate(manifest_path)
+            candidate_date = (published.get("delivery_manifest") or {}).get("business_date")
+            if business_date and candidate_date != business_date:
+                continue
+            results.append(published)
+            if limit is not None and len(results) >= limit:
+                break
+        return results
 
     def choose_best(self, published_candidates: Sequence[dict[str, Any]]) -> dict[str, Any]:
         candidates = [self.candidate_from_published(item) for item in published_candidates]

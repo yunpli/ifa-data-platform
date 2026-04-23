@@ -589,6 +589,37 @@ def test_main_report_delivery_dispatch_helper_prefers_ready_best_candidate() -> 
     assert decision["alternatives"][0]["artifact_id"] == "artifact-blocked-mid"
 
 
+def test_main_report_delivery_dispatch_helper_loads_and_discovers_delivery_packages(tmp_path: Path) -> None:
+    helper = MainReportDeliveryDispatchHelper()
+    root = tmp_path / "out"
+    package = root / "a_share_main_report_delivery_2099-04-22_20990422T095700Z_artifact-ready"
+    package.mkdir(parents=True)
+    (package / "telegram_caption.txt").write_text("caption", encoding="utf-8")
+    (root / f"{package.name}.zip").write_text("zip", encoding="utf-8")
+    (package / "artifact.eval.json").write_text(json.dumps({"summary": {"slot_scores": {"early": 72, "mid": 84, "late": 95}, "average_slot_score": 83.7, "slot_score_span": 23, "strongest_slot": "late", "weakest_slot": "early"}}), encoding="utf-8")
+    (package / "delivery_manifest.json").write_text(json.dumps({
+        "artifact_id": "artifact-ready",
+        "business_date": "2099-04-22",
+        "report_run_id": "run-ready",
+        "artifact_family": "a_share_main",
+        "package_state": "ready",
+        "ready_for_delivery": True,
+        "quality_gate": {"score": 91, "blocker_count": 0, "warning_count": 1, "late_contract_mode": "full_close_package"},
+        "slot_evaluation": {"strongest_slot": "late", "weakest_slot": "early", "slot_scores": {"early": 72, "mid": 84, "late": 95}},
+        "artifacts": {"evaluation": "artifact.eval.json", "telegram_caption": "telegram_caption.txt"},
+    }), encoding="utf-8")
+
+    loaded = helper.load_published_candidate(package)
+    discovered = helper.discover_published_candidates(root, business_date="2099-04-22")
+
+    assert loaded["delivery_manifest"]["artifact_id"] == "artifact-ready"
+    assert loaded["telegram_caption_path"].endswith("telegram_caption.txt")
+    assert loaded["delivery_zip_path"].endswith("artifact-ready.zip")
+    assert loaded["report_evaluation"]["summary"]["strongest_slot"] == "late"
+    assert len(discovered) == 1
+    assert discovered[0]["delivery_manifest_path"].endswith("delivery_manifest.json")
+
+
 def test_main_report_delivery_dispatch_helper_falls_back_to_send_review_for_best_available_provisional_candidate() -> None:
     helper = MainReportDeliveryDispatchHelper()
     provisional = {
