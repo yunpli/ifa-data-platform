@@ -156,9 +156,32 @@ class UnifiedRuntimeDaemonStore:
                 continue
             if row["day_of_week"] is not None and now_bj.weekday() != row["day_of_week"]:
                 continue
-            if now_bj.strftime("%H:%M") == row["beijing_time_hm"]:
-                due.append(row)
+            if now_bj.strftime("%H:%M") != row["beijing_time_hm"]:
+                continue
+            state = self.get_worker_state(row["worker_type"])
+            if self._already_triggered_in_current_minute(state=state, schedule_key=row["schedule_key"], now_bj=now_bj):
+                continue
+            due.append(row)
         return due
+
+    def _already_triggered_in_current_minute(
+        self,
+        *,
+        state: Optional[dict[str, Any]],
+        schedule_key: Optional[str],
+        now_bj: datetime,
+    ) -> bool:
+        if not state or not schedule_key:
+            return False
+        last_schedule_key = state.get("last_schedule_key")
+        last_started_at = state.get("last_started_at")
+        if last_schedule_key != schedule_key or last_started_at is None:
+            return False
+        if getattr(last_started_at, "tzinfo", None) is None:
+            local_tz = datetime.now().astimezone().tzinfo or timezone.utc
+            last_started_at = last_started_at.replace(tzinfo=local_tz)
+        current_local = now_bj.astimezone(last_started_at.tzinfo)
+        return abs((current_local - last_started_at).total_seconds()) < 60
 
     def get_worker_state(self, worker_type: str) -> Optional[dict[str, Any]]:
         with self.engine.begin() as conn:

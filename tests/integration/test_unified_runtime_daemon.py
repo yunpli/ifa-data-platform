@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, date, timedelta
 
+from zoneinfo import ZoneInfo
+
+from sqlalchemy import text
+
 from ifa_data_platform.runtime.trading_calendar import TradingCalendarService
 from ifa_data_platform.runtime.unified_daemon import UnifiedRuntimeDaemon, UnifiedRuntimeDaemonStore
 
@@ -88,3 +92,48 @@ def test_watchdog_missed_schedule_exceeds_grace() -> None:
     )
     assert entry["state"] == "stale_missed_schedule"
     assert "exceeded grace" in entry["note"]
+
+
+def test_due_schedules_skips_same_minute_duplicate_for_same_schedule_key() -> None:
+    store = UnifiedRuntimeDaemonStore()
+    store.seed_schedule_policy()
+    now_bj = datetime(2026, 4, 23, 11, 5, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    store.mark_worker_running(
+        worker_type="midfreq",
+        run_id="00000000-0000-0000-0000-000000000123",
+        schedule_key="midfreq:trade_day_1105",
+        trigger_mode="scheduled",
+    )
+    with store.engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                update ifa2.runtime_worker_state
+                   set last_started_at = :last_started_at,
+                       active_started_at = :last_started_at,
+                       last_heartbeat_at = :last_started_at
+                 where worker_type = 'midfreq'
+                """
+            ),
+            {"last_started_at": now_bj.astimezone(timezone.utc)},
+        )
+
+    due = store.due_schedules(now_bj, day_type="trading_day")
+    assert all(row["schedule_key"] != "midfreq:trade_day_1105" for row in due)
+
+
+def test_due_schedules_keeps_other_same_minute_worker_due() -> None:
+    store = UnifiedRuntimeDaemonStore()
+    store.seed_schedule_policy()
+    now_bj = datetime(2026, 4, 23, 14, 5, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    store.mark_worker_running(
+        worker_type="midfreq",
+        run_id="00000000-0000-0000-0000-000000000124",
+        schedule_key="midfreq:trade_day_1105",
+        trigger_mode="scheduled",
+    )
+
+    due = store.due_schedules(now_bj, day_type="trading_day")
+    assert any(row["schedule_key"] == "highfreq:trade_day_1405" for row in due)
