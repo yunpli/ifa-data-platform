@@ -169,8 +169,25 @@ class TradeCalendarMaintenanceService:
     ) -> dict[str, Any]:
         now_utc = now or datetime.now(timezone.utc)
         decision = self.should_auto_sync(exchange=exchange, now=now_utc)
+        target_start = now_utc.date() - timedelta(days=lookback_days)
+        target_end = now_utc.date() + timedelta(days=forward_days)
+        coverage = self._get_coverage_span(exchange=exchange)
+        min_date = coverage.get("min_date")
+        max_date = coverage.get("max_date")
+
         if not decision["should_sync"]:
-            return {"performed": False, "decision": decision, "result": None}
+            if min_date is None or min_date > target_start or max_date is None or max_date < target_end:
+                decision = {
+                    **decision,
+                    "should_sync": True,
+                    "reason": "coverage_window_insufficient",
+                    "required_start": target_start.isoformat(),
+                    "required_end": target_end.isoformat(),
+                    "observed_start": min_date.isoformat() if min_date else None,
+                    "observed_end": max_date.isoformat() if max_date else None,
+                }
+            else:
+                return {"performed": False, "decision": decision, "result": None}
         result = self.monthly_sync(
             anchor_date=now_utc.date(),
             exchange=exchange,
@@ -194,17 +211,8 @@ class TradeCalendarMaintenanceService:
         coverage_end = today + timedelta(days=future_days_required)
         findings: list[dict[str, Any]] = []
 
+        span = self._get_coverage_span(exchange=exchange)
         with self.engine.begin() as conn:
-            span = conn.execute(
-                text(
-                    """
-                    SELECT min(cal_date) AS min_date, max(cal_date) AS max_date, count(*) AS row_count
-                    FROM ifa2.trade_cal_current
-                    WHERE exchange = :exchange
-                    """
-                ),
-                {"exchange": exchange},
-            ).mappings().first()
             missing = conn.execute(
                 text(
                     """
@@ -298,6 +306,20 @@ class TradeCalendarMaintenanceService:
             active_version_promoted_at_utc=(active_promoted_at.replace(tzinfo=timezone.utc) if active_promoted_at and active_promoted_at.tzinfo is None else active_promoted_at.astimezone(timezone.utc)).isoformat() if active_promoted_at else None,
             findings=findings,
         )
+
+    def _get_coverage_span(self, *, exchange: str) -> dict[str, Any]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT min(cal_date) AS min_date, max(cal_date) AS max_date, count(*) AS row_count
+                    FROM ifa2.trade_cal_current
+                    WHERE exchange = :exchange
+                    """
+                ),
+                {"exchange": exchange},
+            ).mappings().first()
+        return dict(row) if row else {"min_date": None, "max_date": None, "row_count": 0}
 
     def _record_success(
         self,

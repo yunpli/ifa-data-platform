@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 from sqlalchemy import text
@@ -125,7 +125,42 @@ def test_trade_calendar_sync_state_is_recorded_and_gate_skips_when_fresh(monkeyp
     assert state['last_successful_run_id'] == result.run_id
     assert str(state['last_successful_version_id']) == result.version_id
 
-    gate = svc.auto_sync_if_due(exchange='SSE')
+    gate = svc.auto_sync_if_due(
+        exchange='SSE',
+        now=datetime(2026, 4, 15, tzinfo=timezone.utc),
+        lookback_days=14,
+        forward_days=10,
+    )
     assert gate['performed'] is False
     assert gate['decision']['reason'] == 'fresh_sync_state'
     assert len(fake_client.calls) == 1
+
+
+def test_trade_calendar_gate_syncs_when_state_is_fresh_but_coverage_is_short(monkeypatch) -> None:
+    fake_client = _FakeTushareClient([
+        {'exchange': 'SSE', 'cal_date': '20260401', 'is_open': '1', 'pretrade_date': '20260331'},
+        {'exchange': 'SSE', 'cal_date': '20260425', 'is_open': '1', 'pretrade_date': '20260424'},
+        {'exchange': 'SSE', 'cal_date': '20270428', 'is_open': '1', 'pretrade_date': '20270427'},
+    ])
+    monkeypatch.setattr(
+        'ifa_data_platform.lowfreq.trade_calendar_maintenance.get_tushare_client',
+        lambda: fake_client,
+    )
+
+    svc = TradeCalendarMaintenanceService()
+    svc.monthly_sync(anchor_date=date(2026, 4, 15), lookback_days=14, forward_days=10)
+
+    gate = svc.auto_sync_if_due(
+        exchange='SSE',
+        now=datetime(2026, 4, 23, tzinfo=timezone.utc),
+        lookback_days=45,
+        forward_days=400,
+    )
+
+    assert gate['performed'] is True
+    assert gate['decision']['reason'] == 'coverage_window_insufficient'
+    assert gate['decision']['required_end'] == '2027-05-28'
+    assert gate['decision']['observed_end'] == '2027-04-28'
+    assert len(fake_client.calls) == 2
+    assert fake_client.calls[1][1]['start_date'] == '20260309'
+    assert fake_client.calls[1][1]['end_date'] == '20270528'
