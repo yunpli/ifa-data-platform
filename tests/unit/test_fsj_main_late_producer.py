@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ifa_data_platform.fsj.late_main_producer import LateMainFSJAssembler, LateMainProducerInput
 
 
@@ -247,3 +249,16 @@ def test_assembler_refuses_full_close_when_only_intraday_context_exists() -> Non
     assert any(obj["attributes_json"].get("source_layer") == "replay" for obj in payload["objects"] if obj["fsj_kind"] == "fact")
     assert payload["report_links"] == []
     assert payload["bundle"]["supersedes_bundle_id"] is None
+
+
+def test_late_assembler_backfills_runtime_lineage_ids_when_reader_inputs_are_missing() -> None:
+    assembler = LateMainFSJAssembler()
+    payload = assembler.build_bundle_graph(replace(_sample_input(full_close=True, provisional=False), replay_id=None, slot_run_id=None))
+
+    bundle = payload["bundle"]
+    assert bundle["slot_run_id"].startswith("fsj-runtime:slot_run:2099-04-22:late:")
+    assert bundle["replay_id"].startswith("fsj-runtime:replay:2099-04-22:late:")
+    assert any(
+        link["evidence_role"] == "slot_replay" and link["ref_key"] == bundle["replay_id"]
+        for link in payload["evidence_links"]
+    )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ifa_data_platform.fsj.early_main_producer import EarlyMainFSJAssembler, EarlyMainProducerInput
 
 
@@ -83,3 +85,16 @@ def test_assembler_degrades_to_watch_item_when_high_layer_missing() -> None:
     assert market_fact["attributes_json"]["is_finalized_equivalent"] is False
     assert market_fact["attributes_json"]["degrade_reason"] == "missing_preopen_high_layer"
     assert payload["bundle"]["payload_json"]["degrade"]["candidate_only"] is True
+
+
+def test_assembler_backfills_runtime_lineage_ids_when_reader_inputs_are_missing() -> None:
+    assembler = EarlyMainFSJAssembler()
+    payload = assembler.build_bundle_graph(replace(_sample_input(has_high=True, has_low=True), replay_id=None, slot_run_id=None))
+
+    bundle = payload["bundle"]
+    assert bundle["slot_run_id"].startswith("fsj-runtime:slot_run:2099-04-22:early:")
+    assert bundle["replay_id"].startswith("fsj-runtime:replay:2099-04-22:early:")
+    assert any(
+        link["evidence_role"] == "slot_replay" and link["ref_key"] == bundle["replay_id"]
+        for link in payload["evidence_links"]
+    )

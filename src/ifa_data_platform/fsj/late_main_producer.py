@@ -743,7 +743,10 @@ class LateMainFSJAssembler:
                 }
             )
 
-        if data.replay_id:
+        replay_id = data.replay_id or self._default_runtime_id(data, kind="replay")
+        slot_run_id = data.slot_run_id or self._default_runtime_id(data, kind="slot_run")
+
+        if replay_id:
             evidence_links.append(
                 {
                     "object_key": None,
@@ -752,8 +755,8 @@ class LateMainFSJAssembler:
                     "ref_system": "runtime",
                     "ref_family": "slot_replay",
                     "ref_table": "ifa2.slot_replay_evidence",
-                    "ref_key": data.replay_id,
-                    "ref_locator_json": {"replay_id": data.replay_id},
+                    "ref_key": replay_id,
+                    "ref_locator_json": {"replay_id": replay_id},
                 }
             )
 
@@ -771,8 +774,8 @@ class LateMainFSJAssembler:
             "assembly_mode": "contract_driven_first_slice",
             "status": "active",
             "supersedes_bundle_id": None,
-            "slot_run_id": data.slot_run_id,
-            "replay_id": data.replay_id,
+            "slot_run_id": slot_run_id,
+            "replay_id": replay_id,
             "report_run_id": data.report_run_id,
             "summary": llm_result.summary if llm_result else self._bundle_summary(data),
             "payload_json": self._payload_meta(data, completeness_label, degrade_reason, contract_mode, llm_audit),
@@ -868,6 +871,11 @@ class LateMainFSJAssembler:
         seed = f"a_share|{data.business_date}|{data.slot}|main|{data.section_key}|{data.bundle_topic_key}|{LATE_MAIN_PRODUCER_VERSION}"
         digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
         return f"fsj:a_share:{data.business_date}:{data.slot}:main:{data.section_key}:{digest}"
+
+    def _default_runtime_id(self, data: LateMainProducerInput, *, kind: str) -> str:
+        seed = f"a_share|{data.business_date}|{data.slot}|main|{data.section_key}|{data.bundle_topic_key}|{kind}|{LATE_MAIN_PRODUCER_VERSION}"
+        digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
+        return f"fsj-runtime:{kind}:{data.business_date}:{data.slot}:{digest}"
 
     def _completeness_label(self, data: LateMainProducerInput) -> str:
         if data.full_close_ready:

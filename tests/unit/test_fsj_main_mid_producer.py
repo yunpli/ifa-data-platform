@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ifa_data_platform.fsj.llm_assist import (
     FSJMidLLMAssistant,
     FSJMidLLMRequest,
@@ -255,3 +257,16 @@ def test_assembler_degrades_to_monitoring_only_when_intraday_structure_missing()
     assert structure_fact["attributes_json"]["is_finalized_equivalent"] is False
     assert structure_fact["attributes_json"]["degrade_reason"] == "missing_intraday_structure"
     assert payload["bundle"]["payload_json"]["degrade"]["monitoring_only"] is True
+
+
+def test_mid_assembler_backfills_runtime_lineage_ids_when_reader_inputs_are_missing() -> None:
+    assembler = MidMainFSJAssembler()
+    payload = assembler.build_bundle_graph(replace(_sample_input(), replay_id=None, slot_run_id=None))
+
+    bundle = payload["bundle"]
+    assert bundle["slot_run_id"].startswith("fsj-runtime:slot_run:2099-04-22:mid:")
+    assert bundle["replay_id"].startswith("fsj-runtime:replay:2099-04-22:mid:")
+    assert any(
+        link["evidence_role"] == "slot_replay" and link["ref_key"] == bundle["replay_id"]
+        for link in payload["evidence_links"]
+    )
