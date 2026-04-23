@@ -47,9 +47,12 @@ def main():
 
     with engine.begin() as conn:
         worker_states = conn.execute(text("select * from ifa2.runtime_worker_state order by worker_type")).mappings().all()
+        active_run_ids: set[str] = set()
         for ws in worker_states:
             active_run_id = ws.get('active_run_id')
             active_started_at = _utc(ws.get('active_started_at'))
+            if active_run_id:
+                active_run_ids.add(str(active_run_id))
             if active_run_id and active_started_at:
                 age_min = (now - active_started_at).total_seconds() / 60.0
                 if age_min >= args.runtime_stale_min:
@@ -97,6 +100,58 @@ def main():
                                 )
                             where id = cast(:run_id as uuid)
                         """), {'run_id': str(active_run_id)})
+
+        orphan_runs = conn.execute(text("""
+            select id, lane, worker_type, trigger_mode, schedule_key, started_at, completed_at, status, governance_state
+            from ifa2.unified_runtime_runs
+            where coalesce(status, '') in ('running', 'active')
+            order by started_at asc
+        """)).mappings().all()
+        for run in orphan_runs:
+            run_id = str(run['id'])
+            if run_id in active_run_ids:
+                continue
+            started_at = _utc(run.get('started_at'))
+            age_min = (now - started_at).total_seconds() / 60.0 if started_at else None
+            if age_min is None or age_min < args.runtime_stale_min:
+                continue
+            action = 'auto_clear_orphan_unified_runtime_run' if args.repair else 'would_clear_orphan_unified_runtime_run'
+            findings.append(Finding('unified_runtime_run_orphan_active', action, {
+                'run_id': run_id,
+                'lane': run.get('lane'),
+                'worker_type': run.get('worker_type'),
+                'trigger_mode': run.get('trigger_mode'),
+                'schedule_key': run.get('schedule_key'),
+                'started_at': started_at.isoformat() if started_at else None,
+                'age_min': round(age_min, 1),
+                'status': run.get('status'),
+                'governance_state': run.get('governance_state'),
+                'reason': 'running row has no matching runtime_worker_state.active_run_id',
+            }))
+            if args.repair:
+                conn.execute(text("""
+                    update ifa2.unified_runtime_runs
+                    set status = case
+                            when coalesce(status, '') in ('running', 'active') then 'timed_out'
+                            else status
+                        end,
+                        governance_state = case
+                            when coalesce(governance_state, '') in ('', 'ok', 'running', 'active') then 'timed_out'
+                            else governance_state
+                        end,
+                        completed_at = coalesce(completed_at, now()),
+                        duration_ms = coalesce(
+                            duration_ms,
+                            greatest(0, floor(extract(epoch from (now() - started_at)) * 1000))::bigint
+                        ),
+                        error_count = greatest(coalesce(error_count, 0), 1),
+                        summary = coalesce(summary, '{}'::jsonb) || jsonb_build_object(
+                            'runtime_preflight_repaired', true,
+                            'runtime_preflight_repaired_at', now(),
+                            'runtime_preflight_reason', 'orphan_active_unified_runtime_run'
+                        )
+                    where id = cast(:run_id as uuid)
+                """), {'run_id': run_id})
 
         cps = conn.execute(text("select * from ifa2.archive_checkpoints where status = 'in_progress' order by dataset_name, asset_type")).mappings().all()
         for cp in cps:
@@ -167,6 +222,7 @@ def main():
         'summary': {
             'total_findings': len(findings),
             'stale_runtime_active': sum(1 for f in findings if f.kind == 'runtime_worker_state_stale_active'),
+            'orphan_unified_runtime_active': sum(1 for f in findings if f.kind == 'unified_runtime_run_orphan_active'),
             'in_progress_checkpoints': sum(1 for f in findings if f.kind == 'archive_checkpoint_in_progress'),
             'catchup_pending_or_observed': sum(1 for f in findings if f.kind == 'archive_target_catchup_pending_or_observed'),
             'trade_calendar_status': calendar_report.status,

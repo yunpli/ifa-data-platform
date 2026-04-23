@@ -5,8 +5,11 @@ import os
 import subprocess
 from pathlib import Path
 
+from sqlalchemy import create_engine, text
+
 REPO = Path('/Users/neoclaw/repos/ifa-data-platform')
 PY = REPO / '.venv/bin/python'
+ENGINE = create_engine('postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp')
 
 
 def test_runtime_preflight_outputs_findings_file(tmp_path: Path):
@@ -198,6 +201,59 @@ def test_unified_daemon_service_start_detects_existing_daemon_via_process_scan(t
     finally:
         daemon.terminate()
         daemon.wait(timeout=5)
+
+
+def test_runtime_preflight_repairs_orphan_running_unified_runtime_row(tmp_path: Path):
+    run_id = '11111111-1111-1111-1111-111111111111'
+    with ENGINE.begin() as conn:
+        conn.execute(text("delete from ifa2.unified_runtime_runs where id = cast(:id as uuid)"), {'id': run_id})
+        conn.execute(text("delete from ifa2.job_runs where id = cast(:id as uuid)"), {'id': run_id})
+        conn.execute(text("""
+            insert into ifa2.job_runs (
+                id, job_name, status, started_at, records_processed, created_at
+            ) values (
+                cast(:id as uuid), 'unified_runtime:midfreq', 'running', now() - interval '4 hours', 0, now() - interval '4 hours'
+            )
+        """), {'id': run_id})
+        conn.execute(text("""
+            insert into ifa2.unified_runtime_runs (
+                id, lane, worker_type, trigger_mode, manifest_snapshot_id,
+                manifest_id, manifest_hash, status, started_at,
+                records_processed, created_at
+            ) values (
+                cast(:id as uuid), 'midfreq', 'midfreq_pending_worker', 'scheduled', null,
+                'test-orphan-manifest', 'test-orphan-hash', 'running', now() - interval '4 hours',
+                0, now() - interval '4 hours'
+            )
+        """), {'id': run_id})
+
+    out = tmp_path / 'preflight_orphan.json'
+    try:
+        subprocess.run([
+            str(PY), 'scripts/runtime_preflight.py', '--repair', '--out', str(out), '--runtime-stale-min', '120'
+        ], cwd=REPO, check=True)
+        payload = json.loads(out.read_text())
+        orphan_findings = [f for f in payload['findings'] if f['kind'] == 'unified_runtime_run_orphan_active' and f['detail']['run_id'] == run_id]
+        assert orphan_findings
+        assert orphan_findings[0]['action'] == 'auto_clear_orphan_unified_runtime_run'
+        assert payload['summary']['orphan_unified_runtime_active'] >= 1
+
+        with ENGINE.begin() as conn:
+            row = conn.execute(text("""
+                select status, governance_state, completed_at is not null as completed,
+                       error_count, summary->>'runtime_preflight_reason' as repair_reason
+                from ifa2.unified_runtime_runs
+                where id = cast(:id as uuid)
+            """), {'id': run_id}).mappings().one()
+        assert row['status'] == 'timed_out'
+        assert row['governance_state'] == 'timed_out'
+        assert row['completed'] is True
+        assert row['error_count'] >= 1
+        assert row['repair_reason'] == 'orphan_active_unified_runtime_run'
+    finally:
+        with ENGINE.begin() as conn:
+            conn.execute(text("delete from ifa2.unified_runtime_runs where id = cast(:id as uuid)"), {'id': run_id})
+            conn.execute(text("delete from ifa2.job_runs where id = cast(:id as uuid)"), {'id': run_id})
 
 
 def test_unified_daemon_service_status_fails_when_heartbeat_is_stale(tmp_path: Path):
