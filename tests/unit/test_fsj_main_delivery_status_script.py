@@ -175,6 +175,42 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
     assert payload["business_date"] == "2099-04-22"
 
 
+def test_resolve_latest_main_business_date_uses_store_latest_delivery_surface(monkeypatch) -> None:
+    class _DummyStore:
+        def get_latest_active_report_delivery_surface(self, **kwargs: object) -> dict:
+            assert kwargs["agent_domain"] == "main"
+            assert kwargs["artifact_family"] == "main_final_report"
+            assert kwargs["strongest_slot"] == "late"
+            assert kwargs["max_business_date"] is not None
+            return {
+                "artifact": {
+                    "business_date": "2099-04-22",
+                    "artifact_id": "artifact-active",
+                    "report_run_id": "run-active",
+                    "status": "active",
+                    "updated_at": "2099-04-22T08:00:00+00:00",
+                },
+                "delivery_package": {
+                    "slot_evaluation": {
+                        "strongest_slot": "late",
+                    },
+                },
+            }
+
+    monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
+
+    resolved = resolve_latest_main_business_date(slot="late")
+
+    assert resolved == {
+        "business_date": "2099-04-22",
+        "artifact_id": "artifact-active",
+        "report_run_id": "run-active",
+        "status": "active",
+        "updated_at": "2099-04-22T08:00:00+00:00",
+        "strongest_slot": "late",
+    }
+
+
 def test_resolve_latest_main_business_date_rejects_unknown_slot() -> None:
     with pytest.raises(ValueError, match="unsupported slot"):
         resolve_latest_main_business_date(slot="close")

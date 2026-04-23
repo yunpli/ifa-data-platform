@@ -6,8 +6,6 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import text
-
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.store import FSJStore
 
@@ -88,46 +86,25 @@ def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: st
         raise ValueError(f"unsupported slot: {slot}")
 
     store = store or FSJStore()
-    store.ensure_schema()
-    slot_sql = ""
-    params: dict[str, Any] = {}
-    if slot is not None:
-        slot_sql = """
-           AND coalesce(
-                 metadata_json->'delivery_package'->'slot_evaluation'->>'strongest_slot',
-                 metadata_json->'report_evaluation'->'summary'->>'strongest_slot'
-               ) = :slot
-        """
-        params["slot"] = slot
-
-    params["max_business_date"] = datetime.now(_BEIJING).date().isoformat()
-
-    with store.engine.begin() as conn:
-        row = conn.execute(
-            text(
-                f"""
-                SELECT business_date::text AS business_date,
-                       artifact_id::text AS artifact_id,
-                       report_run_id,
-                       status,
-                       updated_at,
-                       coalesce(
-                         metadata_json->'delivery_package'->'slot_evaluation'->>'strongest_slot',
-                         metadata_json->'report_evaluation'->'summary'->>'strongest_slot'
-                       ) AS strongest_slot
-                  FROM ifa2.ifa_fsj_report_artifacts
-                 WHERE agent_domain='main'
-                   AND artifact_family='main_final_report'
-                   AND status='active'
-                   AND business_date <= :max_business_date
-                   {slot_sql}
-                 ORDER BY business_date DESC, updated_at DESC, artifact_id DESC
-                 LIMIT 1
-                """
-            ),
-            params,
-        ).mappings().first()
-    return dict(row) if row else None
+    surface = store.get_latest_active_report_delivery_surface(
+        agent_domain="main",
+        artifact_family="main_final_report",
+        strongest_slot=slot,
+        max_business_date=datetime.now(_BEIJING).date(),
+    )
+    if not surface:
+        return None
+    artifact = _safe_dict(surface.get("artifact"))
+    delivery_package = _safe_dict(surface.get("delivery_package"))
+    slot_evaluation = _safe_dict(delivery_package.get("slot_evaluation"))
+    return {
+        "business_date": artifact.get("business_date"),
+        "artifact_id": artifact.get("artifact_id"),
+        "report_run_id": artifact.get("report_run_id"),
+        "status": artifact.get("status"),
+        "updated_at": artifact.get("updated_at"),
+        "strongest_slot": slot_evaluation.get("strongest_slot"),
+    }
 
 
 def build_status_payload(*, business_date: str, history_limit: int = 5, resolution: dict[str, Any] | None = None) -> dict[str, Any]:

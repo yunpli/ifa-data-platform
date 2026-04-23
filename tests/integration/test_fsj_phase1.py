@@ -367,6 +367,82 @@ def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active
                 conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id IN (:a, :b)'), {'a': first['artifact']['artifact_id'], 'b': second['artifact']['artifact_id']})
 
 
+def test_latest_active_main_report_delivery_surface_resolves_by_business_date_and_slot(tmp_path) -> None:
+    store = FSJStore()
+    store.ensure_schema()
+    older_date = '2099-07-17'
+    latest_date = '2099-07-18'
+    older_bundle_id = f'fsj:test:{uuid.uuid4()}:bundle:older'
+    latest_bundle_id = f'fsj:test:{uuid.uuid4()}:bundle:latest'
+    older: dict | None = None
+    latest: dict | None = None
+    with engine().begin() as conn:
+        conn.execute(
+            text("DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE business_date IN (:older_date, :latest_date) AND agent_domain='main' AND artifact_family='main_final_report'"),
+            {'older_date': older_date, 'latest_date': latest_date},
+        )
+    try:
+        store.upsert_bundle_graph(_sample_payload(older_bundle_id))
+        store.upsert_bundle_graph(_sample_payload(latest_bundle_id))
+        publisher = MainReportArtifactPublishingService(
+            rendering_service=MainReportRenderingService(_StubAssemblyService(latest_bundle_id, summary='delivery summary')),
+            store=store,
+        )
+        older = publisher.publish_delivery_package(
+            business_date=older_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-latest-surface-v1',
+            generated_at=datetime(2099, 4, 18, 12, 10, tzinfo=timezone.utc),
+        )
+        latest = publisher.publish_delivery_package(
+            business_date=latest_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-latest-surface-v2',
+            generated_at=datetime(2099, 4, 18, 12, 15, tzinfo=timezone.utc),
+        )
+
+        latest_any = store.get_latest_active_report_delivery_surface(
+            agent_domain='main',
+            artifact_family='main_final_report',
+            max_business_date=latest_date,
+        )
+        assert latest_any is not None
+        resolved_slot = latest_any['delivery_package']['slot_evaluation']['strongest_slot']
+        latest_for_resolved_slot = store.get_latest_active_report_delivery_surface(
+            agent_domain='main',
+            artifact_family='main_final_report',
+            strongest_slot=resolved_slot,
+            max_business_date=latest_date,
+        )
+        latest_missing_slot = store.get_latest_active_report_delivery_surface(
+            agent_domain='main',
+            artifact_family='main_final_report',
+            strongest_slot='__missing_slot__',
+            max_business_date=latest_date,
+        )
+        bounded_older = store.get_latest_active_report_delivery_surface(
+            agent_domain='main',
+            artifact_family='main_final_report',
+            max_business_date=older_date,
+        )
+
+        assert latest_for_resolved_slot is not None
+        assert bounded_older is not None
+        assert latest is not None
+        assert older is not None
+        assert latest_any['artifact']['artifact_id'] == latest['artifact']['artifact_id']
+        assert latest_for_resolved_slot['artifact']['artifact_id'] == latest['artifact']['artifact_id']
+        assert latest_for_resolved_slot['delivery_package']['slot_evaluation']['strongest_slot'] == resolved_slot
+        assert latest_missing_slot is None
+        assert bounded_older['artifact']['artifact_id'] == older['artifact']['artifact_id']
+    finally:
+        _cleanup([older_bundle_id, latest_bundle_id])
+        artifact_ids = [artifact['artifact']['artifact_id'] for artifact in (older, latest) if artifact]
+        if artifact_ids:
+            with engine().begin() as conn:
+                conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id = ANY(CAST(:artifact_ids AS text[]))'), {'artifact_ids': artifact_ids})
+
+
 def test_main_report_delivery_surface_is_queryable_from_active_and_recent_superseded_artifacts(tmp_path) -> None:
     store = FSJStore()
     store.ensure_schema()

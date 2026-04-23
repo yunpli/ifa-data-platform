@@ -631,6 +631,52 @@ class FSJStore:
             ).mappings().first()
         return self._mapping_to_dict(row) if row else None
 
+    def get_latest_active_report_artifact(
+        self,
+        *,
+        agent_domain: str,
+        artifact_family: str,
+        strongest_slot: str | None = None,
+        max_business_date: str | date | None = None,
+    ) -> dict[str, Any] | None:
+        self.ensure_schema()
+        slot_sql = ""
+        params: dict[str, Any] = {
+            "agent_domain": agent_domain,
+            "artifact_family": artifact_family,
+        }
+        if strongest_slot is not None:
+            slot_sql = """
+               AND coalesce(
+                     metadata_json->'delivery_package'->'slot_evaluation'->>'strongest_slot',
+                     metadata_json->'report_evaluation'->'summary'->>'strongest_slot'
+                   ) = :strongest_slot
+            """
+            params["strongest_slot"] = strongest_slot
+        max_business_date_sql = ""
+        if max_business_date is not None:
+            params["max_business_date"] = max_business_date.isoformat() if isinstance(max_business_date, date) else str(max_business_date)
+            max_business_date_sql = "AND business_date <= :max_business_date"
+
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    f"""
+                    SELECT *
+                      FROM ifa2.ifa_fsj_report_artifacts
+                     WHERE agent_domain=:agent_domain
+                       AND artifact_family=:artifact_family
+                       AND status='active'
+                       {max_business_date_sql}
+                       {slot_sql}
+                     ORDER BY business_date DESC, updated_at DESC, artifact_id DESC
+                     LIMIT 1
+                    """
+                ),
+                params,
+            ).mappings().first()
+        return self._mapping_to_dict(row) if row else None
+
     def get_active_report_delivery_surface(
         self,
         *,
@@ -646,6 +692,24 @@ class FSJStore:
             limit=1,
         )
         return surfaces[0] if surfaces else None
+
+    def get_latest_active_report_delivery_surface(
+        self,
+        *,
+        agent_domain: str,
+        artifact_family: str,
+        strongest_slot: str | None = None,
+        max_business_date: str | date | None = None,
+    ) -> dict[str, Any] | None:
+        artifact = self.get_latest_active_report_artifact(
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+            strongest_slot=strongest_slot,
+            max_business_date=max_business_date,
+        )
+        if not artifact:
+            return None
+        return self._report_delivery_surface_from_artifact(artifact)
 
     def list_report_delivery_surfaces(
         self,
