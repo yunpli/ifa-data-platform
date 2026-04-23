@@ -209,6 +209,10 @@ There is meaningful implementation here already, but not yet full system closure
   - `scripts/fsj_support_batch_publish.py`
   - persistence is built in (`persist-before-publish` is automatic, not a separate operator step)
   - runbook: `docs/FSJ_SUPPORT_STANDALONE_RUNBOOK.md`
+- canonical operator command for late MAIN persistence + publish landed:
+  - `scripts/fsj_main_late_publish.py`
+  - persistence is built in (`persist-before-publish` is automatic inside the operator path)
+  - runbook: `docs/FSJ_MAIN_LATE_RUNBOOK.md`
 
 ## Task Queue
 
