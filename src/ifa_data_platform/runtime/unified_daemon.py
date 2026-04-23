@@ -216,15 +216,16 @@ class UnifiedRuntimeDaemonStore:
             rows = conn.execute(text("SELECT * FROM ifa2.runtime_worker_state ORDER BY worker_type")).mappings().all()
             return [dict(r) for r in rows]
 
-    def try_worker_lock(self, worker_type: str) -> bool:
-        lock_key = int(hashlib.sha1(worker_type.encode("utf-8")).hexdigest()[:15], 16)
-        with self.engine.begin() as conn:
-            return bool(conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_key}).scalar())
+    def worker_lock_key(self, worker_type: str) -> int:
+        return int(hashlib.sha1(worker_type.encode("utf-8")).hexdigest()[:15], 16)
 
-    def release_worker_lock(self, worker_type: str) -> None:
-        lock_key = int(hashlib.sha1(worker_type.encode("utf-8")).hexdigest()[:15], 16)
-        with self.engine.begin() as conn:
-            conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
+    def try_worker_lock(self, conn: Any, worker_type: str) -> bool:
+        lock_key = self.worker_lock_key(worker_type)
+        return bool(conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_key}).scalar())
+
+    def release_worker_lock(self, conn: Any, worker_type: str) -> None:
+        lock_key = self.worker_lock_key(worker_type)
+        conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
 
     def update_unified_run_governance(
         self,
@@ -415,7 +416,7 @@ class UnifiedRuntimeDaemon:
         for ws in worker_states:
             active_started = ws.get("active_started_at")
             if active_started and getattr(active_started, 'tzinfo', None) is None:
-                active_started = active_started.replace(tzinfo=timezone.utc)
+                    active_started = active_started.replace(tzinfo=timezone.utc)
             last_heartbeat = ws.get("last_heartbeat_at")
             if last_heartbeat and getattr(last_heartbeat, 'tzinfo', None) is None:
                 last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
@@ -474,58 +475,19 @@ class UnifiedRuntimeDaemon:
     ) -> dict[str, Any]:
         start = current_time_utc or now_utc()
         runtime_budget_sec = runtime_budget_override_sec or int((schedule_row or {}).get("runtime_budget_sec") or self._default_budget(worker_type))
-        if not self.store.try_worker_lock(worker_type):
-            marker = self.adapter.runtime.run_once(worker_type, trigger_mode="scheduler_lock_conflict", dry_run_manifest_only=True)
-            self.store.update_unified_run_governance(
-                run_id=marker.run_id,
-                schedule_key=schedule_key,
-                beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
-                runtime_budget_sec=runtime_budget_sec,
-                duration_ms=0,
-                tables_updated=[],
-                tasks_executed=[],
-                error_count=1,
-                governance_state="scheduler_lock_conflict",
-                status="scheduler_lock_conflict",
-                summary_patch={"reason": "pg_advisory_lock denied", "worker_type": worker_type},
-            )
-            return {
-                "run_id": marker.run_id,
-                "lane": worker_type,
-                "status": "scheduler_lock_conflict",
-                "duration_ms": 0,
-                "tasks_executed": [],
-                "tables_updated": [],
-                "error_count": 1,
-                "governance_state": "scheduler_lock_conflict",
-            }
-        state = self.store.get_worker_state(worker_type)
-        if state and state.get("active_run_id"):
-            active_started = state.get("active_started_at")
-            if active_started and active_started.tzinfo is None:
-                active_started = active_started.replace(tzinfo=timezone.utc)
-            if active_started and (start - active_started).total_seconds() > runtime_budget_sec:
-                self.store.update_unified_run_governance(
-                    run_id=str(state["active_run_id"]),
-                    schedule_key=state.get("active_schedule_key"),
-                    beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
-                    runtime_budget_sec=runtime_budget_sec,
-                    duration_ms=int((start - active_started).total_seconds() * 1000),
-                    tables_updated=[],
-                    tasks_executed=[],
-                    error_count=1,
-                    governance_state="timed_out",
-                    status="timed_out",
-                    summary_patch={"timeout_marked_by_unified_daemon": True},
-                )
-                self.store.mark_worker_finished(
-                    worker_type=worker_type,
-                    run_id=str(state["active_run_id"]),
-                    status="timed_out",
-                    error="marked timed_out by unified daemon overlap governance",
-                )
-            else:
-                marker = self.adapter.runtime.run_once(worker_type, trigger_mode="scheduled_overlap_marker", dry_run_manifest_only=True)
+        lock_conn = self.store.engine.connect()
+        lock_acquired = False
+        try:
+            lock_acquired = self.store.try_worker_lock(lock_conn, worker_type)
+            if not lock_acquired:
+                state = self.store.get_worker_state(worker_type)
+                summary_patch = {"reason": "pg_advisory_lock denied", "worker_type": worker_type}
+                if state:
+                    summary_patch["active_run_id"] = str(state.get("active_run_id")) if state.get("active_run_id") else None
+                    summary_patch["active_schedule_key"] = state.get("active_schedule_key")
+                    summary_patch["active_started_at"] = state.get("active_started_at").isoformat() if state.get("active_started_at") else None
+                    summary_patch["last_heartbeat_at"] = state.get("last_heartbeat_at").isoformat() if state.get("last_heartbeat_at") else None
+                marker = self.adapter.runtime.run_once(worker_type, trigger_mode="scheduler_lock_conflict", dry_run_manifest_only=True)
                 self.store.update_unified_run_governance(
                     run_id=marker.run_id,
                     schedule_key=schedule_key,
@@ -535,23 +497,73 @@ class UnifiedRuntimeDaemon:
                     tables_updated=[],
                     tasks_executed=[],
                     error_count=1,
-                    governance_state="overlap_conflict",
-                    status="overlap_conflict",
-                    summary_patch={"reason": "active prior run exists", "worker_type": worker_type},
+                    governance_state="scheduler_lock_conflict",
+                    status="scheduler_lock_conflict",
+                    summary_patch=summary_patch,
                 )
                 return {
                     "run_id": marker.run_id,
                     "lane": worker_type,
-                    "status": "overlap_conflict",
+                    "status": "scheduler_lock_conflict",
                     "duration_ms": 0,
                     "tasks_executed": [],
                     "tables_updated": [],
                     "error_count": 1,
-                    "governance_state": "overlap_conflict",
+                    "governance_state": "scheduler_lock_conflict",
                 }
 
-        provisional_run_id = str(uuid.uuid4())
-        try:
+            state = self.store.get_worker_state(worker_type)
+            if state and state.get("active_run_id"):
+                active_started = state.get("active_started_at")
+                if active_started and active_started.tzinfo is None:
+                    active_started = active_started.replace(tzinfo=timezone.utc)
+                if active_started and (start - active_started).total_seconds() > runtime_budget_sec:
+                    self.store.update_unified_run_governance(
+                        run_id=str(state["active_run_id"]),
+                        schedule_key=state.get("active_schedule_key"),
+                        beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
+                        runtime_budget_sec=runtime_budget_sec,
+                        duration_ms=int((start - active_started).total_seconds() * 1000),
+                        tables_updated=[],
+                        tasks_executed=[],
+                        error_count=1,
+                        governance_state="timed_out",
+                        status="timed_out",
+                        summary_patch={"timeout_marked_by_unified_daemon": True},
+                    )
+                    self.store.mark_worker_finished(
+                        worker_type=worker_type,
+                        run_id=str(state["active_run_id"]),
+                        status="timed_out",
+                        error="marked timed_out by unified daemon overlap governance",
+                    )
+                else:
+                    marker = self.adapter.runtime.run_once(worker_type, trigger_mode="scheduled_overlap_marker", dry_run_manifest_only=True)
+                    self.store.update_unified_run_governance(
+                        run_id=marker.run_id,
+                        schedule_key=schedule_key,
+                        beijing_time_hm=(schedule_row or {}).get("beijing_time_hm"),
+                        runtime_budget_sec=runtime_budget_sec,
+                        duration_ms=0,
+                        tables_updated=[],
+                        tasks_executed=[],
+                        error_count=1,
+                        governance_state="overlap_conflict",
+                        status="overlap_conflict",
+                        summary_patch={"reason": "active prior run exists", "worker_type": worker_type},
+                    )
+                    return {
+                        "run_id": marker.run_id,
+                        "lane": worker_type,
+                        "status": "overlap_conflict",
+                        "duration_ms": 0,
+                        "tasks_executed": [],
+                        "tables_updated": [],
+                        "error_count": 1,
+                        "governance_state": "overlap_conflict",
+                    }
+
+            provisional_run_id = str(uuid.uuid4())
             self.store.mark_worker_running(worker_type=worker_type, run_id=provisional_run_id, schedule_key=schedule_key, trigger_mode=trigger_mode)
             result = self.adapter.run(
                 worker_type,
@@ -597,7 +609,11 @@ class UnifiedRuntimeDaemon:
             )
             return result
         finally:
-            self.store.release_worker_lock(worker_type)
+            try:
+                if lock_acquired:
+                    self.store.release_worker_lock(lock_conn, worker_type)
+            finally:
+                lock_conn.close()
 
     def _maybe_capture_slot_replay_evidence(
         self,
