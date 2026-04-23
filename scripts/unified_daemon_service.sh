@@ -12,6 +12,7 @@ HEARTBEAT_FILE="${HEARTBEAT_FILE:-$LOG_DIR/unified_daemon.heartbeat.json}"
 LOOP_INTERVAL_SEC="${LOOP_INTERVAL_SEC:-60}"
 HEARTBEAT_STALE_SEC="${HEARTBEAT_STALE_SEC:-$((LOOP_INTERVAL_SEC * 4))}"
 DAEMON_MATCH_PATTERN="${DAEMON_MATCH_PATTERN:-ifa_data_platform.runtime.unified_daemon --loop}"
+DAEMON_PROCESS_SIGNATURE="${DAEMON_PROCESS_SIGNATURE:--m ifa_data_platform.runtime.unified_daemon}"
 mkdir -p "$LOG_DIR"
 
 cd "$REPO_DIR"
@@ -32,7 +33,9 @@ pid_command() {
 }
 
 find_matching_daemon_pids() {
-  ps -axo pid=,command= | awk -v pat="$DAEMON_MATCH_PATTERN" 'index($0, pat) > 0 {print $1}'
+  ps -axo pid=,command= | awk -v pat="$DAEMON_MATCH_PATTERN" -v sig="$DAEMON_PROCESS_SIGNATURE" '
+    index($0, pat) > 0 && index($0, sig) > 0 {print $1}
+  '
 }
 
 first_matching_daemon_pid() {
@@ -103,6 +106,35 @@ raise SystemExit(0 if age <= stale_sec else 1)
 PY
 }
 
+emit_live_daemon_status() {
+  local pid="$1"
+  local source="$2"
+  local refreshed_pid_file="${3:-0}"
+  if [[ "$refreshed_pid_file" == "1" ]]; then
+    echo "alive pid=$pid source=$source refreshed_pid_file=1"
+  else
+    echo "alive pid=$pid source=$source"
+  fi
+  ps -p "$pid" -o pid=,ppid=,pgid=,etime=,state=,command=
+  local heartbeat_output=""
+  if heartbeat_output=$(heartbeat_status "$pid"); then
+    echo "$heartbeat_output"
+    return 0
+  fi
+  echo "$heartbeat_output"
+  echo "state_drift pid=$pid kind=heartbeat"
+  return 1
+}
+
+emit_not_running() {
+  local reason="${1:-}"
+  if [[ -n "$reason" ]]; then
+    echo "not_running reason=$reason"
+  else
+    echo "not_running"
+  fi
+}
+
 cmd_status() {
   if [[ -f "$PID_FILE" ]]; then
     local pid
@@ -111,18 +143,15 @@ cmd_status() {
       discovered_pid=$(first_matching_daemon_pid || true)
       if [[ -n "$discovered_pid" ]]; then
         echo "$discovered_pid" > "$PID_FILE"
-        echo "alive pid=$discovered_pid source=process_scan refreshed_pid_file=1"
-        ps -p "$discovered_pid" -o pid=,ppid=,pgid=,etime=,state=,command=
-        heartbeat_status "$discovered_pid"
+        emit_live_daemon_status "$discovered_pid" "process_scan" 1
         exit $?
       fi
       echo "stale_pid_file reason=invalid_pid_contents"
+      emit_not_running "invalid_pid_file"
       exit 1
     }
     if pid_is_expected_daemon "$pid"; then
-      echo "alive pid=$pid source=pid_file"
-      ps -p "$pid" -o pid=,ppid=,pgid=,etime=,state=,command=
-      heartbeat_status "$pid"
+      emit_live_daemon_status "$pid" "pid_file"
       exit $?
     fi
     local command
@@ -136,15 +165,15 @@ cmd_status() {
       else
         report_stale_pid "$pid" "not_running"
       fi
-      echo "alive pid=$discovered_pid source=process_scan refreshed_pid_file=1"
-      ps -p "$discovered_pid" -o pid=,ppid=,pgid=,etime=,state=,command=
-      heartbeat_status "$discovered_pid"
+      emit_live_daemon_status "$discovered_pid" "process_scan" 1
       exit $?
     fi
     if [[ -n "$command" ]]; then
       report_stale_pid "$pid" "command_mismatch" "$command"
+      emit_not_running "stale_pid_file"
     else
       report_stale_pid "$pid" "not_running"
+      emit_not_running "stale_pid_file"
     fi
     exit 1
   fi
@@ -152,12 +181,10 @@ cmd_status() {
   discovered_pid=$(first_matching_daemon_pid || true)
   if [[ -n "$discovered_pid" ]]; then
     echo "$discovered_pid" > "$PID_FILE"
-    echo "alive pid=$discovered_pid source=process_scan refreshed_pid_file=1"
-    ps -p "$discovered_pid" -o pid=,ppid=,pgid=,etime=,state=,command=
-    heartbeat_status "$discovered_pid"
+    emit_live_daemon_status "$discovered_pid" "process_scan" 1
     exit $?
   fi
-  echo "not_running"
+  emit_not_running
   exit 1
 }
 
@@ -203,6 +230,9 @@ cmd_start() {
     if [[ -n "$pid" ]]; then
       if pid_is_expected_daemon "$pid"; then
         echo "already_running pid=$pid source=pid_file"
+        if ! heartbeat_status "$pid"; then
+          echo "already_running_state_drift pid=$pid kind=heartbeat"
+        fi
         exit 0
       fi
       rm -f "$PID_FILE"
@@ -214,6 +244,9 @@ cmd_start() {
   if [[ -n "$discovered_pid" ]]; then
     echo "$discovered_pid" > "$PID_FILE"
     echo "already_running pid=$discovered_pid source=process_scan refreshed_pid_file=1"
+    if ! heartbeat_status "$discovered_pid"; then
+      echo "already_running_state_drift pid=$discovered_pid kind=heartbeat"
+    fi
     exit 0
   fi
 

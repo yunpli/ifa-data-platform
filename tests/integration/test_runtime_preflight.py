@@ -61,6 +61,7 @@ def test_unified_daemon_service_status_rejects_reused_pid(tmp_path: Path):
         assert 'stale_pid_file' in proc.stdout
         assert 'reason=command_mismatch' in proc.stdout
         assert f'pid={sleeper.pid}' in proc.stdout
+        assert 'not_running reason=stale_pid_file' in proc.stdout
     finally:
         sleeper.terminate()
         sleeper.wait(timeout=5)
@@ -197,6 +198,43 @@ def test_unified_daemon_service_start_detects_existing_daemon_via_process_scan(t
         )
         assert proc.returncode == 0
         assert f'already_running pid={daemon.pid} source=process_scan refreshed_pid_file=1' in proc.stdout
+        assert pid_file.read_text().strip() == str(daemon.pid)
+    finally:
+        daemon.terminate()
+        daemon.wait(timeout=5)
+
+
+def test_unified_daemon_service_start_reports_state_drift_for_existing_daemon_with_stale_heartbeat(tmp_path: Path):
+    sentinel = 'test-start-detect-existing-stale-heartbeat'
+    daemon = subprocess.Popen([
+        'python3', '-c', 'import time; time.sleep(30)', '-m', 'ifa_data_platform.runtime.unified_daemon', '--loop', '--sentinel', sentinel
+    ])
+    try:
+        log_dir = tmp_path / 'service'
+        pid_file = log_dir / 'unified_daemon.pid'
+        heartbeat_file = log_dir / 'unified_daemon.heartbeat.json'
+        log_dir.mkdir(parents=True)
+        heartbeat_file.write_text(json.dumps({'pid': daemon.pid, 'generated_at': '2000-01-01T00:00:00+00:00', 'phase': 'running'}))
+
+        proc = subprocess.run(
+            ['zsh', 'scripts/unified_daemon_service.sh', 'start'],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'LOG_DIR': str(log_dir),
+                'PID_FILE': str(pid_file),
+                'HEARTBEAT_FILE': str(heartbeat_file),
+                'HEARTBEAT_STALE_SEC': '60',
+                'PREFLIGHT_JSON': str(log_dir / 'runtime_preflight_latest.json'),
+                'DAEMON_MATCH_PATTERN': f'ifa_data_platform.runtime.unified_daemon --loop --sentinel {sentinel}',
+            },
+        )
+        assert proc.returncode == 0
+        assert f'already_running pid={daemon.pid} source=process_scan refreshed_pid_file=1' in proc.stdout
+        assert 'heartbeat_status=stale' in proc.stdout
+        assert f'already_running_state_drift pid={daemon.pid} kind=heartbeat' in proc.stdout
         assert pid_file.read_text().strip() == str(daemon.pid)
     finally:
         daemon.terminate()
