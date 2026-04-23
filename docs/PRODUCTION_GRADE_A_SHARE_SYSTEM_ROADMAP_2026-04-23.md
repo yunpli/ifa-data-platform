@@ -204,7 +204,11 @@ There is meaningful implementation here already, but not yet full system closure
 - canonical support summary aggregator landed
 - operator review bundle landed
 - candidate comparison artifact landed
-- standalone FSJ support report publishing started
+- standalone FSJ support report publishing landed
+- canonical operator batch command for support standalone publishing landed for early/late support paths:
+  - `scripts/fsj_support_batch_publish.py`
+  - persistence is built in (`persist-before-publish` is automatic, not a separate operator step)
+  - runbook: `docs/FSJ_SUPPORT_STANDALONE_RUNBOOK.md`
 
 ## Task Queue
 
@@ -217,6 +221,7 @@ There is meaningful implementation here already, but not yet full system closure
 - ensure early/late artifact generation parity
 - add QA / package / operator surfaces for support artifacts
 - confirm support standalone outputs are not MAIN-only side effects
+- keep `scripts/fsj_support_batch_publish.py` as the canonical operator path so persistence + publish stay version-linked and auditable
 
 **Parallelizable:** yes by domain
 
@@ -567,6 +572,9 @@ Infra and wiring exist; governance and operational policy are incomplete.
 - P0-1 Early slot closure
 - P1-1 Support standalone report path
 - P1-2 MAIN/support artifact convergence
+
+Canonical operator runbook for the support standalone lane:
+- `docs/FSJ_SUPPORT_STANDALONE_RUNBOOK.md`
 
 ### B-lane
 - P0-2 Mid slot closure
