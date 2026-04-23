@@ -76,6 +76,27 @@ def test_main_persists_before_publish_and_writes_batch_summary(
         )
 
     monkeypatch.setattr(module.subprocess, "run", _fake_run)
+    monkeypatch.setattr(
+        module,
+        "_resolve_canonical_publish_surface",
+        lambda **kwargs: {
+            "delivery_surface": {
+                "delivery_package": {
+                    "package_state": "ready",
+                    "lineage": {"bundle_id": f"bundle-db-{kwargs['agent_domain']}"},
+                }
+            },
+            "workflow_handoff": {
+                "artifact": {"artifact_id": f"artifact-{kwargs['agent_domain']}"},
+                "selected_handoff": {"selected_artifact_id": f"artifact-{kwargs['agent_domain']}"},
+                "state": {"workflow_state": "ready_to_send", "recommended_action": "send", "package_state": "ready"},
+                "manifest_pointers": {
+                    "delivery_manifest_path": f"/tmp/db/{kwargs['agent_domain']}/delivery_manifest.json",
+                    "send_manifest_path": f"/tmp/db/{kwargs['agent_domain']}/send_manifest.json",
+                },
+            },
+        },
+    )
 
     module.main()
 
@@ -91,7 +112,12 @@ def test_main_persists_before_publish_and_writes_batch_summary(
     summary = json.loads((tmp_path / "batch_summary.json").read_text(encoding="utf-8"))
     assert summary["artifact_version"] == "v2"
     assert summary["persist"]["persisted_count"] == 2
-    assert "FSJ support batch publish｜2026-04-23｜early" in (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
+    assert summary["results"][0]["workflow_handoff"]["state"]["workflow_state"] == "ready_to_send"
+    assert summary["results"][0]["bundle_id"].startswith("bundle-db-")
+    operator_summary = (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
+    assert "FSJ support batch publish｜2026-04-23｜early" in operator_summary
+    assert "workflow_state=ready_to_send" in operator_summary
+    assert "send_manifest_path=/tmp/db/macro/send_manifest.json" in operator_summary
 
 
 def test_main_keeps_publish_results_and_surfaces_persist_failure(
@@ -139,6 +165,7 @@ def test_main_keeps_publish_results_and_surfaces_persist_failure(
         )
 
     monkeypatch.setattr(module.subprocess, "run", _fake_run)
+    monkeypatch.setattr(module, "_resolve_canonical_publish_surface", lambda **_: None)
 
     with pytest.raises(SystemExit) as exc:
         module.main()
