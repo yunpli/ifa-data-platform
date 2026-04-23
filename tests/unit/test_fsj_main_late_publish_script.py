@@ -53,6 +53,19 @@ def test_main_persists_then_publishes_and_writes_summary(
         ),
     )
     monkeypatch.setattr(module, "LateMainFSJProducer", lambda: _StubProducer())
+    monkeypatch.setattr(
+        module,
+        "_resolve_canonical_publish_surface",
+        lambda **_: {
+            "artifact": {"artifact_id": "artifact-db", "report_run_id": "run-db"},
+            "selected_handoff": {"selected_artifact_id": "artifact-db", "selected_is_current": True},
+            "state": {"workflow_state": "ready_to_send", "recommended_action": "send", "package_state": "ready"},
+            "manifest_pointers": {
+                "delivery_manifest_path": "/tmp/db/delivery_manifest.json",
+                "send_manifest_path": "/tmp/db/send_manifest.json",
+            },
+        },
+    )
 
     calls: list[list[str]] = []
 
@@ -89,7 +102,12 @@ def test_main_persists_then_publishes_and_writes_summary(
     assert len(calls) == 1
     summary = json.loads((tmp_path / "main_late_publish_summary.json").read_text(encoding="utf-8"))
     assert summary["persist"]["evidence_link_count"] == 3
-    assert "FSJ MAIN late publish｜2026-04-23｜late" in (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
+    assert summary["publish"]["workflow_handoff"]["selected_handoff"]["selected_artifact_id"] == "artifact-db"
+    operator_summary = (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
+    assert "FSJ MAIN late publish｜2026-04-23｜late" in operator_summary
+    assert "workflow_state=ready_to_send" in operator_summary
+    assert "selected_artifact_id=artifact-db" in operator_summary
+    assert "send_manifest_path=/tmp/db/send_manifest.json" in operator_summary
 
 
 def test_main_exits_nonzero_and_skips_publish_when_persist_fails(

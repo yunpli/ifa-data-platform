@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ifa_data_platform.fsj import LateMainFSJProducer
+from ifa_data_platform.fsj.store import FSJStore
 
 
 def _parse_generated_at(value: str | None) -> datetime | None:
@@ -18,6 +19,18 @@ def _parse_generated_at(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _resolve_canonical_publish_surface(*, business_date: str, store: FSJStore | None = None) -> dict | None:
+    store = store or FSJStore()
+    surface = store.get_active_report_delivery_surface(
+        business_date=business_date,
+        agent_domain="main",
+        artifact_family="main_final_report",
+    )
+    if not surface:
+        return None
+    return store.report_workflow_handoff_from_surface(surface)
 
 
 def _build_operator_summary(*, business_date: str, generated_at: datetime, persist: dict, publish: dict | None) -> str:
@@ -32,11 +45,18 @@ def _build_operator_summary(*, business_date: str, generated_at: datetime, persi
     if persist.get("reason"):
         lines.append(f"  reason={persist['reason']}")
     if publish:
-        manifest = publish.get("delivery_manifest") or {}
-        lineage = manifest.get("lineage") or {}
+        workflow_handoff = dict(publish.get("workflow_handoff") or {})
+        manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
+        selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+        state = dict(workflow_handoff.get("state") or {})
+        artifact = dict(workflow_handoff.get("artifact") or publish.get("artifact") or {})
         lines.append(
-            f"- publish: package_state={manifest.get('package_state') or '-'} artifact_id={((publish.get('artifact') or {}).get('artifact_id')) or '-'} "
-            f"bundle_id={lineage.get('bundle_id') or '-'} output_dir={publish.get('output_dir') or '-'}"
+            f"- publish: workflow_state={state.get('workflow_state') or '-'} recommended_action={state.get('recommended_action') or '-'} "
+            f"package_state={state.get('package_state') or '-'} artifact_id={artifact.get('artifact_id') or '-'} "
+            f"selected_artifact_id={selected_handoff.get('selected_artifact_id') or '-'} output_dir={publish.get('output_dir') or '-'}"
+        )
+        lines.append(
+            f"  delivery_manifest_path={manifest_pointers.get('delivery_manifest_path') or '-'} send_manifest_path={manifest_pointers.get('send_manifest_path') or '-'}"
         )
         if publish.get("reason"):
             lines.append(f"  reason={publish['reason']}")
@@ -107,6 +127,9 @@ def main() -> None:
             "output_dir": str((root / "publish").resolve()),
             "exit_code": completed.returncode,
         }
+        canonical_workflow_handoff = _resolve_canonical_publish_surface(business_date=args.business_date)
+        if canonical_workflow_handoff:
+            publish["workflow_handoff"] = canonical_workflow_handoff
         if completed.returncode != 0 and not publish.get("reason"):
             publish["reason"] = completed.stderr.strip() or "publish_command_failed"
         blocked = completed.returncode != 0
