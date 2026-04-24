@@ -438,15 +438,19 @@ QA exists, but full quality governance does not.
 ---
 
 ### P3-3. Benchmark / golden-case suite
-**Status:** Not started  
+**Status:** In progress — first bounded slice landed as canonical `early_main` golden-case family selectors + regression entrypoint over existing FSJ persistence/judgment/evidence truth  
 **Target:** fixed benchmark cases for regression-proof evolution
 
 **Tasks**
-- define canonical early benchmark cases
-- define canonical mid benchmark cases
-- define canonical late benchmark cases
-- define degraded-data benchmark cases
-- define LLM timeout/fallback benchmark cases
+- [x] define one canonical early benchmark family and expose a dedicated regression entrypoint (`tests/integration/test_fsj_main_early_golden_case_family.py`) over the existing main-slot golden harness
+- [ ] define canonical early benchmark cases
+- [ ] define canonical mid benchmark cases
+- [ ] define canonical late benchmark cases
+- [ ] define degraded-data benchmark cases
+- [ ] define LLM timeout/fallback benchmark cases
+
+**Thin slice already landed**
+- `P3-3a`: the first real benchmark seam now exists as the `early_main` family, with stable case descriptors (`describe_slot_golden_case(...)`), dedicated family selection (`EARLY_MAIN_GOLDEN_CASES`), and a focused integration regression surface that pins early-slot FSJ persistence/judgment/evidence expectations without broadening into a full benchmark matrix
 
 **Parallelizable:** yes by slot
 

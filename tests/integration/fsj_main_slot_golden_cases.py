@@ -198,6 +198,16 @@ class SlotGoldenCase:
     expected_attempted_model_chain: list[str] | None = None
     required_attempt_failure_classifications: set[str] | None = None
 
+    @property
+    def family(self) -> str:
+        if self.slot == "early":
+            return "early_main"
+        if self.slot == "mid":
+            return "mid_main"
+        if self.slot == "late":
+            return "late_main"
+        return f"{self.slot}_main"
+
 
 def engine() -> sa.Engine:
     return sa.create_engine(DB_URL, future=True)
@@ -643,3 +653,25 @@ MAIN_SLOT_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = (
         minimum_counts={"object_cnt": 5, "edge_cnt": 4, "evidence_cnt": 8, "observed_cnt": 4},
     ),
 )
+
+EARLY_MAIN_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = tuple(case for case in MAIN_SLOT_GOLDEN_CASES if case.slot == "early")
+
+
+def describe_slot_golden_case(case: SlotGoldenCase) -> dict[str, Any]:
+    return {
+        "name": case.name,
+        "family": case.family,
+        "slot": case.slot,
+        "section_key": case.section_key,
+        "expected_judgment_action": case.expected_judgment_action,
+        "expected_object_type": case.expected_object_type,
+        "expected_contract_mode": case.expected_contract_mode,
+        "required_evidence_roles": sorted(f"{role}:{system}" for role, system in case.required_evidence_roles),
+        "minimum_counts": dict(case.minimum_counts),
+        "expected_llm_outcome": case.expected_llm_outcome,
+        "expected_llm_applied": case.expected_llm_applied,
+        "expected_llm_model_alias": case.expected_llm_model_alias,
+        "expected_operator_tag": case.expected_operator_tag,
+        "expected_attempted_model_chain": list(case.expected_attempted_model_chain or []),
+        "required_attempt_failure_classifications": sorted(case.required_attempt_failure_classifications or []),
+    }
