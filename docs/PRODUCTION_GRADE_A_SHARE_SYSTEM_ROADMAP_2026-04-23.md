@@ -217,28 +217,55 @@ There is meaningful implementation here already, but not yet full system closure
 ## Task Queue
 
 ### P1-1. Support standalone report production path
-**Status:** In progress  
+**Status:** Materially closed for current roadmap scope — support standalone early/late production is canonicalized through `scripts/fsj_support_batch_publish.py`, support artifacts remain independently reviewable/packageable/auditable, early/late three-domain standalone evidence is captured in the 2026-04-23 proof package, and exact closeout proof is documented in `docs/FSJ_P1_1_P1_2_CLOSEOUT_2026-04-24.md`  
 **Target:** make support reports fully standalone, reviewable, packageable, auditable
 
-**Tasks**
-- finalize standalone support rendering for `macro`, `commodities`, `ai_tech`
-- ensure early/late artifact generation parity
-- add QA / package / operator surfaces for support artifacts
-- confirm support standalone outputs are not MAIN-only side effects
-- keep `scripts/fsj_support_batch_publish.py` as the canonical operator path so persistence + publish stay version-linked and auditable
+**Delivered in current scope**
+- [x] standalone support rendering/publish path for `macro`, `commodities`, `ai_tech`
+- [x] early/late artifact generation parity at the canonical operator seam
+- [x] QA / package / operator surfaces for support artifacts
+- [x] support standalone outputs are proven as non-MAIN side effects
+- [x] `scripts/fsj_support_batch_publish.py` remains the canonical persist+publish operator path
+
+**Evidence anchors**
+- `docs/FSJ_P1_1_P1_2_CLOSEOUT_2026-04-24.md`
+- `docs/FSJ_SUPPORT_STANDALONE_RUNBOOK.md`
+- `scripts/fsj_support_batch_publish.py`
+- `tests/unit/test_fsj_support_batch_publish_script.py`
+- `tests/unit/test_fsj_support_report_publish_script.py`
+- `tests/unit/test_fsj_support_bundle_persist_script.py`
+- `tests/unit/test_fsj_support_delivery_status_script.py`
+- `docs/FSJ_SLA_PROOF_PACKAGE_2026-04-23.md`
+
+**Deferred non-blocking expansions**
+- [ ] broader support benchmarking and analytics belong to `P3-*`, not this seam
+- [ ] richer operator automation/control-plane belongs to `P2-*`, not this seam
 
 **Parallelizable:** yes by domain
 
 ---
 
 ### P1-2. MAIN/support artifact convergence
-**Status:** In progress  
+**Status:** Materially closed for current roadmap scope — MAIN now consumes only concise support summaries with explicit lineage/version mapping preserved through package/read surfaces, a direct non-inline boundary regression is in place, and exact closeout proof is documented in `docs/FSJ_P1_1_P1_2_CLOSEOUT_2026-04-24.md`  
 **Target:** ensure MAIN consumes concise support summaries while support stays independently auditable
 
-**Tasks**
-- verify support summary merge correctness
-- verify support summaries never inline full support report bodies into MAIN
-- verify support summary provenance and version mapping
+**Delivered in current scope**
+- [x] support summary merge correctness on the canonical MAIN assembly/render path
+- [x] support summaries never inline full support report bodies into MAIN
+- [x] support summary provenance and version mapping remain explicit
+
+**Evidence anchors**
+- `docs/FSJ_P1_1_P1_2_CLOSEOUT_2026-04-24.md`
+- `src/ifa_data_platform/fsj/report_assembly.py`
+- `src/ifa_data_platform/fsj/report_rendering.py`
+- `tests/unit/test_fsj_report_assembly.py`
+- `tests/unit/test_fsj_report_rendering.py`
+- `docs/FSJ_SLA_PROOF_PACKAGE_2026-04-23.md`
+- `docs/FSJ_P0_4_ACCEPTANCE_LEDGER_2026-04-23.md`
+
+**Deferred non-blocking expansions**
+- [ ] deeper semantic summary-vs-body diff tooling can be added later without reopening this convergence seam
+- [ ] broader replay/governance/control-plane work belongs to `P2-*`, not this seam
 
 **Parallelizable:** yes
 

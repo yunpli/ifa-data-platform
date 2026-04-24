@@ -271,6 +271,34 @@ def test_main_report_qa_evaluator_emits_delivery_ready_verdict_for_contract_comp
     assert any(issue["code"] == "slot_missing" and issue.get("slot") == "mid" for issue in evaluation["issues"])
 
 
+def test_main_report_renderer_keeps_support_content_at_concise_summary_boundary() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["support_summaries"][0]["full_report_body"] = "AI 支持报告全文：绝不应直接进入 MAIN HTML。"
+    assembled["sections"][0]["support_summaries"][0]["judgments"] = [
+        {
+            "statement": "support judgment detail that must stay outside the MAIN report body",
+        }
+    ]
+    assembled["sections"][0]["support_summaries"][0]["facts"] = [
+        {
+            "statement": "support fact detail that must stay outside the MAIN report body",
+        }
+    ]
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-concise-boundary",
+        artifact_uri="file:///tmp/final-concise-boundary.html",
+        generated_at=datetime(2099, 4, 22, 8, 5, tzinfo=timezone.utc),
+    )
+
+    assert "AI 科技催化存在，但更适合作为主判断的 adjust 输入。" in rendered["content"]
+    assert "AI 支持报告全文：绝不应直接进入 MAIN HTML。" not in rendered["content"]
+    assert "support judgment detail that must stay outside the MAIN report body" not in rendered["content"]
+    assert "support fact detail that must stay outside the MAIN report body" not in rendered["content"]
+    assert "support-ai-early.html" in rendered["content"]
+
+
 def test_main_report_rendering_service_delegates_assembly_then_render() -> None:
     stub = _StubAssemblyService(_assembled_sections())
     service = MainReportRenderingService(assembly_service=stub)
