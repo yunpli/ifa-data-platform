@@ -44,7 +44,10 @@ def resolve_canonical_publish_surface(*, business_date: str, store: FSJStore | N
     )
     if not surface:
         return None
-    return store.report_workflow_handoff_from_surface(surface)
+    return {
+        "workflow_handoff": store.report_workflow_handoff_from_surface(surface),
+        "operator_review_surface": store.report_operator_review_surface_from_surface(surface),
+    }
 
 
 def build_operator_summary(*, config: MainPublishFlowConfig, business_date: str, generated_at: datetime, persist: dict[str, Any], publish: dict[str, Any] | None) -> str:
@@ -60,10 +63,14 @@ def build_operator_summary(*, config: MainPublishFlowConfig, business_date: str,
         lines.append(f"  reason={persist['reason']}")
     if publish:
         workflow_handoff = dict(publish.get("workflow_handoff") or {})
+        operator_review_surface = dict(publish.get("operator_review_surface") or {})
         manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
         selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
         state = dict(workflow_handoff.get("state") or {})
         artifact = dict(workflow_handoff.get("artifact") or publish.get("artifact") or {})
+        llm_role_policy = dict(operator_review_surface.get("llm_role_policy") or {})
+        llm_lineage_summary = dict(operator_review_surface.get("llm_lineage_summary") or {})
+        slot_boundary_modes = dict(llm_role_policy.get("slot_boundary_modes") or {})
         lines.append(
             f"- publish: workflow_state={state.get('workflow_state') or '-'} recommended_action={state.get('recommended_action') or '-'} "
             f"dispatch_recommended_action={state.get('dispatch_recommended_action') or '-'} selected_is_current={selected_handoff.get('selected_is_current')} "
@@ -73,6 +80,15 @@ def build_operator_summary(*, config: MainPublishFlowConfig, business_date: str,
         lines.append(f"  next_step={state.get('next_step') or '-'} selection_reason={state.get('selection_reason') or '-'}")
         lines.append(
             f"  delivery_manifest_path={manifest_pointers.get('delivery_manifest_path') or '-'} send_manifest_path={manifest_pointers.get('send_manifest_path') or '-'}"
+        )
+        lines.append(
+            f"  llm_lineage_status={llm_lineage_summary.get('status') or '-'} llm_policy_versions={','.join(llm_role_policy.get('policy_versions') or []) or '-'}"
+        )
+        lines.append(
+            f"  llm_boundary_modes={','.join(llm_role_policy.get('boundary_modes') or []) or '-'} llm_override_precedence={'>'.join(llm_role_policy.get('override_precedence') or []) or '-'}"
+        )
+        lines.append(
+            f"  llm_slot_boundary_modes={','.join(f'{slot}:{slot_boundary_modes[slot]}' for slot in sorted(slot_boundary_modes)) or '-'} llm_forbidden_decision_count={len(llm_role_policy.get('forbidden_decisions') or [])}"
         )
         if publish.get("reason"):
             lines.append(f"  reason={publish['reason']}")
@@ -148,9 +164,9 @@ def run_main_publish_flow(
             "output_dir": str((root / "publish").resolve()),
             "exit_code": completed.returncode,
         }
-        canonical_workflow_handoff = resolve_canonical_surface(business_date=business_date)
-        if canonical_workflow_handoff:
-            publish["workflow_handoff"] = canonical_workflow_handoff
+        canonical_surface = resolve_canonical_surface(business_date=business_date)
+        if canonical_surface:
+            publish.update(canonical_surface)
         if completed.returncode != 0 and not publish.get("reason"):
             publish["reason"] = completed.stderr.strip() or "publish_command_failed"
         blocked = completed.returncode != 0

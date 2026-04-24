@@ -93,9 +93,17 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
                 "manifest_pointers": {
                     "delivery_manifest_path": "/tmp/db/pkg/delivery_manifest.json",
                     "delivery_zip_path": "/tmp/db/pkg.zip",
+                    "operator_review_readme_path": "/tmp/db/pkg/OPERATOR_REVIEW.from_manifest.md",
+                    "package_index_path": "/tmp/db/pkg/package_index.from_manifest.json",
+                },
+            },
+            "operator_review_surface": {
+                "package_paths": {
                     "operator_review_readme_path": "/tmp/db/pkg/OPERATOR_REVIEW.md",
                     "package_index_path": "/tmp/db/pkg/package_index.json",
                 },
+                "llm_lineage_summary": {"status": "applied"},
+                "llm_role_policy": {"policy_versions": ["fsj_llm_role_policy_v1"]},
             },
         },
     )
@@ -114,6 +122,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
     assert payload["delivery_zip_path"] == "/tmp/db/pkg.zip"
     assert payload["operator_summary_path"] == "/tmp/db/pkg/OPERATOR_REVIEW.md"
     assert payload["package_index_path"] == "/tmp/db/pkg/package_index.json"
+    assert payload["operator_review_surface"]["llm_role_policy"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
 
 
 def test_support_publish_require_ready_blocks_without_publish(

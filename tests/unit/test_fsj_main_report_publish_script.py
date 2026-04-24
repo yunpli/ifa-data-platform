@@ -69,6 +69,29 @@ def test_main_report_publish_script_uses_canonical_main_delivery_factory(
 
     monkeypatch.setattr(module, "build_main_report_delivery_publisher", _factory)
 
+    monkeypatch.setattr(
+        module,
+        "_resolve_canonical_publish_surface",
+        lambda **_: {
+            "workflow_handoff": {
+                "artifact": {"artifact_id": "artifact-db", "report_run_id": "run-db"},
+                "selected_handoff": {"selected_artifact_id": "artifact-db", "selected_delivery_package_dir": "/tmp/db/pkg"},
+                "manifest_pointers": {
+                    "delivery_manifest_path": "/tmp/db/pkg/delivery_manifest.json",
+                    "telegram_caption_path": "/tmp/db/pkg/telegram_caption.txt",
+                    "delivery_zip_path": "/tmp/db/pkg.zip",
+                },
+            },
+            "operator_review_surface": {
+                "package_paths": {
+                    "operator_review_readme_path": "/tmp/db/pkg/OPERATOR_REVIEW.md",
+                    "package_index_path": "/tmp/db/pkg/package_index.json",
+                },
+                "llm_role_policy": {"policy_versions": ["fsj_llm_role_policy_v1"]},
+            },
+        },
+    )
+
     module.main()
 
     payload = json.loads(capsys.readouterr().out)
@@ -79,6 +102,10 @@ def test_main_report_publish_script_uses_canonical_main_delivery_factory(
     assert dummy_publisher.calls[0]["output_dir"] == tmp_path
     assert payload["artifact"]["artifact_id"] == "artifact-main"
     assert payload["delivery_manifest"]["business_date"] == "2026-04-23"
+    assert payload["workflow_handoff"]["artifact"]["artifact_id"] == "artifact-db"
+    assert payload["operator_review_surface"]["llm_role_policy"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
+    assert payload["operator_summary_path"] == "/tmp/db/pkg/OPERATOR_REVIEW.md"
+    assert payload["package_index_path"] == "/tmp/db/pkg/package_index.json"
 
 
 

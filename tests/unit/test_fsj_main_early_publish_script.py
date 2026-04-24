@@ -61,20 +61,32 @@ def test_main_persists_then_publishes_and_writes_summary(
         module,
         "_resolve_canonical_publish_surface",
         lambda **_: {
-            "artifact": {"artifact_id": "artifact-db", "report_run_id": "run-db"},
-            "selected_handoff": {"selected_artifact_id": "artifact-db", "selected_is_current": True},
-            "state": {
-                "workflow_state": "ready_to_send",
-                "recommended_action": "send",
-                "dispatch_recommended_action": "send",
-                "package_state": "ready",
-                "next_step": "dispatch_send_manifest",
-                "selection_reason": "best_ready_candidate strongest_slot=early qa_score=96",
-                "dispatch_selected_artifact_id": "artifact-db",
+            "workflow_handoff": {
+                "artifact": {"artifact_id": "artifact-db", "report_run_id": "run-db"},
+                "selected_handoff": {"selected_artifact_id": "artifact-db", "selected_is_current": True},
+                "state": {
+                    "workflow_state": "ready_to_send",
+                    "recommended_action": "send",
+                    "dispatch_recommended_action": "send",
+                    "package_state": "ready",
+                    "next_step": "dispatch_send_manifest",
+                    "selection_reason": "best_ready_candidate strongest_slot=early qa_score=96",
+                    "dispatch_selected_artifact_id": "artifact-db",
+                },
+                "manifest_pointers": {
+                    "delivery_manifest_path": "/tmp/db/delivery_manifest.json",
+                    "send_manifest_path": "/tmp/db/send_manifest.json",
+                },
             },
-            "manifest_pointers": {
-                "delivery_manifest_path": "/tmp/db/delivery_manifest.json",
-                "send_manifest_path": "/tmp/db/send_manifest.json",
+            "operator_review_surface": {
+                "llm_lineage_summary": {"status": "applied"},
+                "llm_role_policy": {
+                    "policy_versions": ["fsj_llm_role_policy_v1"],
+                    "boundary_modes": ["candidate_only"],
+                    "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                    "forbidden_decisions": ["declare_close_final_confirmation"],
+                    "slot_boundary_modes": {"early": "candidate_only"},
+                },
             },
         },
     )
@@ -115,6 +127,7 @@ def test_main_persists_then_publishes_and_writes_summary(
     summary = json.loads((tmp_path / "main_early_publish_summary.json").read_text(encoding="utf-8"))
     assert summary["persist"]["evidence_link_count"] == 3
     assert summary["publish"]["workflow_handoff"]["selected_handoff"]["selected_artifact_id"] == "artifact-db"
+    assert summary["publish"]["operator_review_surface"]["llm_role_policy"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
     operator_summary = (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
     assert "FSJ MAIN early publish｜2026-04-23｜early" in operator_summary
     assert "workflow_state=ready_to_send" in operator_summary
@@ -125,6 +138,9 @@ def test_main_persists_then_publishes_and_writes_summary(
     assert "next_step=dispatch_send_manifest" in operator_summary
     assert "selection_reason=best_ready_candidate strongest_slot=early qa_score=96" in operator_summary
     assert "send_manifest_path=/tmp/db/send_manifest.json" in operator_summary
+    assert "llm_lineage_status=applied llm_policy_versions=fsj_llm_role_policy_v1" in operator_summary
+    assert "llm_boundary_modes=candidate_only llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in operator_summary
+    assert "llm_slot_boundary_modes=early:candidate_only llm_forbidden_decision_count=1" in operator_summary
 
 
 def test_main_exits_nonzero_and_skips_publish_when_persist_fails(

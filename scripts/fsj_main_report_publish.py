@@ -21,6 +21,22 @@ def _parse_generated_at(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
+def _resolve_canonical_publish_surface(*, business_date: str, store: FSJStore | None = None) -> dict | None:
+    store = store or FSJStore()
+    surface = store.get_active_report_delivery_surface(
+        business_date=business_date,
+        agent_domain="main",
+        artifact_family="main_final_report",
+    )
+    if not surface:
+        return None
+    return {
+        "delivery_surface": surface,
+        "workflow_handoff": store.report_workflow_handoff_from_surface(surface),
+        "operator_review_surface": store.report_operator_review_surface_from_surface(surface),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Publish A-share FSJ MAIN HTML artifact and delivery package.")
     parser.add_argument("--business-date", required=True)
@@ -47,7 +63,7 @@ def main() -> None:
         report_run_id=args.report_run_id,
         generated_at=_parse_generated_at(args.generated_at),
     )
-    print(json.dumps({
+    payload = {
         "artifact": published["artifact"],
         "html_path": published["html_path"],
         "qa_path": published["qa_path"],
@@ -57,7 +73,22 @@ def main() -> None:
         "telegram_caption_path": published["telegram_caption_path"],
         "delivery_zip_path": published["delivery_zip_path"],
         "delivery_manifest": published["delivery_manifest"],
-    }, ensure_ascii=False, indent=2, default=str))
+    }
+    canonical_surface = _resolve_canonical_publish_surface(business_date=args.business_date, store=store)
+    if canonical_surface:
+        payload.update(canonical_surface)
+        workflow_handoff = dict(canonical_surface.get("workflow_handoff") or {})
+        operator_review_surface = dict(canonical_surface.get("operator_review_surface") or {})
+        manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
+        selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+        package_paths = dict(operator_review_surface.get("package_paths") or {})
+        payload["delivery_package_dir"] = selected_handoff.get("selected_delivery_package_dir") or payload["delivery_package_dir"]
+        payload["delivery_manifest_path"] = manifest_pointers.get("delivery_manifest_path") or payload["delivery_manifest_path"]
+        payload["telegram_caption_path"] = manifest_pointers.get("telegram_caption_path") or payload["telegram_caption_path"]
+        payload["delivery_zip_path"] = manifest_pointers.get("delivery_zip_path") or payload["delivery_zip_path"]
+        payload["operator_summary_path"] = package_paths.get("operator_review_readme_path") or payload.get("operator_summary_path")
+        payload["package_index_path"] = package_paths.get("package_index_path") or payload.get("package_index_path")
+    print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
 
 
 if __name__ == "__main__":

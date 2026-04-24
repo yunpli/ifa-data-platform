@@ -35,7 +35,19 @@ def _resolve_canonical_publish_surface(*, business_date: str, agent_domain: str,
     return {
         "delivery_surface": surface,
         "workflow_handoff": store.report_workflow_handoff_from_surface(surface),
+        "operator_review_surface": store.report_operator_review_surface_from_surface(surface),
     }
+
+
+def _policy_summary_lines(review_surface: dict) -> list[str]:
+    llm_role_policy = dict(review_surface.get("llm_role_policy") or {})
+    llm_lineage_summary = dict(review_surface.get("llm_lineage_summary") or {})
+    slot_boundary_modes = dict(llm_role_policy.get("slot_boundary_modes") or {})
+    return [
+        f"  llm_lineage_status={llm_lineage_summary.get('status') or '-'} llm_policy_versions={','.join(llm_role_policy.get('policy_versions') or []) or '-'}",
+        f"  llm_boundary_modes={','.join(llm_role_policy.get('boundary_modes') or []) or '-'} llm_override_precedence={'>'.join(llm_role_policy.get('override_precedence') or []) or '-'}",
+        f"  llm_slot_boundary_modes={','.join(f'{slot}:{slot_boundary_modes[slot]}' for slot in sorted(slot_boundary_modes)) or '-'} llm_forbidden_decision_count={len(llm_role_policy.get('forbidden_decisions') or [])}",
+    ]
 
 
 def _build_operator_summary(*, business_date: str, slot: str, generated_at: datetime, results: list[dict]) -> str:
@@ -67,6 +79,7 @@ def _build_operator_summary(*, business_date: str, slot: str, generated_at: date
             lines.append(
                 f"  delivery_manifest_path={manifest_pointers.get('delivery_manifest_path') or '-'} send_manifest_path={manifest_pointers.get('send_manifest_path') or '-'}"
             )
+        lines.extend(_policy_summary_lines(dict(item.get("operator_review_surface") or {})))
         if item.get("reason"):
             lines.append(f"  reason={item['reason']}")
     lines.append("")

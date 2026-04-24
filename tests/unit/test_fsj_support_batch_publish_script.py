@@ -107,6 +107,16 @@ def test_main_persists_before_publish_and_writes_batch_summary(
                     "send_manifest_path": f"/tmp/db/{kwargs['agent_domain']}/send_manifest.json",
                 },
             },
+            "operator_review_surface": {
+                "llm_lineage_summary": {"status": "applied"},
+                "llm_role_policy": {
+                    "policy_versions": ["fsj_llm_role_policy_v1"],
+                    "boundary_modes": ["candidate_only"],
+                    "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                    "forbidden_decisions": ["promote_candidate_to_same_day_confirmed_theme"],
+                    "slot_boundary_modes": {"early": "candidate_only"},
+                },
+            },
         },
     )
 
@@ -135,6 +145,9 @@ def test_main_persists_before_publish_and_writes_batch_summary(
     assert "next_step=dispatch_send_manifest" in operator_summary
     assert "selection_reason=support_ready_candidate domain=macro" in operator_summary
     assert "send_manifest_path=/tmp/db/macro/send_manifest.json" in operator_summary
+    assert "llm_lineage_status=applied llm_policy_versions=fsj_llm_role_policy_v1" in operator_summary
+    assert "llm_boundary_modes=candidate_only llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in operator_summary
+    assert "llm_slot_boundary_modes=early:candidate_only llm_forbidden_decision_count=1" in operator_summary
 
 
 def test_main_keeps_publish_results_and_surfaces_persist_failure(

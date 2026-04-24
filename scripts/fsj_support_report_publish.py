@@ -34,6 +34,7 @@ def _resolve_canonical_publish_surface(*, business_date: str, agent_domain: str,
     return {
         "delivery_surface": surface,
         "workflow_handoff": store.report_workflow_handoff_from_surface(surface),
+        "operator_review_surface": store.report_operator_review_surface_from_surface(surface),
     }
 
 
@@ -119,13 +120,15 @@ def main() -> None:
         if canonical_surface:
             payload.update(canonical_surface)
             workflow_handoff = dict(canonical_surface.get("workflow_handoff") or {})
+            operator_review_surface = dict(canonical_surface.get("operator_review_surface") or {})
             manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
             selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+            package_paths = dict(operator_review_surface.get("package_paths") or {})
             payload["delivery_package_dir"] = selected_handoff.get("selected_delivery_package_dir") or payload["delivery_package_dir"]
             payload["delivery_manifest_path"] = manifest_pointers.get("delivery_manifest_path") or payload["delivery_manifest_path"]
             payload["delivery_zip_path"] = manifest_pointers.get("delivery_zip_path") or payload["delivery_zip_path"]
-            payload["operator_summary_path"] = manifest_pointers.get("operator_review_readme_path") or payload["operator_summary_path"]
-            payload["package_index_path"] = manifest_pointers.get("package_index_path") or payload["package_index_path"]
+            payload["operator_summary_path"] = package_paths.get("operator_review_readme_path") or manifest_pointers.get("operator_review_readme_path") or payload["operator_summary_path"]
+            payload["package_index_path"] = package_paths.get("package_index_path") or manifest_pointers.get("package_index_path") or payload["package_index_path"]
     print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
 
 
