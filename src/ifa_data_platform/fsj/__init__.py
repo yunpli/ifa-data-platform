@@ -67,6 +67,7 @@ from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
 from .report_orchestration import (
     MainReportMorningDeliveryOrchestrator,
+    build_main_report_delivery_publisher,
     build_main_report_morning_delivery_orchestrator,
     build_support_report_delivery_publisher,
 )
@@ -132,6 +133,7 @@ __all__ = [
     "MainReportEvaluationHarness",
     "MainReportMorningDeliveryOrchestrator",
     "MainReportHTMLRenderer",
+    "build_main_report_delivery_publisher",
     "build_main_report_morning_delivery_orchestrator",
     "build_support_report_delivery_publisher",
     "MainReportQAEvaluator",

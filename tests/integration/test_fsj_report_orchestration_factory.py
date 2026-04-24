@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from ifa_data_platform.fsj.report_orchestration import (
+    build_main_report_delivery_publisher,
     build_main_report_morning_delivery_orchestrator,
     build_support_report_delivery_publisher,
 )
@@ -156,13 +157,34 @@ def test_support_report_delivery_factory_runs_with_explicit_non_live_artifact_ro
     assert Path(result["operator_summary_path"]).exists()
 
 
-def test_main_report_orchestration_factory_blocks_missing_artifact_root_under_pytest() -> None:
+def test_main_report_delivery_factory_blocks_missing_artifact_root_under_pytest() -> None:
     with pytest.raises(LiveIsolationError, match="artifact_root must be set explicitly"):
-        build_main_report_morning_delivery_orchestrator(
+        build_main_report_delivery_publisher(
             assembly_service=_StubAssemblyService(),
             store=_StubStore(),
             artifact_root=None,
         )
+
+
+
+def test_main_report_delivery_factory_runs_with_explicit_non_live_artifact_root(tmp_path: Path) -> None:
+    publisher = build_main_report_delivery_publisher(
+        assembly_service=_StubAssemblyService(),
+        store=_StubStore(),
+        artifact_root=tmp_path,
+    )
+
+    result = publisher.publish_delivery_package(
+        business_date="2099-04-22",
+        output_dir=tmp_path,
+        report_run_id="integration-main-factory-path",
+        generated_at=datetime(2099, 4, 22, 9, 58, tzinfo=timezone.utc),
+    )
+
+    assert Path(result["delivery_manifest_path"]).exists()
+    assert Path(result["delivery_zip_path"]).exists()
+    assert Path(result["package_index_path"]).exists()
+
 
 
 def test_main_report_orchestration_factory_runs_with_explicit_non_live_artifact_root(tmp_path: Path) -> None:

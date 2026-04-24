@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
+
+import pytest
 
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_main_report_morning_delivery.py"
@@ -74,7 +77,34 @@ class _FakeHelper:
 
 
 class _FakeStore:
-    pass
+    def get_active_report_operator_review_surface(self, **_: object):
+        return None
+
+
+class _DummyOrchestrator:
+    def __init__(self, publisher, dispatch_helper) -> None:
+        self.publisher = publisher
+        self.dispatch_helper = dispatch_helper
+        self.calls: list[dict] = []
+
+    def run_workflow(self, **kwargs: object) -> dict:
+        self.calls.append(dict(kwargs))
+        output_dir = Path(str(kwargs["output_dir"]))
+        return {
+            "artifact": {"artifact_id": "artifact-main-workflow", "report_run_id": kwargs.get("report_run_id")},
+            "delivery_manifest": {"artifact_id": "artifact-main-workflow", "business_date": kwargs["business_date"]},
+            "dispatch_decision": {"recommended_action": "send", "selected": {"artifact_id": "artifact-main-workflow"}},
+            "workflow_manifest": {"workflow_state": "ready_to_send"},
+            "delivery_package_dir": str(output_dir / "pkg"),
+            "delivery_manifest_path": str(output_dir / "pkg" / "delivery_manifest.json"),
+            "send_manifest_path": str(output_dir / "pkg" / "send_manifest.json"),
+            "review_manifest_path": str(output_dir / "pkg" / "review_manifest.json"),
+            "operator_summary_path": str(output_dir / "pkg" / "operator_summary.txt"),
+            "workflow_manifest_path": str(output_dir / "pkg" / "workflow_manifest.json"),
+            "delivery_zip_path": str(output_dir / "pkg.zip"),
+            "telegram_caption_path": str(output_dir / "pkg" / "telegram_caption.txt"),
+            "selected_handoff": {"selected_artifact_id": "artifact-main-workflow", "selected_is_current": True},
+        }
 
 
 def test_load_comparison_candidates_prefers_db_active_surface_and_dedupes_filesystem_fallback() -> None:
@@ -99,3 +129,57 @@ def test_load_comparison_candidates_prefers_db_active_surface_and_dedupes_filesy
     ]
     assert helper.calls[0] == ("discover", "/tmp/out", True, True)
     assert helper.calls[1] == ("db-list", "2099-04-22", 8)
+
+
+
+def test_main_report_morning_delivery_script_uses_canonical_main_delivery_factory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp")
+    monkeypatch.setattr(
+        _module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: _module.argparse.Namespace(
+            business_date="2026-04-23",
+            output_dir=str(tmp_path),
+            report_run_id="fsj-main-morning:2026-04-23",
+            generated_at="2026-04-23T11:50:24+00:00",
+            include_empty=False,
+            compare_under_output_dir=None,
+            compare_limit=8,
+            comparison_package_dir=[],
+            comparison_manifest=[],
+        ),
+    )
+
+    monkeypatch.setattr(_module, "FSJReportAssemblyStore", lambda: object())
+    monkeypatch.setattr(_module, "MainReportAssemblyService", lambda store: {"assembly_store": store})
+    monkeypatch.setattr(_module, "FSJStore", lambda: _FakeStore())
+
+    dummy_orchestrator: _DummyOrchestrator | None = None
+    captured_factory_kwargs: dict[str, object] = {}
+
+    def _factory(**kwargs: object):
+        captured_factory_kwargs.update(kwargs)
+        return object()
+
+    def _orchestrator_builder(*, publisher, dispatch_helper):
+        nonlocal dummy_orchestrator
+        dummy_orchestrator = _DummyOrchestrator(publisher=publisher, dispatch_helper=dispatch_helper)
+        return dummy_orchestrator
+
+    monkeypatch.setattr(_module, "build_main_report_delivery_publisher", _factory)
+    monkeypatch.setattr(_module, "MainReportMorningDeliveryOrchestrator", _orchestrator_builder)
+
+    _module.main()
+
+    payload = json.loads(capsys.readouterr().out)
+    assert captured_factory_kwargs["artifact_root"] == tmp_path
+    assert captured_factory_kwargs["assembly_service"] == {"assembly_store": captured_factory_kwargs["assembly_service"]["assembly_store"]}
+    assert dummy_orchestrator is not None
+    assert dummy_orchestrator.calls[0]["business_date"] == "2026-04-23"
+    assert dummy_orchestrator.calls[0]["comparison_candidates"] == []
+    assert payload["artifact"]["artifact_id"] == "artifact-main-workflow"
+    assert payload["workflow_manifest"]["workflow_state"] == "ready_to_send"

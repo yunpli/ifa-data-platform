@@ -8,8 +8,10 @@ from pathlib import Path
 
 from ifa_data_platform.fsj.report_assembly import FSJReportAssemblyStore, MainReportAssemblyService
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
-from ifa_data_platform.fsj.report_orchestration import MainReportMorningDeliveryOrchestrator
-from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
+from ifa_data_platform.fsj.report_orchestration import (
+    MainReportMorningDeliveryOrchestrator,
+    build_main_report_delivery_publisher,
+)
 from ifa_data_platform.fsj.store import FSJStore
 from ifa_data_platform.fsj.test_live_isolation import enforce_non_live_test_roots
 
@@ -90,11 +92,8 @@ def main() -> None:
     )
 
     assembly_store = FSJReportAssemblyStore()
-    rendering_service = MainReportRenderingService(
+    publisher = build_main_report_delivery_publisher(
         assembly_service=MainReportAssemblyService(store=assembly_store),
-    )
-    publisher = MainReportArtifactPublishingService(
-        rendering_service=rendering_service,
         store=store,
         artifact_root=Path(args.output_dir),
     )

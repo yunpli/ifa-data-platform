@@ -8,6 +8,7 @@ import pytest
 
 from ifa_data_platform.fsj.report_orchestration import (
     MainReportMorningDeliveryOrchestrator,
+    build_main_report_delivery_publisher,
     build_main_report_morning_delivery_orchestrator,
 )
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
@@ -155,13 +156,38 @@ def _build_orchestrator(artifact_root: Path) -> tuple[MainReportMorningDeliveryO
     return orchestrator, store
 
 
-def test_main_report_orchestration_factory_requires_explicit_non_live_artifact_root_under_pytest() -> None:
+def test_main_report_delivery_factory_requires_explicit_non_live_artifact_root_under_pytest() -> None:
     with pytest.raises(LiveIsolationError, match="artifact_root must be set explicitly"):
-        build_main_report_morning_delivery_orchestrator(
+        build_main_report_delivery_publisher(
             assembly_service=_StubAssemblyService(_assembled_sections()),
             store=_StubStore(),
             artifact_root=None,
         )
+
+
+
+def test_main_report_delivery_factory_publishes_package_with_explicit_non_live_artifact_root(tmp_path: Path) -> None:
+    stub = _StubAssemblyService(_assembled_sections())
+    store = _StubStore()
+    publisher = build_main_report_delivery_publisher(
+        assembly_service=stub,
+        store=store,
+        artifact_root=tmp_path,
+    )
+
+    result = publisher.publish_delivery_package(
+        business_date="2099-04-22",
+        output_dir=tmp_path,
+        report_run_id="report-run-main-factory",
+        generated_at=datetime(2099, 4, 22, 9, 54, tzinfo=timezone.utc),
+    )
+
+    assert Path(result["delivery_manifest_path"]).exists()
+    assert Path(result["delivery_zip_path"]).exists()
+    assert Path(result["package_index_path"]).exists()
+    assert stub.calls == [("2099-04-22", False), ("2099-04-22", False)]
+    assert store.registered
+
 
 
 def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(tmp_path: Path) -> None:

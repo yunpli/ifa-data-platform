@@ -21,6 +21,36 @@ class MainReportWorkflowCandidate:
     source: str
 
 
+def build_main_report_delivery_publisher(
+    *,
+    assembly_service: Any,
+    store: Any,
+    artifact_root: str | Path | None,
+    renderer: Any | None = None,
+    qa_evaluator: Any | None = None,
+    evaluation_harness: Any | None = None,
+) -> MainReportArtifactPublishingService:
+    """Build the canonical MAIN delivery/publish stack.
+
+    This is the reusable MAIN-side assembly seam above rendering/publishing services.
+    Under pytest, publisher construction still fails fast unless an explicit non-live
+    artifact_root is supplied.
+    """
+
+    rendering_service = MainReportRenderingService(
+        assembly_service=assembly_service,
+        renderer=renderer,
+    )
+    return MainReportArtifactPublishingService(
+        rendering_service=rendering_service,
+        store=store,
+        qa_evaluator=qa_evaluator,
+        evaluation_harness=evaluation_harness,
+        artifact_root=artifact_root,
+    )
+
+
+
 def build_main_report_morning_delivery_orchestrator(
     *,
     assembly_service: Any,
@@ -38,16 +68,13 @@ def build_main_report_morning_delivery_orchestrator(
     artifact_root is supplied.
     """
 
-    rendering_service = MainReportRenderingService(
+    publisher = build_main_report_delivery_publisher(
         assembly_service=assembly_service,
-        renderer=renderer,
-    )
-    publisher = MainReportArtifactPublishingService(
-        rendering_service=rendering_service,
         store=store,
+        artifact_root=artifact_root,
+        renderer=renderer,
         qa_evaluator=qa_evaluator,
         evaluation_harness=evaluation_harness,
-        artifact_root=artifact_root,
     )
     return MainReportMorningDeliveryOrchestrator(
         publisher=publisher,
