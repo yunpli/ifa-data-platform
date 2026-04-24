@@ -371,7 +371,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-5. Human-in-the-loop governance points
-**Status:** Not formalized  
+**Status:** In progress (`P2-5a` failure-taxonomy first slice landed on canonical operator board surface)  
 **Target:** make manual review a designed feature rather than an ad hoc rescue path
 
 **Tasks**
@@ -379,6 +379,9 @@ Pieces exist, but the product/control-plane form does not yet exist.
 - define which failures auto-degrade
 - define which failures require hold/review
 - define who/what can promote review-ready to send-ready
+
+**Thin slices already landed**
+- `P2-5a`: canonical operator board now projects a first bounded failure taxonomy from existing persisted truth, classifying a meaningful subset into `auto_retry` / `auto_degrade` / `hold_review` using dispatch receipts, send-readiness, lineage/source-health degrade posture, candidate-selection mismatch, and bundle/governance blockers; taxonomy is queryable per row and aggregated fleet-wide for operator triage
 
 **Parallelizable:** no, policy-heavy
 

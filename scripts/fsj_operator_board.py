@@ -3,8 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
+
+if __package__ in {None, ""}:
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
 
 from ifa_data_platform.fsj.store import FSJStore
 from scripts.fsj_drift_monitor import (
@@ -192,6 +199,9 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_board_bundle_count={main_board_row.get('bundle_count')}")
         print(f"main_board_missing_bundle_count={main_board_row.get('missing_bundle_count')}")
         print(f"main_board_lineage_sla_summary={main_board_row.get('lineage_sla_summary')}")
+        print(f"main_board_failure_taxonomy_class={main_board_row.get('failure_taxonomy_class')}")
+        print(f"main_board_failure_taxonomy_reason={main_board_row.get('failure_taxonomy_reason')}")
+        print(f"main_board_failure_taxonomy_summary={main_board_row.get('failure_taxonomy_summary')}")
         print(f"main_board_row_summary={main_board_row.get('summary_line')}")
         print(f"main_board_state_source={main_board_source.get('state_source_of_truth')}")
         print(f"main_board_next_action_source={main_board_source.get('next_action_source_of_truth')}")
@@ -262,6 +272,9 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"support_{domain}_board_bundle_count={item_board_row.get('bundle_count')}")
         print(f"support_{domain}_board_missing_bundle_count={item_board_row.get('missing_bundle_count')}")
         print(f"support_{domain}_board_lineage_sla_summary={item_board_row.get('lineage_sla_summary')}")
+        print(f"support_{domain}_board_failure_taxonomy_class={item_board_row.get('failure_taxonomy_class')}")
+        print(f"support_{domain}_board_failure_taxonomy_reason={item_board_row.get('failure_taxonomy_reason')}")
+        print(f"support_{domain}_board_failure_taxonomy_summary={item_board_row.get('failure_taxonomy_summary')}")
         print(f"support_{domain}_board_row_summary={item_board_row.get('summary_line')}")
         print(f"support_{domain}_board_state_source={item_board_source.get('state_source_of_truth')}")
         print(f"support_{domain}_board_next_action_source={item_board_source.get('next_action_source_of_truth')}")
@@ -385,10 +398,18 @@ def _print_text(payload: dict[str, Any]) -> None:
             f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('strongest_slot_counts')).items())
         )
     )
+    print(
+        "fleet_board_failure_taxonomy_counts="
+        + ",".join(
+            f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('failure_taxonomy_counts')).items())
+        )
+    )
     print(f"fleet_board_next_action_subjects={','.join(board_rows_aggregate.get('subjects_with_next_action') or [])}")
     print(f"fleet_board_blocking_reason_subjects={','.join(board_rows_aggregate.get('subjects_with_blocking_reason') or [])}")
     print(f"fleet_board_selected_mismatch_subjects={','.join(board_rows_aggregate.get('selected_mismatch_subjects') or [])}")
     print(f"fleet_board_missing_bundle_subjects={','.join(board_rows_aggregate.get('subjects_with_missing_bundles') or [])}")
+    for taxonomy_class, subjects in sorted(_safe_dict(board_rows_aggregate.get('failure_taxonomy_subjects')).items()):
+        print(f"fleet_board_failure_taxonomy_subjects_{taxonomy_class}={','.join(subjects or [])}")
     print(
         "fleet_board_state_source_counts="
         + ",".join(
@@ -432,6 +453,9 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"board_history_1_bundle_count={first_board_history.get('bundle_count')}")
         print(f"board_history_1_missing_bundle_count={first_board_history.get('missing_bundle_count')}")
         print(f"board_history_1_lineage_sla_summary={first_board_history.get('lineage_sla_summary')}")
+        print(f"board_history_1_failure_taxonomy_class={first_board_history.get('failure_taxonomy_class')}")
+        print(f"board_history_1_failure_taxonomy_reason={first_board_history.get('failure_taxonomy_reason')}")
+        print(f"board_history_1_failure_taxonomy_summary={first_board_history.get('failure_taxonomy_summary')}")
         print(f"board_history_1_summary={first_board_history.get('summary_line')}")
     if db_candidate_history:
         first_history = db_candidate_history[0]

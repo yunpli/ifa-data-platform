@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -300,16 +303,16 @@ class _BoardStore(_DummyStore):
                 },
             },
             "board_rows": {
-                "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "governance_action_required": False, "needs_attention": False, "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+                "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy": {"class": "none", "reason": None, "summary_line": "none | no failure taxonomy attention currently projected", "operator_visible": False}, "failure_taxonomy_class": "none", "failure_taxonomy_reason": None, "failure_taxonomy_summary": "none | no failure taxonomy attention currently projected", "governance_action_required": False, "needs_attention": False, "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
                 "support": {
                     "ai_tech": {"subject": "support:ai_tech", "artifact_id": "ai_tech-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "ai_tech-artifact", "selected_is_current": True, "strongest_slot": "early", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 1, "missing_bundle_count": 0, "lineage_sla_summary": "selected=ai_tech-artifact | slot=early | bundles=1 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "governance_action_required": False, "needs_attention": False, "summary_line": "support:ai_tech | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
-                    "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "canonical_lifecycle_reason": "manual_review_required", "posture": "review_required", "recommended_action": "send_review", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "selected_artifact_id": "commodities-artifact", "selected_is_current": True, "strongest_slot": "early", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 1, "missing_bundle_count": 1, "lineage_sla_summary": "selected=commodities-artifact | slot=early | bundles=1 | missing=1 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "governance_action_required": True, "needs_attention": True, "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing"},
+                    "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "canonical_lifecycle_reason": "manual_review_required", "posture": "review_required", "recommended_action": "send_review", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "selected_artifact_id": "commodities-artifact", "selected_is_current": True, "strongest_slot": "early", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 1, "missing_bundle_count": 1, "lineage_sla_summary": "selected=commodities-artifact | slot=early | bundles=1 | missing=1 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy": {"class": "hold_review", "reason": "bundle_missing", "summary_line": "hold_review | operator intervention or review remains required", "operator_visible": True}, "failure_taxonomy_class": "hold_review", "failure_taxonomy_reason": "bundle_missing", "failure_taxonomy_summary": "hold_review | operator intervention or review remains required", "governance_action_required": True, "needs_attention": True, "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | failure_taxonomy=hold_review | blocker=bundle_missing"},
                     "macro": {"subject": "support:macro", "artifact_id": "macro-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "macro-artifact", "selected_is_current": True, "strongest_slot": "early", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 1, "missing_bundle_count": 0, "lineage_sla_summary": "selected=macro-artifact | slot=early | bundles=1 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "governance_action_required": False, "needs_attention": False, "summary_line": "support:macro | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
                 },
                 "history": [
                     {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "governance_action_required": False, "needs_attention": False, "summary_line": "history:1 | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"}
                 ],
-                "aggregate": {"reported_subject_count": 4, "status_semantic_counts": {"ready": 3, "review": 1}, "dispatch_state_counts": {"dispatch_succeeded": 3, "dispatch_failed": 1}, "strongest_slot_counts": {"early": 3, "late": 1}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities", "support:macro"], "selected_mismatch_subjects": [], "subjects_with_missing_bundles": ["support:commodities"]},
+                "aggregate": {"reported_subject_count": 4, "status_semantic_counts": {"ready": 3, "review": 1}, "dispatch_state_counts": {"dispatch_succeeded": 3, "dispatch_failed": 1}, "strongest_slot_counts": {"early": 3, "late": 1}, "failure_taxonomy_counts": {"hold_review": 1}, "failure_taxonomy_subjects": {"hold_review": ["support:commodities"]}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities", "support:macro"], "selected_mismatch_subjects": [], "subjects_with_missing_bundles": ["support:commodities"]},
             },
             "board_state_source_summary": {
                 "main": {"subject": "main", "canonical_state": "send_ready", "canonical_reason": "ready_for_delivery_send", "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff", "blocking_reason_source_of_truth": None, "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step", "summary_line": "state=send_ready via ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff | next_action via ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"},
@@ -392,10 +395,13 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["board_rows"]["main"]["strongest_slot"] == "late"
     assert payload["board_rows"]["main"]["dispatch_state"] == "dispatch_succeeded"
     assert payload["board_rows"]["support"]["commodities"]["blocking_reason"] == "bundle_missing"
+    assert payload["board_rows"]["support"]["commodities"]["failure_taxonomy_class"] == "hold_review"
     assert payload["board_rows"]["support"]["commodities"]["missing_bundle_count"] == 1
     assert payload["board_rows"]["aggregate"]["status_semantic_counts"] == {"ready": 3, "review": 1}
     assert payload["board_rows"]["aggregate"]["dispatch_state_counts"] == {"dispatch_succeeded": 3, "dispatch_failed": 1}
     assert payload["board_rows"]["aggregate"]["strongest_slot_counts"] == {"early": 3, "late": 1}
+    assert payload["board_rows"]["aggregate"]["failure_taxonomy_counts"] == {"hold_review": 1}
+    assert payload["board_rows"]["aggregate"]["failure_taxonomy_subjects"] == {"hold_review": ["support:commodities"]}
     assert payload["board_rows"]["aggregate"]["subjects_with_missing_bundles"] == ["support:commodities"]
     assert payload["qa_axes_summary"]["support"]["commodities"]["axes_with_attention"] == ["policy"]
     assert payload["qa_axes_summary"]["aggregate"]["overall_posture"] == "blocked"
@@ -457,6 +463,24 @@ def test_build_board_payload_can_resolve_latest_business_date(monkeypatch) -> No
 
     assert payload["resolution"]["mode"] == "latest_active_lookup"
     assert payload["business_date"] == "2099-04-22"
+
+
+def test_script_help_runs_without_pythonpath() -> None:
+    env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_MODULE_PATH),
+            "--help",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout
 
 
 def test_print_text_emits_operator_board_summary(capsys) -> None:
@@ -547,16 +571,16 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             },
         },
         "board_rows": {
-            "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+            "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy_class": "none", "failure_taxonomy_reason": None, "failure_taxonomy_summary": "none | no failure taxonomy attention currently projected", "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
             "support": {
                 "ai_tech": {"subject": "support:ai_tech", "artifact_id": "ai-tech-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "ai-tech-artifact", "selected_is_current": True, "strongest_slot": "early", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 1, "missing_bundle_count": 0, "lineage_sla_summary": "selected=ai-tech-artifact | slot=early | bundles=1 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "summary_line": "support:ai_tech | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
-                "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "selected_artifact_id": "commodities-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 1, "missing_bundle_count": 1, "lineage_sla_summary": "selected=commodities-artifact | slot=late | bundles=1 | missing=1 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing"},
+                "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "selected_artifact_id": "commodities-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 1, "missing_bundle_count": 1, "lineage_sla_summary": "selected=commodities-artifact | slot=late | bundles=1 | missing=1 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy_class": "hold_review", "failure_taxonomy_reason": "bundle_missing", "failure_taxonomy_summary": "hold_review | operator intervention or review remains required", "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing"},
                 "macro": None,
             },
             "history": [
-                {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "held", "canonical_lifecycle_state": "failed", "next_action": None, "blocking_reason": "dispatch_receipt_failed", "selected_artifact_id": "main-artifact-v2", "selected_is_current": False, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact-v2 | slot=late | bundles=2 | missing=0 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "summary_line": "history:1 | status=held | canonical=failed | action=- | blocker=dispatch_receipt_failed"}
+                {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "held", "canonical_lifecycle_state": "failed", "next_action": None, "blocking_reason": "dispatch_receipt_failed", "selected_artifact_id": "main-artifact-v2", "selected_is_current": False, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact-v2 | slot=late | bundles=2 | missing=0 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy_class": "hold_review", "failure_taxonomy_reason": "dispatch_receipt_failed", "failure_taxonomy_summary": "hold_review | operator intervention or review remains required", "summary_line": "history:1 | status=held | canonical=failed | action=- | failure_taxonomy=hold_review | blocker=dispatch_receipt_failed"}
             ],
-            "aggregate": {"reported_subject_count": 3, "status_semantic_counts": {"ready": 2, "review": 1}, "dispatch_state_counts": {"dispatch_failed": 1, "dispatch_succeeded": 2}, "strongest_slot_counts": {"early": 1, "late": 2}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities"], "selected_mismatch_subjects": ["history:1"], "subjects_with_missing_bundles": ["support:commodities"]},
+            "aggregate": {"reported_subject_count": 3, "status_semantic_counts": {"ready": 2, "review": 1}, "dispatch_state_counts": {"dispatch_failed": 1, "dispatch_succeeded": 2}, "strongest_slot_counts": {"early": 1, "late": 2}, "failure_taxonomy_counts": {"hold_review": 2}, "failure_taxonomy_subjects": {"hold_review": ["support:commodities", "history:1"]}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities"], "selected_mismatch_subjects": ["history:1"], "subjects_with_missing_bundles": ["support:commodities"]},
         },
         "board_state_source_summary": {
             "main": {"subject": "main", "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff", "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step", "blocking_reason_source_of_truth": None, "summary_line": "state=send_ready via ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff | next_action via ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"},
@@ -652,6 +676,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_board_bundle_count=2" in output
     assert "main_board_missing_bundle_count=0" in output
     assert "main_board_lineage_sla_summary=selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00" in output
+    assert "main_board_failure_taxonomy_class=none" in output
+    assert "main_board_failure_taxonomy_reason=None" in output
+    assert "main_board_failure_taxonomy_summary=none | no failure taxonomy attention currently projected" in output
     assert "main_board_row_summary=main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel" in output
     assert "main_board_state_source=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff" in output
     assert "main_board_next_action_source=ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step" in output
@@ -691,6 +718,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "support_commodities_board_bundle_count=1" in output
     assert "support_commodities_board_missing_bundle_count=1" in output
     assert "support_commodities_board_lineage_sla_summary=selected=commodities-artifact | slot=late | bundles=1 | missing=1 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00" in output
+    assert "support_commodities_board_failure_taxonomy_class=hold_review" in output
+    assert "support_commodities_board_failure_taxonomy_reason=bundle_missing" in output
+    assert "support_commodities_board_failure_taxonomy_summary=hold_review | operator intervention or review remains required" in output
     assert "support_commodities_board_row_summary=support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing" in output
     assert "support_commodities_board_blocking_reason_source=ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.send_blockers" in output
     assert "support_commodities_governance_decision=REVIEW" in output
@@ -728,6 +758,8 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_board_status_counts=ready:2,review:1" in output
     assert "fleet_board_dispatch_state_counts=dispatch_failed:1,dispatch_succeeded:2" in output
     assert "fleet_board_strongest_slot_counts=early:1,late:2" in output
+    assert "fleet_board_failure_taxonomy_counts=hold_review:2" in output
+    assert "fleet_board_failure_taxonomy_subjects_hold_review=support:commodities,history:1" in output
     assert "fleet_board_next_action_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_blocking_reason_subjects=support:commodities" in output
     assert "fleet_board_selected_mismatch_subjects=history:1" in output
@@ -772,7 +804,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "board_history_1_bundle_count=2" in output
     assert "board_history_1_missing_bundle_count=0" in output
     assert "board_history_1_lineage_sla_summary=selected=main-artifact-v2 | slot=late | bundles=2 | missing=0 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00" in output
-    assert "board_history_1_summary=history:1 | status=held | canonical=failed | action=- | blocker=dispatch_receipt_failed" in output
+    assert "board_history_1_failure_taxonomy_class=hold_review" in output
+    assert "board_history_1_failure_taxonomy_reason=dispatch_receipt_failed" in output
+    assert "board_history_1_failure_taxonomy_summary=hold_review | operator intervention or review remains required" in output
+    assert "board_history_1_summary=history:1 | status=held | canonical=failed | action=- | failure_taxonomy=hold_review | blocker=dispatch_receipt_failed" in output
     assert "db_candidate_history_count=1" in output
     assert "db_candidate_history_1_subject=history:1" in output
     assert "db_candidate_history_1_reason=better_ready_candidate_selected_current_outdated" in output
@@ -893,6 +928,7 @@ def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -
     assert payload["board_rows"]["aggregate"]["status_semantic_counts"] == {"ready": 3, "review": 1}
     assert payload["board_rows"]["aggregate"]["dispatch_state_counts"] == {"dispatch_succeeded": 3, "dispatch_failed": 1}
     assert payload["board_rows"]["aggregate"]["strongest_slot_counts"] == {"early": 3, "late": 1}
+    assert payload["board_rows"]["aggregate"]["failure_taxonomy_counts"] == {"hold_review": 1}
     assert payload["board_rows"]["support"]["commodities"]["blocking_reason"] == "bundle_missing"
     assert payload["board_state_source_summary"]["aggregate"]["reported_subject_count"] == 4
     assert payload["board_state_source_summary"]["aggregate"]["subjects_with_blocking_reason_source"] == ["support:commodities"]

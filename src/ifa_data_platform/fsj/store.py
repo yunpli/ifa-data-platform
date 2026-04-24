@@ -2498,6 +2498,83 @@ class FSJStore:
                 return canonical_reason
             return None
 
+        def _classify_operator_failure_taxonomy(
+            readiness: dict[str, Any] | None,
+            *,
+            dispatch_state: str | None,
+            selected_is_current: bool | None,
+            missing_bundle_count: int,
+        ) -> dict[str, Any]:
+            normalized = dict(readiness or {})
+            recommended_action = str(normalized.get("recommended_action") or "").strip()
+            posture = str(normalized.get("posture") or "").strip()
+            canonical_state = str(normalized.get("canonical_lifecycle_state") or "").strip()
+            llm_lineage_status = str(normalized.get("llm_lineage_status") or "").strip()
+            source_health_status = str(normalized.get("source_health_status") or "").strip()
+            governance_action_required = bool(normalized.get("governance_action_required"))
+            blocking_reason = _operator_blocking_reason(normalized)
+            normalized_dispatch_state = str(dispatch_state or "").strip()
+
+            if (
+                normalized_dispatch_state == "dispatch_failed"
+                and recommended_action == "send"
+                and posture == "ready_to_send"
+                and not governance_action_required
+                and not blocking_reason
+                and missing_bundle_count == 0
+                and selected_is_current is not False
+            ):
+                return {
+                    "class": "auto_retry",
+                    "reason": "dispatch_receipt_failed_after_send_ready",
+                    "summary_line": "auto_retry | dispatch receipt failed after send-ready selection",
+                    "operator_visible": True,
+                }
+
+            if (
+                recommended_action == "send"
+                and posture == "ready_to_send"
+                and normalized_dispatch_state != "dispatch_failed"
+                and not governance_action_required
+                and not blocking_reason
+                and selected_is_current is not False
+                and (llm_lineage_status == "degraded" or source_health_status == "degraded")
+            ):
+                degrade_reasons: list[str] = []
+                if llm_lineage_status == "degraded":
+                    degrade_reasons.append("llm_lineage_degraded")
+                if source_health_status == "degraded":
+                    degrade_reasons.append("source_health_degraded")
+                return {
+                    "class": "auto_degrade",
+                    "reason": "+".join(degrade_reasons) or "degraded_delivery_posture",
+                    "summary_line": "auto_degrade | bounded degraded output remains operator-sendable",
+                    "operator_visible": True,
+                }
+
+            if (
+                governance_action_required
+                or recommended_action in {"send_review", "hold"}
+                or posture in {"review_required", "blocked"}
+                or canonical_state in {"review_ready", "held", "failed"}
+                or selected_is_current is False
+                or missing_bundle_count > 0
+                or bool(blocking_reason)
+            ):
+                return {
+                    "class": "hold_review",
+                    "reason": blocking_reason or canonical_state or "manual_review_required",
+                    "summary_line": "hold_review | operator intervention or review remains required",
+                    "operator_visible": True,
+                }
+
+            return {
+                "class": "none",
+                "reason": None,
+                "summary_line": "none | no failure taxonomy attention currently projected",
+                "operator_visible": False,
+            }
+
         def _operator_board_row(
             readiness: dict[str, Any] | None,
             review_surface: dict[str, Any] | None,
@@ -2546,12 +2623,20 @@ class FSJStore:
             ]
             if generated_at_utc:
                 lineage_sla_summary_parts.append(f"generated={generated_at_utc}")
+            failure_taxonomy = _classify_operator_failure_taxonomy(
+                normalized,
+                dispatch_state=dispatch_state,
+                selected_is_current=selected_is_current,
+                missing_bundle_count=missing_bundle_count,
+            )
             summary_parts = [
                 f"{subject}",
                 f"status={semantic_status or '-'}",
                 f"canonical={canonical_state or '-'}",
                 f"action={next_action or '-'}",
             ]
+            if failure_taxonomy.get("class") not in {None, "", "none"}:
+                summary_parts.append(f"failure_taxonomy={failure_taxonomy.get('class')}")
             if blocking_reason:
                 summary_parts.append(f"blocker={blocking_reason}")
             return {
@@ -2580,6 +2665,10 @@ class FSJStore:
                 "governance_action_required": bool(normalized.get("governance_action_required")),
                 "needs_attention": bool(normalized.get("needs_attention")),
                 "lineage_sla_summary": " | ".join(lineage_sla_summary_parts),
+                "failure_taxonomy": failure_taxonomy,
+                "failure_taxonomy_class": failure_taxonomy.get("class"),
+                "failure_taxonomy_reason": failure_taxonomy.get("reason"),
+                "failure_taxonomy_summary": failure_taxonomy.get("summary_line"),
                 "summary_line": " | ".join(summary_parts),
             }
 
@@ -2588,10 +2677,12 @@ class FSJStore:
             semantic_counts: dict[str, int] = {}
             dispatch_state_counts: dict[str, int] = {}
             strongest_slot_counts: dict[str, int] = {}
+            failure_taxonomy_counts: dict[str, int] = {}
             blocked_subjects: list[str] = []
             next_action_subjects: list[str] = []
             selected_mismatch_subjects: list[str] = []
             missing_bundle_subjects: list[str] = []
+            failure_taxonomy_subjects: dict[str, list[str]] = {}
             for row in present_rows:
                 semantic = str(row.get("status_semantic") or "").strip()
                 if semantic:
@@ -2602,6 +2693,10 @@ class FSJStore:
                 strongest_slot = str(row.get("strongest_slot") or "").strip()
                 if strongest_slot:
                     strongest_slot_counts[strongest_slot] = strongest_slot_counts.get(strongest_slot, 0) + 1
+                failure_taxonomy_class = str(row.get("failure_taxonomy_class") or "").strip()
+                if failure_taxonomy_class and failure_taxonomy_class != "none":
+                    failure_taxonomy_counts[failure_taxonomy_class] = failure_taxonomy_counts.get(failure_taxonomy_class, 0) + 1
+                    failure_taxonomy_subjects.setdefault(failure_taxonomy_class, []).append(str(row.get("subject") or ""))
                 if row.get("blocking_reason"):
                     blocked_subjects.append(str(row.get("subject") or ""))
                 if row.get("next_action"):
@@ -2615,6 +2710,8 @@ class FSJStore:
                 "status_semantic_counts": semantic_counts,
                 "dispatch_state_counts": dispatch_state_counts,
                 "strongest_slot_counts": strongest_slot_counts,
+                "failure_taxonomy_counts": failure_taxonomy_counts,
+                "failure_taxonomy_subjects": failure_taxonomy_subjects,
                 "subjects_with_blocking_reason": blocked_subjects,
                 "subjects_with_next_action": next_action_subjects,
                 "selected_mismatch_subjects": selected_mismatch_subjects,
