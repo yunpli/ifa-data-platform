@@ -603,16 +603,28 @@ Infra and wiring exist; governance and operational policy are incomplete.
 ## Task Queue
 
 ### P4-1. Formal LLM role policy
-**Status:** Partial / implicit  
+**Status:** Materially closed for current roadmap scope — canonical FSJ role policy is now explicitly defined in code (`build_fsj_role_policy`), persisted per bundle/review surface, projected with slot-specific boundary modes + deterministic-owner/forbidden-decision/override-precedence semantics, and exposed through publish/delivery/operator-board surfaces; exact closeout proof is captured in `docs/FSJ_P4_1_LLM_ROLE_POLICY_CLOSEOUT_2026-04-24.md`  
 **Target:** formally define what LLM may and may not do
 
 **Tasks**
-- define LLM-allowed fields
-- define LLM-forbidden decisions
-- define deterministic override precedence
-- define per-slot boundary invariants
+- [x] define LLM-allowed fields
+- [x] define LLM-forbidden decisions
+- [x] define deterministic override precedence
+- [x] define per-slot boundary invariants
+- [x] persist policy version + slot boundary mapping onto operator-visible review surfaces
+- [x] expose policy review through publish, delivery-status, dispatch, and operator-board seams
 
 **Parallelizable:** no, foundational policy
+
+**Delivered-in-scope evidence**
+- canonical policy source: `src/ifa_data_platform/fsj/llm_assist.py`
+- review-surface projection: `src/ifa_data_platform/fsj/report_orchestration.py`, `src/ifa_data_platform/fsj/store.py`
+- operator-visible surfaces: `scripts/fsj_main_delivery_status.py`, `scripts/fsj_support_delivery_status.py`, `scripts/fsj_operator_board.py`, `src/ifa_data_platform/fsj/main_publish_cli.py`, `scripts/fsj_support_batch_publish.py`
+- regression anchors: `tests/unit/test_fsj_main_early_publish_script.py`, `tests/unit/test_fsj_main_mid_publish_script.py`, `tests/unit/test_fsj_main_late_publish_script.py`, `tests/unit/test_fsj_support_batch_publish_script.py`, `tests/unit/test_fsj_report_dispatch.py`, `tests/unit/test_fsj_main_delivery_status_script.py`, `tests/unit/test_fsj_support_delivery_status_script.py`, `tests/unit/test_fsj_operator_board_script.py`, `tests/unit/test_fsj_store_json_serialization.py`
+
+**Explicitly not claimed in this closeout**
+- broader multi-provider strategy/cost governance under `P4-2` / `P4-4`
+- adopted-vs-discarded field replay completeness under `P4-3`
 
 ---
 
