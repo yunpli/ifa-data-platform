@@ -294,6 +294,8 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert linkage["review_surface"]["candidate_comparison"]["selected_artifact_id"] == result["artifact"]["artifact_id"]
     assert linkage["review_surface"]["operator_go_no_go"]["decision"] == "GO"
     assert linkage["review_surface"]["review_manifest"]["next_step"] == "send_selected_package_to_primary_channel"
+    assert linkage["dispatch_receipt"]["dispatch_state"] == "ready_to_dispatch"
+    assert linkage["review_surface"]["dispatch_receipt"]["dispatch_state"] == "ready_to_dispatch"
 
 
 def test_main_report_morning_delivery_workflow_marks_review_required_for_provisional_candidate(tmp_path: Path) -> None:

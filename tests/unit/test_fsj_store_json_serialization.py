@@ -268,6 +268,7 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["operator_go_no_go"]["decision"] == "NO_GO"
     assert summary["review_manifest"]["next_step"] == "switch_to_selected_package_and_do_not_send_current"
     assert summary["review_summary"]["go_no_go_decision"] == "NO_GO"
+    assert summary["dispatch_state"] is None
     assert summary["review_summary"]["selected_is_current"] is False
     assert summary["package_paths"]["delivery_package_dir"] == "/tmp/selected-pkg"
     assert summary["llm_lineage"]["summary"]["bundle_count"] == 2
@@ -294,6 +295,169 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["llm_deterministic_owner_fields"] == []
     assert summary["review_summary"]["llm_override_precedence"] == []
     assert summary["review_summary"]["llm_slot_boundary_modes"] == {}
+
+
+def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and_send_ready() -> None:
+    store = _ProjectionOnlyStore()
+
+    ready_summary = store.report_operator_review_surface_from_surface(
+        {
+            "artifact": {"artifact_id": "artifact-ready"},
+            "delivery_package": {
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "quality_gate": {"score": 98, "blocker_count": 0, "warning_count": 0},
+                "workflow": {"recommended_action": "send", "workflow_state": "ready_to_send"},
+            },
+            "workflow_linkage": {
+                "review_surface": {
+                    "send_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "review_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                }
+            },
+        }
+    )
+    attempted_summary = store.report_operator_review_surface_from_surface(
+        {
+            "artifact": {"artifact_id": "artifact-attempted"},
+            "delivery_package": {
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "quality_gate": {"score": 98, "blocker_count": 0, "warning_count": 0},
+                "workflow": {"recommended_action": "send", "workflow_state": "ready_to_send"},
+            },
+            "workflow_linkage": {
+                "dispatch_receipt": {
+                    "dispatch_state": "dispatch_attempted",
+                    "attempted_at": "2099-04-22T10:00:00Z",
+                    "channel": "telegram_document",
+                },
+                "review_surface": {
+                    "send_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "review_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                },
+            },
+        }
+    )
+    failed_summary = store.report_operator_review_surface_from_surface(
+        {
+            "artifact": {"artifact_id": "artifact-failed"},
+            "delivery_package": {
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "quality_gate": {"score": 98, "blocker_count": 0, "warning_count": 0},
+                "workflow": {"recommended_action": "send", "workflow_state": "ready_to_send"},
+            },
+            "workflow_linkage": {
+                "review_surface": {
+                    "dispatch_receipt": {
+                        "dispatch_state": "dispatch_failed",
+                        "attempted_at": "2099-04-22T10:00:00Z",
+                        "failed_at": "2099-04-22T10:00:02Z",
+                        "error": "429 rate limit",
+                    },
+                    "send_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "review_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                }
+            },
+        }
+    )
+
+    assert ready_summary["dispatch_state"] == "ready_to_dispatch"
+    assert ready_summary["review_summary"]["dispatch_state"] == "ready_to_dispatch"
+    assert attempted_summary["dispatch_state"] == "dispatch_attempted"
+    assert attempted_summary["dispatch_receipt"]["channel"] == "telegram_document"
+    assert attempted_summary["review_summary"]["dispatch_attempted"] is True
+    assert failed_summary["dispatch_state"] == "dispatch_failed"
+    assert failed_summary["dispatch_receipt"]["error"] == "429 rate limit"
+    assert failed_summary["review_summary"]["dispatch_failed"] is True
+
+
+class _PersistDispatchReceiptConn:
+    def __init__(self, row: dict[str, object]) -> None:
+        self.row = row
+        self.updated_metadata_json: str | None = None
+
+    def execute(self, stmt, params=None):
+        sql = str(stmt)
+        if "SELECT metadata_json" in sql:
+            return _PersistDispatchReceiptResult(self.row)
+        if "UPDATE ifa2.ifa_fsj_report_artifacts" in sql:
+            self.updated_metadata_json = params["metadata_json"]
+            return _PersistDispatchReceiptResult(None)
+        raise AssertionError(sql)
+
+
+class _PersistDispatchReceiptResult:
+    def __init__(self, row: dict[str, object] | None) -> None:
+        self._row = row
+
+    def mappings(self):
+        return self
+
+    def first(self):
+        return self._row
+
+
+class _PersistDispatchReceiptBegin:
+    def __init__(self, conn: _PersistDispatchReceiptConn) -> None:
+        self.conn = conn
+
+    def __enter__(self):
+        return self.conn
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class _PersistDispatchReceiptEngine:
+    def __init__(self, conn: _PersistDispatchReceiptConn) -> None:
+        self.conn = conn
+
+    def begin(self):
+        return _PersistDispatchReceiptBegin(self.conn)
+
+
+class _PersistDispatchReceiptStore(FSJStore):
+    def __init__(self, row: dict[str, object]) -> None:
+        self.conn = _PersistDispatchReceiptConn(row)
+        self.engine = _PersistDispatchReceiptEngine(self.conn)
+
+    def ensure_schema(self) -> None:
+        return None
+
+    def get_report_artifact(self, artifact_id: str) -> dict[str, object] | None:
+        payload = json.loads(self.conn.updated_metadata_json or "{}")
+        return {"artifact_id": artifact_id, "metadata_json": payload}
+
+
+def test_persist_report_dispatch_receipt_merges_into_workflow_and_review_surface() -> None:
+    store = _PersistDispatchReceiptStore(
+        {
+            "metadata_json": {
+                "workflow_linkage": {"send_manifest_path": "/tmp/send_manifest.json"},
+                "review_surface": {"send_manifest": {"next_step": "send_selected_package_to_primary_channel"}},
+                "delivery_package": {"workflow": {"recommended_action": "send", "workflow_state": "ready_to_send"}},
+            }
+        }
+    )
+
+    refreshed = store.persist_report_dispatch_receipt(
+        "artifact-1",
+        {
+            "dispatch_state": "dispatch_succeeded",
+            "attempted_at": "2099-04-22T10:00:00Z",
+            "succeeded_at": "2099-04-22T10:00:03Z",
+            "channel": "telegram_document",
+            "provider_message_id": "42",
+        },
+    )
+
+    assert refreshed is not None
+    metadata = dict(refreshed["metadata_json"])
+    assert metadata["workflow_linkage"]["dispatch_receipt"]["dispatch_state"] == "dispatch_succeeded"
+    assert metadata["review_surface"]["dispatch_receipt"]["provider_message_id"] == "42"
+    assert metadata["delivery_package"]["workflow"]["dispatch_state"] == "dispatch_succeeded"
 
 
 def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> None:

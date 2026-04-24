@@ -1095,6 +1095,7 @@ class FSJStore:
         operator_go_no_go = dict(review_payload.get("operator_go_no_go") or {})
         review_manifest = dict(review_payload.get("review_manifest") or {})
         send_manifest = dict(review_payload.get("send_manifest") or {})
+        dispatch_receipt = self._report_dispatch_receipt_from_surface(normalized_surface)
 
         selected = dict(candidate_comparison.get("selected") or {})
         current_vs_selected = dict(candidate_comparison.get("current_vs_selected") or {})
@@ -1118,6 +1119,10 @@ class FSJStore:
 
         computed_decision = operator_go_no_go.get("decision") or (
             "GO" if state.get("send_ready") else ("REVIEW" if state.get("review_required") else "NO_GO")
+        )
+        dispatch_state = self._report_dispatch_state(
+            state=state,
+            dispatch_receipt=dispatch_receipt,
         )
 
         return {
@@ -1150,9 +1155,16 @@ class FSJStore:
             },
             "review_manifest": review_manifest,
             "send_manifest": send_manifest,
+            "dispatch_receipt": dispatch_receipt,
+            "dispatch_state": dispatch_state,
             "review_summary": {
                 "recommended_action": state.get("recommended_action"),
                 "workflow_state": state.get("workflow_state"),
+                "dispatch_state": dispatch_state,
+                "dispatch_attempted": dispatch_state == "dispatch_attempted",
+                "dispatch_succeeded": dispatch_state == "dispatch_succeeded",
+                "dispatch_failed": dispatch_state == "dispatch_failed",
+                "dispatch_receipt": dispatch_receipt,
                 "selected_artifact_id": selected_artifact_id,
                 "current_artifact_id": current_artifact_id,
                 "selected_is_current": (workflow_handoff.get("selected_handoff") or {}).get("selected_is_current"),
@@ -1182,6 +1194,26 @@ class FSJStore:
                 "llm_slot_boundary_modes": llm_role_policy_by_slot,
             },
         }
+
+    def _report_dispatch_receipt_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any]:
+        normalized_surface = dict(surface or {})
+        workflow_linkage = dict(normalized_surface.get("workflow_linkage") or {})
+        review_surface = dict(normalized_surface.get("review_surface") or workflow_linkage.get("review_surface") or {})
+        return dict(
+            review_surface.get("dispatch_receipt")
+            or workflow_linkage.get("dispatch_receipt")
+            or {}
+        )
+
+    def _report_dispatch_state(self, *, state: dict[str, Any] | None, dispatch_receipt: dict[str, Any] | None) -> str | None:
+        normalized_state = dict(state or {})
+        receipt = dict(dispatch_receipt or {})
+        receipt_state = str(receipt.get("dispatch_state") or receipt.get("status") or "").strip()
+        if receipt_state in {"dispatch_attempted", "dispatch_succeeded", "dispatch_failed"}:
+            return receipt_state
+        if bool(normalized_state.get("send_ready")):
+            return "ready_to_dispatch"
+        return None
 
     def report_llm_lineage_summary(self, llm_lineage: dict[str, Any] | None) -> dict[str, Any]:
         normalized_lineage = dict(llm_lineage or {})
@@ -2273,6 +2305,54 @@ class FSJStore:
                 metadata["review_surface"] = review_surface
             if delivery_package:
                 metadata["delivery_package"] = delivery_package
+            conn.execute(
+                text(
+                    """
+                    UPDATE ifa2.ifa_fsj_report_artifacts
+                       SET metadata_json=CAST(:metadata_json AS jsonb),
+                           updated_at=now()
+                     WHERE artifact_id=:artifact_id
+                    """
+                ),
+                {
+                    "artifact_id": artifact_id,
+                    "metadata_json": self._json_dumps(metadata),
+                },
+            )
+        return self.get_report_artifact(artifact_id)
+
+    def persist_report_dispatch_receipt(self, artifact_id: str, dispatch_receipt: dict[str, Any]) -> dict[str, Any] | None:
+        self.ensure_schema()
+        normalized_receipt = dict(dispatch_receipt or {})
+        persisted_state = str(normalized_receipt.get("dispatch_state") or normalized_receipt.get("status") or "").strip()
+        if persisted_state not in {"dispatch_attempted", "dispatch_succeeded", "dispatch_failed"}:
+            raise ValueError("dispatch receipt must persist one of: dispatch_attempted|dispatch_succeeded|dispatch_failed")
+        normalized_receipt["dispatch_state"] = persisted_state
+
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT metadata_json FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id=:artifact_id"),
+                {"artifact_id": artifact_id},
+            ).mappings().first()
+            if not row:
+                return None
+
+            metadata = dict(row.get("metadata_json") or {})
+            workflow_linkage = dict(metadata.get("workflow_linkage") or {})
+            workflow_linkage["dispatch_receipt"] = normalized_receipt
+            metadata["workflow_linkage"] = workflow_linkage
+
+            review_surface = dict(metadata.get("review_surface") or {})
+            review_surface["dispatch_receipt"] = normalized_receipt
+            metadata["review_surface"] = review_surface
+
+            delivery_package = dict(metadata.get("delivery_package") or {})
+            if delivery_package:
+                workflow = dict(delivery_package.get("workflow") or {})
+                workflow["dispatch_state"] = persisted_state
+                delivery_package["workflow"] = workflow
+                metadata["delivery_package"] = delivery_package
+
             conn.execute(
                 text(
                     """
