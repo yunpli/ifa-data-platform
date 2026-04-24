@@ -22,10 +22,15 @@ That seam is stable enough to benchmark and close enough to production truth to 
 Reusable fixture catalog:
 - `tests/integration/fsj_main_slot_golden_cases.py`
 
-Executable golden regression:
+Executable golden regressions:
 - `tests/integration/test_fsj_main_slot_golden_cases.py`
+- `tests/integration/test_fsj_main_early_golden_case_family.py`
+- `tests/integration/test_fsj_main_mid_golden_case_family.py`
+- `tests/integration/test_fsj_main_late_golden_case_family.py`
+- `tests/integration/test_fsj_main_llm_resilience_golden_case_family.py`
+- `tests/integration/test_fsj_main_degraded_data_golden_case_family.py`
 
-This pattern defines canonical `SlotGoldenCase` coverage across three MAIN benchmark families:
+This pattern defines canonical `SlotGoldenCase` coverage across five benchmark families without creating a competing harness:
 1. `early_main`
    - `early_candidate_validation`
    - `early_llm_fallback_applied`
@@ -36,6 +41,10 @@ This pattern defines canonical `SlotGoldenCase` coverage across three MAIN bench
 3. `late_main`
    - `late_llm_fallback_applied`
    - `late_provisional_close_monitor`
+4. `llm_resilience`
+   - cross-slot timeout/fallback and deterministic-degrade cases selected from the same canonical catalog
+5. `degraded_data`
+   - cross-slot non-false-ready degraded cases selected from the same canonical catalog
 
 Each case fixes:
 - producer type
@@ -62,12 +71,12 @@ It catches regressions where a slot still "runs" but stops being the same busine
 Covered now:
 - MAIN early/mid/late producer golden semantics
 - dedicated family entrypoints for `early_main`, `mid_main`, and `late_main`
+- explicit cross-slot `llm_resilience` family covering timeout/fallback and deterministic-degrade contracts
+- explicit cross-slot `degraded_data` family covering non-false-ready degraded contracts
 - DB-persisted graph minimums
 - evidence-role invariants by slot
 
 Not covered yet:
-- degraded-data cases
-- LLM timeout/fallback cases
 - support standalone golden cases
 - rendered HTML/package artifact snapshots
 
@@ -75,5 +84,8 @@ Those should extend this same fixture pattern rather than creating a separate co
 
 ## Next extension path
 
-Recommended next B-lane follow-up:
-- add one degraded-data benchmark family reusing the same catalog shape, or split explicit LLM timeout/fallback families out of the slot-family coverage if separate operator ownership is needed.
+With the cross-slot `llm_resilience` and `degraded_data` families extracted from the same canonical catalog, `P3-3` is materially closed for the current roadmap scope.
+
+If this area is revisited later, the next extension should be breadth, not more MAIN-family plumbing:
+- support standalone golden cases, or
+- rendered HTML/package artifact snapshots.
