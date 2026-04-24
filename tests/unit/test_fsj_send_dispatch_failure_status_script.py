@@ -13,6 +13,7 @@ _module = importlib.util.module_from_spec(_spec)
 assert _spec is not None and _spec.loader is not None
 _spec.loader.exec_module(_module)
 _classify_dispatch_failure = _module._classify_dispatch_failure
+_history_row = _module._history_row
 _print_text = _module._print_text
 build_dispatch_failure_payload = _module.build_dispatch_failure_payload
 
@@ -97,6 +98,46 @@ def test_classify_dispatch_failure_reports_switch_package_and_missing_artifacts(
     ]
 
 
+def test_history_row_projects_canonical_lifecycle_and_dispatch_receipt_fields() -> None:
+    row = _history_row(
+        {
+            "artifact": {"artifact_id": "artifact-failed", "report_run_id": "run-failed", "status": "active"},
+            "selected_handoff": {"selected_is_current": False},
+            "state": {
+                "workflow_state": "ready_to_send",
+                "recommended_action": "send",
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "send_ready": True,
+                "review_required": False,
+            },
+            "canonical_lifecycle": {"state": "failed", "reason": "dispatch_receipt_failed"},
+            "dispatch_state": "dispatch_failed",
+            "dispatch_receipt": {
+                "dispatch_state": "dispatch_failed",
+                "attempted_at": "2099-04-23T10:00:00Z",
+                "failed_at": "2099-04-23T10:00:02Z",
+                "channel": "telegram_document",
+                "error": "429 rate limit",
+            },
+            "review_summary": {
+                "dispatch_attempted": False,
+                "dispatch_succeeded": False,
+                "dispatch_failed": True,
+            },
+        }
+    )
+
+    assert row["artifact_id"] == "artifact-failed"
+    assert row["canonical_lifecycle_state"] == "failed"
+    assert row["canonical_lifecycle_reason"] == "dispatch_receipt_failed"
+    assert row["dispatch_state"] == "dispatch_failed"
+    assert row["dispatch_failed"] is True
+    assert row["dispatch_receipt_state"] == "dispatch_failed"
+    assert row["dispatch_receipt_channel"] == "telegram_document"
+    assert row["dispatch_receipt_error"] == "429 rate limit"
+
+
 def test_build_dispatch_failure_payload_uses_main_status_payload(monkeypatch) -> None:
     monkeypatch.setattr(
         _module,
@@ -114,7 +155,17 @@ def test_build_dispatch_failure_payload_uses_main_status_payload(monkeypatch) ->
                 "package_paths": {},
                 "review_summary": {"go_no_go_decision": "NO_GO"},
             },
-            "history": [],
+            "history": [
+                {
+                    "artifact": {"artifact_id": "artifact-history", "status": "superseded"},
+                    "selected_handoff": {"selected_is_current": False},
+                    "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready", "ready_for_delivery": True, "send_ready": True, "review_required": False},
+                    "canonical_lifecycle": {"state": "failed", "reason": "dispatch_receipt_failed"},
+                    "dispatch_state": "dispatch_failed",
+                    "dispatch_receipt": {"dispatch_state": "dispatch_failed", "attempted_at": "2099-04-23T10:00:00Z", "failed_at": "2099-04-23T10:00:03Z", "error": "429 rate limit"},
+                    "review_summary": {"dispatch_attempted": False, "dispatch_succeeded": False, "dispatch_failed": True},
+                }
+            ],
         },
     )
 
@@ -123,6 +174,9 @@ def test_build_dispatch_failure_payload_uses_main_status_payload(monkeypatch) ->
     assert payload["business_date"] == "2099-04-23"
     assert payload["dispatch_failure"]["dispatch_posture"] == "artifact_integrity_failed"
     assert "recommended_action_hold" in payload["dispatch_failure"]["failure_reasons"]
+    assert payload["history_rows"][0]["canonical_lifecycle_state"] == "failed"
+    assert payload["history_rows"][0]["dispatch_state"] == "dispatch_failed"
+    assert payload["history_rows"][0]["dispatch_receipt_error"] == "429 rate limit"
 
 
 def test_print_text_emits_dispatch_failure_summary(capsys) -> None:
@@ -134,6 +188,18 @@ def test_print_text_emits_dispatch_failure_summary(capsys) -> None:
             "resolved_artifact_id": "artifact-active",
         },
         "active_surface": {
+            "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
+            "dispatch_state": "dispatch_attempted",
+            "dispatch_receipt": {
+                "dispatch_state": "dispatch_attempted",
+                "attempted_at": "2099-04-23T10:00:00Z",
+                "channel": "telegram_document",
+            },
+            "review_summary": {
+                "canonical_lifecycle_state": "review_ready",
+                "canonical_lifecycle_reason": "manual_review_required",
+                "dispatch_state": "dispatch_attempted",
+            },
             "package_paths": {
                 "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
                 "send_manifest_path": "/tmp/pkg/send_manifest.json",
@@ -145,6 +211,46 @@ def test_print_text_emits_dispatch_failure_summary(capsys) -> None:
             },
         },
         "history": [{}, {}],
+        "history_rows": [
+            {
+                "artifact_id": "artifact-attempted",
+                "status": "active",
+                "workflow_state": "ready_to_send",
+                "recommended_action": "send",
+                "canonical_lifecycle_state": "send_ready",
+                "canonical_lifecycle_reason": "dispatch_attempted_pending_receipt",
+                "dispatch_state": "dispatch_attempted",
+                "dispatch_attempted": True,
+                "dispatch_succeeded": False,
+                "dispatch_failed": False,
+                "dispatch_receipt_state": "dispatch_attempted",
+                "dispatch_receipt_attempted_at": "2099-04-23T10:00:00Z",
+                "dispatch_receipt_succeeded_at": None,
+                "dispatch_receipt_failed_at": None,
+                "dispatch_receipt_channel": "telegram_document",
+                "dispatch_receipt_error": None,
+                "selected_is_current": True,
+            },
+            {
+                "artifact_id": "artifact-failed",
+                "status": "superseded",
+                "workflow_state": "ready_to_send",
+                "recommended_action": "send",
+                "canonical_lifecycle_state": "failed",
+                "canonical_lifecycle_reason": "dispatch_receipt_failed",
+                "dispatch_state": "dispatch_failed",
+                "dispatch_attempted": False,
+                "dispatch_succeeded": False,
+                "dispatch_failed": True,
+                "dispatch_receipt_state": "dispatch_failed",
+                "dispatch_receipt_attempted_at": "2099-04-23T10:05:00Z",
+                "dispatch_receipt_succeeded_at": None,
+                "dispatch_receipt_failed_at": "2099-04-23T10:05:02Z",
+                "dispatch_receipt_channel": "telegram_document",
+                "dispatch_receipt_error": "429 rate limit",
+                "selected_is_current": False,
+            },
+        ],
         "dispatch_failure": {
             "dispatch_posture": "review_required",
             "failure_reasons": ["manual_review_required", "operator_go_no_go_review"],
@@ -174,9 +280,20 @@ def test_print_text_emits_dispatch_failure_summary(capsys) -> None:
     assert "failure_reasons=manual_review_required,operator_go_no_go_review" in output
     assert "channel_delivery_truth=unknown_not_modeled" in output
     assert "go_no_go_decision=REVIEW" in output
+    assert "canonical_lifecycle_state=review_ready" in output
+    assert "canonical_lifecycle_reason=manual_review_required" in output
+    assert "dispatch_state=dispatch_attempted" in output
+    assert "dispatch_receipt_state=dispatch_attempted" in output
+    assert "dispatch_receipt_channel=telegram_document" in output
     assert "operator_review_bundle_path=/tmp/pkg/operator_review_bundle.json" in output
     assert "artifact_check_1=delivery_manifest_path|required=True|exists=True|path=/tmp/pkg/delivery_manifest.json" in output
     assert "history_count=2" in output
+    assert "history_1_canonical_lifecycle_state=send_ready" in output
+    assert "history_1_dispatch_state=dispatch_attempted" in output
+    assert "history_1_dispatch_receipt_channel=telegram_document" in output
+    assert "history_2_canonical_lifecycle_state=failed" in output
+    assert "history_2_dispatch_state=dispatch_failed" in output
+    assert "history_2_dispatch_receipt_error=429 rate limit" in output
 
 
 def test_main_cli_json_contract_handles_missing_latest(monkeypatch, capsys) -> None:

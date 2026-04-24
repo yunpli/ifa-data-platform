@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from ifa_data_platform.fsj.store import FSJStore
-from scripts.fsj_main_delivery_status import _surface_summary, build_status_payload as build_main_status_payload
+from scripts.fsj_main_delivery_status import (
+    _artifact_row as _main_artifact_row,
+    _surface_summary,
+    build_status_payload as build_main_status_payload,
+)
 
 
 _REQUIRED_ARTIFACT_KEYS = (
@@ -135,6 +139,28 @@ def _classify_dispatch_failure(surface: dict[str, Any] | None) -> dict[str, Any]
     }
 
 
+def _history_row(surface: dict[str, Any] | None) -> dict[str, Any]:
+    summary = _safe_dict(surface)
+    row = dict(_main_artifact_row(summary))
+    review_summary = _safe_dict(summary.get("review_summary"))
+    dispatch_receipt = _safe_dict(summary.get("dispatch_receipt") or review_summary.get("dispatch_receipt"))
+    row.update(
+        {
+            "dispatch_state": summary.get("dispatch_state") or review_summary.get("dispatch_state"),
+            "dispatch_attempted": review_summary.get("dispatch_attempted"),
+            "dispatch_succeeded": review_summary.get("dispatch_succeeded"),
+            "dispatch_failed": review_summary.get("dispatch_failed"),
+            "dispatch_receipt_state": dispatch_receipt.get("dispatch_state") or dispatch_receipt.get("status"),
+            "dispatch_receipt_attempted_at": dispatch_receipt.get("attempted_at"),
+            "dispatch_receipt_failed_at": dispatch_receipt.get("failed_at"),
+            "dispatch_receipt_succeeded_at": dispatch_receipt.get("succeeded_at"),
+            "dispatch_receipt_channel": dispatch_receipt.get("channel"),
+            "dispatch_receipt_error": dispatch_receipt.get("error"),
+        }
+    )
+    return row
+
+
 def build_dispatch_failure_payload(*, business_date: str, history_limit: int = 5, resolution: dict[str, Any] | None = None) -> dict[str, Any]:
     status_payload = build_main_status_payload(
         business_date=business_date,
@@ -148,6 +174,7 @@ def build_dispatch_failure_payload(*, business_date: str, history_limit: int = 5
         "resolution": dict(status_payload.get("resolution") or resolution or {}),
         "active_surface": active_surface,
         "history": history,
+        "history_rows": [_history_row(item) for item in history],
         "dispatch_failure": _classify_dispatch_failure(active_surface),
     }
 
@@ -157,6 +184,10 @@ def _print_text(payload: dict[str, Any]) -> None:
     dispatch_failure = _safe_dict(payload.get("dispatch_failure"))
     active = _safe_dict(payload.get("active_surface"))
     package_paths = _safe_dict(active.get("package_paths") or active.get("manifest_pointers"))
+    active_review_summary = _safe_dict(active.get("review_summary"))
+    active_canonical_lifecycle = _safe_dict(active.get("canonical_lifecycle"))
+    active_dispatch_receipt = _safe_dict(active.get("dispatch_receipt") or active_review_summary.get("dispatch_receipt"))
+    history_rows = [_safe_dict(item) for item in (payload.get("history_rows") or [])]
     print(f"business_date={payload.get('business_date')}")
     print(f"resolution_mode={resolution.get('mode')}")
     if resolution.get("requested_slot"):
@@ -177,6 +208,15 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"review_required={dispatch_failure.get('review_required')}")
     print(f"go_no_go_decision={dispatch_failure.get('go_no_go_decision')}")
     print(f"next_step={dispatch_failure.get('next_step')}")
+    print(f"canonical_lifecycle_state={active_canonical_lifecycle.get('state') or active_review_summary.get('canonical_lifecycle_state')}")
+    print(f"canonical_lifecycle_reason={active_canonical_lifecycle.get('reason') or active_review_summary.get('canonical_lifecycle_reason')}")
+    print(f"dispatch_state={active.get('dispatch_state') or active_review_summary.get('dispatch_state')}")
+    print(f"dispatch_receipt_state={active_dispatch_receipt.get('dispatch_state') or active_dispatch_receipt.get('status')}")
+    print(f"dispatch_receipt_attempted_at={active_dispatch_receipt.get('attempted_at')}")
+    print(f"dispatch_receipt_succeeded_at={active_dispatch_receipt.get('succeeded_at')}")
+    print(f"dispatch_receipt_failed_at={active_dispatch_receipt.get('failed_at')}")
+    print(f"dispatch_receipt_channel={active_dispatch_receipt.get('channel')}")
+    print(f"dispatch_receipt_error={active_dispatch_receipt.get('error')}")
     print(f"delivery_manifest_path={package_paths.get('delivery_manifest_path')}")
     print(f"send_manifest_path={package_paths.get('send_manifest_path')}")
     print(f"review_manifest_path={package_paths.get('review_manifest_path')}")
@@ -189,7 +229,25 @@ def _print_text(payload: dict[str, Any]) -> None:
             f"artifact_check_{index}="
             f"{item.get('artifact')}|required={item.get('required')}|exists={item.get('exists')}|path={item.get('path') or '-'}"
         )
-    print(f"history_count={len(payload.get('history') or [])}")
+    print(f"history_count={len(history_rows)}")
+    for index, row in enumerate(history_rows, start=1):
+        print(f"history_{index}_artifact_id={row.get('artifact_id')}")
+        print(f"history_{index}_status={row.get('status')}")
+        print(f"history_{index}_workflow_state={row.get('workflow_state')}")
+        print(f"history_{index}_recommended_action={row.get('recommended_action')}")
+        print(f"history_{index}_canonical_lifecycle_state={row.get('canonical_lifecycle_state')}")
+        print(f"history_{index}_canonical_lifecycle_reason={row.get('canonical_lifecycle_reason')}")
+        print(f"history_{index}_dispatch_state={row.get('dispatch_state')}")
+        print(f"history_{index}_dispatch_attempted={row.get('dispatch_attempted')}")
+        print(f"history_{index}_dispatch_succeeded={row.get('dispatch_succeeded')}")
+        print(f"history_{index}_dispatch_failed={row.get('dispatch_failed')}")
+        print(f"history_{index}_dispatch_receipt_state={row.get('dispatch_receipt_state')}")
+        print(f"history_{index}_dispatch_receipt_attempted_at={row.get('dispatch_receipt_attempted_at')}")
+        print(f"history_{index}_dispatch_receipt_succeeded_at={row.get('dispatch_receipt_succeeded_at')}")
+        print(f"history_{index}_dispatch_receipt_failed_at={row.get('dispatch_receipt_failed_at')}")
+        print(f"history_{index}_dispatch_receipt_channel={row.get('dispatch_receipt_channel')}")
+        print(f"history_{index}_dispatch_receipt_error={row.get('dispatch_receipt_error')}")
+        print(f"history_{index}_selected_is_current={row.get('selected_is_current')}")
 
 
 def main() -> None:
