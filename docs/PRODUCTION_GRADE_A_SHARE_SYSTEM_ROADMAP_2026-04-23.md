@@ -359,7 +359,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-4. Production runbooks
-**Status:** In progress — early-slot normal-operations slice landed (`docs/FSJ_EARLY_SLOT_RUNBOOK.md`), mid-slot normal-operations slice landed (`docs/FSJ_MID_SLOT_RUNBOOK.md`, `scripts/fsj_main_mid_publish.py`), thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`), thin send/dispatch-failure slice landed (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`), and thin data-source outage slice landed (`docs/FSJ_DATA_SOURCE_OUTAGE_RUNBOOK.md`, `scripts/fsj_source_health_status.py`)  
+**Status:** In progress — early-slot normal-operations slice landed (`docs/FSJ_EARLY_SLOT_RUNBOOK.md`), mid-slot normal-operations slice landed (`docs/FSJ_MID_SLOT_RUNBOOK.md`, `scripts/fsj_main_mid_publish.py`), late-slot normal-operations slice landed (`docs/FSJ_LATE_SLOT_RUNBOOK.md`), thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`), thin send/dispatch-failure slice landed (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`), and thin data-source outage slice landed (`docs/FSJ_DATA_SOURCE_OUTAGE_RUNBOOK.md`, `scripts/fsj_source_health_status.py`)  
 **Target:** slot-specific incident handling and normal operations docs
 
 **Tasks**
