@@ -4,6 +4,12 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError as LiveIsolationError
+
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_support_dispatch_failure_status.py"
 _spec = importlib.util.spec_from_file_location("fsj_support_dispatch_failure_status_script", _MODULE_PATH)
@@ -164,3 +170,44 @@ def test_support_cli_json_contract_uses_latest_active_surface(monkeypatch, capsy
     assert payload["resolution"]["resolved_slot"] == "late"
     assert payload["resolution"]["agent_domain"] == "commodities"
     assert payload["dispatch_failure"]["dispatch_posture"] == "ready_to_dispatch"
+
+
+LIVE_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp"
+
+
+def _clear_caches() -> None:
+    make_engine.cache_clear()
+    get_settings.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected_error"),
+    [
+        (["fsj_support_dispatch_failure_status.py", "--latest", "--agent-domain", "macro", "--format", "json"], "DATABASE_URL must be set explicitly"),
+        (["fsj_support_dispatch_failure_status.py", "--latest", "--agent-domain", "macro", "--format", "json"], "canonical/live DB"),
+    ],
+)
+def test_support_dispatch_failure_latest_entrypoint_blocks_default_store_live_db_paths_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+    argv: list[str],
+    expected_error: str,
+) -> None:
+    if expected_error == "canonical/live DB":
+        monkeypatch.setenv("DATABASE_URL", LIVE_DB_URL)
+    else:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+    _clear_caches()
+    monkeypatch.setattr("sys.argv", argv)
+
+    with pytest.raises(LiveIsolationError, match=expected_error):
+        _module.main()
+
+
+def test_build_dispatch_failure_payload_blocks_via_support_status_default_store_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    _clear_caches()
+
+    with pytest.raises(LiveIsolationError, match="DATABASE_URL must be set explicitly"):
+        build_dispatch_failure_payload(business_date="2099-04-23", agent_domain="macro")

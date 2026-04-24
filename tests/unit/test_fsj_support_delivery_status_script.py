@@ -6,6 +6,10 @@ import json
 
 import pytest
 
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError as LiveIsolationError
+
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_support_delivery_status.py"
 _spec = importlib.util.spec_from_file_location("fsj_support_delivery_status_script", _MODULE_PATH)
@@ -523,6 +527,74 @@ def test_resolve_latest_support_business_date_rejects_unknown_slot() -> None:
     with pytest.raises(ValueError, match="unsupported slot"):
         resolve_latest_support_business_date(agent_domain="macro", slot="mid")
 
+
+
+TEST_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
+LIVE_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp"
+
+
+def _clear_caches() -> None:
+    make_engine.cache_clear()
+    get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("entrypoint", ["resolve_latest_support_business_date", "build_status_payload"])
+def test_default_store_support_status_entrypoints_require_explicit_non_live_db_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+    entrypoint: str,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    _clear_caches()
+
+    with pytest.raises(LiveIsolationError, match="DATABASE_URL must be set explicitly"):
+        if entrypoint == "resolve_latest_support_business_date":
+            resolve_latest_support_business_date(agent_domain="macro", slot="early")
+        else:
+            build_status_payload(business_date="2099-04-22", agent_domain="macro")
+
+
+@pytest.mark.parametrize("entrypoint", ["resolve_latest_support_business_date", "build_status_payload"])
+def test_default_store_support_status_entrypoints_reject_canonical_live_db_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+    entrypoint: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", LIVE_DB_URL)
+    _clear_caches()
+
+    with pytest.raises(LiveIsolationError, match="canonical/live DB"):
+        if entrypoint == "resolve_latest_support_business_date":
+            resolve_latest_support_business_date(agent_domain="macro", slot="early")
+        else:
+            build_status_payload(business_date="2099-04-22", agent_domain="macro")
+
+
+def test_resolve_latest_support_business_date_allows_explicit_test_db_when_store_is_injected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
+    _clear_caches()
+
+    class _DummyLatestStore:
+        def get_latest_active_report_operator_review_surface(self, **_: object) -> dict[str, object] | None:
+            return {
+                "artifact": {
+                    "business_date": "2099-04-22",
+                    "artifact_id": "artifact-active",
+                    "report_run_id": "run-active",
+                    "status": "active",
+                    "updated_at": "2099-04-22T10:00:00+00:00",
+                },
+                "package_state": {"slot_evaluation": {"strongest_slot": "early"}},
+            }
+
+    resolved = resolve_latest_support_business_date(agent_domain="macro", slot="early", store=_DummyLatestStore())
+
+    assert resolved == {
+        "business_date": "2099-04-22",
+        "artifact_id": "artifact-active",
+        "report_run_id": "run-active",
+        "status": "active",
+        "updated_at": "2099-04-22T10:00:00+00:00",
+        "slot": "early",
+    }
 
 
 def test_resolve_latest_support_business_date_rejects_unknown_domain() -> None:
