@@ -277,6 +277,18 @@ class _BoardStore(_DummyStore):
                     "canonical_lifecycle_subjects": {"review_ready": ["support:commodities"], "send_ready": ["main", "support:ai_tech", "support:macro"]},
                 },
             },
+            "board_rows": {
+                "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "governance_action_required": False, "needs_attention": False, "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+                "support": {
+                    "ai_tech": {"subject": "support:ai_tech", "artifact_id": "ai_tech-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "governance_action_required": False, "needs_attention": False, "summary_line": "support:ai_tech | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+                    "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "canonical_lifecycle_reason": "manual_review_required", "posture": "review_required", "recommended_action": "send_review", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "governance_action_required": True, "needs_attention": True, "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing"},
+                    "macro": {"subject": "support:macro", "artifact_id": "macro-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "governance_action_required": False, "needs_attention": False, "summary_line": "support:macro | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+                },
+                "history": [
+                    {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send", "posture": "ready_to_send", "recommended_action": "send", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "governance_action_required": False, "needs_attention": False, "summary_line": "history:1 | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"}
+                ],
+                "aggregate": {"reported_subject_count": 4, "status_semantic_counts": {"ready": 3, "review": 1}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities", "support:macro"]},
+            },
             "board_state_source_summary": {
                 "main": {"subject": "main", "canonical_state": "send_ready", "canonical_reason": "ready_for_delivery_send", "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff", "blocking_reason_source_of_truth": None, "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step", "summary_line": "state=send_ready via ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff | next_action via ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"},
                 "support": {
@@ -353,6 +365,9 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
     assert payload["board_readiness_summary"]["aggregate"]["review_required_subjects"] == ["support:commodities"]
     assert payload["board_readiness_summary"]["aggregate"]["canonical_lifecycle_state_counts"] == {"review_ready": 1, "send_ready": 3}
+    assert payload["board_rows"]["main"]["status_semantic"] == "ready"
+    assert payload["board_rows"]["support"]["commodities"]["blocking_reason"] == "bundle_missing"
+    assert payload["board_rows"]["aggregate"]["status_semantic_counts"] == {"ready": 3, "review": 1}
     assert payload["qa_axes_summary"]["support"]["commodities"]["axes_with_attention"] == ["policy"]
     assert payload["qa_axes_summary"]["aggregate"]["overall_posture"] == "blocked"
     assert payload["qa_axes_summary"]["aggregate"]["subjects_with_attention"] == ["support:commodities"]
@@ -502,6 +517,18 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "canonical_lifecycle_state_counts": {"review_ready": 1, "send_ready": 2},
             },
         },
+        "board_rows": {
+            "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+            "support": {
+                "ai_tech": {"subject": "support:ai_tech", "artifact_id": "ai-tech-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "summary_line": "support:ai_tech | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+                "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing"},
+                "macro": None,
+            },
+            "history": [
+                {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "held", "canonical_lifecycle_state": "failed", "next_action": None, "blocking_reason": "dispatch_receipt_failed", "summary_line": "history:1 | status=held | canonical=failed | action=- | blocker=dispatch_receipt_failed"}
+            ],
+            "aggregate": {"reported_subject_count": 3, "status_semantic_counts": {"ready": 2, "review": 1}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities"]},
+        },
         "board_state_source_summary": {
             "main": {"subject": "main", "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff", "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step", "blocking_reason_source_of_truth": None, "summary_line": "state=send_ready via ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff | next_action via ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"},
             "support": {
@@ -585,6 +612,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_source_health_degrade_reason=None" in output
     assert "main_canonical_lifecycle_state=send_ready" in output
     assert "main_canonical_lifecycle_reason=ready_for_delivery_send" in output
+    assert "main_board_status=ready" in output
+    assert "main_board_blocking_reason=None" in output
+    assert "main_board_next_action=send_selected_package_to_primary_channel" in output
+    assert "main_board_row_summary=main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel" in output
     assert "main_board_state_source=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff" in output
     assert "main_board_next_action_source=ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step" in output
     assert "main_dispatch_state=dispatch_attempted" in output
@@ -612,6 +643,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "support_commodities_source_health_degrade_reason=missing_background_support" in output
     assert "support_commodities_canonical_lifecycle_state=review_ready" in output
     assert "support_commodities_canonical_lifecycle_reason=manual_review_required" in output
+    assert "support_commodities_board_status=review" in output
+    assert "support_commodities_board_blocking_reason=bundle_missing" in output
+    assert "support_commodities_board_next_action=review_current_package_then_send_if_accepted" in output
+    assert "support_commodities_board_row_summary=support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing" in output
     assert "support_commodities_board_blocking_reason_source=ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.send_blockers" in output
     assert "support_commodities_governance_decision=REVIEW" in output
     assert "support_commodities_governance_rationale=manual review is required before sending" in output
@@ -645,6 +680,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_source_health_blocked_subjects=" in output
     assert "fleet_source_health_degraded_subjects=support:commodities" in output
     assert "fleet_canonical_lifecycle_state_counts=review_ready:1,send_ready:2" in output
+    assert "fleet_board_status_counts=ready:2,review:1" in output
+    assert "fleet_board_next_action_subjects=main,support:ai_tech,support:commodities" in output
+    assert "fleet_board_blocking_reason_subjects=support:commodities" in output
     assert "fleet_board_state_source_counts=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff:3" in output
     assert "fleet_board_blocking_reason_source_subjects=support:commodities" in output
     assert "fleet_drift_digest_line=7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3" in output
@@ -673,6 +711,11 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "db_candidate_fleet_reason=review_held_selected_candidate_differs_from_current" in output
     assert "db_candidate_selected_artifact_id=main-artifact-v2" in output
     assert "db_candidate_current_matches_best=False" in output
+    assert "board_history_1_subject=history:1" in output
+    assert "board_history_1_status=held" in output
+    assert "board_history_1_blocking_reason=dispatch_receipt_failed" in output
+    assert "board_history_1_next_action=None" in output
+    assert "board_history_1_summary=history:1 | status=held | canonical=failed | action=- | blocker=dispatch_receipt_failed" in output
     assert "db_candidate_history_count=1" in output
     assert "db_candidate_history_1_subject=history:1" in output
     assert "db_candidate_history_1_reason=better_ready_candidate_selected_current_outdated" in output
@@ -790,6 +833,8 @@ def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
     assert payload["llm_role_policy_review"]["aggregate"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
     assert payload["llm_role_policy_review"]["aggregate"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
+    assert payload["board_rows"]["aggregate"]["status_semantic_counts"] == {"ready": 3, "review": 1}
+    assert payload["board_rows"]["support"]["commodities"]["blocking_reason"] == "bundle_missing"
     assert payload["board_state_source_summary"]["aggregate"]["reported_subject_count"] == 4
     assert payload["board_state_source_summary"]["aggregate"]["subjects_with_blocking_reason_source"] == ["support:commodities"]
     assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
@@ -830,6 +875,9 @@ def test_store_build_operator_board_surface_projects_review_held_db_candidate_su
     assert payload["db_candidate_history_summary"][0]["canonical_lifecycle_state"] == "failed"
     assert payload["db_candidate_history_summary"][0]["canonical_lifecycle_reason"] == "dispatch_receipt_failed"
     assert payload["db_candidate_history_summary"][0]["dispatch_state"] == "dispatch_failed"
+    assert payload["board_rows"]["main"]["status_semantic"] == "held"
+    assert payload["board_rows"]["main"]["blocking_reason"] == "dispatch_receipt_failed"
+    assert payload["board_rows"]["history"][0]["status_semantic"] == "held"
     assert payload["db_candidate_history_summary"][0]["dispatch_receipt_channel"] == "telegram_document"
     assert payload["db_candidate_history_summary"][0]["dispatch_receipt_error"] == "429 rate limit"
 

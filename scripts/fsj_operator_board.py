@@ -143,6 +143,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     role_policy_aggregate = _safe_dict(role_policy.get("aggregate"))
     board_readiness = _safe_dict(payload.get("board_readiness_summary"))
     board_aggregate = _safe_dict(board_readiness.get("aggregate"))
+    board_rows = _safe_dict(payload.get("board_rows"))
+    board_rows_aggregate = _safe_dict(board_rows.get("aggregate"))
     board_state_sources = _safe_dict(payload.get("board_state_source_summary"))
     board_state_sources_aggregate = _safe_dict(board_state_sources.get("aggregate"))
     qa_axes_summary = _safe_dict(payload.get("qa_axes_summary"))
@@ -158,6 +160,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     main = _safe_dict(payload.get("main"))
     main_lineage = _safe_dict(lineage.get("main") or (main.get("llm_lineage_summary") if main else None))
     main_artifact_lineage = _safe_dict(artifact_lineage.get("main") or (main.get("artifact_lineage") if main else None))
+    main_board_row = _safe_dict(board_rows.get("main"))
     main_board_source = _safe_dict(board_state_sources.get("main") or (main.get("board_state_source") if main else None))
     if main:
         print(f"main_artifact_id={_safe_dict(main.get('artifact')).get('artifact_id')}")
@@ -178,6 +181,10 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_governance_rationale={_safe_dict(main.get('governance')).get('rationale')}")
         print(f"main_governance_next_step={_safe_dict(main.get('governance')).get('next_step')}")
         print(f"main_governance_action_required={_safe_dict(main.get('governance')).get('action_required')}")
+        print(f"main_board_status={main_board_row.get('status_semantic')}")
+        print(f"main_board_blocking_reason={main_board_row.get('blocking_reason')}")
+        print(f"main_board_next_action={main_board_row.get('next_action')}")
+        print(f"main_board_row_summary={main_board_row.get('summary_line')}")
         print(f"main_board_state_source={main_board_source.get('state_source_of_truth')}")
         print(f"main_board_next_action_source={main_board_source.get('next_action_source_of_truth')}")
         print(f"main_board_blocking_reason_source={main_board_source.get('blocking_reason_source_of_truth')}")
@@ -220,6 +227,7 @@ def _print_text(payload: dict[str, Any]) -> None:
         state = _safe_dict(item.get("state"))
         item_lineage = _safe_dict(support_lineage.get(domain) or item.get("llm_lineage_summary"))
         item_artifact_lineage = _safe_dict(_safe_dict(artifact_lineage.get('support')).get(domain) or item.get('artifact_lineage'))
+        item_board_row = _safe_dict(_safe_dict(board_rows.get('support')).get(domain))
         item_board_source = _safe_dict(_safe_dict(board_state_sources.get('support')).get(domain) or item.get('board_state_source'))
         print(f"support_{domain}_artifact_id={_safe_dict(item.get('artifact')).get('artifact_id')}")
         print(f"support_{domain}_recommended_action={state.get('recommended_action')}")
@@ -235,6 +243,10 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"support_{domain}_governance_rationale={_safe_dict(item.get('governance')).get('rationale')}")
         print(f"support_{domain}_governance_next_step={_safe_dict(item.get('governance')).get('next_step')}")
         print(f"support_{domain}_governance_action_required={_safe_dict(item.get('governance')).get('action_required')}")
+        print(f"support_{domain}_board_status={item_board_row.get('status_semantic')}")
+        print(f"support_{domain}_board_blocking_reason={item_board_row.get('blocking_reason')}")
+        print(f"support_{domain}_board_next_action={item_board_row.get('next_action')}")
+        print(f"support_{domain}_board_row_summary={item_board_row.get('summary_line')}")
         print(f"support_{domain}_board_state_source={item_board_source.get('state_source_of_truth')}")
         print(f"support_{domain}_board_next_action_source={item_board_source.get('next_action_source_of_truth')}")
         print(f"support_{domain}_board_blocking_reason_source={item_board_source.get('blocking_reason_source_of_truth')}")
@@ -340,6 +352,14 @@ def _print_text(payload: dict[str, Any]) -> None:
         )
     )
     print(
+        "fleet_board_status_counts="
+        + ",".join(
+            f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('status_semantic_counts')).items())
+        )
+    )
+    print(f"fleet_board_next_action_subjects={','.join(board_rows_aggregate.get('subjects_with_next_action') or [])}")
+    print(f"fleet_board_blocking_reason_subjects={','.join(board_rows_aggregate.get('subjects_with_blocking_reason') or [])}")
+    print(
         "fleet_board_state_source_counts="
         + ",".join(
             f"{state}:{count}" for state, count in sorted(_safe_dict(board_state_sources_aggregate.get('state_source_counts')).items())
@@ -363,6 +383,18 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"db_candidate_selected_matches_best={db_candidate_fleet.get('selected_matches_best')}")
     print(f"db_candidate_current_matches_best={db_candidate_fleet.get('current_matches_best')}")
     print(f"db_candidate_history_count={len(db_candidate_history)}")
+    board_history_rows = [
+        _safe_dict(item)
+        for item in (board_rows.get('history') or [])
+        if isinstance(item, dict)
+    ]
+    if board_history_rows:
+        first_board_history = board_history_rows[0]
+        print(f"board_history_1_subject={first_board_history.get('subject')}")
+        print(f"board_history_1_status={first_board_history.get('status_semantic')}")
+        print(f"board_history_1_blocking_reason={first_board_history.get('blocking_reason')}")
+        print(f"board_history_1_next_action={first_board_history.get('next_action')}")
+        print(f"board_history_1_summary={first_board_history.get('summary_line')}")
     if db_candidate_history:
         first_history = db_candidate_history[0]
         print(f"db_candidate_history_1_subject={first_history.get('subject')}")

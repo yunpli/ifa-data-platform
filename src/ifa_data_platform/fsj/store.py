@@ -2463,6 +2463,99 @@ class FSJStore:
                 "canonical_lifecycle_subjects": lifecycle_subjects,
             }
 
+        def _operator_status_semantic(*, canonical_state: str | None) -> str | None:
+            normalized = str(canonical_state or "").strip()
+            if not normalized:
+                return None
+            if normalized == "planned":
+                return "planned"
+            if normalized in {"collecting", "producing", "qa_pending"}:
+                return "running"
+            if normalized == "review_ready":
+                return "review"
+            if normalized == "send_ready":
+                return "ready"
+            if normalized == "sent":
+                return "sent"
+            if normalized in {"held", "failed", "superseded"}:
+                return "held"
+            return normalized
+
+        def _operator_blocking_reason(readiness: dict[str, Any] | None) -> str | None:
+            normalized = dict(readiness or {})
+            governance_reasons = [
+                str(item).strip()
+                for item in (normalized.get("governance_blocking_reasons") or [])
+                if str(item).strip()
+            ]
+            if governance_reasons:
+                return ",".join(governance_reasons)
+            source_health_degrade_reason = str(normalized.get("source_health_degrade_reason") or "").strip()
+            if source_health_degrade_reason:
+                return source_health_degrade_reason
+            canonical_reason = str(normalized.get("canonical_lifecycle_reason") or "").strip()
+            if canonical_reason and normalized.get("posture") != "ready_to_send":
+                return canonical_reason
+            return None
+
+        def _operator_board_row(
+            readiness: dict[str, Any] | None,
+            *,
+            subject: str,
+            history_index: int | None = None,
+        ) -> dict[str, Any] | None:
+            normalized = dict(readiness or {})
+            if not normalized:
+                return None
+            canonical_state = str(normalized.get("canonical_lifecycle_state") or "").strip() or None
+            semantic_status = _operator_status_semantic(canonical_state=canonical_state)
+            next_action = str(normalized.get("operator_next_step") or "").strip() or None
+            blocking_reason = _operator_blocking_reason(normalized)
+            artifact_id = str(normalized.get("artifact_id") or "").strip() or None
+            summary_parts = [
+                f"{subject}",
+                f"status={semantic_status or '-'}",
+                f"canonical={canonical_state or '-'}",
+                f"action={next_action or '-'}",
+            ]
+            if blocking_reason:
+                summary_parts.append(f"blocker={blocking_reason}")
+            return {
+                "subject": subject,
+                "history_index": history_index,
+                "artifact_id": artifact_id,
+                "status_semantic": semantic_status,
+                "canonical_lifecycle_state": canonical_state,
+                "canonical_lifecycle_reason": normalized.get("canonical_lifecycle_reason"),
+                "posture": normalized.get("posture"),
+                "recommended_action": normalized.get("recommended_action"),
+                "next_action": next_action,
+                "blocking_reason": blocking_reason,
+                "governance_action_required": bool(normalized.get("governance_action_required")),
+                "needs_attention": bool(normalized.get("needs_attention")),
+                "summary_line": " | ".join(summary_parts),
+            }
+
+        def _aggregate_operator_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+            present_rows = [dict(item) for item in rows if item]
+            semantic_counts: dict[str, int] = {}
+            blocked_subjects: list[str] = []
+            next_action_subjects: list[str] = []
+            for row in present_rows:
+                semantic = str(row.get("status_semantic") or "").strip()
+                if semantic:
+                    semantic_counts[semantic] = semantic_counts.get(semantic, 0) + 1
+                if row.get("blocking_reason"):
+                    blocked_subjects.append(str(row.get("subject") or ""))
+                if row.get("next_action"):
+                    next_action_subjects.append(str(row.get("subject") or ""))
+            return {
+                "reported_subject_count": len(present_rows),
+                "status_semantic_counts": semantic_counts,
+                "subjects_with_blocking_reason": blocked_subjects,
+                "subjects_with_next_action": next_action_subjects,
+            }
+
         def _board_source_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
             if not review_surface:
                 return None
@@ -2591,6 +2684,17 @@ class FSJStore:
                         "lineage_attention_subjects": [],
                     },
                 },
+                "board_rows": {
+                    "main": None,
+                    "support": dict(empty_domains),
+                    "history": [],
+                    "aggregate": {
+                        "reported_subject_count": 0,
+                        "status_semantic_counts": {},
+                        "subjects_with_blocking_reason": [],
+                        "subjects_with_next_action": [],
+                    },
+                },
                 "board_state_source_summary": {
                     "main": None,
                     "support": dict(empty_domains),
@@ -2655,6 +2759,19 @@ class FSJStore:
             domain: _board_source_subject(review, subject=f"support:{domain}")
             for domain, review in support_reviews.items()
         }
+        board_rows_main = _operator_board_row(readiness_main, subject="main")
+        board_rows_support = {
+            domain: _operator_board_row(readiness, subject=f"support:{domain}")
+            for domain, readiness in readiness_support.items()
+        }
+        board_rows_history = [
+            _operator_board_row(
+                _readiness_subject(review, subject=f"history:{index}"),
+                subject=f"history:{index}",
+                history_index=index,
+            )
+            for index, review in enumerate(history_reviews, start=1)
+        ]
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
@@ -2705,6 +2822,12 @@ class FSJStore:
                 "main": readiness_main,
                 "support": readiness_support,
                 "aggregate": _aggregate_readiness(readiness_subjects),
+            },
+            "board_rows": {
+                "main": board_rows_main,
+                "support": board_rows_support,
+                "history": board_rows_history,
+                "aggregate": _aggregate_operator_rows([item for item in [board_rows_main, *board_rows_support.values()] if item]),
             },
             "board_state_source_summary": {
                 "main": board_source_main,
