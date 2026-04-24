@@ -266,6 +266,62 @@ def format_drift_summary_line(payload: dict[str, Any]) -> str:
     )
 
 
+def build_fleet_drift_digest(
+    drift_payloads: dict[str, dict[str, Any]],
+    *,
+    window_days: int | None = None,
+) -> dict[str, Any]:
+    main_payload = _safe_dict(drift_payloads.get("main"))
+    support_payloads = [
+        _safe_dict(payload)
+        for scope, payload in sorted(drift_payloads.items())
+        if str(scope).startswith("support:") and isinstance(payload, dict)
+    ]
+
+    if window_days is None:
+        window_days = _safe_int(main_payload.get("window_days")) or 7
+
+    def _group_digest(label: str, payloads: list[dict[str, Any]]) -> dict[str, Any]:
+        reported_days = sum(_safe_int(payload.get("reported_day_count")) for payload in payloads)
+        hold_days = sum(_safe_int(_safe_dict(_safe_dict(payload.get("aggregate")).get("posture_counts")).get("blocked")) for payload in payloads)
+        fallback_days = sum(len(_safe_dict(payload.get("aggregate")).get("llm_fallback_dates") or []) for payload in payloads)
+        mismatch_days = sum(len(_safe_dict(payload.get("aggregate")).get("selection_mismatch_dates") or []) for payload in payloads)
+        qa_attention_days = sum(len(_safe_dict(payload.get("aggregate")).get("qa_attention_dates") or []) for payload in payloads)
+        scope_count = len(payloads)
+        return {
+            "label": label,
+            "scope_count": scope_count,
+            "reported_day_count": reported_days,
+            "hold_count": hold_days,
+            "fallback_count": fallback_days,
+            "mismatch_count": mismatch_days,
+            "qa_attention_count": qa_attention_days,
+        }
+
+    main_group = _group_digest("main", [main_payload] if main_payload else [])
+    support_group = _group_digest("support", support_payloads)
+    return {
+        "window_days": window_days,
+        "main": main_group,
+        "support": support_group,
+    }
+
+
+def format_fleet_drift_digest_line(digest: dict[str, Any]) -> str:
+    window_days = _safe_int(digest.get("window_days")) or 7
+
+    def _render(group: dict[str, Any]) -> str:
+        return (
+            f"{group.get('label') or 'group'} hold {_safe_int(group.get('hold_count'))}/{_safe_int(group.get('reported_day_count'))}"
+            f" ({_safe_int(group.get('scope_count'))} scope)"
+            f" | fallback {_safe_int(group.get('fallback_count'))}/{_safe_int(group.get('reported_day_count'))}"
+            f" | mismatch {_safe_int(group.get('mismatch_count'))}/{_safe_int(group.get('reported_day_count'))}"
+            f" | qa_attn {_safe_int(group.get('qa_attention_count'))}/{_safe_int(group.get('reported_day_count'))}"
+        )
+
+    return f"{window_days}d fleet drift: {_render(_safe_dict(digest.get('main')))} || {_render(_safe_dict(digest.get('support')))}"
+
+
 def _print_text(payload: dict[str, Any]) -> None:
     aggregate = _safe_dict(payload.get("aggregate"))
     posture_counts = _safe_dict(aggregate.get("posture_counts"))

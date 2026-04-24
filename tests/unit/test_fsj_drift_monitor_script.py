@@ -10,6 +10,8 @@ _module = importlib.util.module_from_spec(_spec)
 assert _spec is not None and _spec.loader is not None
 _spec.loader.exec_module(_module)
 build_drift_payload = _module.build_drift_payload
+build_fleet_drift_digest = _module.build_fleet_drift_digest
+format_fleet_drift_digest_line = _module.format_fleet_drift_digest_line
 resolve_latest_business_dates = _module.resolve_latest_business_dates
 _print_text = _module._print_text
 
@@ -234,3 +236,66 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
     assert "summary_line=3d drift main: hold 1/3 | fallback 1/3 | mismatch 1/3 | qa_attn 2/3" in output
     assert "day_1=business_date:2099-04-23|artifact_id:main-3|posture:ready_to_send|qa_posture:ready|llm_lineage_status:applied|llm_fallback_count:0|selection_mismatch:False|axes_attention:|not_ready_axes:" in output
     assert "day_2=business_date:2099-04-22|artifact_id:main-2|posture:review_required|qa_posture:attention|llm_lineage_status:degraded|llm_fallback_count:1|selection_mismatch:True|axes_attention:lineage|not_ready_axes:" in output
+
+
+def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
+    main_payload = build_drift_payload(scope="main", days=3, store=_DummyStore())
+    digest = build_fleet_drift_digest(
+        {
+            "main": main_payload,
+            "support:ai_tech": {
+                "scope": "support:ai_tech",
+                "reported_day_count": 2,
+                "aggregate": {
+                    "posture_counts": {"blocked": 1},
+                    "llm_fallback_dates": ["2099-04-22"],
+                    "selection_mismatch_dates": [],
+                    "qa_attention_dates": ["2099-04-23"],
+                },
+            },
+            "support:macro": {
+                "scope": "support:macro",
+                "reported_day_count": 2,
+                "aggregate": {
+                    "posture_counts": {"blocked": 0},
+                    "llm_fallback_dates": [],
+                    "selection_mismatch_dates": ["2099-04-21"],
+                    "qa_attention_dates": ["2099-04-21"],
+                },
+            },
+            "support:commodities": {
+                "scope": "support:commodities",
+                "reported_day_count": 1,
+                "aggregate": {
+                    "posture_counts": {"blocked": 1},
+                    "llm_fallback_dates": ["2099-04-20"],
+                    "selection_mismatch_dates": ["2099-04-20"],
+                    "qa_attention_dates": [],
+                },
+            },
+        }
+    )
+
+    assert digest["window_days"] == 3
+    assert digest["main"] == {
+        "label": "main",
+        "scope_count": 1,
+        "reported_day_count": 3,
+        "hold_count": 1,
+        "fallback_count": 1,
+        "mismatch_count": 1,
+        "qa_attention_count": 2,
+    }
+    assert digest["support"] == {
+        "label": "support",
+        "scope_count": 3,
+        "reported_day_count": 5,
+        "hold_count": 2,
+        "fallback_count": 2,
+        "mismatch_count": 2,
+        "qa_attention_count": 2,
+    }
+    assert (
+        format_fleet_drift_digest_line(digest)
+        == "3d fleet drift: main hold 1/3 (1 scope) | fallback 1/3 | mismatch 1/3 | qa_attn 2/3 || support hold 2/5 (3 scope) | fallback 2/5 | mismatch 2/5 | qa_attn 2/5"
+    )

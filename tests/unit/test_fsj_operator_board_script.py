@@ -285,6 +285,28 @@ def test_build_board_payload_includes_drift_summary_lines(monkeypatch) -> None:
         "support:commodities": "7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1",
         "support:macro": "7d drift support:macro: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
     }
+    assert payload["fleet_drift_digest"] == {
+        "window_days": 7,
+        "main": {
+            "label": "main",
+            "scope_count": 1,
+            "reported_day_count": 1,
+            "hold_count": 1,
+            "fallback_count": 0,
+            "mismatch_count": 0,
+            "qa_attention_count": 0,
+        },
+        "support": {
+            "label": "support",
+            "scope_count": 3,
+            "reported_day_count": 3,
+            "hold_count": 3,
+            "fallback_count": 0,
+            "mismatch_count": 0,
+            "qa_attention_count": 1,
+        },
+    }
+    assert payload["fleet_drift_digest_line"] == "7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3"
 
 
 def test_build_board_payload_can_resolve_latest_business_date(monkeypatch) -> None:
@@ -376,7 +398,29 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             "support:ai_tech": "7d drift support:ai_tech: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
             "support:commodities": "7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1",
             "support:macro": "7d drift support:macro: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
-        }
+        },
+        "fleet_drift_digest": {
+            "window_days": 7,
+            "main": {
+                "label": "main",
+                "scope_count": 1,
+                "reported_day_count": 1,
+                "hold_count": 1,
+                "fallback_count": 0,
+                "mismatch_count": 0,
+                "qa_attention_count": 0,
+            },
+            "support": {
+                "label": "support",
+                "scope_count": 3,
+                "reported_day_count": 3,
+                "hold_count": 3,
+                "fallback_count": 0,
+                "mismatch_count": 0,
+                "qa_attention_count": 1,
+            },
+        },
+        "fleet_drift_digest_line": "7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3"
     }
 
     _print_text(payload)
@@ -399,6 +443,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "fleet_llm_attention_policy_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_posture=review_required" in output
+    assert "fleet_drift_digest_line=7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3" in output
     assert "main_qa_axes=lineage:ready:b0:w0,policy:ready:b0:w0,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes=lineage:ready:b0:w0,policy:attention:b0:w1,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes_attention=policy" in output

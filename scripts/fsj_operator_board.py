@@ -7,7 +7,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ifa_data_platform.fsj.store import FSJStore
-from scripts.fsj_drift_monitor import build_drift_payload, format_drift_summary_line
+from scripts.fsj_drift_monitor import (
+    build_drift_payload,
+    build_fleet_drift_digest,
+    format_drift_summary_line,
+    format_fleet_drift_digest_line,
+)
 
 _VALID_SLOT_KEYS = {"early", "mid", "late"}
 _VALID_DOMAINS = {"macro", "commodities", "ai_tech"}
@@ -78,20 +83,18 @@ def _resolve_support_latest(*, agent_domain: str, slot: str | None = None, store
 def build_board_payload(*, business_date: str | None = None, history_limit: int = 5, store: FSJStore | None = None) -> dict[str, Any]:
     store = store or FSJStore()
     payload = store.build_operator_board_surface(business_date=business_date, history_limit=history_limit)
+    drift_payloads = {
+        "main": build_drift_payload(scope="main", days=7, store=store),
+    }
     if payload.get("support"):
-        drift_payloads = {
-            "main": build_drift_payload(scope="main", days=7, store=store),
-        }
         for domain in sorted(_VALID_DOMAINS):
             drift_payloads[f"support:{domain}"] = build_drift_payload(scope=f"support:{domain}", days=7, store=store)
-        payload["drift_summary_lines"] = {
-            key: format_drift_summary_line(drift_payload)
-            for key, drift_payload in drift_payloads.items()
-        }
-    else:
-        payload["drift_summary_lines"] = {
-            "main": format_drift_summary_line(build_drift_payload(scope="main", days=7, store=store)),
-        }
+    payload["drift_summary_lines"] = {
+        key: format_drift_summary_line(drift_payload)
+        for key, drift_payload in drift_payloads.items()
+    }
+    payload["fleet_drift_digest"] = build_fleet_drift_digest(drift_payloads)
+    payload["fleet_drift_digest_line"] = format_fleet_drift_digest_line(payload["fleet_drift_digest"])
     return payload
 
 
@@ -181,6 +184,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"fleet_llm_override_precedence={'>'.join(role_policy_aggregate.get('override_precedence') or [])}")
     print(f"fleet_llm_attention_policy_subjects={','.join(role_policy_aggregate.get('attention_subjects') or [])}")
     drift_lines = _safe_dict(payload.get("drift_summary_lines"))
+    print(f"fleet_drift_digest_line={payload.get('fleet_drift_digest_line') or '-'}")
     print(f"main_drift_summary_line={drift_lines.get('main') or '-'}")
     for domain in sorted(_VALID_DOMAINS):
         key = f"support:{domain}"
