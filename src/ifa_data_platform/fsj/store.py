@@ -81,6 +81,39 @@ def _estimate_usage_cost_usd(*, model_alias: str | None, usage: dict[str, Any] |
     return round(estimated, 6)
 
 
+def _llm_budget_posture(*, usage_bundle_count: int, costed_bundle_count: int, uncosted_bundle_count: int) -> dict[str, Any]:
+    usage_bundle_count = max(int(usage_bundle_count or 0), 0)
+    costed_bundle_count = max(int(costed_bundle_count or 0), 0)
+    uncosted_bundle_count = max(int(uncosted_bundle_count or 0), 0)
+    priced_bundle_count = min(costed_bundle_count, usage_bundle_count)
+
+    if usage_bundle_count <= 0:
+        posture = "no_usage"
+        attention = False
+        summary_line = "no_usage"
+    elif uncosted_bundle_count <= 0 and priced_bundle_count >= usage_bundle_count:
+        posture = "fully_priced"
+        attention = False
+        summary_line = f"fully_priced [{priced_bundle_count}/{usage_bundle_count}]"
+    elif priced_bundle_count <= 0:
+        posture = "unpriced"
+        attention = True
+        summary_line = f"unpriced [0/{usage_bundle_count} priced | unpriced={uncosted_bundle_count}]"
+    else:
+        posture = "mixed"
+        attention = True
+        summary_line = f"mixed [{priced_bundle_count}/{usage_bundle_count} priced | unpriced={uncosted_bundle_count}]"
+
+    return {
+        "posture": posture,
+        "priced_bundle_count": priced_bundle_count,
+        "costed_bundle_count": priced_bundle_count,
+        "uncosted_bundle_count": uncosted_bundle_count,
+        "attention": attention,
+        "summary_line": summary_line,
+    }
+
+
 SCHEMA_DDL = [
     "CREATE SCHEMA IF NOT EXISTS ifa2",
     """
@@ -1214,6 +1247,11 @@ class FSJStore:
             detail_parts.append(f"cost_usd={estimated_cost_usd:.6f}")
         elif uncosted_bundle_count:
             detail_parts.append(f"unpriced={uncosted_bundle_count}")
+        budget_posture = _llm_budget_posture(
+            usage_bundle_count=usage_bundle_count,
+            costed_bundle_count=costed_bundle_count,
+            uncosted_bundle_count=uncosted_bundle_count,
+        )
 
         return {
             "status": status,
@@ -1229,7 +1267,11 @@ class FSJStore:
             "models": models,
             "usage_bundle_count": usage_bundle_count,
             "costed_bundle_count": costed_bundle_count,
+            "priced_bundle_count": budget_posture.get("priced_bundle_count"),
             "uncosted_bundle_count": uncosted_bundle_count,
+            "budget_posture": budget_posture.get("posture"),
+            "budget_attention": budget_posture.get("attention"),
+            "budget_summary_line": budget_posture.get("summary_line"),
             "token_totals": token_totals,
             "estimated_cost_usd": estimated_cost_usd,
             "model_usage_breakdown": model_usage_breakdown,
@@ -1385,6 +1427,13 @@ class FSJStore:
             "slot_usage_breakdown": slot_usage_breakdown,
             "estimated_cost_usd": round(estimated_cost_usd_total, 6) if costed_bundle_count else None,
         }
+        summary.update(
+            _llm_budget_posture(
+                usage_bundle_count=summary["usage_bundle_count"],
+                costed_bundle_count=summary["costed_bundle_count"],
+                uncosted_bundle_count=summary["uncosted_bundle_count"],
+            )
+        )
         return {
             "artifact_id": normalized_artifact.get("artifact_id"),
             "bundle_ids": bundle_ids,
@@ -1439,6 +1488,7 @@ class FSJStore:
             fleet_models = sorted({model for item in present_subjects for model in (item.get("models") or []) if str(model).strip()})
             fleet_total_tokens = sum(_usage_int(dict(item.get("token_totals") or {}), "total_tokens", "totalTokens") for item in present_subjects)
             fleet_usage_bundle_count = sum(int(item.get("usage_bundle_count") or 0) for item in present_subjects)
+            fleet_costed_bundle_count = sum(int(item.get("costed_bundle_count") or item.get("priced_bundle_count") or 0) for item in present_subjects)
             fleet_uncosted_bundle_count = sum(int(item.get("uncosted_bundle_count") or 0) for item in present_subjects)
             fleet_cost_values = [float(item.get("estimated_cost_usd")) for item in present_subjects if item.get("estimated_cost_usd") is not None]
             fleet_model_usage_breakdown: dict[str, dict[str, Any]] = {}
@@ -1468,6 +1518,11 @@ class FSJStore:
                     bucket["applied_count"] += int(payload.get("applied_count") or 0)
                     bucket["fallback_applied_count"] += int(payload.get("fallback_applied_count") or 0)
                     bucket["total_tokens"] += _usage_int(dict(payload), "total_tokens", "totalTokens")
+            budget_posture = _llm_budget_posture(
+                usage_bundle_count=fleet_usage_bundle_count,
+                costed_bundle_count=fleet_costed_bundle_count,
+                uncosted_bundle_count=fleet_uncosted_bundle_count,
+            )
             return {
                 "overall_status": overall_status,
                 "subject_count": len(subjects),
@@ -1477,7 +1532,12 @@ class FSJStore:
                 "models": fleet_models,
                 "total_tokens": fleet_total_tokens,
                 "usage_bundle_count": fleet_usage_bundle_count,
+                "priced_bundle_count": budget_posture.get("priced_bundle_count"),
+                "costed_bundle_count": budget_posture.get("costed_bundle_count"),
                 "uncosted_bundle_count": fleet_uncosted_bundle_count,
+                "budget_posture": budget_posture.get("posture"),
+                "budget_attention": budget_posture.get("attention"),
+                "budget_summary_line": budget_posture.get("summary_line"),
                 "estimated_cost_usd": round(sum(fleet_cost_values), 6) if fleet_cost_values else None,
                 "model_usage_breakdown": fleet_model_usage_breakdown,
                 "slot_usage_breakdown": fleet_slot_usage_breakdown,
