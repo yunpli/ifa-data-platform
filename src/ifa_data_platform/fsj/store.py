@@ -1086,6 +1086,7 @@ class FSJStore:
         package_surface = self.report_package_surface_from_surface(normalized_surface)
         package_state = dict(package_surface.get("package_state") or {})
         quality_gate = dict(package_state.get("quality_gate") or {})
+        source_health = dict(quality_gate.get("source_health") or {})
         state = dict(workflow_handoff.get("state") or {})
         workflow_linkage = dict(normalized_surface.get("workflow_linkage") or {})
         llm_lineage = dict(
@@ -1166,6 +1167,13 @@ class FSJStore:
             dispatch_state=dispatch_state,
             selected_is_current=(workflow_handoff.get("selected_handoff") or {}).get("selected_is_current"),
         )
+        board_state_source = self._report_board_state_source_summary(
+            artifact=artifact,
+            workflow_handoff=workflow_handoff,
+            governance=governance_summary,
+            canonical_lifecycle=canonical_lifecycle,
+            dispatch_receipt=dispatch_receipt,
+        )
 
         return {
             "artifact": dict(workflow_handoff.get("artifact") or artifact),
@@ -1201,6 +1209,7 @@ class FSJStore:
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
             "canonical_lifecycle": canonical_lifecycle,
+            "board_state_source": board_state_source,
             "review_summary": {
                 "recommended_action": state.get("recommended_action"),
                 "workflow_state": state.get("workflow_state"),
@@ -1223,10 +1232,17 @@ class FSJStore:
                 "operator_decision_rationale": operator_go_no_go.get("rationale"),
                 "operator_next_step": governance_summary.get("next_step"),
                 "operator_action_required": governance_summary.get("action_required"),
+                "board_state_source": board_state_source,
                 "review_blocking_item_count": governance_summary.get("review_blocking_item_count"),
                 "review_warning_item_count": governance_summary.get("review_warning_item_count"),
                 "send_blocker_count": governance_summary.get("send_blocker_count"),
                 "governance_blocking_reasons": list(governance_summary.get("blocking_reasons") or []),
+                "source_health": source_health,
+                "source_health_status": source_health.get("overall_status"),
+                "source_health_blocking_slot_count": source_health.get("blocking_slot_count"),
+                "source_health_degraded_slot_count": source_health.get("degraded_slot_count"),
+                "source_health_degrade_reason": source_health.get("degrade_reason"),
+                "source_health_slots": list(source_health.get("slots") or []),
                 "llm_bundle_count": llm_lineage.get("summary", {}).get("bundle_count"),
                 "llm_applied_count": llm_lineage.get("summary", {}).get("applied_count"),
                 "llm_degraded_count": llm_lineage.get("summary", {}).get("degraded_count"),
@@ -1246,6 +1262,68 @@ class FSJStore:
                 "llm_override_precedence": list(llm_role_policy.get("override_precedence") or []),
                 "llm_slot_boundary_modes": llm_role_policy_by_slot,
             },
+        }
+
+    def _report_board_state_source_summary(
+        self,
+        *,
+        artifact: dict[str, Any] | None,
+        workflow_handoff: dict[str, Any] | None,
+        governance: dict[str, Any] | None,
+        canonical_lifecycle: dict[str, Any] | None,
+        dispatch_receipt: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        normalized_artifact = dict(artifact or {})
+        normalized_workflow_handoff = dict(workflow_handoff or {})
+        normalized_governance = dict(governance or {})
+        normalized_lifecycle = dict(canonical_lifecycle or {})
+        normalized_dispatch_receipt = dict(dispatch_receipt or {})
+        selected_handoff = dict(normalized_workflow_handoff.get("selected_handoff") or {})
+        artifact_status = str(normalized_artifact.get("status") or "").strip()
+        dispatch_state = str(normalized_dispatch_receipt.get("dispatch_state") or normalized_dispatch_receipt.get("status") or "").strip()
+        lifecycle_state = str(normalized_lifecycle.get("state") or "").strip()
+
+        state_truth_inputs = [
+            "ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow",
+            "ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+        ]
+        if artifact_status:
+            state_truth_inputs.insert(0, "ifa_fsj_report_artifacts.status")
+        if dispatch_state:
+            state_truth_inputs.append("ifa_fsj_report_artifacts.metadata_json.workflow_linkage.dispatch_receipt")
+
+        blocking_reason_source = []
+        if normalized_governance.get("blocking_reasons"):
+            blocking_reason_source.append("ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest")
+            blocking_reason_source.append("ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.send_blockers")
+
+        next_action_source = []
+        if normalized_governance.get("next_step"):
+            next_action_source.append("ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step")
+            next_action_source.append("ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step")
+            next_action_source.append("ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step")
+
+        return {
+            "canonical_state": lifecycle_state or None,
+            "canonical_reason": str(normalized_lifecycle.get("reason") or "").strip() or None,
+            "state_source_of_truth": " + ".join(state_truth_inputs),
+            "blocking_reason_source_of_truth": " + ".join(blocking_reason_source) if blocking_reason_source else None,
+            "next_action_source_of_truth": " + ".join(next_action_source) if next_action_source else None,
+            "version_source_of_truth": " + ".join([
+                "ifa_fsj_report_artifacts.artifact_id",
+                "ifa_fsj_report_artifacts.report_run_id",
+                "ifa_fsj_report_artifacts.supersedes_artifact_id",
+                "ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+            ]),
+            "bundle_source_of_truth": "ifa_fsj_bundles(bundle_ids from ifa_fsj_report_artifacts.metadata_json.bundle_ids)",
+            "dispatch_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.workflow_linkage.dispatch_receipt" if dispatch_state else None,
+            "selected_artifact_id": selected_handoff.get("selected_artifact_id"),
+            "selected_is_current": selected_handoff.get("selected_is_current"),
+            "summary_line": (
+                f"state={lifecycle_state or '-'} via {' + '.join(state_truth_inputs)}"
+                + (f" | next_action via {' + '.join(next_action_source)}" if next_action_source else "")
+                + (f" | blockers via {' + '.join(blocking_reason_source)}" if blocking_reason_source else "")
+            ),
         }
 
     def report_artifact_lineage_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -2172,6 +2250,7 @@ class FSJStore:
             review_summary = dict(review_surface.get("review_summary") or {})
             llm_lineage_summary = dict(review_surface.get("llm_lineage_summary") or {})
             canonical_lifecycle = dict(review_surface.get("canonical_lifecycle") or {})
+            source_health = dict(review_summary.get("source_health") or {})
             recommended_action = str(state.get("recommended_action") or review_summary.get("recommended_action") or "hold")
             send_ready = bool(state.get("send_ready"))
             review_required = bool(state.get("review_required")) or recommended_action == "send_review"
@@ -2183,7 +2262,9 @@ class FSJStore:
                 posture = "review_required"
             llm_status = llm_lineage_summary.get("status")
             lineage_attention = llm_status in {"incomplete", "degraded", "not_applied"}
-            needs_attention = blocked or review_required or lineage_attention
+            source_health_status = str(source_health.get("overall_status") or "healthy")
+            source_health_attention = source_health_status in {"blocked", "degraded"}
+            needs_attention = blocked or review_required or lineage_attention or source_health_attention
             return {
                 "subject": subject,
                 "artifact_id": artifact.get("artifact_id"),
@@ -2205,10 +2286,17 @@ class FSJStore:
                 "warning_count": review_summary.get("warning_count"),
                 "llm_lineage_status": llm_status,
                 "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
+                "source_health": source_health,
+                "source_health_status": source_health_status,
+                "source_health_blocking_slot_count": int(source_health.get("blocking_slot_count") or 0),
+                "source_health_degraded_slot_count": int(source_health.get("degraded_slot_count") or 0),
+                "source_health_degrade_reason": source_health.get("degrade_reason"),
+                "source_health_slots": list(source_health.get("slots") or []),
                 "send_ready": send_ready,
                 "review_required": review_required,
                 "blocked": blocked,
                 "lineage_attention": lineage_attention,
+                "source_health_attention": source_health_attention,
                 "needs_attention": needs_attention,
                 "posture": posture,
             }
@@ -2322,10 +2410,17 @@ class FSJStore:
             governance_action_required_subjects = [item["subject"] for item in present_subjects if item.get("governance_action_required")]
             blocked_subjects = [item["subject"] for item in present_subjects if item.get("blocked")]
             lineage_attention_subjects = [item["subject"] for item in present_subjects if item.get("lineage_attention")]
+            source_health_attention_subjects = [item["subject"] for item in present_subjects if item.get("source_health_attention")]
+            source_health_blocked_subjects = [item["subject"] for item in present_subjects if item.get("source_health_status") == "blocked"]
+            source_health_degraded_subjects = [item["subject"] for item in present_subjects if item.get("source_health_status") == "degraded"]
             attention_subjects = [item["subject"] for item in present_subjects if item.get("needs_attention")]
+            source_health_status_counts: dict[str, int] = {}
             lifecycle_state_counts: dict[str, int] = {}
             lifecycle_subjects: dict[str, list[str]] = {}
             for item in present_subjects:
+                source_health_status = str(item.get("source_health_status") or "").strip()
+                if source_health_status:
+                    source_health_status_counts[source_health_status] = source_health_status_counts.get(source_health_status, 0) + 1
                 lifecycle_state = str(item.get("canonical_lifecycle_state") or "").strip()
                 if not lifecycle_state:
                     continue
@@ -2351,14 +2446,49 @@ class FSJStore:
                 "blocked_subject_count": len(blocked_subjects),
                 "attention_subject_count": len(attention_subjects),
                 "lineage_attention_subject_count": len(lineage_attention_subjects),
+                "source_health_attention_subject_count": len(source_health_attention_subjects),
+                "source_health_blocked_subject_count": len(source_health_blocked_subjects),
+                "source_health_degraded_subject_count": len(source_health_degraded_subjects),
                 "ready_subjects": ready_subjects,
                 "review_required_subjects": review_subjects,
                 "governance_action_required_subjects": governance_action_required_subjects,
                 "blocked_subjects": blocked_subjects,
                 "attention_subjects": attention_subjects,
                 "lineage_attention_subjects": lineage_attention_subjects,
+                "source_health_attention_subjects": source_health_attention_subjects,
+                "source_health_blocked_subjects": source_health_blocked_subjects,
+                "source_health_degraded_subjects": source_health_degraded_subjects,
+                "source_health_status_counts": source_health_status_counts,
                 "canonical_lifecycle_state_counts": lifecycle_state_counts,
                 "canonical_lifecycle_subjects": lifecycle_subjects,
+            }
+
+        def _board_source_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
+            if not review_surface:
+                return None
+            board_state_source = dict(review_surface.get("board_state_source") or {})
+            if not board_state_source:
+                return None
+            return {"subject": subject, **board_state_source}
+
+        def _aggregate_board_sources(subjects: list[dict[str, Any]]) -> dict[str, Any]:
+            present_subjects = [item for item in subjects if item]
+            state_source_counts: dict[str, int] = {}
+            next_action_subjects: list[str] = []
+            blocker_subjects: list[str] = []
+            for item in present_subjects:
+                state_source = str(item.get("state_source_of_truth") or "").strip()
+                if state_source:
+                    state_source_counts[state_source] = state_source_counts.get(state_source, 0) + 1
+                if item.get("next_action_source_of_truth"):
+                    next_action_subjects.append(str(item.get("subject") or ""))
+                if item.get("blocking_reason_source_of_truth"):
+                    blocker_subjects.append(str(item.get("subject") or ""))
+            return {
+                "reported_subject_count": len(present_subjects),
+                "state_source_counts": state_source_counts,
+                "subjects_with_next_action_source": next_action_subjects,
+                "subjects_with_blocking_reason_source": blocker_subjects,
             }
 
         def _summarize_db_candidate_alignment(
@@ -2510,6 +2640,11 @@ class FSJStore:
         }
         readiness_subjects = [item for item in [readiness_main, *readiness_support.values()] if item]
         qa_axis_subjects = [item for item in [qa_axes_main, *qa_axes_support.values()] if item]
+        board_source_main = _board_source_subject(main_review, subject="main")
+        board_source_support = {
+            domain: _board_source_subject(review, subject=f"support:{domain}")
+            for domain, review in support_reviews.items()
+        }
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
@@ -2560,6 +2695,11 @@ class FSJStore:
                 "main": readiness_main,
                 "support": readiness_support,
                 "aggregate": _aggregate_readiness(readiness_subjects),
+            },
+            "board_state_source_summary": {
+                "main": board_source_main,
+                "support": board_source_support,
+                "aggregate": _aggregate_board_sources([item for item in [board_source_main, *board_source_support.values()] if item]),
             },
             "qa_axes_summary": {
                 "main": qa_axes_main,
