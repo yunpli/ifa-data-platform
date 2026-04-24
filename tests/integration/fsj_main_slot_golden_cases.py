@@ -656,6 +656,7 @@ MAIN_SLOT_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = (
 
 EARLY_MAIN_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = tuple(case for case in MAIN_SLOT_GOLDEN_CASES if case.slot == "early")
 MID_MAIN_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = tuple(case for case in MAIN_SLOT_GOLDEN_CASES if case.slot == "mid")
+LATE_MAIN_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = tuple(case for case in MAIN_SLOT_GOLDEN_CASES if case.slot == "late")
 
 
 def describe_slot_golden_case(case: SlotGoldenCase) -> dict[str, Any]:

@@ -25,10 +25,17 @@ Reusable fixture catalog:
 Executable golden regression:
 - `tests/integration/test_fsj_main_slot_golden_cases.py`
 
-This pattern defines one `SlotGoldenCase` per canonical MAIN slot behavior:
-1. `early_candidate_validation`
-2. `mid_intraday_adjustment`
-3. `late_provisional_close_monitor`
+This pattern defines canonical `SlotGoldenCase` coverage across three MAIN benchmark families:
+1. `early_main`
+   - `early_candidate_validation`
+   - `early_llm_fallback_applied`
+   - `early_llm_deterministic_degrade`
+2. `mid_main`
+   - `mid_intraday_adjustment`
+   - `mid_llm_fallback_applied`
+3. `late_main`
+   - `late_llm_fallback_applied`
+   - `late_provisional_close_monitor`
 
 Each case fixes:
 - producer type
@@ -54,6 +61,7 @@ It catches regressions where a slot still "runs" but stops being the same busine
 
 Covered now:
 - MAIN early/mid/late producer golden semantics
+- dedicated family entrypoints for `early_main`, `mid_main`, and `late_main`
 - DB-persisted graph minimums
 - evidence-role invariants by slot
 
@@ -68,4 +76,4 @@ Those should extend this same fixture pattern rather than creating a separate co
 ## Next extension path
 
 Recommended next B-lane follow-up:
-- add one degraded/fallback golden case family reusing the same catalog shape, starting with late-slot LLM fallback/degrade proofs already present under `scripts/prove_fsj_*_llm_fallback.py`.
+- add one degraded-data benchmark family reusing the same catalog shape, or split explicit LLM timeout/fallback families out of the slot-family coverage if separate operator ownership is needed.

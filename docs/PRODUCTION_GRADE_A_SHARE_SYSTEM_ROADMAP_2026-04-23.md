@@ -438,13 +438,14 @@ QA exists, but full quality governance does not.
 ---
 
 ### P3-3. Benchmark / golden-case suite
-**Status:** In progress — bounded `early_main` and `mid_main` golden-case family selectors + dedicated regression entrypoints landed over existing FSJ persistence/judgment/evidence truth  
+**Status:** In progress — bounded `early_main`, `mid_main`, and `late_main` golden-case family selectors + dedicated regression entrypoints landed over existing FSJ persistence/judgment/evidence truth  
 **Target:** fixed benchmark cases for regression-proof evolution
 
 **Tasks**
 - [x] define one canonical early benchmark family and expose a dedicated regression entrypoint (`tests/integration/test_fsj_main_early_golden_case_family.py`) over the existing main-slot golden harness
 - [ ] define canonical early benchmark cases
 - [x] define canonical mid benchmark family and expose a dedicated regression entrypoint (`tests/integration/test_fsj_main_mid_golden_case_family.py`) over the existing main-slot golden harness
+- [x] define canonical late benchmark family and expose a dedicated regression entrypoint (`tests/integration/test_fsj_main_late_golden_case_family.py`) over the existing main-slot golden harness
 - [ ] define canonical late benchmark cases
 - [ ] define degraded-data benchmark cases
 - [ ] define LLM timeout/fallback benchmark cases
@@ -452,6 +453,7 @@ QA exists, but full quality governance does not.
 **Thin slice already landed**
 - `P3-3a`: the first real benchmark seam now exists as the `early_main` family, with stable case descriptors (`describe_slot_golden_case(...)`), dedicated family selection (`EARLY_MAIN_GOLDEN_CASES`), and a focused integration regression surface that pins early-slot FSJ persistence/judgment/evidence expectations without broadening into a full benchmark matrix
 - `P3-3b`: the next bounded benchmark seam now exists as the `mid_main` family, extending the same selector/descriptor pattern (`MID_MAIN_GOLDEN_CASES`) and adding a dedicated regression entrypoint that pins mid-slot persistence/judgment/evidence invariants without widening into a degraded/fallback matrix
+- `P3-3c`: the next bounded benchmark seam now exists as the `late_main` family, extending the same selector/descriptor pattern (`LATE_MAIN_GOLDEN_CASES`) and adding a dedicated regression entrypoint that pins late-slot persistence/judgment/evidence invariants without widening into a full benchmark matrix
 
 **Parallelizable:** yes by slot
 
