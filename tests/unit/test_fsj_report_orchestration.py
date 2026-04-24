@@ -132,6 +132,27 @@ class _StubStore:
         self.attached: list[tuple[str, list[dict]]] = []
         self.persisted_workflow_linkages: list[tuple[str, dict]] = []
 
+    def report_llm_lineage_from_artifact(self, artifact: dict) -> dict:
+        return {
+            "artifact_id": artifact.get("artifact_id"),
+            "bundle_ids": ["bundle-early", "bundle-late"],
+            "summary": {
+                "bundle_count": 2,
+                "applied_count": 1,
+                "degraded_count": 1,
+                "missing_bundle_count": 0,
+                "fallback_applied_count": 1,
+                "primary_applied_count": 0,
+                "deterministic_degrade_count": 0,
+                "operator_tags": ["llm_timeout"],
+                "slots": ["early", "late"],
+            },
+            "bundles": [
+                {"bundle_id": "bundle-early", "slot": "early", "outcome": "fallback_applied", "applied": True, "operator_tag": "llm_timeout"},
+                {"bundle_id": "bundle-late", "slot": "late", "outcome": "deterministic_degrade", "applied": False, "operator_tag": None},
+            ],
+        }
+
     def register_report_artifact(self, payload: dict) -> dict:
         self.registered.append(payload)
         return {**payload, "status": payload["status"]}
@@ -223,6 +244,10 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert operator_review_bundle["operator_go_no_go"]["artifact_integrity_ok"] is True
     assert any(item["artifact"] == "html" and item["exists"] is True for item in operator_review_bundle["artifact_checks"])
     assert workflow["package_artifacts"]["operator_review_bundle"].endswith("operator_review_bundle.json")
+    assert workflow["llm_lineage"]["summary"]["bundle_count"] == 2
+    assert workflow["llm_lineage"]["summary"]["fallback_applied_count"] == 1
+    assert operator_review_bundle["llm_lineage"]["summary"]["operator_tags"] == ["llm_timeout"]
+    assert result["llm_lineage"]["summary"]["degraded_count"] == 1
     assert workflow["package_artifacts"]["operator_review_readme"].endswith("OPERATOR_REVIEW.md")
     assert workflow["package_artifacts"]["candidate_comparison"].endswith("candidate_comparison.json")
     assert workflow["package_artifacts"]["package_index"].endswith("package_index.json")
@@ -246,6 +271,7 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert linkage["review_manifest_path"] == result["review_manifest_path"]
     assert linkage["workflow_manifest_path"] == result["workflow_manifest_path"]
     assert linkage["selected_handoff"]["selected_artifact_id"] == result["artifact"]["artifact_id"]
+    assert linkage["llm_lineage"]["summary"]["bundle_count"] == 2
     assert linkage["review_surface"]["candidate_comparison"]["selected_artifact_id"] == result["artifact"]["artifact_id"]
     assert linkage["review_surface"]["operator_go_no_go"]["decision"] == "GO"
     assert linkage["review_surface"]["review_manifest"]["next_step"] == "send_selected_package_to_primary_channel"

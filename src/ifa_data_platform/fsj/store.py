@@ -932,11 +932,16 @@ class FSJStore:
         package_state = dict(package_surface.get("package_state") or {})
         quality_gate = dict(package_state.get("quality_gate") or {})
         state = dict(workflow_handoff.get("state") or {})
-        llm_lineage = dict(normalized_surface.get("llm_lineage") or self.report_llm_lineage_from_artifact(artifact))
+        workflow_linkage = dict(normalized_surface.get("workflow_linkage") or {})
+        llm_lineage = dict(
+            normalized_surface.get("llm_lineage")
+            or workflow_linkage.get("llm_lineage")
+            or self.report_llm_lineage_from_artifact(artifact)
+        )
 
         review_payload = dict(
             dict(normalized_surface.get("review_surface") or {})
-            or dict((normalized_surface.get("workflow_linkage") or {}).get("review_surface") or {})
+            or dict(workflow_linkage.get("review_surface") or {})
         )
         candidate_comparison = dict(review_payload.get("candidate_comparison") or {})
         operator_go_no_go = dict(review_payload.get("operator_go_no_go") or {})

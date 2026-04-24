@@ -161,6 +161,7 @@ class MainReportMorningDeliveryOrchestrator:
             selected_is_current=selected_is_current,
             effective_action=effective_action,
         )
+        llm_lineage = self._resolve_llm_lineage(published)
         send_manifest = self._build_send_manifest(
             published=published,
             dispatch_decision=dispatch_decision,
@@ -196,6 +197,7 @@ class MainReportMorningDeliveryOrchestrator:
             selected_handoff=selected_handoff,
             send_manifest=send_manifest,
             review_manifest=review_manifest,
+            llm_lineage=llm_lineage,
         )
         operator_review_readme = self._build_operator_review_readme(operator_review_bundle)
 
@@ -243,6 +245,7 @@ class MainReportMorningDeliveryOrchestrator:
             "slot_evaluation": delivery_manifest.get("slot_evaluation") or {},
             "support_summary_aggregate": delivery_manifest.get("support_summary_aggregate") or {},
             "lineage": delivery_manifest.get("lineage") or {},
+            "llm_lineage": llm_lineage,
             "dispatch_decision": dispatch_decision,
             "candidate_comparison": candidate_comparison,
             "review_manifest": review_manifest,
@@ -279,6 +282,7 @@ class MainReportMorningDeliveryOrchestrator:
                         "review_manifest": review_manifest,
                         "send_manifest": send_manifest,
                     },
+                    "llm_lineage": llm_lineage,
                 },
             )
 
@@ -300,7 +304,16 @@ class MainReportMorningDeliveryOrchestrator:
             "operator_review_readme_path": str(operator_review_readme_path.resolve()),
             "dispatch_decision": dispatch_decision,
             "selected_handoff": selected_handoff,
+            "llm_lineage": llm_lineage,
         }
+
+    def _resolve_llm_lineage(self, published: dict[str, Any]) -> dict[str, Any]:
+        artifact = dict(published.get("artifact") or {})
+        store = getattr(self.publisher, "store", None)
+        resolver = getattr(store, "report_llm_lineage_from_artifact", None)
+        if callable(resolver):
+            return dict(resolver(artifact) or {})
+        return {}
 
     def _build_send_manifest(
         self,
@@ -455,6 +468,7 @@ class MainReportMorningDeliveryOrchestrator:
         selected_handoff: dict[str, Any],
         send_manifest: dict[str, Any],
         review_manifest: dict[str, Any],
+        llm_lineage: dict[str, Any],
     ) -> dict[str, Any]:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
         current_candidate = self.dispatch_helper.candidate_from_published(published).as_dict()
@@ -495,6 +509,7 @@ class MainReportMorningDeliveryOrchestrator:
             "quality_gate": delivery_manifest.get("quality_gate") or {},
             "slot_evaluation": delivery_manifest.get("slot_evaluation") or {},
             "support_summary_aggregate": delivery_manifest.get("support_summary_aggregate") or {},
+            "llm_lineage": llm_lineage,
             "send_manifest": send_manifest,
             "review_manifest": review_manifest,
             "artifact_checks": artifact_checks,

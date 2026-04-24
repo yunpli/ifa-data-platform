@@ -318,6 +318,33 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
     assert lineage["bundles"][1]["missing"] is True
 
 
+def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_lineage() -> None:
+    store = _ProjectionOnlyStore()
+    summary = store.report_operator_review_surface_from_surface(
+        {
+            "artifact": {"artifact_id": "artifact-exported"},
+            "delivery_package": {
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "quality_gate": {"score": 98, "blocker_count": 0, "warning_count": 0},
+                "workflow": {"recommended_action": "send", "workflow_state": "ready_to_send"},
+            },
+            "workflow_linkage": {
+                "llm_lineage": {
+                    "artifact_id": "artifact-exported",
+                    "bundle_ids": ["bundle-exported"],
+                    "summary": {"bundle_count": 1, "applied_count": 1, "degraded_count": 0, "fallback_applied_count": 0, "primary_applied_count": 1},
+                    "bundles": [{"bundle_id": "bundle-exported", "slot": "late", "outcome": "primary_applied", "applied": True}],
+                }
+            },
+        }
+    )
+
+    assert summary["llm_lineage"]["artifact_id"] == "artifact-exported"
+    assert summary["llm_lineage"]["summary"]["bundle_count"] == 1
+    assert summary["review_summary"]["llm_applied_count"] == 1
+
+
 def test_report_operator_review_query_helpers_project_from_delivery_surfaces() -> None:
     class _Store(FSJStore):
         def __init__(self) -> None:
