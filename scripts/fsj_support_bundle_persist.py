@@ -14,6 +14,7 @@ from ifa_data_platform.fsj import (
     LateCommoditiesSupportProducer,
     LateMacroSupportProducer,
 )
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError, enforce_non_live_test_roots
 
 VALID_DOMAINS = ["macro", "commodities", "ai_tech"]
 PRODUCER_REGISTRY = {
@@ -56,6 +57,7 @@ def main() -> None:
 
     generated_at = datetime.now(timezone.utc)
     domains = args.agent_domains or list(VALID_DOMAINS)
+    enforce_non_live_test_roots(flow_name="fsj_support_bundle_persist", output_path=args.output_root)
     results: list[dict] = []
 
     for domain in domains:

@@ -7,6 +7,9 @@ from pathlib import Path
 import pytest
 
 
+TEST_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
+
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_support_batch_publish.py"
 spec = importlib.util.spec_from_file_location("fsj_support_batch_publish", SCRIPT_PATH)
 module = importlib.util.module_from_spec(spec)
@@ -19,6 +22,7 @@ def test_main_persists_before_publish_and_writes_batch_summary(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -138,6 +142,7 @@ def test_main_keeps_publish_results_and_surfaces_persist_failure(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -189,3 +194,26 @@ def test_main_keeps_publish_results_and_surfaces_persist_failure(
     assert payload["persist"]["blocked_count"] == 1
     assert payload["blocked_count"] == 1
     assert payload["results"][0]["reason"] == "persisted_support_bundle_not_ready"
+
+
+def test_main_blocks_pytest_flow_on_canonical_live_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    live_artifacts_root = Path(__file__).resolve().parents[2] / "artifacts" / "pytest-should-block"
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp")
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: module.argparse.Namespace(
+            business_date="2026-04-23",
+            slot="early",
+            output_root=str(live_artifacts_root),
+            agent_domains=["macro"],
+            generated_at="2026-04-23T11:46:03+00:00",
+            report_run_id_prefix="fsj-support-batch",
+            require_ready=True,
+        ),
+    )
+
+    with pytest.raises(module.TestLiveIsolationError, match="canonical/live DB"):
+        module.main()

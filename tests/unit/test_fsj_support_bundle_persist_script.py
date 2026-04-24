@@ -7,6 +7,9 @@ from pathlib import Path
 import pytest
 
 
+TEST_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
+
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_support_bundle_persist.py"
 spec = importlib.util.spec_from_file_location("fsj_support_bundle_persist", SCRIPT_PATH)
 module = importlib.util.module_from_spec(spec)
@@ -64,6 +67,7 @@ def registry(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_main_persists_selected_domains_and_writes_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], registry) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -86,6 +90,7 @@ def test_main_persists_selected_domains_and_writes_summary(tmp_path: Path, monke
 
 
 def test_main_exits_nonzero_when_any_domain_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module,
         "PRODUCER_REGISTRY",
@@ -112,3 +117,23 @@ def test_main_exits_nonzero_when_any_domain_blocked(tmp_path: Path, monkeypatch:
     assert payload["persisted_count"] == 0
     assert payload["blocked_count"] == 1
     assert payload["results"][0]["reason"] == "RuntimeError: db unavailable"
+
+
+def test_main_blocks_pytest_flow_on_canonical_live_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    live_artifacts_root = Path(__file__).resolve().parents[2] / "artifacts" / "pytest-should-block"
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp")
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: module.argparse.Namespace(
+            business_date="2026-04-23",
+            slot="early",
+            agent_domains=["macro"],
+            output_root=str(live_artifacts_root),
+        ),
+    )
+
+    with pytest.raises(module.TestLiveIsolationError, match="canonical/live DB"):
+        module.main()

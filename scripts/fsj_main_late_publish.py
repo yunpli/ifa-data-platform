@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ifa_data_platform.fsj import LateMainFSJProducer
 from ifa_data_platform.fsj.store import FSJStore
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError, enforce_non_live_test_roots
 
 
 def _parse_generated_at(value: str | None) -> datetime | None:
@@ -78,6 +79,7 @@ def main() -> None:
     args = parser.parse_args()
 
     generated_at = _parse_generated_at(args.generated_at) or datetime.now(timezone.utc)
+    enforce_non_live_test_roots(flow_name="fsj_main_late_publish", output_path=args.output_root)
     root = Path(args.output_root)
     root.mkdir(parents=True, exist_ok=True)
     stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")

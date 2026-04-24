@@ -9,6 +9,7 @@ from pathlib import Path
 from ifa_data_platform.fsj.report_assembly import FSJReportAssemblyStore, MainReportAssemblyService
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 from ifa_data_platform.fsj.store import FSJStore
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError, enforce_non_live_test_roots
 
 
 def _parse_generated_at(value: str | None) -> datetime | None:
@@ -29,6 +30,8 @@ def main() -> None:
     parser.add_argument("--include-empty", action="store_true")
     parser.add_argument("--package-only", action="store_true", help="Alias for delivery packaging; output remains package-first JSON")
     args = parser.parse_args()
+
+    enforce_non_live_test_roots(flow_name="fsj_main_report_publish", output_path=args.output_dir)
 
     store = FSJStore()
     assembly_store = FSJReportAssemblyStore()

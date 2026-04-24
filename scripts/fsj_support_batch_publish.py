@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ifa_data_platform.fsj.store import FSJStore
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError, enforce_non_live_test_roots
 
 VALID_DOMAINS = ["macro", "commodities", "ai_tech"]
 
@@ -85,6 +86,7 @@ def main() -> None:
 
     generated_at = _parse_generated_at(args.generated_at) or datetime.now(timezone.utc)
     domains = args.agent_domains or list(VALID_DOMAINS)
+    enforce_non_live_test_roots(flow_name="fsj_support_batch_publish", output_path=args.output_root)
     root = Path(args.output_root)
     root.mkdir(parents=True, exist_ok=True)
 

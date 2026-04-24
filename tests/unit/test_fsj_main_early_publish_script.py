@@ -7,6 +7,9 @@ from pathlib import Path
 import pytest
 
 
+TEST_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
+
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_main_early_publish.py"
 spec = importlib.util.spec_from_file_location("fsj_main_early_publish", SCRIPT_PATH)
 module = importlib.util.module_from_spec(spec)
@@ -41,6 +44,7 @@ def test_main_persists_then_publishes_and_writes_summary(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -128,6 +132,7 @@ def test_main_exits_nonzero_and_skips_publish_when_persist_fails(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -154,3 +159,24 @@ def test_main_exits_nonzero_and_skips_publish_when_persist_fails(
     assert payload["status"] == "blocked"
     assert payload["persist"]["reason"] == "RuntimeError: db unavailable"
     assert payload["publish"] is None
+
+
+def test_main_blocks_pytest_flow_on_canonical_live_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    live_artifacts_root = Path(__file__).resolve().parents[2] / "artifacts" / "pytest-should-block"
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp")
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: module.argparse.Namespace(
+            business_date="2026-04-23",
+            output_root=str(live_artifacts_root),
+            generated_at="2026-04-23T08:20:43+00:00",
+            report_run_id_prefix="fsj-main-early",
+            include_empty=False,
+        ),
+    )
+
+    with pytest.raises(module.TestLiveIsolationError, match="canonical/live DB"):
+        module.main()

@@ -7,6 +7,9 @@ from pathlib import Path
 import pytest
 
 
+TEST_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
+
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_support_report_publish.py"
 spec = importlib.util.spec_from_file_location("fsj_support_report_publish", SCRIPT_PATH)
 module = importlib.util.module_from_spec(spec)
@@ -19,6 +22,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -118,6 +122,7 @@ def test_support_publish_require_ready_blocks_without_publish(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
     monkeypatch.setattr(
         module.argparse.ArgumentParser,
         "parse_args",
@@ -159,3 +164,27 @@ def test_support_publish_require_ready_blocks_without_publish(
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "missing"
     assert payload["reason"] == "persisted_support_bundle_not_ready"
+
+
+def test_support_publish_blocks_pytest_flow_on_canonical_live_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    live_artifacts_root = Path(__file__).resolve().parents[2] / "artifacts" / "pytest-should-block"
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp")
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: module.argparse.Namespace(
+            business_date="2026-04-23",
+            agent_domain="macro",
+            slot="early",
+            output_dir=str(live_artifacts_root),
+            report_run_id=None,
+            generated_at=None,
+            html_only=False,
+            require_ready=False,
+        ),
+    )
+
+    with pytest.raises(module.TestLiveIsolationError, match="canonical/live DB"):
+        module.main()
