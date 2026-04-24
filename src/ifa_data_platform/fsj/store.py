@@ -1111,6 +1111,10 @@ class FSJStore:
         send_manifest = dict(review_payload.get("send_manifest") or {})
         dispatch_receipt = self._report_dispatch_receipt_from_surface(normalized_surface)
 
+        review_blocking_items = list(review_manifest.get("blocking_items") or [])
+        review_warning_items = list(review_manifest.get("warning_items") or [])
+        send_blockers = list(send_manifest.get("send_blockers") or [])
+
         selected = dict(candidate_comparison.get("selected") or {})
         current_vs_selected = dict(candidate_comparison.get("current_vs_selected") or {})
         selected_artifact_id = (
@@ -1138,6 +1142,20 @@ class FSJStore:
             state=state,
             dispatch_receipt=dispatch_receipt,
         )
+        governance_summary = {
+            "decision": computed_decision,
+            "rationale": operator_go_no_go.get("rationale"),
+            "next_step": review_manifest.get("next_step") or send_manifest.get("next_step"),
+            "selected_is_current": (workflow_handoff.get("selected_handoff") or {}).get("selected_is_current"),
+            "action_required": computed_decision in {"REVIEW", "NO_GO"},
+            "review_blocking_item_count": len(review_blocking_items),
+            "review_warning_item_count": len(review_warning_items),
+            "send_blocker_count": len(send_blockers),
+            "blocking_reasons": [
+                *[str(item.get("item") or item.get("reason") or "review_blocking_item") for item in review_blocking_items],
+                *[str(item) for item in send_blockers if str(item).strip()],
+            ],
+        }
         canonical_lifecycle = self.project_report_lifecycle_state(
             artifact=artifact,
             workflow_state=state.get("workflow_state"),
@@ -1179,6 +1197,7 @@ class FSJStore:
             },
             "review_manifest": review_manifest,
             "send_manifest": send_manifest,
+            "governance": governance_summary,
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
             "canonical_lifecycle": canonical_lifecycle,
@@ -1201,6 +1220,13 @@ class FSJStore:
                 "blocker_count": quality_gate.get("blocker_count"),
                 "warning_count": quality_gate.get("warning_count"),
                 "go_no_go_decision": computed_decision,
+                "operator_decision_rationale": operator_go_no_go.get("rationale"),
+                "operator_next_step": governance_summary.get("next_step"),
+                "operator_action_required": governance_summary.get("action_required"),
+                "review_blocking_item_count": governance_summary.get("review_blocking_item_count"),
+                "review_warning_item_count": governance_summary.get("review_warning_item_count"),
+                "send_blocker_count": governance_summary.get("send_blocker_count"),
+                "governance_blocking_reasons": list(governance_summary.get("blocking_reasons") or []),
                 "llm_bundle_count": llm_lineage.get("summary", {}).get("bundle_count"),
                 "llm_applied_count": llm_lineage.get("summary", {}).get("applied_count"),
                 "llm_degraded_count": llm_lineage.get("summary", {}).get("degraded_count"),
@@ -2167,6 +2193,13 @@ class FSJStore:
                 "canonical_lifecycle_state": canonical_lifecycle.get("state"),
                 "canonical_lifecycle_reason": canonical_lifecycle.get("reason"),
                 "go_no_go_decision": review_summary.get("go_no_go_decision"),
+                "operator_decision_rationale": review_summary.get("operator_decision_rationale"),
+                "operator_next_step": review_summary.get("operator_next_step"),
+                "governance_action_required": review_summary.get("operator_action_required"),
+                "review_blocking_item_count": review_summary.get("review_blocking_item_count"),
+                "review_warning_item_count": review_summary.get("review_warning_item_count"),
+                "send_blocker_count": review_summary.get("send_blocker_count"),
+                "governance_blocking_reasons": list(review_summary.get("governance_blocking_reasons") or []),
                 "qa_score": review_summary.get("qa_score"),
                 "blocker_count": review_summary.get("blocker_count"),
                 "warning_count": review_summary.get("warning_count"),
@@ -2286,6 +2319,7 @@ class FSJStore:
             present_subjects = [item for item in subjects if item]
             ready_subjects = [item["subject"] for item in present_subjects if item.get("send_ready")]
             review_subjects = [item["subject"] for item in present_subjects if item.get("review_required")]
+            governance_action_required_subjects = [item["subject"] for item in present_subjects if item.get("governance_action_required")]
             blocked_subjects = [item["subject"] for item in present_subjects if item.get("blocked")]
             lineage_attention_subjects = [item["subject"] for item in present_subjects if item.get("lineage_attention")]
             attention_subjects = [item["subject"] for item in present_subjects if item.get("needs_attention")]
@@ -2313,11 +2347,13 @@ class FSJStore:
                 "reported_subject_count": len(present_subjects),
                 "ready_subject_count": len(ready_subjects),
                 "review_required_count": len(review_subjects),
+                "governance_action_required_count": len(governance_action_required_subjects),
                 "blocked_subject_count": len(blocked_subjects),
                 "attention_subject_count": len(attention_subjects),
                 "lineage_attention_subject_count": len(lineage_attention_subjects),
                 "ready_subjects": ready_subjects,
                 "review_required_subjects": review_subjects,
+                "governance_action_required_subjects": governance_action_required_subjects,
                 "blocked_subjects": blocked_subjects,
                 "attention_subjects": attention_subjects,
                 "lineage_attention_subjects": lineage_attention_subjects,

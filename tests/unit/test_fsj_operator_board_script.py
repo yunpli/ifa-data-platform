@@ -136,10 +136,16 @@ class _BoardStore(_DummyStore):
                 "slot_boundary_modes": {"late": slot_boundary_mode},
             },
             "candidate_comparison": {},
-            "operator_go_no_go": {"decision": "GO"},
-            "review_manifest": {},
-            "send_manifest": {},
-            "review_summary": {"go_no_go_decision": "GO", "llm_lineage_status": lineage_status, "llm_lineage_summary": lineage_summary["summary_line"], "canonical_lifecycle_state": "review_ready" if artifact_id == "commodities-artifact" else "send_ready"},
+            "operator_go_no_go": {"decision": "GO", "rationale": "quality gate and artifact integrity both pass" if artifact_id != "commodities-artifact" else "manual review is required before sending"},
+            "review_manifest": {"next_step": "review_current_package_then_send_if_accepted" if artifact_id == "commodities-artifact" else "send_selected_package_to_primary_channel"},
+            "send_manifest": {"next_step": "review_current_package_then_send_if_accepted" if artifact_id == "commodities-artifact" else "send_selected_package_to_primary_channel"},
+            "governance": {
+                "decision": "REVIEW" if artifact_id == "commodities-artifact" else "GO",
+                "rationale": "manual review is required before sending" if artifact_id == "commodities-artifact" else "quality gate and artifact integrity both pass",
+                "next_step": "review_current_package_then_send_if_accepted" if artifact_id == "commodities-artifact" else "send_selected_package_to_primary_channel",
+                "action_required": artifact_id == "commodities-artifact",
+            },
+            "review_summary": {"go_no_go_decision": "GO", "llm_lineage_status": lineage_status, "llm_lineage_summary": lineage_summary["summary_line"], "canonical_lifecycle_state": "review_ready" if artifact_id == "commodities-artifact" else "send_ready", "operator_decision_rationale": "manual review is required before sending" if artifact_id == "commodities-artifact" else "quality gate and artifact integrity both pass", "operator_next_step": "review_current_package_then_send_if_accepted" if artifact_id == "commodities-artifact" else "send_selected_package_to_primary_channel", "operator_action_required": artifact_id == "commodities-artifact"},
         }
 
     def build_operator_board_surface(self, *, business_date: str | None = None, history_limit: int = 5) -> dict:
@@ -248,6 +254,7 @@ class _BoardStore(_DummyStore):
                     "review_required_subjects": ["support:commodities"],
                     "blocked_subjects": [],
                     "attention_subjects": ["support:commodities"],
+                    "governance_action_required_subjects": ["support:commodities"],
                     "canonical_lifecycle_state_counts": {"review_ready": 1, "send_ready": 3},
                     "canonical_lifecycle_subjects": {"review_ready": ["support:commodities"], "send_ready": ["main", "support:ai_tech", "support:macro"]},
                 },
@@ -384,10 +391,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
         "resolution": {"mode": "explicit_business_date", "business_date": "2099-04-22"},
-        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "dispatch_state": "dispatch_attempted", "dispatch_receipt": {"dispatch_state": "dispatch_attempted", "channel": "telegram_document", "error": None}, "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 0}, "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "msg-main-artifact"}}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
+        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "governance": {"decision": "GO", "rationale": "quality gate and artifact integrity both pass", "next_step": "send_selected_package_to_primary_channel", "action_required": False}, "dispatch_state": "dispatch_attempted", "dispatch_receipt": {"dispatch_state": "dispatch_attempted", "channel": "telegram_document", "error": None}, "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 0}, "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "msg-main-artifact"}}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
         "support": {
-            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 0}, "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "msg-ai-tech-artifact"}}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
-            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"}, "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 1}, "what_user_received": {"dispatch_state": "dispatch_failed", "provider_message_id": None}}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
+            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "governance": {"decision": "GO", "rationale": "quality gate and artifact integrity both pass", "next_step": "send_selected_package_to_primary_channel", "action_required": False}, "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 0}, "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "msg-ai-tech-artifact"}}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
+            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"}, "governance": {"decision": "REVIEW", "rationale": "manual review is required before sending", "next_step": "review_current_package_then_send_if_accepted", "action_required": True}, "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 1}, "what_user_received": {"dispatch_state": "dispatch_failed", "provider_message_id": None}}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
             "macro": None,
         },
         "history": [{}, {}],
@@ -457,6 +464,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "overall_posture": "review_required",
                 "ready_subjects": ["main", "support:ai_tech"],
                 "review_required_subjects": ["support:commodities"],
+                "governance_action_required_subjects": ["support:commodities"],
                 "blocked_subjects": [],
                 "attention_subjects": ["support:commodities"],
                 "canonical_lifecycle_state_counts": {"review_ready": 1, "send_ready": 2},
@@ -536,6 +544,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_dispatch_receipt_state=dispatch_attempted" in output
     assert "main_dispatch_receipt_channel=telegram_document" in output
     assert "main_dispatch_receipt_error=None" in output
+    assert "main_governance_decision=GO" in output
+    assert "main_governance_rationale=quality gate and artifact integrity both pass" in output
+    assert "main_governance_next_step=send_selected_package_to_primary_channel" in output
+    assert "main_governance_action_required=False" in output
     assert "main_lineage_bundle_count=2" in output
     assert "main_lineage_missing_bundle_count=0" in output
     assert "main_lineage_dispatch_state=dispatch_succeeded" in output
@@ -549,6 +561,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "support_commodities_recommended_action=send_review" in output
     assert "support_commodities_canonical_lifecycle_state=review_ready" in output
     assert "support_commodities_canonical_lifecycle_reason=manual_review_required" in output
+    assert "support_commodities_governance_decision=REVIEW" in output
+    assert "support_commodities_governance_rationale=manual review is required before sending" in output
+    assert "support_commodities_governance_next_step=review_current_package_then_send_if_accepted" in output
+    assert "support_commodities_governance_action_required=True" in output
     assert "support_commodities_lineage_bundle_count=1" in output
     assert "support_commodities_lineage_missing_bundle_count=1" in output
     assert "support_commodities_lineage_dispatch_state=dispatch_failed" in output
@@ -609,6 +625,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "db_candidate_history_1_dispatch_receipt_channel=telegram_document" in output
     assert "db_candidate_history_1_dispatch_receipt_error=429 rate limit" in output
     assert "fleet_review_subjects=support:commodities" in output
+    assert "fleet_governance_action_required_subjects=support:commodities" in output
     assert "fleet_attention_subjects=support:commodities" in output
     assert "support_macro=NONE" in output
     assert "candidate_count=2" in output

@@ -269,7 +269,20 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["candidate_comparison"]["ready_candidate_count"] == 1
     assert summary["operator_go_no_go"]["decision"] == "NO_GO"
     assert summary["review_manifest"]["next_step"] == "switch_to_selected_package_and_do_not_send_current"
+    assert summary["governance"] == {
+        "decision": "NO_GO",
+        "rationale": None,
+        "next_step": "switch_to_selected_package_and_do_not_send_current",
+        "selected_is_current": False,
+        "action_required": True,
+        "review_blocking_item_count": 0,
+        "review_warning_item_count": 0,
+        "send_blocker_count": 0,
+        "blocking_reasons": [],
+    }
     assert summary["review_summary"]["go_no_go_decision"] == "NO_GO"
+    assert summary["review_summary"]["operator_next_step"] == "switch_to_selected_package_and_do_not_send_current"
+    assert summary["review_summary"]["governance_blocking_reasons"] == []
     assert summary["dispatch_state"] is None
     assert summary["review_summary"]["selected_is_current"] is False
     assert summary["package_paths"]["delivery_package_dir"] == "/tmp/selected-pkg"
