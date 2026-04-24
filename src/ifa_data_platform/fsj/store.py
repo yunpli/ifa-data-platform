@@ -1173,6 +1173,78 @@ class FSJStore:
                 "attention_subjects": attention_subjects,
             }
 
+        def _readiness_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
+            if not review_surface:
+                return None
+            artifact = dict(review_surface.get("artifact") or {})
+            state = dict(review_surface.get("state") or {})
+            review_summary = dict(review_surface.get("review_summary") or {})
+            llm_lineage_summary = dict(review_surface.get("llm_lineage_summary") or {})
+            recommended_action = str(state.get("recommended_action") or review_summary.get("recommended_action") or "hold")
+            send_ready = bool(state.get("send_ready"))
+            review_required = bool(state.get("review_required")) or recommended_action == "send_review"
+            blocked = not send_ready and not review_required
+            posture = "blocked"
+            if send_ready:
+                posture = "ready_to_send"
+            elif review_required:
+                posture = "review_required"
+            llm_status = llm_lineage_summary.get("status")
+            lineage_attention = llm_status in {"incomplete", "degraded", "not_applied"}
+            needs_attention = blocked or review_required or lineage_attention
+            return {
+                "subject": subject,
+                "artifact_id": artifact.get("artifact_id"),
+                "recommended_action": recommended_action,
+                "workflow_state": state.get("workflow_state"),
+                "package_state": state.get("package_state"),
+                "go_no_go_decision": review_summary.get("go_no_go_decision"),
+                "qa_score": review_summary.get("qa_score"),
+                "blocker_count": review_summary.get("blocker_count"),
+                "warning_count": review_summary.get("warning_count"),
+                "llm_lineage_status": llm_status,
+                "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
+                "send_ready": send_ready,
+                "review_required": review_required,
+                "blocked": blocked,
+                "lineage_attention": lineage_attention,
+                "needs_attention": needs_attention,
+                "posture": posture,
+            }
+
+        def _aggregate_readiness(subjects: list[dict[str, Any]]) -> dict[str, Any]:
+            present_subjects = [item for item in subjects if item]
+            ready_subjects = [item["subject"] for item in present_subjects if item.get("send_ready")]
+            review_subjects = [item["subject"] for item in present_subjects if item.get("review_required")]
+            blocked_subjects = [item["subject"] for item in present_subjects if item.get("blocked")]
+            lineage_attention_subjects = [item["subject"] for item in present_subjects if item.get("lineage_attention")]
+            attention_subjects = [item["subject"] for item in present_subjects if item.get("needs_attention")]
+            overall_posture = "not_available"
+            if present_subjects:
+                if blocked_subjects:
+                    overall_posture = "blocked"
+                elif review_subjects:
+                    overall_posture = "review_required"
+                elif len(ready_subjects) == len(present_subjects):
+                    overall_posture = "ready_to_send"
+                else:
+                    overall_posture = "mixed"
+            return {
+                "overall_posture": overall_posture,
+                "subject_count": len(subjects),
+                "reported_subject_count": len(present_subjects),
+                "ready_subject_count": len(ready_subjects),
+                "review_required_count": len(review_subjects),
+                "blocked_subject_count": len(blocked_subjects),
+                "attention_subject_count": len(attention_subjects),
+                "lineage_attention_subject_count": len(lineage_attention_subjects),
+                "ready_subjects": ready_subjects,
+                "review_required_subjects": review_subjects,
+                "blocked_subjects": blocked_subjects,
+                "attention_subjects": attention_subjects,
+                "lineage_attention_subjects": lineage_attention_subjects,
+            }
+
         beijing = timezone(timedelta(hours=8))
         helper = MainReportDeliveryDispatchHelper()
         resolved_business_date = business_date
@@ -1217,6 +1289,25 @@ class FSJStore:
                 "history_workflow": [],
                 "db_candidates": [],
                 "llm_lineage_summary": empty_lineage,
+                "board_readiness_summary": {
+                    "main": None,
+                    "support": dict(empty_domains),
+                    "aggregate": {
+                        "overall_posture": "not_available",
+                        "subject_count": 0,
+                        "reported_subject_count": 0,
+                        "ready_subject_count": 0,
+                        "review_required_count": 0,
+                        "blocked_subject_count": 0,
+                        "attention_subject_count": 0,
+                        "lineage_attention_subject_count": 0,
+                        "ready_subjects": [],
+                        "review_required_subjects": [],
+                        "blocked_subjects": [],
+                        "attention_subjects": [],
+                        "lineage_attention_subjects": [],
+                    },
+                },
             }
         main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
         main_review = self.get_active_report_operator_review_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
@@ -1245,6 +1336,12 @@ class FSJStore:
             ]
             if item
         ]
+        readiness_main = _readiness_subject(main_review, subject="main")
+        readiness_support = {
+            domain: _readiness_subject(review, subject=f"support:{domain}")
+            for domain, review in support_reviews.items()
+        }
+        readiness_subjects = [item for item in [readiness_main, *readiness_support.values()] if item]
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
@@ -1265,6 +1362,11 @@ class FSJStore:
                 "support": support_lineage,
                 "history": history_lineage,
                 "aggregate": _aggregate_lineage_status(lineage_subjects),
+            },
+            "board_readiness_summary": {
+                "main": readiness_main,
+                "support": readiness_support,
+                "aggregate": _aggregate_readiness(readiness_subjects),
             },
         }
 

@@ -141,6 +141,21 @@ class _BoardStore(_DummyStore):
                     "attention_subjects": ["support:commodities"],
                 },
             },
+            "board_readiness_summary": {
+                "main": {"subject": "main", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
+                "support": {
+                    "ai_tech": {"subject": "support:ai_tech", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
+                    "commodities": {"subject": "support:commodities", "posture": "review_required", "send_ready": False, "review_required": True, "blocked": False, "lineage_attention": True, "needs_attention": True},
+                    "macro": {"subject": "support:macro", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
+                },
+                "aggregate": {
+                    "overall_posture": "review_required",
+                    "ready_subjects": ["main", "support:ai_tech", "support:macro"],
+                    "review_required_subjects": ["support:commodities"],
+                    "blocked_subjects": [],
+                    "attention_subjects": ["support:commodities"],
+                },
+            },
         }
 class _DummyHelper:
     def list_db_delivery_candidates(self, **_: object) -> list[dict]:
@@ -177,6 +192,8 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["db_candidates"][0]["artifact_id"] == "main-artifact"
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
     assert payload["llm_lineage_summary"]["aggregate"]["attention_subjects"] == ["support:commodities"]
+    assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
+    assert payload["board_readiness_summary"]["aggregate"]["review_required_subjects"] == ["support:commodities"]
 
 
 def test_build_board_payload_can_resolve_latest_business_date(monkeypatch) -> None:
@@ -209,6 +226,15 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             },
             "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3},
         },
+        "board_readiness_summary": {
+            "aggregate": {
+                "overall_posture": "review_required",
+                "ready_subjects": ["main", "support:ai_tech"],
+                "review_required_subjects": ["support:commodities"],
+                "blocked_subjects": [],
+                "attention_subjects": ["support:commodities"],
+            },
+        },
     }
 
     _print_text(payload)
@@ -224,6 +250,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "support_commodities_llm_lineage_status=degraded" in output
     assert "fleet_llm_lineage_status=degraded" in output
     assert "fleet_llm_attention_subjects=support:commodities" in output
+    assert "fleet_board_posture=review_required" in output
+    assert "fleet_review_subjects=support:commodities" in output
+    assert "fleet_attention_subjects=support:commodities" in output
     assert "support_macro=NONE" in output
     assert "candidate_count=2" in output
 
