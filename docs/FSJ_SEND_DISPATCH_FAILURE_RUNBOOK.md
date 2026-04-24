@@ -2,18 +2,22 @@
 
 Date: 2026-04-23  
 Owner: Developer Lindenwood  
-Scope: operator handling for MAIN send/dispatch failure posture on the already-landed FSJ delivery workflow
+Scope: operator handling for MAIN/support send/dispatch failure posture on the already-landed FSJ delivery workflow
 
 ---
 
 ## 1. Current truth
 
-This runbook covers the truthful seams that already exist for MAIN delivery packaging / review / dispatch selection:
+This runbook covers the truthful seams that already exist for MAIN/support delivery packaging / review / dispatch selection:
 
 - MAIN delivery status / operator review surface
   - `scripts/fsj_main_delivery_status.py`
-- thin send/dispatch-failure operator helper for this runbook
+- support delivery status / operator review surface
+  - `scripts/fsj_support_delivery_status.py`
+- thin MAIN send/dispatch-failure operator helper for this runbook
   - `scripts/fsj_send_dispatch_failure_status.py`
+- thin support send/dispatch-failure operator helper for this runbook
+  - `scripts/fsj_support_dispatch_failure_status.py`
 - workflow / review / send manifest production
   - `src/ifa_data_platform/fsj/report_orchestration.py`
 - DB-backed workflow handoff / package / operator review projection
@@ -87,7 +91,28 @@ Key fields:
 - artifact checks / manifest pointers
 - `channel_delivery_truth`
 
-### 3.2 Full MAIN operator surface
+### 3.2 Focused support send/dispatch-failure posture
+
+```bash
+cd /Users/neoclaw/repos/ifa-data-platform
+/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_support_dispatch_failure_status.py --latest --agent-domain macro
+```
+
+Optional slot-specific resolution:
+
+```bash
+/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_support_dispatch_failure_status.py --latest --agent-domain commodities --slot late
+```
+
+Or explicit business date:
+
+```bash
+/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_support_dispatch_failure_status.py --business-date 2026-04-23 --agent-domain ai_tech
+```
+
+The support helper preserves the same posture semantics (`ready_to_dispatch`, `artifact_integrity_failed`, `review_required`, `hold`, `no_active_artifact`) but resolves against `support_domain_report` active/history truth for the requested domain.
+
+### 3.3 Full MAIN operator surface
 
 ```bash
 cd /Users/neoclaw/repos/ifa-data-platform
