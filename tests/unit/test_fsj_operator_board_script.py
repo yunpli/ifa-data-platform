@@ -588,13 +588,13 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             }
         ],
         "llm_lineage_summary": {
-            "main": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": 0.00682, "priced_bundle_count": 1, "costed_bundle_count": 1, "budget_posture": "fully_priced", "budget_attention": False, "budget_summary_line": "fully_priced [1/1]"},
+            "main": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": 0.00682, "priced_bundle_count": 1, "costed_bundle_count": 1, "budget_posture": "fully_priced", "budget_attention": False, "budget_summary_line": "fully_priced [1/1]", "budget_governance_status": "within_budget", "budget_governance_required_action": None, "budget_governance_summary_line": "within_budget | scope=per_artifact | within_configured_budget_policy | policy=cost<=0.020000,tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required"},
             "support": {
-                "ai_tech": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": 0.00574, "priced_bundle_count": 1, "costed_bundle_count": 1, "budget_posture": "fully_priced", "budget_attention": False, "budget_summary_line": "fully_priced [1/1]"},
-                "commodities": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None, "priced_bundle_count": 0, "costed_bundle_count": 0, "budget_posture": "unpriced", "budget_attention": True, "budget_summary_line": "unpriced [0/1 priced | unpriced=1]"},
+                "ai_tech": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": 0.00574, "priced_bundle_count": 1, "costed_bundle_count": 1, "budget_posture": "fully_priced", "budget_attention": False, "budget_summary_line": "fully_priced [1/1]", "budget_governance_status": "within_budget", "budget_governance_required_action": None, "budget_governance_summary_line": "within_budget | scope=per_artifact | within_configured_budget_policy | policy=cost<=0.020000,tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required"},
+                "commodities": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None, "priced_bundle_count": 0, "costed_bundle_count": 0, "budget_posture": "unpriced", "budget_attention": True, "budget_summary_line": "unpriced [0/1 priced | unpriced=1]", "budget_governance_status": "pricing_incomplete", "budget_governance_required_action": "price_all_active_models_before_budget_enforcement", "budget_governance_summary_line": "pricing_incomplete | scope=per_artifact | unpriced_usage=1 | policy=cost<=0.020000,tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement"},
                 "macro": None,
             },
-            "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3, "models": ["gemini31_pro_jmr", "grok41_thinking"], "total_tokens": 983, "estimated_cost_usd": 0.01256, "uncosted_bundle_count": 1, "model_usage_breakdown": {"gemini31_pro_jmr": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 1, "total_tokens": 355, "estimated_cost_usd": None}, "grok41_thinking": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 0, "total_tokens": 628, "estimated_cost_usd": 0.01256}}, "slot_usage_breakdown": {"early": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 1, "total_tokens": 642}, "late": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 0, "total_tokens": 341}}},
+            "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3, "models": ["gemini31_pro_jmr", "grok41_thinking"], "total_tokens": 983, "estimated_cost_usd": 0.01256, "uncosted_bundle_count": 1, "model_usage_breakdown": {"gemini31_pro_jmr": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 1, "total_tokens": 355, "estimated_cost_usd": None}, "grok41_thinking": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 0, "total_tokens": 628, "estimated_cost_usd": 0.01256}}, "slot_usage_breakdown": {"early": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 1, "total_tokens": 642}, "late": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 0, "total_tokens": 341}}, "budget_governance_status": "pricing_incomplete", "budget_governance_required_action": "price_all_active_models_before_budget_enforcement", "budget_governance_summary_line": "pricing_incomplete | scope=fleet | unpriced_usage=1 | policy=cost<=0.050000,tokens<=40000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement"},
         },
         "llm_role_policy_review": {
             "main": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}},
@@ -679,6 +679,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "budget_posture": "fully_priced",
                 "budget_attention": False,
                 "budget_summary_line": "fully_priced [1/1]",
+                "budget_governance_status": "within_budget",
+                "budget_governance_required_action": None,
+                "budget_governance_summary_line": "within_budget | scope=fleet | within_configured_budget_policy | policy=cost<=0.050000,tokens<=40000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required",
                 "llm_uncosted_bundle_count": 0,
                 "llm_estimated_cost_usd": 0.00682,
             },
@@ -699,6 +702,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "budget_posture": "mixed",
                 "budget_attention": True,
                 "budget_summary_line": "mixed [1/2 priced | unpriced=1]",
+                "budget_governance_status": "pricing_incomplete",
+                "budget_governance_required_action": "price_all_active_models_before_budget_enforcement",
+                "budget_governance_summary_line": "pricing_incomplete | scope=fleet | unpriced_usage=1 | policy=cost<=0.050000,tokens<=40000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement",
                 "llm_uncosted_bundle_count": 1,
                 "llm_estimated_cost_usd": 0.00574,
             },
@@ -816,6 +822,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_llm_models=gemini31_pro_jmr,grok41_thinking" in output
     assert "fleet_llm_total_tokens=983" in output
     assert "fleet_llm_uncosted_bundle_count=1" in output
+    assert "fleet_llm_budget_governance_status=pricing_incomplete" in output
+    assert "fleet_llm_budget_governance_required_action=price_all_active_models_before_budget_enforcement" in output
+    assert "fleet_llm_budget_governance_summary_line=pricing_incomplete | scope=fleet | unpriced_usage=1 | policy=cost<=0.050000,tokens<=40000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement" in output
     assert "fleet_llm_model_usage_breakdown=gemini31_pro_jmr:b1:a1:f1:t355:cNone,grok41_thinking:b2:a2:f0:t628:c0.01256" in output
     assert "fleet_llm_slot_usage_breakdown=early:b2:a2:f1:t642,late:b1:a1:f0:t341" in output
     assert "fleet_llm_policy_versions=fsj_llm_role_policy_v1" in output
@@ -848,12 +857,18 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_drift_main_llm_usage_bundle_count=1" in output
     assert "fleet_drift_main_llm_uncosted_bundle_count=0" in output
     assert "fleet_drift_main_llm_estimated_cost_usd=0.00682" in output
+    assert "fleet_drift_main_llm_budget_governance_status=within_budget" in output
+    assert "fleet_drift_main_llm_budget_governance_required_action=None" in output
+    assert "fleet_drift_main_llm_budget_governance_summary_line=within_budget | scope=fleet | within_configured_budget_policy | policy=cost<=0.050000,tokens<=40000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required" in output
     assert "fleet_drift_support_llm_model_counts=gemini31_pro_jmr:1,grok41_thinking:1" in output
     assert "fleet_drift_support_llm_slot_counts=early:1,late:1" in output
     assert "fleet_drift_support_llm_total_tokens=642" in output
     assert "fleet_drift_support_llm_usage_bundle_count=2" in output
     assert "fleet_drift_support_llm_uncosted_bundle_count=1" in output
     assert "fleet_drift_support_llm_estimated_cost_usd=0.00574" in output
+    assert "fleet_drift_support_llm_budget_governance_status=pricing_incomplete" in output
+    assert "fleet_drift_support_llm_budget_governance_required_action=price_all_active_models_before_budget_enforcement" in output
+    assert "fleet_drift_support_llm_budget_governance_summary_line=pricing_incomplete | scope=fleet | unpriced_usage=1 | policy=cost<=0.050000,tokens<=40000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement" in output
     assert "main_qa_axes=lineage:ready:b0:w0,policy:ready:b0:w0,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes=lineage:ready:b0:w0,policy:attention:b0:w1,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes_attention=policy" in output

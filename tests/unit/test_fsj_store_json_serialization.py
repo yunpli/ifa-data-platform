@@ -895,10 +895,11 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
 def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tmp_path) -> None:
     pricing_path = tmp_path / "models.yaml"
     pricing_path.write_text(
-        "models:\n  grok41_thinking:\n    pricing:\n      usd_per_1m_total_tokens: 2.0\n",
+        "fsj_budget_policy:\n  require_pricing_for_all_usage: true\n  max_total_tokens_per_artifact: 12000\n  max_total_tokens_fleet: 40000\n  max_fallback_rate: 0.50\n  max_degraded_rate: 0.50\nmodels:\n  grok41_thinking:\n    pricing:\n      usd_per_1m_total_tokens: 2.0\n",
         encoding="utf-8",
     )
     store_module._load_llm_model_pricing.cache_clear()
+    store_module._load_llm_budget_policy.cache_clear()
     original_path = store_module.BUSINESS_REPO_MODELS_CONFIG
     store_module.BUSINESS_REPO_MODELS_CONFIG = pricing_path
     try:
@@ -924,9 +925,13 @@ def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tm
     finally:
         store_module.BUSINESS_REPO_MODELS_CONFIG = original_path
         store_module._load_llm_model_pricing.cache_clear()
+        store_module._load_llm_budget_policy.cache_clear()
 
     assert summary["estimated_cost_usd"] == 0.01
     assert summary["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking | prompts=fsj_mid_main_v1 | tokens=5000 | adopted_fields=5 | replay_ready=1 | usage=1 | cost_usd=0.010000]"
+    assert summary["budget_governance_status"] == "within_budget"
+    assert summary["budget_governance_required_action"] is None
+    assert summary["budget_governance_summary_line"] == "within_budget | scope=per_artifact | within_configured_budget_policy | policy=tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required"
 
 
 def test_report_llm_lineage_summary_projects_field_audit_counts() -> None:
@@ -954,6 +959,44 @@ def test_report_llm_lineage_summary_projects_field_audit_counts() -> None:
     assert summary["discarded_output_field_count"] == 6
     assert summary["discard_reasons"] == ["timeout"]
     assert summary["summary_line"] == "degraded [applied=1/2 | primary=1 | degraded=1 | models=grok41_thinking | prompts=fsj_early_main_v1 | adopted_fields=6 | discarded_fields=6 | replay_ready=1 | discard_reasons=timeout]"
+
+
+def test_report_llm_lineage_summary_flags_pricing_incomplete_when_policy_requires_full_pricing(tmp_path) -> None:
+    pricing_path = tmp_path / "models.yaml"
+    pricing_path.write_text(
+        "fsj_budget_policy:\n  require_pricing_for_all_usage: true\n  max_total_tokens_per_artifact: 12000\n  max_total_tokens_fleet: 40000\n  max_fallback_rate: 0.50\n  max_degraded_rate: 0.50\nmodels:\n  grok41_thinking:\n    pricing:\n      usd_per_1m_total_tokens: 2.0\n",
+        encoding="utf-8",
+    )
+    store_module._load_llm_model_pricing.cache_clear()
+    store_module._load_llm_budget_policy.cache_clear()
+    original_path = store_module.BUSINESS_REPO_MODELS_CONFIG
+    store_module.BUSINESS_REPO_MODELS_CONFIG = pricing_path
+    try:
+        summary = _ProjectionOnlyStore().report_llm_lineage_summary(
+            {
+                "summary": {
+                    "bundle_count": 2,
+                    "applied_count": 2,
+                    "primary_applied_count": 1,
+                    "fallback_applied_count": 1,
+                    "models": ["gemini31_pro_jmr", "grok41_thinking"],
+                    "usage_bundle_count": 2,
+                    "costed_bundle_count": 1,
+                    "uncosted_bundle_count": 1,
+                    "degraded_count": 0,
+                    "token_totals": {"total_tokens": 9000},
+                    "estimated_cost_usd": 0.01,
+                }
+            }
+        )
+    finally:
+        store_module.BUSINESS_REPO_MODELS_CONFIG = original_path
+        store_module._load_llm_model_pricing.cache_clear()
+        store_module._load_llm_budget_policy.cache_clear()
+
+    assert summary["budget_governance_status"] == "pricing_incomplete"
+    assert summary["budget_governance_required_action"] == "price_all_active_models_before_budget_enforcement"
+    assert summary["budget_governance_summary_line"] == "pricing_incomplete | scope=per_artifact | unpriced_usage=1 | policy=tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement"
 
 
 def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_lineage() -> None:

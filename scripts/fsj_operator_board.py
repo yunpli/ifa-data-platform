@@ -350,6 +350,9 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"fleet_llm_budget_posture={lineage_aggregate.get('budget_posture')}")
     print(f"fleet_llm_budget_attention={lineage_aggregate.get('budget_attention')}")
     print(f"fleet_llm_budget_summary_line={lineage_aggregate.get('budget_summary_line')}")
+    print(f"fleet_llm_budget_governance_status={lineage_aggregate.get('budget_governance_status')}")
+    print(f"fleet_llm_budget_governance_required_action={lineage_aggregate.get('budget_governance_required_action')}")
+    print(f"fleet_llm_budget_governance_summary_line={lineage_aggregate.get('budget_governance_summary_line')}")
     print(
         "fleet_llm_model_usage_breakdown="
         + ",".join(
@@ -387,6 +390,9 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"fleet_drift_{group_name}_llm_budget_posture={group.get('budget_posture')}")
         print(f"fleet_drift_{group_name}_llm_budget_attention={group.get('budget_attention')}")
         print(f"fleet_drift_{group_name}_llm_budget_summary_line={group.get('budget_summary_line')}")
+        print(f"fleet_drift_{group_name}_llm_budget_governance_status={group.get('budget_governance_status')}")
+        print(f"fleet_drift_{group_name}_llm_budget_governance_required_action={group.get('budget_governance_required_action')}")
+        print(f"fleet_drift_{group_name}_llm_budget_governance_summary_line={group.get('budget_governance_summary_line')}")
         print(f"fleet_drift_{group_name}_llm_estimated_cost_usd={group.get('llm_estimated_cost_usd')}")
     print(f"main_drift_summary_line={drift_lines.get('main') or '-'}")
     for domain in sorted(_VALID_DOMAINS):
@@ -458,6 +464,9 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"fleet_budget_posture={lineage_aggregate.get('budget_posture')}")
     print(f"fleet_budget_attention={lineage_aggregate.get('budget_attention')}")
     print(f"fleet_budget_summary_line={lineage_aggregate.get('budget_summary_line')}")
+    print(f"fleet_budget_governance_status={lineage_aggregate.get('budget_governance_status')}")
+    print(f"fleet_budget_governance_required_action={lineage_aggregate.get('budget_governance_required_action')}")
+    print(f"fleet_budget_governance_summary_line={lineage_aggregate.get('budget_governance_summary_line')}")
     print(f"fleet_qa_axes_attention_subjects={','.join(qa_axes_aggregate.get('subjects_with_attention') or [])}")
     print(f"fleet_qa_axes_not_ready_subjects={','.join(qa_axes_aggregate.get('not_ready_subjects') or [])}")
     print(f"fleet_qa_axes_axes={','.join(sorted((_safe_dict(qa_axes_aggregate.get('axes'))).keys()))}")

@@ -287,6 +287,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "token_totals": {"total_tokens": 579},
                 "estimated_cost_usd": None,
                 "uncosted_bundle_count": 2,
+                "budget_posture": "unpriced",
+                "budget_summary_line": "unpriced [0/2 priced | unpriced=2]",
+                "budget_governance_status": "pricing_incomplete",
+                "budget_governance_required_action": "price_all_active_models_before_budget_enforcement",
+                "budget_governance_summary_line": "pricing_incomplete | scope=per_artifact | unpriced_usage=2 | policy=tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement",
             },
             "llm_role_policy": {
                 "policy_versions": ["fsj_llm_role_policy_v1"],
@@ -432,6 +437,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "llm_discard_reasons=timeout" in output
     assert "llm_total_tokens=579" in output
     assert "llm_uncosted_bundle_count=2" in output
+    assert "llm_budget_posture=unpriced" in output
+    assert "llm_budget_summary_line=unpriced [0/2 priced | unpriced=2]" in output
+    assert "llm_budget_governance_status=pricing_incomplete" in output
+    assert "llm_budget_governance_required_action=price_all_active_models_before_budget_enforcement" in output
+    assert "llm_budget_governance_summary_line=pricing_incomplete | scope=per_artifact | unpriced_usage=2 | policy=tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required | action=price_all_active_models_before_budget_enforcement" in output
     assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | prompts=fsj_early_main_v1,fsj_late_main_v1 | tokens=579 | adopted_fields=6 | discarded_fields=6 | replay_ready=1 | discard_reasons=timeout | usage=2 | unpriced=2]" in output
     assert "llm_policy_versions=fsj_llm_role_policy_v1" in output
     assert "llm_boundary_modes=same_day_close" in output
