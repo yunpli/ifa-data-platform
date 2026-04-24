@@ -273,19 +273,35 @@ There is meaningful implementation here already, but not yet full system closure
 ---
 
 ### P1-5. Operator-facing production board
-**Status:** In progress (`P1-5a` provenance slice + `P1-5b` minimal board surface slice + `P1-5c` lineage/SLA row enhancement slice landed)  
+**Status:** Materially closed for current roadmap scope — the canonical operator board now provides one persisted fleet view across MAIN + support + MAIN history, with canonical operator-state semantics, artifact/version lineage, blocker + next-action visibility, slot/SLA context, and bounded rerun/failure-taxonomy projection; exact closeout proof is captured in `docs/FSJ_P1_5_OPERATOR_BOARD_CLOSEOUT_2026-04-24.md`  
 **Target:** a single operator view for slot/domain/report state
 
-**Tasks**
-- show planned/running/review/ready/held/sent states
-- show artifact lineage and active version
-- show blocking reason and next action
-- show slot SLA health
+**Delivered in current scope**
+- [x] show planned/running/review/ready/held/sent states
+- [x] show artifact lineage and active version
+- [x] show blocking reason and next action
+- [x] show slot SLA health
 
 **Thin slices already landed**
 - `P1-5a`: board state/data-source provenance (`board_state_source`, provenance summaries, next-action/blocker provenance)
 - `P1-5b`: minimal operator board rows on the canonical board surface (`board_rows`) with semantic status, canonical lifecycle, next action, blocker visibility, and CLI parity across main/support/history subjects
 - `P1-5c`: board row lineage/SLA enhancement on the canonical board surface (`board_rows`) with selected-artifact visibility, strongest-slot exposure, generated-at timing, dispatch state, bundle counts, missing-bundle visibility, and fleet aggregates for operator triage
+
+**Evidence anchors**
+- `docs/FSJ_P1_5_OPERATOR_BOARD_CLOSEOUT_2026-04-24.md`
+- `src/ifa_data_platform/fsj/store.py`
+- `scripts/fsj_operator_board.py`
+- `scripts/fsj_main_delivery_status.py`
+- `scripts/fsj_support_delivery_status.py`
+- `tests/unit/test_fsj_operator_board_script.py`
+- `tests/unit/test_fsj_main_delivery_status_script.py`
+- `tests/unit/test_fsj_support_delivery_status_script.py`
+- `tests/unit/test_fsj_store_delivery_surface_selectors.py`
+- `tests/unit/test_fsj_store_json_serialization.py`
+
+**Deferred non-blocking expansions**
+- [ ] broader multi-user control-plane/productization belongs to `P2-*`, not this board seam
+- [ ] deeper historical analytics/automation can extend the board later without reopening `P1-5`
 
 **Parallelizable:** no, should reuse P1-3 + P1-4 outputs
 
