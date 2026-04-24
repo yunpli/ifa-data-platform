@@ -2085,6 +2085,16 @@ class FSJStore:
                         f"and best DB candidate {best_artifact_id or '-'} are not aligned."
                     )
 
+            canonical_lifecycle = dict((review_surface or {}).get("canonical_lifecycle") or {})
+            review_summary = dict((review_surface or {}).get("review_summary") or {})
+            dispatch_receipt = dict((review_surface or {}).get("dispatch_receipt") or review_summary.get("dispatch_receipt") or {})
+            dispatch_state = (
+                (review_surface or {}).get("dispatch_state")
+                or review_summary.get("dispatch_state")
+                or dispatch_receipt.get("dispatch_state")
+                or dispatch_receipt.get("status")
+            )
+
             return {
                 "subject": subject,
                 "verdict": verdict,
@@ -2106,6 +2116,15 @@ class FSJStore:
                 "workflow_state": state.get("workflow_state"),
                 "recommended_action": state.get("recommended_action"),
                 "selected_is_current": selected_handoff.get("selected_is_current"),
+                "canonical_lifecycle_state": canonical_lifecycle.get("state") or review_summary.get("canonical_lifecycle_state"),
+                "canonical_lifecycle_reason": canonical_lifecycle.get("reason") or review_summary.get("canonical_lifecycle_reason"),
+                "dispatch_state": dispatch_state,
+                "dispatch_receipt_state": dispatch_receipt.get("dispatch_state") or dispatch_receipt.get("status"),
+                "dispatch_receipt_attempted_at": dispatch_receipt.get("attempted_at"),
+                "dispatch_receipt_succeeded_at": dispatch_receipt.get("succeeded_at"),
+                "dispatch_receipt_failed_at": dispatch_receipt.get("failed_at"),
+                "dispatch_receipt_channel": dispatch_receipt.get("channel"),
+                "dispatch_receipt_error": dispatch_receipt.get("error"),
             }
 
         def _summarize_db_candidate_history(

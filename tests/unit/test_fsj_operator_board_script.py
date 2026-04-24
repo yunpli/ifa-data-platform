@@ -350,7 +350,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
         "resolution": {"mode": "explicit_business_date", "business_date": "2099-04-22"},
-        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
+        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "dispatch_state": "dispatch_attempted", "dispatch_receipt": {"dispatch_state": "dispatch_attempted", "channel": "telegram_document", "error": None}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
         "support": {
             "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
             "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
@@ -379,6 +379,12 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "summary_line": "Current MAIN artifact main-artifact is not the best DB candidate; selected artifact main-artifact-v2 supersedes it as the best ready candidate.",
                 "current_artifact_id": "main-artifact",
                 "best_candidate_artifact_id": "main-artifact-v2",
+                "canonical_lifecycle_state": "failed",
+                "canonical_lifecycle_reason": "dispatch_receipt_failed",
+                "dispatch_state": "dispatch_failed",
+                "dispatch_receipt_state": "dispatch_failed",
+                "dispatch_receipt_channel": "telegram_document",
+                "dispatch_receipt_error": "429 rate limit",
             }
         ],
         "llm_lineage_summary": {
@@ -483,6 +489,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_recommended_action=send" in output
     assert "main_canonical_lifecycle_state=send_ready" in output
     assert "main_canonical_lifecycle_reason=ready_for_delivery_send" in output
+    assert "main_dispatch_state=dispatch_attempted" in output
+    assert "main_dispatch_receipt_state=dispatch_attempted" in output
+    assert "main_dispatch_receipt_channel=telegram_document" in output
+    assert "main_dispatch_receipt_error=None" in output
     assert "main_llm_lineage_status=applied" in output
     assert "main_llm_models=grok41_thinking" in output
     assert "main_llm_total_tokens=341" in output
@@ -537,6 +547,12 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "db_candidate_history_count=1" in output
     assert "db_candidate_history_1_subject=history:1" in output
     assert "db_candidate_history_1_reason=better_ready_candidate_selected_current_outdated" in output
+    assert "db_candidate_history_1_canonical_lifecycle_state=failed" in output
+    assert "db_candidate_history_1_canonical_lifecycle_reason=dispatch_receipt_failed" in output
+    assert "db_candidate_history_1_dispatch_state=dispatch_failed" in output
+    assert "db_candidate_history_1_dispatch_receipt_state=dispatch_failed" in output
+    assert "db_candidate_history_1_dispatch_receipt_channel=telegram_document" in output
+    assert "db_candidate_history_1_dispatch_receipt_error=429 rate limit" in output
     assert "fleet_review_subjects=support:commodities" in output
     assert "fleet_attention_subjects=support:commodities" in output
     assert "support_macro=NONE" in output
@@ -587,7 +603,14 @@ class _ActualBoardStore(FSJStore):
                                 "current_rank": 2,
                                 "selected_rank": 1,
                             },
-                        }
+                        },
+                        "dispatch_receipt": {
+                            "dispatch_state": "dispatch_failed",
+                            "attempted_at": "2099-04-22T09:31:00Z",
+                            "failed_at": "2099-04-22T09:31:04Z",
+                            "channel": "telegram_document",
+                            "error": "429 rate limit",
+                        },
                     },
                 },
             }
@@ -672,6 +695,11 @@ def test_store_build_operator_board_surface_projects_review_held_db_candidate_su
     assert payload["db_candidate_history_summary"][0]["subject"] == "history:1"
     assert payload["db_candidate_history_summary"][0]["verdict"] == "review_held"
     assert payload["db_candidate_history_summary"][0]["current_artifact_id"] == "artifact-current"
+    assert payload["db_candidate_history_summary"][0]["canonical_lifecycle_state"] == "failed"
+    assert payload["db_candidate_history_summary"][0]["canonical_lifecycle_reason"] == "dispatch_receipt_failed"
+    assert payload["db_candidate_history_summary"][0]["dispatch_state"] == "dispatch_failed"
+    assert payload["db_candidate_history_summary"][0]["dispatch_receipt_channel"] == "telegram_document"
+    assert payload["db_candidate_history_summary"][0]["dispatch_receipt_error"] == "429 rate limit"
 
 
 def test_store_build_operator_board_surface_projects_better_ready_candidate_mismatch(monkeypatch) -> None:
