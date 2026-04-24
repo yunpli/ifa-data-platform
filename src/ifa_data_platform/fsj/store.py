@@ -1245,6 +1245,138 @@ class FSJStore:
                 "lineage_attention_subjects": lineage_attention_subjects,
             }
 
+        def _summarize_db_candidate_alignment(
+            main_review_surface: dict[str, Any] | None,
+            db_candidate_rows: list[dict[str, Any]],
+        ) -> dict[str, Any]:
+            artifact = dict((main_review_surface or {}).get("artifact") or {})
+            candidate_comparison = dict((main_review_surface or {}).get("candidate_comparison") or {})
+            workflow_handoff = dict((main_review_surface or {}).get("workflow_handoff") or {})
+            state = dict((main_review_surface or {}).get("state") or {})
+            selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+            ranked_candidates = [dict(item) for item in (candidate_comparison.get("ranked_candidates") or []) if isinstance(item, dict)]
+            best_candidate = dict(ranked_candidates[0]) if ranked_candidates else dict((db_candidate_rows or [None])[0] or {})
+            current_vs_selected = dict(candidate_comparison.get("current_vs_selected") or {})
+
+            current_artifact_id = (
+                candidate_comparison.get("current_artifact_id")
+                or current_vs_selected.get("current_artifact_id")
+                or artifact.get("artifact_id")
+            )
+            selected_artifact_id = (
+                candidate_comparison.get("selected_artifact_id")
+                or current_vs_selected.get("selected_artifact_id")
+                or selected_handoff.get("selected_artifact_id")
+                or current_artifact_id
+            )
+            best_artifact_id = best_candidate.get("artifact_id")
+            candidate_count = candidate_comparison.get("candidate_count")
+            if candidate_count is None:
+                candidate_count = len(ranked_candidates) or len(db_candidate_rows)
+            ready_candidate_count = candidate_comparison.get("ready_candidate_count")
+            if ready_candidate_count is None:
+                ready_candidate_count = len([item for item in ranked_candidates or db_candidate_rows if item.get("ready_for_delivery")])
+
+            current_rank = current_vs_selected.get("current_rank") or next(
+                (item.get("rank") for item in ranked_candidates if item.get("artifact_id") == current_artifact_id),
+                None,
+            )
+            selected_rank = current_vs_selected.get("selected_rank") or next(
+                (item.get("rank") for item in ranked_candidates if item.get("artifact_id") == selected_artifact_id),
+                None,
+            )
+            best_rank = best_candidate.get("rank") or (1 if best_artifact_id else None)
+
+            current_matches_selected = bool(current_artifact_id and selected_artifact_id and current_artifact_id == selected_artifact_id)
+            selected_matches_best = bool(selected_artifact_id and best_artifact_id and selected_artifact_id == best_artifact_id)
+            current_matches_best = bool(current_artifact_id and best_artifact_id and current_artifact_id == best_artifact_id)
+
+            if not current_artifact_id and not best_artifact_id:
+                verdict = "not_available"
+                reason_code = "no_main_or_candidate"
+                summary_line = "No MAIN artifact or DB candidate is available on the operator board."
+            elif not best_artifact_id:
+                verdict = "current_only"
+                reason_code = "no_db_candidates"
+                summary_line = f"Current MAIN artifact {current_artifact_id or '-'} has no DB candidate set to compare against."
+            elif current_matches_best and selected_matches_best:
+                verdict = "aligned"
+                reason_code = "current_selected_match_best_candidate"
+                summary_line = f"Current MAIN artifact {current_artifact_id or '-'} matches the best DB candidate."
+            elif selected_matches_best and not current_matches_selected:
+                if best_candidate.get("ready_for_delivery"):
+                    verdict = "mismatch"
+                    reason_code = "better_ready_candidate_selected_current_outdated"
+                    summary_line = (
+                        f"Current MAIN artifact {current_artifact_id or '-'} is not the best DB candidate; "
+                        f"selected artifact {selected_artifact_id or '-'} supersedes it as the best ready candidate."
+                    )
+                elif best_candidate.get("recommended_action") == "send_review":
+                    verdict = "review_held"
+                    reason_code = "review_held_selected_candidate_differs_from_current"
+                    summary_line = (
+                        f"Current MAIN artifact {current_artifact_id or '-'} is not the selected DB candidate; "
+                        f"operator selection is held on {selected_artifact_id or '-'} for review."
+                    )
+                else:
+                    verdict = "hold"
+                    reason_code = "hold_selected_candidate_differs_from_current"
+                    summary_line = (
+                        f"Current MAIN artifact {current_artifact_id or '-'} differs from selected candidate {selected_artifact_id or '-'}; "
+                        "board remains on hold pending the selected package."
+                    )
+            elif current_matches_selected and not current_matches_best:
+                if best_candidate.get("ready_for_delivery"):
+                    verdict = "mismatch"
+                    reason_code = "selected_current_misses_better_ready_candidate"
+                    summary_line = (
+                        f"Current selected MAIN artifact {current_artifact_id or '-'} does not match best DB candidate {best_artifact_id or '-'}; "
+                        "a better ready candidate exists in DB."
+                    )
+                elif best_candidate.get("recommended_action") == "send_review":
+                    verdict = "review_held"
+                    reason_code = "selected_current_held_below_review_candidate"
+                    summary_line = (
+                        f"Current selected MAIN artifact {current_artifact_id or '-'} trails best DB candidate {best_artifact_id or '-'}; "
+                        "the better candidate is review-held rather than send-ready."
+                    )
+                else:
+                    verdict = "hold"
+                    reason_code = "selected_current_held_below_blocked_candidate"
+                    summary_line = (
+                        f"Current selected MAIN artifact {current_artifact_id or '-'} does not match best DB candidate {best_artifact_id or '-'}; "
+                        "the board is holding rather than promoting the blocked candidate."
+                    )
+            else:
+                verdict = "mismatch"
+                reason_code = "selection_state_diverged_from_best_candidate"
+                summary_line = (
+                    f"Current MAIN artifact {current_artifact_id or '-'}, selected artifact {selected_artifact_id or '-'}, "
+                    f"and best DB candidate {best_artifact_id or '-'} are not aligned."
+                )
+
+            return {
+                "verdict": verdict,
+                "reason_code": reason_code,
+                "summary_line": summary_line,
+                "current_artifact_id": current_artifact_id,
+                "selected_artifact_id": selected_artifact_id,
+                "best_candidate_artifact_id": best_artifact_id,
+                "current_matches_selected": current_matches_selected,
+                "selected_matches_best": selected_matches_best,
+                "current_matches_best": current_matches_best,
+                "current_rank": current_rank,
+                "selected_rank": selected_rank,
+                "best_rank": best_rank,
+                "candidate_count": candidate_count,
+                "ready_candidate_count": ready_candidate_count,
+                "best_candidate_recommended_action": best_candidate.get("recommended_action"),
+                "best_candidate_selection_reason": best_candidate.get("selection_reason"),
+                "workflow_state": state.get("workflow_state"),
+                "recommended_action": state.get("recommended_action"),
+                "selected_is_current": selected_handoff.get("selected_is_current"),
+            }
+
         beijing = timezone(timedelta(hours=8))
         helper = MainReportDeliveryDispatchHelper()
         resolved_business_date = business_date
@@ -1288,6 +1420,27 @@ class FSJStore:
                 "history_reviews": [],
                 "history_workflow": [],
                 "db_candidates": [],
+                "db_candidate_fleet_summary": {
+                    "verdict": "not_available",
+                    "reason_code": "no_business_date",
+                    "summary_line": "No business date could be resolved for the operator board.",
+                    "current_artifact_id": None,
+                    "selected_artifact_id": None,
+                    "best_candidate_artifact_id": None,
+                    "current_matches_selected": False,
+                    "selected_matches_best": False,
+                    "current_matches_best": False,
+                    "current_rank": None,
+                    "selected_rank": None,
+                    "best_rank": None,
+                    "candidate_count": 0,
+                    "ready_candidate_count": 0,
+                    "best_candidate_recommended_action": None,
+                    "best_candidate_selection_reason": None,
+                    "workflow_state": None,
+                    "recommended_action": None,
+                    "selected_is_current": None,
+                },
                 "llm_lineage_summary": empty_lineage,
                 "board_readiness_summary": {
                     "main": None,
@@ -1322,7 +1475,7 @@ class FSJStore:
         }
         history = self.list_report_delivery_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         history_reviews = self.list_report_operator_review_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
-        db_candidates = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
+        db_candidate_rows = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
 
         main_lineage = _lineage_summary(main_review)
         support_lineage = {domain: _lineage_summary(review) for domain, review in support_reviews.items()}
@@ -1356,7 +1509,11 @@ class FSJStore:
             "history_packages": [self.report_package_surface_from_surface(s) for s in history],
             "history_reviews": history_reviews,
             "history_workflow": [self.report_workflow_handoff_from_surface(s) for s in history],
-            "db_candidates": [helper.summarize_candidate(c) for c in db_candidates],
+            "db_candidates": [helper.summarize_candidate(c) for c in db_candidate_rows],
+            "db_candidate_fleet_summary": _summarize_db_candidate_alignment(
+                main_review,
+                [helper.summarize_candidate(candidate) for candidate in db_candidate_rows],
+            ),
             "llm_lineage_summary": {
                 "main": main_lineage,
                 "support": support_lineage,

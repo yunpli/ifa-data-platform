@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from ifa_data_platform.fsj.store import FSJStore
+
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_operator_board.py"
 _spec = importlib.util.spec_from_file_location("fsj_operator_board_script", _MODULE_PATH)
@@ -131,6 +133,16 @@ class _BoardStore(_DummyStore):
             "history_reviews": history_reviews,
             "history_workflow": [self.report_workflow_handoff_from_surface(surface) for surface in history],
             "db_candidates": [{"artifact_id": "main-artifact", "recommended_action": "send", "selection_reason": "best_ready_candidate strongest_slot=late qa_score=100"}],
+            "db_candidate_fleet_summary": {
+                "verdict": "aligned",
+                "reason_code": "current_selected_match_best_candidate",
+                "summary_line": "Current MAIN artifact main-artifact matches the best DB candidate.",
+                "current_artifact_id": "main-artifact",
+                "selected_artifact_id": "main-artifact",
+                "best_candidate_artifact_id": "main-artifact",
+                "selected_matches_best": True,
+                "current_matches_best": True,
+            },
             "llm_lineage_summary": {
                 "main": main_review["llm_lineage_summary"] if main_review else None,
                 "support": {domain: (review["llm_lineage_summary"] if review else None) for domain, review in support_reviews.items()},
@@ -190,6 +202,8 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["history_reviews"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["history_workflow"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["db_candidates"][0]["artifact_id"] == "main-artifact"
+    assert payload["db_candidate_fleet_summary"]["verdict"] == "aligned"
+    assert payload["db_candidate_fleet_summary"]["best_candidate_artifact_id"] == "main-artifact"
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
     assert payload["llm_lineage_summary"]["aggregate"]["attention_subjects"] == ["support:commodities"]
     assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
@@ -217,6 +231,16 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
         },
         "history": [{}, {}],
         "db_candidates": [{}, {}],
+        "db_candidate_fleet_summary": {
+            "verdict": "review_held",
+            "reason_code": "review_held_selected_candidate_differs_from_current",
+            "summary_line": "Current MAIN artifact main-artifact is not the selected DB candidate; operator selection is held on main-artifact-v2 for review.",
+            "current_artifact_id": "main-artifact",
+            "selected_artifact_id": "main-artifact-v2",
+            "best_candidate_artifact_id": "main-artifact-v2",
+            "selected_matches_best": True,
+            "current_matches_best": False,
+        },
         "llm_lineage_summary": {
             "main": {"status": "applied", "summary_line": "applied [applied=1/1]"},
             "support": {
@@ -251,11 +275,72 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_llm_lineage_status=degraded" in output
     assert "fleet_llm_attention_subjects=support:commodities" in output
     assert "fleet_board_posture=review_required" in output
+    assert "db_candidate_fleet_verdict=review_held" in output
+    assert "db_candidate_fleet_reason=review_held_selected_candidate_differs_from_current" in output
+    assert "db_candidate_selected_artifact_id=main-artifact-v2" in output
+    assert "db_candidate_current_matches_best=False" in output
     assert "fleet_review_subjects=support:commodities" in output
     assert "fleet_attention_subjects=support:commodities" in output
     assert "support_macro=NONE" in output
     assert "candidate_count=2" in output
 
+
+
+class _ActualBoardStore(FSJStore):
+    def __init__(self) -> None:
+        pass
+
+    def get_latest_active_report_delivery_surface(self, **kwargs: object) -> dict | None:
+        if kwargs["agent_domain"] == "main":
+            return {
+                "artifact": {"artifact_id": "artifact-current", "report_run_id": "run-current", "business_date": "2099-04-22", "status": "active"},
+                "delivery_package": {"slot_evaluation": {"strongest_slot": "late"}},
+            }
+        return None
+
+    def get_active_report_delivery_surface(self, **kwargs: object) -> dict | None:
+        domain = kwargs["agent_domain"]
+        if domain == "main":
+            return {
+                "artifact": {"artifact_id": "artifact-current", "report_run_id": "run-current", "business_date": kwargs["business_date"], "status": "active"},
+                "delivery_package": {
+                    "package_state": "ready",
+                    "ready_for_delivery": False,
+                    "quality_gate": {"score": 91, "blocker_count": 1, "warning_count": 1},
+                    "workflow": {"recommended_action": "send_review", "dispatch_recommended_action": "send_review", "workflow_state": "review_required"},
+                    "artifacts": {},
+                },
+                "workflow_linkage": {
+                    "selected_handoff": {"selected_artifact_id": "artifact-selected", "selected_is_current": False},
+                    "review_surface": {
+                        "candidate_comparison": {
+                            "selected_artifact_id": "artifact-selected",
+                            "current_artifact_id": "artifact-current",
+                            "candidate_count": 3,
+                            "ready_candidate_count": 1,
+                            "ranked_candidates": [
+                                {"artifact_id": "artifact-selected", "rank": 1, "ready_for_delivery": False, "recommended_action": "send_review", "selection_reason": "best_available_candidate provisional_close_only_requires_review"},
+                                {"artifact_id": "artifact-current", "rank": 2, "ready_for_delivery": False, "recommended_action": "send_review", "selection_reason": "best_available_candidate provisional_close_only_requires_review"},
+                                {"artifact_id": "artifact-old", "rank": 3, "ready_for_delivery": False, "recommended_action": "hold", "selection_reason": "best_available_candidate blocked_requires_hold"},
+                            ],
+                            "current_vs_selected": {
+                                "current_artifact_id": "artifact-current",
+                                "selected_artifact_id": "artifact-selected",
+                                "current_rank": 2,
+                                "selected_rank": 1,
+                            },
+                        }
+                    },
+                },
+            }
+        return {
+            "artifact": {"artifact_id": f"{domain}-artifact", "report_run_id": f"{domain}-run", "business_date": kwargs["business_date"], "status": "active"},
+            "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 95, "blocker_count": 0, "warning_count": 0}, "workflow": {"recommended_action": "send", "dispatch_recommended_action": "send", "workflow_state": "ready_to_send"}, "artifacts": {}, "slot": "early"},
+            "workflow_linkage": {},
+        }
+
+    def list_report_delivery_surfaces(self, **kwargs: object) -> list[dict]:
+        return [self.get_active_report_delivery_surface(**kwargs)]
 
 
 def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -> None:
@@ -268,3 +353,31 @@ def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -
     assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
     assert payload["support"]["macro"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["history"][0]["artifact"]["artifact_id"] == "main-artifact"
+
+
+def test_store_build_operator_board_surface_projects_review_held_db_candidate_summary(monkeypatch) -> None:
+    class _Helper:
+        def list_db_delivery_candidates(self, **_: object) -> list[dict]:
+            return [
+                {"artifact": {"artifact_id": "artifact-selected"}, "delivery_manifest": {"artifact_id": "artifact-selected", "package_state": "ready", "ready_for_delivery": False, "quality_gate": {"score": 93, "blocker_count": 1, "warning_count": 0, "late_contract_mode": "provisional_close_only"}, "slot_evaluation": {"strongest_slot": "late"}}, "report_evaluation": {"summary": {"slot_scores": {"early": 88, "mid": 90, "late": 93}}}},
+                {"artifact": {"artifact_id": "artifact-current"}, "delivery_manifest": {"artifact_id": "artifact-current", "package_state": "ready", "ready_for_delivery": False, "quality_gate": {"score": 91, "blocker_count": 1, "warning_count": 1, "late_contract_mode": "provisional_close_only"}, "slot_evaluation": {"strongest_slot": "late"}}, "report_evaluation": {"summary": {"slot_scores": {"early": 86, "mid": 88, "late": 91}}}},
+            ]
+
+        def summarize_candidate(self, candidate: dict) -> dict:
+            artifact_id = candidate["artifact"]["artifact_id"]
+            if artifact_id == "artifact-selected":
+                return {"artifact_id": artifact_id, "ready_for_delivery": False, "recommended_action": "send_review", "selection_reason": "best_available_candidate provisional_close_only_requires_review"}
+            return {"artifact_id": artifact_id, "ready_for_delivery": False, "recommended_action": "send_review", "selection_reason": "best_available_candidate provisional_close_only_requires_review"}
+
+    monkeypatch.setattr("ifa_data_platform.fsj.report_dispatch.MainReportDeliveryDispatchHelper", _Helper)
+    payload = _ActualBoardStore().build_operator_board_surface(business_date="2099-04-22", history_limit=2)
+
+    summary = payload["db_candidate_fleet_summary"]
+    assert summary["verdict"] == "review_held"
+    assert summary["reason_code"] == "review_held_selected_candidate_differs_from_current"
+    assert summary["current_artifact_id"] == "artifact-current"
+    assert summary["selected_artifact_id"] == "artifact-selected"
+    assert summary["best_candidate_artifact_id"] == "artifact-selected"
+    assert summary["selected_matches_best"] is True
+    assert summary["current_matches_best"] is False
+    assert payload["db_candidates"][0]["artifact_id"] == "artifact-selected"
