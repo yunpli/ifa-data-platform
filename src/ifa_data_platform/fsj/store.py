@@ -1222,6 +1222,186 @@ class FSJStore:
             },
         }
 
+    def report_artifact_lineage_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any] | None:
+        normalized_surface = dict(surface or {})
+        if not normalized_surface:
+            return None
+
+        artifact = dict(normalized_surface.get("artifact") or {})
+        if not artifact:
+            return None
+
+        package_surface = self.report_package_surface_from_surface(normalized_surface)
+        review_surface = self.report_operator_review_surface_from_surface(normalized_surface)
+        workflow_handoff = dict(review_surface.get("workflow_handoff") or package_surface.get("workflow_handoff") or {})
+        state = dict(review_surface.get("state") or workflow_handoff.get("state") or {})
+        selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+        package_paths = dict(package_surface.get("package_paths") or {})
+        package_versions = dict(package_surface.get("package_versions") or {})
+        package_state = dict(package_surface.get("package_state") or {})
+        manifests = {
+            "delivery_manifest": {"path": package_paths.get("delivery_manifest_path"), "version": package_versions.get("delivery_manifest_version")},
+            "send_manifest": {"path": package_paths.get("send_manifest_path"), "version": package_versions.get("send_manifest_version")},
+            "review_manifest": {"path": package_paths.get("review_manifest_path"), "version": package_versions.get("review_manifest_version")},
+            "workflow_manifest": {"path": package_paths.get("workflow_manifest_path"), "version": package_versions.get("workflow_manifest_version")},
+            "operator_review_bundle": {
+                "path": package_paths.get("operator_review_bundle_path"),
+                "readme_path": package_paths.get("operator_review_readme_path"),
+            },
+            "package_index": {
+                "path": package_paths.get("package_index_path"),
+                "browse_readme_path": package_paths.get("package_browse_readme_path"),
+                "version": package_versions.get("package_index_version"),
+            },
+            "delivery_zip": {"path": package_paths.get("delivery_zip_path")},
+            "telegram_caption": {"path": package_paths.get("telegram_caption_path")},
+        }
+
+        metadata = dict(artifact.get("metadata_json") or {})
+        bundle_ids = [str(item) for item in (metadata.get("bundle_ids") or []) if str(item).strip()]
+        bundle_lineage = []
+        for bundle_id in bundle_ids:
+            graph = self.get_bundle_graph(bundle_id)
+            bundle = dict((graph or {}).get("bundle") or {})
+            bundle_lineage.append(
+                {
+                    "bundle_id": bundle_id,
+                    "status": bundle.get("status"),
+                    "slot": bundle.get("slot"),
+                    "agent_domain": bundle.get("agent_domain"),
+                    "section_key": bundle.get("section_key"),
+                    "section_type": bundle.get("section_type"),
+                    "bundle_topic_key": bundle.get("bundle_topic_key"),
+                    "report_run_id": bundle.get("report_run_id"),
+                    "supersedes_bundle_id": bundle.get("supersedes_bundle_id"),
+                    "summary": bundle.get("summary"),
+                    "missing": not bool(bundle),
+                }
+            )
+
+        dispatch_receipt = dict(review_surface.get("dispatch_receipt") or {})
+        dispatch_channel = dispatch_receipt.get("channel") or dispatch_receipt.get("target_channel")
+        provider_message_id = dispatch_receipt.get("provider_message_id") or dispatch_receipt.get("message_id")
+        sent_at = dispatch_receipt.get("succeeded_at") or dispatch_receipt.get("attempted_at")
+        what_user_received = {
+            "dispatch_state": review_surface.get("dispatch_state"),
+            "channel": dispatch_channel,
+            "provider_message_id": provider_message_id,
+            "sent_at": sent_at,
+            "delivery_zip_path": package_paths.get("delivery_zip_path"),
+            "telegram_caption_path": package_paths.get("telegram_caption_path"),
+            "send_manifest_path": package_paths.get("send_manifest_path"),
+            "error": dispatch_receipt.get("error"),
+        }
+
+        return {
+            "artifact": {
+                "artifact_id": artifact.get("artifact_id"),
+                "artifact_family": artifact.get("artifact_family"),
+                "artifact_type": artifact.get("artifact_type"),
+                "title": artifact.get("title"),
+                "business_date": artifact.get("business_date"),
+                "agent_domain": artifact.get("agent_domain"),
+                "status": artifact.get("status"),
+                "report_run_id": artifact.get("report_run_id"),
+                "supersedes_artifact_id": artifact.get("supersedes_artifact_id"),
+                "created_at": artifact.get("created_at"),
+                "updated_at": artifact.get("updated_at"),
+            },
+            "canonical_lifecycle": dict(review_surface.get("canonical_lifecycle") or {}),
+            "state": {
+                "recommended_action": state.get("recommended_action"),
+                "workflow_state": state.get("workflow_state"),
+                "package_state": state.get("package_state"),
+                "send_ready": state.get("send_ready"),
+                "review_required": state.get("review_required"),
+                "next_step": state.get("next_step"),
+                "selection_reason": state.get("selection_reason"),
+            },
+            "selection": {
+                "current_artifact_id": artifact.get("artifact_id"),
+                "selected_artifact_id": selected_handoff.get("selected_artifact_id"),
+                "selected_report_run_id": selected_handoff.get("selected_report_run_id"),
+                "selected_business_date": selected_handoff.get("selected_business_date"),
+                "selected_is_current": selected_handoff.get("selected_is_current"),
+            },
+            "package": {
+                "paths": package_paths,
+                "versions": package_versions,
+                "lineage": dict(package_state.get("lineage") or {}),
+                "manifests": manifests,
+            },
+            "review": {
+                "operator_go_no_go": dict(review_surface.get("operator_go_no_go") or {}),
+                "candidate_comparison": dict(review_surface.get("candidate_comparison") or {}),
+                "review_manifest": dict(review_surface.get("review_manifest") or {}),
+                "send_manifest": dict(review_surface.get("send_manifest") or {}),
+            },
+            "dispatch": dispatch_receipt,
+            "what_user_received": what_user_received,
+            "bundle_lineage": bundle_lineage,
+            "bundle_lineage_summary": {
+                "bundle_count": len(bundle_lineage),
+                "missing_bundle_count": len([item for item in bundle_lineage if item.get("missing")]),
+                "slots": [str(item.get("slot")) for item in bundle_lineage if item.get("slot")],
+                "section_keys": [str(item.get("section_key")) for item in bundle_lineage if item.get("section_key")],
+            },
+            "llm_lineage": dict(review_surface.get("llm_lineage") or {}),
+            "llm_lineage_summary": dict(review_surface.get("llm_lineage_summary") or {}),
+        }
+
+    def get_active_report_artifact_lineage(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        artifact_family: str,
+    ) -> dict[str, Any] | None:
+        surface = self.get_active_report_delivery_surface(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+        )
+        return self.report_artifact_lineage_from_surface(surface)
+
+    def get_latest_active_report_artifact_lineage(
+        self,
+        *,
+        agent_domain: str,
+        artifact_family: str,
+        strongest_slot: str | None = None,
+        max_business_date: str | date | None = None,
+    ) -> dict[str, Any] | None:
+        surface = self.get_latest_active_report_delivery_surface(
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+            strongest_slot=strongest_slot,
+            max_business_date=max_business_date,
+        )
+        return self.report_artifact_lineage_from_surface(surface)
+
+    def list_report_artifact_lineages(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        artifact_family: str,
+        statuses: list[str] | tuple[str, ...] | None = None,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        surfaces = self.list_report_delivery_surfaces(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+            statuses=statuses,
+            limit=limit,
+        )
+        return [
+            lineage
+            for surface in surfaces
+            if (lineage := self.report_artifact_lineage_from_surface(surface)) is not None
+        ]
+
     def _report_dispatch_receipt_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any]:
         normalized_surface = dict(surface or {})
         workflow_linkage = dict(normalized_surface.get("workflow_linkage") or {})

@@ -457,6 +457,95 @@ def test_latest_active_main_report_delivery_surface_resolves_by_business_date_an
                 conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id = ANY(CAST(:artifact_ids AS text[]))'), {'artifact_ids': artifact_ids})
 
 
+def test_main_report_artifact_lineage_surface_is_queryable_from_active_and_recent_superseded_artifacts(tmp_path) -> None:
+    store = FSJStore(database_url=DB_URL)
+    store.ensure_schema()
+    business_date = '2099-07-18'
+    bundle_id = f'fsj:test:{uuid.uuid4()}:bundle:lineage'
+    first: dict | None = None
+    second: dict | None = None
+    workflow_result: dict | None = None
+    with engine().begin() as conn:
+        conn.execute(
+            text("DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE business_date=:business_date AND agent_domain='main' AND artifact_family='main_final_report'"),
+            {'business_date': business_date},
+        )
+    try:
+        store.upsert_bundle_graph(_sample_payload(bundle_id))
+        publisher = MainReportArtifactPublishingService(
+            rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='delivery summary')),
+            store=store,
+            artifact_root=tmp_path,
+        )
+        first = publisher.publish_delivery_package(
+            business_date=business_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-lineage-v1',
+            generated_at=datetime(2099, 4, 18, 12, 10, tzinfo=timezone.utc),
+        )
+        second = publisher.publish_delivery_package(
+            business_date=business_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-lineage-v2',
+            generated_at=datetime(2099, 4, 18, 12, 15, tzinfo=timezone.utc),
+        )
+        workflow_result = MainReportMorningDeliveryOrchestrator(
+            publisher=publisher,
+            dispatch_helper=MainReportDeliveryDispatchHelper(),
+        ).run_workflow(
+            business_date=business_date,
+            output_dir=tmp_path,
+            report_run_id='report-run-lineage-v3',
+            generated_at=datetime(2099, 4, 18, 12, 20, tzinfo=timezone.utc),
+            comparison_candidates=MainReportDeliveryDispatchHelper().list_db_delivery_candidates(
+                business_date=business_date,
+                store=store,
+                limit=8,
+            ),
+        )
+        store.persist_report_dispatch_receipt(
+            workflow_result['artifact']['artifact_id'],
+            {
+                'dispatch_state': 'dispatch_succeeded',
+                'attempted_at': '2099-04-18T12:21:00Z',
+                'succeeded_at': '2099-04-18T12:21:03Z',
+                'channel': 'telegram_document',
+                'provider_message_id': 'tg-42',
+            },
+        )
+
+        active = store.get_active_report_artifact_lineage(
+            business_date=business_date,
+            agent_domain='main',
+            artifact_family='main_final_report',
+        )
+        history = store.list_report_artifact_lineages(
+            business_date=business_date,
+            agent_domain='main',
+            artifact_family='main_final_report',
+            statuses=['active', 'superseded'],
+            limit=8,
+        )
+
+        assert active is not None
+        assert active['artifact']['artifact_id'] == workflow_result['artifact']['artifact_id']
+        assert active['selection']['selected_artifact_id'] == workflow_result['selected_handoff']['selected_artifact_id']
+        assert active['package']['paths']['send_manifest_path'] == workflow_result['send_manifest_path']
+        assert active['review']['operator_go_no_go']['decision'] == workflow_result['operator_review_bundle']['operator_go_no_go']['decision']
+        assert active['dispatch']['dispatch_state'] == 'dispatch_succeeded'
+        assert active['what_user_received']['provider_message_id'] == 'tg-42'
+        assert active['bundle_lineage_summary']['bundle_count'] >= 1
+        assert history[0]['artifact']['artifact_id'] == workflow_result['artifact']['artifact_id']
+        assert history[1]['artifact']['artifact_id'] == second['artifact']['artifact_id']
+        assert history[2]['artifact']['artifact_id'] == first['artifact']['artifact_id']
+    finally:
+        _cleanup([bundle_id])
+        artifact_ids = [artifact['artifact']['artifact_id'] for artifact in (first, second, workflow_result) if artifact]
+        if artifact_ids:
+            with engine().begin() as conn:
+                conn.execute(text('DELETE FROM ifa2.ifa_fsj_report_artifacts WHERE artifact_id = ANY(CAST(:artifact_ids AS text[]))'), {'artifact_ids': artifact_ids})
+
+
 def test_main_report_delivery_surface_is_queryable_from_active_and_recent_superseded_artifacts(tmp_path) -> None:
     store = FSJStore(database_url=DB_URL)
     store.ensure_schema()

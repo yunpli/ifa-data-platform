@@ -299,6 +299,99 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["llm_slot_boundary_modes"] == {}
 
 
+def test_report_artifact_lineage_projection_unifies_package_review_send_and_bundle_surfaces() -> None:
+    class _Store(_ProjectionOnlyStore):
+        def get_bundle_graph(self, bundle_id: str) -> dict | None:
+            if bundle_id == "bundle-missing":
+                return None
+            return {
+                "bundle": {
+                    "bundle_id": bundle_id,
+                    "status": "active",
+                    "slot": "late",
+                    "agent_domain": "main",
+                    "section_key": "post_close_main",
+                    "section_type": "thesis",
+                    "bundle_topic_key": "theme:robotics",
+                    "report_run_id": "run-current",
+                    "summary": "late summary",
+                }
+            }
+
+    summary = _Store().report_artifact_lineage_from_surface(
+        {
+            "artifact": {
+                "artifact_id": "artifact-current",
+                "artifact_family": "main_final_report",
+                "artifact_type": "html",
+                "title": "Main report",
+                "business_date": "2099-04-22",
+                "agent_domain": "main",
+                "status": "active",
+                "report_run_id": "run-current",
+                "supersedes_artifact_id": "artifact-prev",
+                "metadata_json": {"bundle_ids": ["bundle-1", "bundle-missing"]},
+            },
+            "delivery_package": {
+                "delivery_package_dir": "/tmp/current-pkg",
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "lineage": {"bundle_ids": ["bundle-1", "bundle-missing"]},
+                "quality_gate": {"score": 99, "blocker_count": 0, "warning_count": 0},
+                "artifacts": {
+                    "delivery_manifest": "delivery_manifest.json",
+                    "send_manifest": "send_manifest.json",
+                    "review_manifest": "review_manifest.json",
+                    "workflow_manifest": "workflow_manifest.json",
+                    "package_index": "package_index.json",
+                },
+                "workflow": {
+                    "recommended_action": "send",
+                    "workflow_state": "ready_to_send",
+                    "next_step": "send_selected_package_to_primary_channel",
+                    "selection_reason": "best_ready_candidate strongest_slot=late qa_score=99",
+                },
+            },
+            "workflow_linkage": {
+                "selected_handoff": {
+                    "selected_artifact_id": "artifact-current",
+                    "selected_report_run_id": "run-current",
+                    "selected_business_date": "2099-04-22",
+                    "selected_is_current": True,
+                },
+                "send_manifest_path": "/tmp/current-pkg/send_manifest.json",
+                "review_manifest_path": "/tmp/current-pkg/review_manifest.json",
+                "workflow_manifest_path": "/tmp/current-pkg/workflow_manifest.json",
+                "review_surface": {
+                    "operator_go_no_go": {"decision": "GO"},
+                    "candidate_comparison": {"candidate_count": 2, "selected_artifact_id": "artifact-current"},
+                    "send_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "review_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "dispatch_receipt": {
+                        "dispatch_state": "dispatch_succeeded",
+                        "channel": "telegram_document",
+                        "provider_message_id": "42",
+                        "succeeded_at": "2099-04-22T10:00:03Z",
+                    },
+                },
+            },
+        }
+    )
+
+    assert summary is not None
+    assert summary["artifact"]["artifact_id"] == "artifact-current"
+    assert summary["selection"]["selected_is_current"] is True
+    assert summary["package"]["manifests"]["send_manifest"]["path"] == "/tmp/current-pkg/send_manifest.json"
+    assert summary["review"]["operator_go_no_go"]["decision"] == "GO"
+    assert summary["dispatch"]["dispatch_state"] == "dispatch_succeeded"
+    assert summary["what_user_received"]["provider_message_id"] == "42"
+    assert summary["what_user_received"]["channel"] == "telegram_document"
+    assert summary["bundle_lineage_summary"]["bundle_count"] == 2
+    assert summary["bundle_lineage_summary"]["missing_bundle_count"] == 1
+    assert summary["bundle_lineage"][0]["section_key"] == "post_close_main"
+    assert summary["bundle_lineage"][1]["missing"] is True
+
+
 def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and_send_ready() -> None:
     store = _ProjectionOnlyStore()
 
