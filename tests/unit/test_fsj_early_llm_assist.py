@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from ifa_data_platform.fsj.early_main_producer import EarlyMainFSJAssembler, EarlyMainProducerInput
+import subprocess
+
 from ifa_data_platform.fsj.llm_assist import (
     FSJEarlyLLMAssistant,
     FSJEarlyLLMRequest,
     FSJEarlyLLMResult,
+    LLMInvocationFailure,
+    ResilientEarlyLLMClient,
+    _classify_llm_exception,
     build_fsj_early_evidence_packet,
     build_fsj_early_prompt,
     parse_fsj_early_result,
@@ -46,6 +51,26 @@ class FailingEarlyLLMClient:
 
     def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
         raise RuntimeError("synthetic early llm failure")
+
+
+class TimeoutEarlyLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_early_main_v1"
+
+    def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        raise subprocess.TimeoutExpired(cmd=["ifa_llm_cli.py"], timeout=120)
+
+
+class FallbackSuccessEarlyLLMClient(FakeEarlyLLMClient):
+    model_alias = "gemini31_pro_jmr"
+
+
+class BoundaryFailEarlyLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_early_main_v1"
+
+    def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        raise RuntimeError("invalid llm field: early candidate boundary violated")
 
 
 def _sample_input(*, has_high: bool = True, has_low: bool = True) -> EarlyMainProducerInput:
@@ -162,3 +187,57 @@ def test_late_parser_rejects_underfilled_invalidators_for_hardening() -> None:
         assert "invalid llm field: invalidators" in str(exc)
     else:
         raise AssertionError("expected parser hardening failure")
+
+
+def test_resilient_early_client_uses_fallback_model_after_primary_failure() -> None:
+    client = ResilientEarlyLLMClient(clients=[FailingEarlyLLMClient(), FallbackSuccessEarlyLLMClient()])
+    result = client.synthesize(
+        FSJEarlyLLMRequest(
+            business_date="2099-04-22",
+            section_key="pre_open_main",
+            contract_mode="candidate_with_open_validation",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert result.model_alias == "gemini31_pro_jmr"
+    assert result.raw_response["_fsj_resilience"]["attempted_model_chain"] == ["grok41_thinking", "gemini31_pro_jmr"]
+    assert result.raw_response["_fsj_resilience"]["failures"][0]["classification"] == "invoke_error"
+
+
+def test_early_assistant_tags_timeout_deterministic_degrade() -> None:
+    _, audit = FSJEarlyLLMAssistant(TimeoutEarlyLLMClient()).maybe_synthesize(
+        FSJEarlyLLMRequest(
+            business_date="2099-04-22",
+            section_key="pre_open_main",
+            contract_mode="candidate_with_open_validation",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["applied"] is False
+    assert audit["failure_classification"] == "timeout"
+    assert audit["policy"]["operator_tag"] == "llm_timeout"
+    assert audit["policy"]["outcome"] == "deterministic_degrade"
+
+
+def test_early_assistant_surfaces_boundary_violation_classification() -> None:
+    _, audit = FSJEarlyLLMAssistant(BoundaryFailEarlyLLMClient()).maybe_synthesize(
+        FSJEarlyLLMRequest(
+            business_date="2099-04-22",
+            section_key="pre_open_main",
+            contract_mode="candidate_with_open_validation",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["failure_classification"] == "boundary_violation"
+    assert audit["policy"]["operator_tag"] == "llm_boundary_violation"
+
+
+def test_llm_failure_classifier_covers_timeout_and_malformed() -> None:
+    assert _classify_llm_exception(subprocess.TimeoutExpired(cmd=["x"], timeout=3)) == "timeout"
+    assert _classify_llm_exception(LLMInvocationFailure("malformed_output", "bad json", "grok41_thinking")) == "malformed_output"

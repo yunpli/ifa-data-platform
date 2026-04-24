@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+import yaml
+
 BUSINESS_REPO_ROOT = Path("/Users/neoclaw/repos/ifa-business-layer")
 BUSINESS_REPO_PYTHON = Path("/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python")
 BUSINESS_REPO_CLI = BUSINESS_REPO_ROOT / "scripts/ifa_llm_cli.py"
@@ -15,6 +17,8 @@ FSJ_LATE_PROMPT_VERSION = "fsj_late_main_v1"
 FSJ_EARLY_PROMPT_VERSION = "fsj_early_main_v1"
 FSJ_MID_PROMPT_VERSION = "fsj_mid_main_v1"
 FSJ_MODEL_ALIAS = "grok41_thinking"
+FSJ_FALLBACK_MODEL_ALIAS = "gemini31_pro_jmr"
+BUSINESS_REPO_MODELS_CONFIG = BUSINESS_REPO_ROOT / "config" / "llm" / "models.yaml"
 
 
 @dataclass(frozen=True)
@@ -261,9 +265,176 @@ class NoopMidLLMClient:
         raise RuntimeError("llm assist disabled")
 
 
+@dataclass(frozen=True)
+class LLMInvocationFailure(RuntimeError):
+    classification: str
+    detail: str
+    model_alias: str
+
+    def __str__(self) -> str:
+        return f"{self.classification}: {self.detail}"
+
+
+def _load_configured_model_aliases(config_path: Path = BUSINESS_REPO_MODELS_CONFIG) -> set[str]:
+    try:
+        payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return set()
+    models = payload.get("models")
+    if not isinstance(models, dict):
+        return set()
+    return {str(key) for key in models.keys()}
+
+
+CONFIGURED_MODEL_ALIASES = _load_configured_model_aliases()
+FSJ_ASSIST_MODEL_CHAIN = tuple(
+    alias
+    for alias in (FSJ_MODEL_ALIAS, FSJ_FALLBACK_MODEL_ALIAS)
+    if alias in CONFIGURED_MODEL_ALIASES or alias == FSJ_MODEL_ALIAS
+)
+
+
+def _classify_llm_exception(exc: Exception) -> str:
+    if isinstance(exc, LLMInvocationFailure):
+        return exc.classification
+    text = str(exc).lower()
+    if isinstance(exc, subprocess.TimeoutExpired) or "timed out" in text or "timeout" in text:
+        return "timeout"
+    if "boundary violated" in text:
+        return "boundary_violation"
+    if "did not contain parsed_json object" in text or "non-json envelope" in text or "invalid llm field" in text:
+        return "malformed_output"
+    if "unknown model alias" in text or "provider not found" in text or "unsupported api_type" in text:
+        return "configuration_error"
+    if "business repo llm cli failed" in text:
+        return "provider_failure"
+    if "llm assist disabled" in text:
+        return "disabled"
+    return "invoke_error"
+
+
+def _wrap_resilience_raw_response(raw_response: dict[str, Any] | list[Any] | None, *, attempted_model_chain: list[str], failures: list[dict[str, str]]) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "_fsj_resilience": {
+            "attempted_model_chain": attempted_model_chain,
+            "failures": failures,
+        }
+    }
+    if isinstance(raw_response, dict):
+        payload.update(raw_response)
+    elif raw_response is not None:
+        payload["raw_response"] = raw_response
+    return payload
+
+
+class ResilientLateLLMClient:
+    prompt_version = FSJ_LATE_PROMPT_VERSION
+    primary_model_alias = FSJ_MODEL_ALIAS
+    fallback_model_aliases = tuple(alias for alias in FSJ_ASSIST_MODEL_CHAIN[1:])
+
+    def __init__(self, clients: list[BusinessRepoLateLLMClient] | None = None) -> None:
+        self.clients = clients or [BusinessRepoLateLLMClient(model_alias=alias) for alias in FSJ_ASSIST_MODEL_CHAIN]
+        self.model_alias = self.clients[0].model_alias if self.clients else FSJ_MODEL_ALIAS
+
+    def synthesize(self, request: FSJLateLLMRequest) -> FSJLateLLMResult:
+        failures: list[dict[str, str]] = []
+        attempted_model_chain = [client.model_alias for client in self.clients]
+        for client in self.clients:
+            try:
+                result = client.synthesize(request)
+                object.__setattr__(
+                    result,
+                    "raw_response",
+                    _wrap_resilience_raw_response(result.raw_response, attempted_model_chain=attempted_model_chain, failures=failures),
+                )
+                return result
+            except Exception as exc:
+                failures.append(
+                    {
+                        "model_alias": client.model_alias,
+                        "classification": _classify_llm_exception(exc),
+                        "detail": str(exc),
+                    }
+                )
+        if failures:
+            last = failures[-1]
+            raise LLMInvocationFailure(last["classification"], json.dumps({"failures": failures}, ensure_ascii=False), last["model_alias"])
+        raise LLMInvocationFailure("disabled", "no llm clients configured", self.model_alias)
+
+
+class ResilientEarlyLLMClient:
+    prompt_version = FSJ_EARLY_PROMPT_VERSION
+    primary_model_alias = FSJ_MODEL_ALIAS
+    fallback_model_aliases = tuple(alias for alias in FSJ_ASSIST_MODEL_CHAIN[1:])
+
+    def __init__(self, clients: list[BusinessRepoEarlyLLMClient] | None = None) -> None:
+        self.clients = clients or [BusinessRepoEarlyLLMClient(model_alias=alias) for alias in FSJ_ASSIST_MODEL_CHAIN]
+        self.model_alias = self.clients[0].model_alias if self.clients else FSJ_MODEL_ALIAS
+
+    def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        failures: list[dict[str, str]] = []
+        attempted_model_chain = [client.model_alias for client in self.clients]
+        for client in self.clients:
+            try:
+                result = client.synthesize(request)
+                object.__setattr__(
+                    result,
+                    "raw_response",
+                    _wrap_resilience_raw_response(result.raw_response, attempted_model_chain=attempted_model_chain, failures=failures),
+                )
+                return result
+            except Exception as exc:
+                failures.append(
+                    {
+                        "model_alias": client.model_alias,
+                        "classification": _classify_llm_exception(exc),
+                        "detail": str(exc),
+                    }
+                )
+        if failures:
+            last = failures[-1]
+            raise LLMInvocationFailure(last["classification"], json.dumps({"failures": failures}, ensure_ascii=False), last["model_alias"])
+        raise LLMInvocationFailure("disabled", "no llm clients configured", self.model_alias)
+
+
+class ResilientMidLLMClient:
+    prompt_version = FSJ_MID_PROMPT_VERSION
+    primary_model_alias = FSJ_MODEL_ALIAS
+    fallback_model_aliases = tuple(alias for alias in FSJ_ASSIST_MODEL_CHAIN[1:])
+
+    def __init__(self, clients: list[BusinessRepoMidLLMClient] | None = None) -> None:
+        self.clients = clients or [BusinessRepoMidLLMClient(model_alias=alias) for alias in FSJ_ASSIST_MODEL_CHAIN]
+        self.model_alias = self.clients[0].model_alias if self.clients else FSJ_MODEL_ALIAS
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        failures: list[dict[str, str]] = []
+        attempted_model_chain = [client.model_alias for client in self.clients]
+        for client in self.clients:
+            try:
+                result = client.synthesize(request)
+                object.__setattr__(
+                    result,
+                    "raw_response",
+                    _wrap_resilience_raw_response(result.raw_response, attempted_model_chain=attempted_model_chain, failures=failures),
+                )
+                return result
+            except Exception as exc:
+                failures.append(
+                    {
+                        "model_alias": client.model_alias,
+                        "classification": _classify_llm_exception(exc),
+                        "detail": str(exc),
+                    }
+                )
+        if failures:
+            last = failures[-1]
+            raise LLMInvocationFailure(last["classification"], json.dumps({"failures": failures}, ensure_ascii=False), last["model_alias"])
+        raise LLMInvocationFailure("disabled", "no llm clients configured", self.model_alias)
+
+
 class FSJLateLLMAssistant:
     def __init__(self, client: FSJLateLLMClient | None = None) -> None:
-        self.client = client or BusinessRepoLateLLMClient()
+        self.client = client or ResilientLateLLMClient()
 
     def maybe_synthesize(self, request: FSJLateLLMRequest) -> tuple[FSJLateLLMResult | None, dict[str, Any]]:
         input_digest = hashlib.sha1(
@@ -271,20 +442,51 @@ class FSJLateLLMAssistant:
         ).hexdigest()
         try:
             result = self.client.synthesize(request)
-            return result, result.audit_payload(input_digest=input_digest)
+            audit = result.audit_payload(input_digest=input_digest)
+            audit["policy"] = {
+                "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
+                "fallback_model_aliases": list(getattr(self.client, "fallback_model_aliases", [])),
+                "attempted_model_chain": (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("attempted_model_chain", [result.model_alias]),
+                "outcome": "fallback_applied" if result.model_alias != getattr(self.client, "primary_model_alias", result.model_alias) else "primary_applied",
+            }
+            failures = (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("failures", [])
+            if failures:
+                audit["policy"]["prior_failures"] = failures
+            return result, audit
         except Exception as exc:
+            classification = _classify_llm_exception(exc)
+            fallback_model_aliases = list(getattr(self.client, "fallback_model_aliases", []))
+            attempted_model_chain = [getattr(self.client, "model_alias", FSJ_MODEL_ALIAS), *fallback_model_aliases]
+            error_detail = str(exc)
+            prior_failures = None
+            if isinstance(exc, LLMInvocationFailure):
+                try:
+                    parsed = json.loads(exc.detail)
+                    prior_failures = parsed.get("failures") if isinstance(parsed, dict) else None
+                except Exception:
+                    prior_failures = None
+                error_detail = exc.detail
             return None, {
                 "applied": False,
                 "model_alias": getattr(self.client, "model_alias", FSJ_MODEL_ALIAS),
                 "prompt_version": getattr(self.client, "prompt_version", FSJ_LATE_PROMPT_VERSION),
                 "input_digest": input_digest,
-                "error": str(exc),
+                "error": error_detail,
+                "failure_classification": classification,
+                "policy": {
+                    "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
+                    "fallback_model_aliases": fallback_model_aliases,
+                    "attempted_model_chain": attempted_model_chain,
+                    "outcome": "deterministic_degrade",
+                    "operator_tag": f"llm_{classification}",
+                },
+                **({"attempt_failures": prior_failures} if prior_failures else {}),
             }
 
 
 class FSJEarlyLLMAssistant:
     def __init__(self, client: FSJEarlyLLMClient | None = None) -> None:
-        self.client = client or BusinessRepoEarlyLLMClient()
+        self.client = client or ResilientEarlyLLMClient()
 
     def maybe_synthesize(self, request: FSJEarlyLLMRequest) -> tuple[FSJEarlyLLMResult | None, dict[str, Any]]:
         input_digest = hashlib.sha1(
@@ -292,20 +494,51 @@ class FSJEarlyLLMAssistant:
         ).hexdigest()
         try:
             result = self.client.synthesize(request)
-            return result, result.audit_payload(input_digest=input_digest)
+            audit = result.audit_payload(input_digest=input_digest)
+            audit["policy"] = {
+                "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
+                "fallback_model_aliases": list(getattr(self.client, "fallback_model_aliases", [])),
+                "attempted_model_chain": (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("attempted_model_chain", [result.model_alias]),
+                "outcome": "fallback_applied" if result.model_alias != getattr(self.client, "primary_model_alias", result.model_alias) else "primary_applied",
+            }
+            failures = (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("failures", [])
+            if failures:
+                audit["policy"]["prior_failures"] = failures
+            return result, audit
         except Exception as exc:
+            classification = _classify_llm_exception(exc)
+            fallback_model_aliases = list(getattr(self.client, "fallback_model_aliases", []))
+            attempted_model_chain = [getattr(self.client, "model_alias", FSJ_MODEL_ALIAS), *fallback_model_aliases]
+            error_detail = str(exc)
+            prior_failures = None
+            if isinstance(exc, LLMInvocationFailure):
+                try:
+                    parsed = json.loads(exc.detail)
+                    prior_failures = parsed.get("failures") if isinstance(parsed, dict) else None
+                except Exception:
+                    prior_failures = None
+                error_detail = exc.detail
             return None, {
                 "applied": False,
                 "model_alias": getattr(self.client, "model_alias", FSJ_MODEL_ALIAS),
                 "prompt_version": getattr(self.client, "prompt_version", FSJ_EARLY_PROMPT_VERSION),
                 "input_digest": input_digest,
-                "error": str(exc),
+                "error": error_detail,
+                "failure_classification": classification,
+                "policy": {
+                    "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
+                    "fallback_model_aliases": fallback_model_aliases,
+                    "attempted_model_chain": attempted_model_chain,
+                    "outcome": "deterministic_degrade",
+                    "operator_tag": f"llm_{classification}",
+                },
+                **({"attempt_failures": prior_failures} if prior_failures else {}),
             }
 
 
 class FSJMidLLMAssistant:
     def __init__(self, client: FSJMidLLMClient | None = None) -> None:
-        self.client = client or BusinessRepoMidLLMClient()
+        self.client = client or ResilientMidLLMClient()
 
     def maybe_synthesize(self, request: FSJMidLLMRequest) -> tuple[FSJMidLLMResult | None, dict[str, Any]]:
         input_digest = hashlib.sha1(
@@ -313,14 +546,45 @@ class FSJMidLLMAssistant:
         ).hexdigest()
         try:
             result = self.client.synthesize(request)
-            return result, result.audit_payload(input_digest=input_digest)
+            audit = result.audit_payload(input_digest=input_digest)
+            audit["policy"] = {
+                "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
+                "fallback_model_aliases": list(getattr(self.client, "fallback_model_aliases", [])),
+                "attempted_model_chain": (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("attempted_model_chain", [result.model_alias]),
+                "outcome": "fallback_applied" if result.model_alias != getattr(self.client, "primary_model_alias", result.model_alias) else "primary_applied",
+            }
+            failures = (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("failures", [])
+            if failures:
+                audit["policy"]["prior_failures"] = failures
+            return result, audit
         except Exception as exc:
+            classification = _classify_llm_exception(exc)
+            fallback_model_aliases = list(getattr(self.client, "fallback_model_aliases", []))
+            attempted_model_chain = [getattr(self.client, "model_alias", FSJ_MODEL_ALIAS), *fallback_model_aliases]
+            error_detail = str(exc)
+            prior_failures = None
+            if isinstance(exc, LLMInvocationFailure):
+                try:
+                    parsed = json.loads(exc.detail)
+                    prior_failures = parsed.get("failures") if isinstance(parsed, dict) else None
+                except Exception:
+                    prior_failures = None
+                error_detail = exc.detail
             return None, {
                 "applied": False,
                 "model_alias": getattr(self.client, "model_alias", FSJ_MODEL_ALIAS),
                 "prompt_version": getattr(self.client, "prompt_version", FSJ_MID_PROMPT_VERSION),
                 "input_digest": input_digest,
-                "error": str(exc),
+                "error": error_detail,
+                "failure_classification": classification,
+                "policy": {
+                    "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
+                    "fallback_model_aliases": fallback_model_aliases,
+                    "attempted_model_chain": attempted_model_chain,
+                    "outcome": "deterministic_degrade",
+                    "operator_tag": f"llm_{classification}",
+                },
+                **({"attempt_failures": prior_failures} if prior_failures else {}),
             }
 
 
