@@ -1246,13 +1246,15 @@ class FSJStore:
             }
 
         def _summarize_db_candidate_alignment(
-            main_review_surface: dict[str, Any] | None,
+            review_surface: dict[str, Any] | None,
             db_candidate_rows: list[dict[str, Any]],
+            *,
+            subject: str,
         ) -> dict[str, Any]:
-            artifact = dict((main_review_surface or {}).get("artifact") or {})
-            candidate_comparison = dict((main_review_surface or {}).get("candidate_comparison") or {})
-            workflow_handoff = dict((main_review_surface or {}).get("workflow_handoff") or {})
-            state = dict((main_review_surface or {}).get("state") or {})
+            artifact = dict((review_surface or {}).get("artifact") or {})
+            candidate_comparison = dict((review_surface or {}).get("candidate_comparison") or {})
+            workflow_handoff = dict((review_surface or {}).get("workflow_handoff") or {})
+            state = dict((review_surface or {}).get("state") or {})
             selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
             ranked_candidates = [dict(item) for item in (candidate_comparison.get("ranked_candidates") or []) if isinstance(item, dict)]
             best_candidate = dict(ranked_candidates[0]) if ranked_candidates else dict((db_candidate_rows or [None])[0] or {})
@@ -1356,6 +1358,7 @@ class FSJStore:
                 )
 
             return {
+                "subject": subject,
                 "verdict": verdict,
                 "reason_code": reason_code,
                 "summary_line": summary_line,
@@ -1376,6 +1379,26 @@ class FSJStore:
                 "recommended_action": state.get("recommended_action"),
                 "selected_is_current": selected_handoff.get("selected_is_current"),
             }
+
+        def _summarize_db_candidate_history(
+            history_review_surfaces: list[dict[str, Any]],
+            db_candidate_rows: list[dict[str, Any]],
+        ) -> list[dict[str, Any]]:
+            history_summaries: list[dict[str, Any]] = []
+            for index, review_surface in enumerate(history_review_surfaces, start=1):
+                artifact = dict((review_surface or {}).get("artifact") or {})
+                history_summaries.append(
+                    {
+                        **_summarize_db_candidate_alignment(
+                            review_surface,
+                            db_candidate_rows,
+                            subject=f"history:{index}",
+                        ),
+                        "history_index": index,
+                        "artifact_status": artifact.get("status"),
+                    }
+                )
+            return history_summaries
 
         beijing = timezone(timedelta(hours=8))
         helper = MainReportDeliveryDispatchHelper()
@@ -1421,6 +1444,7 @@ class FSJStore:
                 "history_workflow": [],
                 "db_candidates": [],
                 "db_candidate_fleet_summary": {
+                    "subject": "main",
                     "verdict": "not_available",
                     "reason_code": "no_business_date",
                     "summary_line": "No business date could be resolved for the operator board.",
@@ -1441,6 +1465,7 @@ class FSJStore:
                     "recommended_action": None,
                     "selected_is_current": None,
                 },
+                "db_candidate_history_summary": [],
                 "llm_lineage_summary": empty_lineage,
                 "board_readiness_summary": {
                     "main": None,
@@ -1512,6 +1537,11 @@ class FSJStore:
             "db_candidates": [helper.summarize_candidate(c) for c in db_candidate_rows],
             "db_candidate_fleet_summary": _summarize_db_candidate_alignment(
                 main_review,
+                [helper.summarize_candidate(candidate) for candidate in db_candidate_rows],
+                subject="main",
+            ),
+            "db_candidate_history_summary": _summarize_db_candidate_history(
+                history_reviews,
                 [helper.summarize_candidate(candidate) for candidate in db_candidate_rows],
             ),
             "llm_lineage_summary": {

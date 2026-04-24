@@ -86,6 +86,11 @@ def _print_text(payload: dict[str, Any]) -> None:
     board_readiness = _safe_dict(payload.get("board_readiness_summary"))
     board_aggregate = _safe_dict(board_readiness.get("aggregate"))
     db_candidate_fleet = _safe_dict(payload.get("db_candidate_fleet_summary"))
+    db_candidate_history = [
+        _safe_dict(item)
+        for item in (payload.get("db_candidate_history_summary") or [])
+        if isinstance(item, dict)
+    ]
     print(f"business_date={payload.get('business_date') or '-'}")
     print(f"resolution_mode={resolution.get('mode') or '-'}")
     main = _safe_dict(payload.get("main"))
@@ -125,6 +130,15 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"db_candidate_best_artifact_id={db_candidate_fleet.get('best_candidate_artifact_id')}")
     print(f"db_candidate_selected_matches_best={db_candidate_fleet.get('selected_matches_best')}")
     print(f"db_candidate_current_matches_best={db_candidate_fleet.get('current_matches_best')}")
+    print(f"db_candidate_history_count={len(db_candidate_history)}")
+    if db_candidate_history:
+        first_history = db_candidate_history[0]
+        print(f"db_candidate_history_1_subject={first_history.get('subject')}")
+        print(f"db_candidate_history_1_verdict={first_history.get('verdict')}")
+        print(f"db_candidate_history_1_reason={first_history.get('reason_code')}")
+        print(f"db_candidate_history_1_summary={first_history.get('summary_line')}")
+        print(f"db_candidate_history_1_current_artifact_id={first_history.get('current_artifact_id')}")
+        print(f"db_candidate_history_1_best_artifact_id={first_history.get('best_candidate_artifact_id')}")
     print(f"fleet_ready_subjects={','.join(board_aggregate.get('ready_subjects') or [])}")
     print(f"fleet_review_subjects={','.join(board_aggregate.get('review_required_subjects') or [])}")
     print(f"fleet_blocked_subjects={','.join(board_aggregate.get('blocked_subjects') or [])}")

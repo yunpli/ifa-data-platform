@@ -134,6 +134,7 @@ class _BoardStore(_DummyStore):
             "history_workflow": [self.report_workflow_handoff_from_surface(surface) for surface in history],
             "db_candidates": [{"artifact_id": "main-artifact", "recommended_action": "send", "selection_reason": "best_ready_candidate strongest_slot=late qa_score=100"}],
             "db_candidate_fleet_summary": {
+                "subject": "main",
                 "verdict": "aligned",
                 "reason_code": "current_selected_match_best_candidate",
                 "summary_line": "Current MAIN artifact main-artifact matches the best DB candidate.",
@@ -143,6 +144,19 @@ class _BoardStore(_DummyStore):
                 "selected_matches_best": True,
                 "current_matches_best": True,
             },
+            "db_candidate_history_summary": [
+                {
+                    "subject": "history:1",
+                    "history_index": 1,
+                    "artifact_status": "active",
+                    "verdict": "aligned",
+                    "reason_code": "current_selected_match_best_candidate",
+                    "summary_line": "Current MAIN artifact main-artifact matches the best DB candidate.",
+                    "current_artifact_id": "main-artifact",
+                    "selected_artifact_id": "main-artifact",
+                    "best_candidate_artifact_id": "main-artifact",
+                }
+            ],
             "llm_lineage_summary": {
                 "main": main_review["llm_lineage_summary"] if main_review else None,
                 "support": {domain: (review["llm_lineage_summary"] if review else None) for domain, review in support_reviews.items()},
@@ -202,8 +216,11 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["history_reviews"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["history_workflow"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["db_candidates"][0]["artifact_id"] == "main-artifact"
+    assert payload["db_candidate_fleet_summary"]["subject"] == "main"
     assert payload["db_candidate_fleet_summary"]["verdict"] == "aligned"
     assert payload["db_candidate_fleet_summary"]["best_candidate_artifact_id"] == "main-artifact"
+    assert payload["db_candidate_history_summary"][0]["subject"] == "history:1"
+    assert payload["db_candidate_history_summary"][0]["best_candidate_artifact_id"] == "main-artifact"
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
     assert payload["llm_lineage_summary"]["aggregate"]["attention_subjects"] == ["support:commodities"]
     assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
@@ -232,6 +249,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
         "history": [{}, {}],
         "db_candidates": [{}, {}],
         "db_candidate_fleet_summary": {
+            "subject": "main",
             "verdict": "review_held",
             "reason_code": "review_held_selected_candidate_differs_from_current",
             "summary_line": "Current MAIN artifact main-artifact is not the selected DB candidate; operator selection is held on main-artifact-v2 for review.",
@@ -241,6 +259,18 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             "selected_matches_best": True,
             "current_matches_best": False,
         },
+        "db_candidate_history_summary": [
+            {
+                "subject": "history:1",
+                "history_index": 1,
+                "artifact_status": "superseded",
+                "verdict": "mismatch",
+                "reason_code": "better_ready_candidate_selected_current_outdated",
+                "summary_line": "Current MAIN artifact main-artifact is not the best DB candidate; selected artifact main-artifact-v2 supersedes it as the best ready candidate.",
+                "current_artifact_id": "main-artifact",
+                "best_candidate_artifact_id": "main-artifact-v2",
+            }
+        ],
         "llm_lineage_summary": {
             "main": {"status": "applied", "summary_line": "applied [applied=1/1]"},
             "support": {
@@ -279,6 +309,9 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "db_candidate_fleet_reason=review_held_selected_candidate_differs_from_current" in output
     assert "db_candidate_selected_artifact_id=main-artifact-v2" in output
     assert "db_candidate_current_matches_best=False" in output
+    assert "db_candidate_history_count=1" in output
+    assert "db_candidate_history_1_subject=history:1" in output
+    assert "db_candidate_history_1_reason=better_ready_candidate_selected_current_outdated" in output
     assert "fleet_review_subjects=support:commodities" in output
     assert "fleet_attention_subjects=support:commodities" in output
     assert "support_macro=NONE" in output
@@ -373,6 +406,7 @@ def test_store_build_operator_board_surface_projects_review_held_db_candidate_su
     payload = _ActualBoardStore().build_operator_board_surface(business_date="2099-04-22", history_limit=2)
 
     summary = payload["db_candidate_fleet_summary"]
+    assert summary["subject"] == "main"
     assert summary["verdict"] == "review_held"
     assert summary["reason_code"] == "review_held_selected_candidate_differs_from_current"
     assert summary["current_artifact_id"] == "artifact-current"
@@ -381,3 +415,6 @@ def test_store_build_operator_board_surface_projects_review_held_db_candidate_su
     assert summary["selected_matches_best"] is True
     assert summary["current_matches_best"] is False
     assert payload["db_candidates"][0]["artifact_id"] == "artifact-selected"
+    assert payload["db_candidate_history_summary"][0]["subject"] == "history:1"
+    assert payload["db_candidate_history_summary"][0]["verdict"] == "review_held"
+    assert payload["db_candidate_history_summary"][0]["current_artifact_id"] == "artifact-current"
