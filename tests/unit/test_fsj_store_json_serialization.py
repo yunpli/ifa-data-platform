@@ -8,8 +8,13 @@ from pathlib import Path
 from ifa_data_platform.fsj.store import FSJStore
 
 
+class _ProjectionOnlyStore(FSJStore):
+    def __init__(self) -> None:
+        pass
+
+
 def test_json_dumps_normalizes_non_native_json_types() -> None:
-    store = FSJStore()
+    store = _ProjectionOnlyStore()
 
     dumped = store._json_dumps(
         {
@@ -34,7 +39,7 @@ def test_json_dumps_normalizes_non_native_json_types() -> None:
 def test_report_workflow_handoff_projection_preserves_operator_readiness_fields() -> None:
     from ifa_data_platform.fsj.store import FSJStore
 
-    store = FSJStore()
+    store = _ProjectionOnlyStore()
     summary = store.report_workflow_handoff_from_surface({
         "artifact": {
             "artifact_id": "artifact-current",
@@ -86,7 +91,7 @@ def test_report_workflow_handoff_projection_preserves_operator_readiness_fields(
 
 
 def test_report_package_surface_projection_preserves_review_and_send_package_pointers() -> None:
-    store = FSJStore()
+    store = _ProjectionOnlyStore()
     surface = {
         "artifact": {
             "artifact_id": "artifact-current",
@@ -150,7 +155,7 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
 
 
 def test_report_operator_review_surface_projection_prefers_db_backed_review_payload() -> None:
-    store = FSJStore()
+    store = _ProjectionOnlyStore()
     surface = {
         "artifact": {
             "artifact_id": "artifact-current",
@@ -215,3 +220,51 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["go_no_go_decision"] == "NO_GO"
     assert summary["review_summary"]["selected_is_current"] is False
     assert summary["package_paths"]["delivery_package_dir"] == "/tmp/selected-pkg"
+
+
+def test_report_operator_review_query_helpers_project_from_delivery_surfaces() -> None:
+    class _Store(FSJStore):
+        def __init__(self) -> None:
+            pass
+
+        def get_active_report_delivery_surface(self, **_: object) -> dict | None:
+            return {
+                "artifact": {"artifact_id": "artifact-active", "status": "active"},
+                "delivery_package": {
+                    "package_state": "ready",
+                    "ready_for_delivery": True,
+                    "quality_gate": {"score": 99, "blocker_count": 0, "warning_count": 0},
+                    "workflow": {"recommended_action": "send", "workflow_state": "ready_to_send"},
+                },
+                "workflow_linkage": {},
+            }
+
+        def get_latest_active_report_delivery_surface(self, **_: object) -> dict | None:
+            return self.get_active_report_delivery_surface()
+
+        def list_report_delivery_surfaces(self, **_: object) -> list[dict]:
+            return [self.get_active_report_delivery_surface()]
+
+    store = _Store()
+
+    active = store.get_active_report_operator_review_surface(
+        business_date="2099-04-22",
+        agent_domain="main",
+        artifact_family="main_final_report",
+    )
+    latest = store.get_latest_active_report_operator_review_surface(
+        agent_domain="main",
+        artifact_family="main_final_report",
+    )
+    history = store.list_report_operator_review_surfaces(
+        business_date="2099-04-22",
+        agent_domain="main",
+        artifact_family="main_final_report",
+    )
+
+    assert active is not None
+    assert active["artifact"]["artifact_id"] == "artifact-active"
+    assert active["review_summary"]["go_no_go_decision"] == "GO"
+    assert latest is not None
+    assert latest["artifact"]["artifact_id"] == "artifact-active"
+    assert history[0]["artifact"]["artifact_id"] == "artifact-active"

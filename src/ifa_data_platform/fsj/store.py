@@ -763,6 +763,58 @@ class FSJStore:
             ).mappings().all()
         return [self._report_delivery_surface_from_artifact(self._mapping_to_dict(row)) for row in rows]
 
+    def get_active_report_operator_review_surface(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        artifact_family: str,
+    ) -> dict[str, Any] | None:
+        surface = self.get_active_report_delivery_surface(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+        )
+        if not surface:
+            return None
+        return self.report_operator_review_surface_from_surface(surface)
+
+    def get_latest_active_report_operator_review_surface(
+        self,
+        *,
+        agent_domain: str,
+        artifact_family: str,
+        strongest_slot: str | None = None,
+        max_business_date: str | date | None = None,
+    ) -> dict[str, Any] | None:
+        surface = self.get_latest_active_report_delivery_surface(
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+            strongest_slot=strongest_slot,
+            max_business_date=max_business_date,
+        )
+        if not surface:
+            return None
+        return self.report_operator_review_surface_from_surface(surface)
+
+    def list_report_operator_review_surfaces(
+        self,
+        *,
+        business_date: str,
+        agent_domain: str,
+        artifact_family: str,
+        statuses: list[str] | tuple[str, ...] | None = None,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        surfaces = self.list_report_delivery_surfaces(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+            statuses=statuses,
+            limit=limit,
+        )
+        return [self.report_operator_review_surface_from_surface(surface) for surface in surfaces]
+
     def _report_delivery_surface_from_artifact(self, artifact: dict[str, Any]) -> dict[str, Any]:
         metadata = dict(artifact.get("metadata_json") or {})
         delivery_package = dict(metadata.get("delivery_package") or {})
@@ -975,20 +1027,24 @@ class FSJStore:
         else:
             resolution = {"mode": "explicit_business_date", "business_date": resolved_business_date}
         if not resolved_business_date:
-            return {"business_date": None, "resolution": resolution, "main": None, "main_package": None, "support": {d: None for d in ("ai_tech", "commodities", "macro")}, "support_packages": {d: None for d in ("ai_tech", "commodities", "macro")}, "history": [], "history_packages": [], "db_candidates": []}
+            return {"business_date": None, "resolution": resolution, "main": None, "main_package": None, "main_review": None, "support": {d: None for d in ("ai_tech", "commodities", "macro")}, "support_packages": {d: None for d in ("ai_tech", "commodities", "macro")}, "history": [], "history_packages": [], "history_reviews": [], "db_candidates": []}
         main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
+        main_review = self.get_active_report_operator_review_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
         support = {d: self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain=d, artifact_family="support_domain_report") for d in ("ai_tech", "commodities", "macro")}
         history = self.list_report_delivery_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
+        history_reviews = self.list_report_operator_review_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         db_candidates = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
             "main": self.report_workflow_handoff_from_surface(main_active) if main_active else None,
             "main_package": self.report_package_surface_from_surface(main_active) if main_active else None,
+            "main_review": main_review,
             "support": {d: self.report_workflow_handoff_from_surface(s) if s else None for d, s in support.items()},
             "support_packages": {d: self.report_package_surface_from_surface(s) if s else None for d, s in support.items()},
             "history": [self.report_workflow_handoff_from_surface(s) for s in history],
             "history_packages": [self.report_package_surface_from_surface(s) for s in history],
+            "history_reviews": history_reviews,
             "db_candidates": [helper.summarize_candidate(c) for c in db_candidates],
         }
 

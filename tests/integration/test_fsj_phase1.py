@@ -536,12 +536,25 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
             agent_domain='main',
             artifact_family='main_final_report',
         )
+        refreshed_review_surface = store.get_active_report_operator_review_surface(
+            business_date=business_date,
+            agent_domain='main',
+            artifact_family='main_final_report',
+        )
+        refreshed_review_history = store.list_report_operator_review_surfaces(
+            business_date=business_date,
+            agent_domain='main',
+            artifact_family='main_final_report',
+            statuses=['active', 'superseded'],
+            limit=8,
+        )
         refreshed_helper_surfaces = MainReportDeliveryDispatchHelper().list_db_delivery_candidates(
             business_date=business_date,
             store=store,
             limit=8,
         )
         assert refreshed_surface is not None
+        assert refreshed_review_surface is not None
         assert refreshed_surface['workflow_linkage']['send_manifest_path'] == workflow_result['send_manifest_path']
         assert refreshed_surface['workflow_linkage']['review_manifest_path'] == workflow_result['review_manifest_path']
         assert refreshed_surface['workflow_linkage']['workflow_manifest_path'] == workflow_result['workflow_manifest_path']
@@ -550,6 +563,11 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         assert refreshed_package_surface['package_paths']['send_manifest_path'] == workflow_result['send_manifest_path']
         assert refreshed_package_surface['package_paths']['review_manifest_path'] == workflow_result['review_manifest_path']
         assert refreshed_package_surface['package_paths']['operator_review_bundle_path'] == workflow_result['operator_review_bundle_path']
+        assert refreshed_review_surface['package_paths']['operator_review_bundle_path'] == workflow_result['operator_review_bundle_path']
+        assert refreshed_review_surface['candidate_comparison']['selected_artifact_id'] == workflow_result['selected_handoff']['selected_artifact_id']
+        assert refreshed_review_surface['operator_go_no_go']['decision'] == workflow_result['operator_review_bundle']['operator_go_no_go']['decision']
+        assert refreshed_review_history[0]['artifact']['artifact_id'] == workflow_result['artifact']['artifact_id']
+        assert refreshed_review_history[1]['artifact']['artifact_id'] == second['artifact']['artifact_id']
         assert refreshed_helper_surfaces[0]['send_manifest_path'] == workflow_result['send_manifest_path']
         assert refreshed_helper_surfaces[0]['review_manifest_path'] == workflow_result['review_manifest_path']
         assert refreshed_helper_surfaces[0]['workflow_manifest_path'] == workflow_result['workflow_manifest_path']

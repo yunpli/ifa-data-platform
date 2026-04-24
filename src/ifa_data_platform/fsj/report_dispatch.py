@@ -64,18 +64,14 @@ class DeliveryDispatchCandidate:
 class MainReportDeliveryDispatchHelper:
     """Select the best MAIN delivery package for send / send-review orchestration."""
 
-    def _published_candidate_from_surface(self, surface: dict[str, Any], *, source: str, store: FSJStore | None = None) -> dict[str, Any] | None:
-        artifact = dict(surface.get("artifact") or {})
-        delivery_package = dict(surface.get("delivery_package") or {})
-        if not delivery_package:
+    def _published_candidate_from_review_surface(self, review_surface: dict[str, Any], *, source: str) -> dict[str, Any] | None:
+        artifact = dict(review_surface.get("artifact") or {})
+        package_state = dict(review_surface.get("package_state") or {})
+        if not package_state:
             return None
-        store = store or FSJStore()
-        workflow_linkage = dict(surface.get("workflow_linkage") or {})
-        package_surface = store.report_package_surface_from_surface(surface)
-        review_surface = store.report_operator_review_surface_from_surface(surface)
-        workflow_handoff = dict(package_surface.get("workflow_handoff") or {})
-        package_paths = dict(package_surface.get("package_paths") or {})
-        selected_handoff = dict(package_surface.get("selected_handoff") or {})
+        package_paths = dict(review_surface.get("package_paths") or {})
+        selected_handoff = dict(review_surface.get("selected_handoff") or {})
+        workflow_handoff = dict(review_surface.get("workflow_handoff") or {})
         return {
             "artifact": artifact,
             "delivery_package_dir": package_paths.get("delivery_package_dir"),
@@ -95,20 +91,29 @@ class MainReportDeliveryDispatchHelper:
                 "report_run_id": artifact.get("report_run_id"),
                 "business_date": artifact.get("business_date"),
                 "artifact_family": artifact.get("artifact_family"),
-                "package_state": delivery_package.get("package_state"),
-                "ready_for_delivery": delivery_package.get("ready_for_delivery"),
-                "quality_gate": dict(delivery_package.get("quality_gate") or {}),
-                "slot_evaluation": dict(delivery_package.get("slot_evaluation") or {}),
-                "support_summary_aggregate": dict(delivery_package.get("support_summary_aggregate") or {}),
-                "dispatch_advice": dict(delivery_package.get("dispatch_advice") or {}),
-                "artifacts": dict(delivery_package.get("artifacts") or {}),
-                "workflow": dict(delivery_package.get("workflow") or {}),
+                "package_state": package_state.get("package_state"),
+                "ready_for_delivery": package_state.get("ready_for_delivery"),
+                "quality_gate": dict(package_state.get("quality_gate") or {}),
+                "slot_evaluation": dict(package_state.get("slot_evaluation") or {}),
+                "support_summary_aggregate": dict(package_state.get("support_summary_aggregate") or {}),
+                "dispatch_advice": dict(package_state.get("dispatch_advice") or {}),
+                "artifacts": dict(review_surface.get("package_artifacts") or {}),
+                "workflow": dict(workflow_handoff.get("state") or {}),
             },
             "report_evaluation": {},
             "package_index": {},
-            "workflow_linkage": workflow_linkage,
+            "workflow_linkage": {},
             "workflow_handoff": workflow_handoff,
-            "package_surface": package_surface,
+            "package_surface": {
+                "artifact": artifact,
+                "selected_handoff": selected_handoff,
+                "state": dict(review_surface.get("state") or {}),
+                "package_paths": package_paths,
+                "package_versions": dict(review_surface.get("package_versions") or {}),
+                "package_state": package_state,
+                "package_artifacts": dict(review_surface.get("package_artifacts") or {}),
+                "workflow_handoff": workflow_handoff,
+            },
             "review_surface": review_surface,
             "candidate_comparison": dict(review_surface.get("candidate_comparison") or {}),
             "operator_go_no_go": dict(review_surface.get("operator_go_no_go") or {}),
@@ -122,14 +127,14 @@ class MainReportDeliveryDispatchHelper:
         store: FSJStore | None = None,
     ) -> dict[str, Any] | None:
         store = store or FSJStore()
-        surface = store.get_active_report_delivery_surface(
+        review_surface = store.get_active_report_operator_review_surface(
             business_date=business_date,
             agent_domain="main",
             artifact_family="main_final_report",
         )
-        if not surface:
+        if not review_surface:
             return None
-        return self._published_candidate_from_surface(surface, source="db_active_delivery_surface", store=store)
+        return self._published_candidate_from_review_surface(review_surface, source="db_active_delivery_surface")
 
     def list_db_delivery_candidates(
         self,
@@ -139,7 +144,7 @@ class MainReportDeliveryDispatchHelper:
         limit: int = 8,
     ) -> list[dict[str, Any]]:
         store = store or FSJStore()
-        surfaces = store.list_report_delivery_surfaces(
+        review_surfaces = store.list_report_operator_review_surfaces(
             business_date=business_date,
             agent_domain="main",
             artifact_family="main_final_report",
@@ -147,9 +152,9 @@ class MainReportDeliveryDispatchHelper:
             limit=limit,
         )
         results: list[dict[str, Any]] = []
-        for index, surface in enumerate(surfaces):
-            source = "db_active_delivery_surface" if index == 0 and (surface.get("artifact") or {}).get("status") == "active" else "db_delivery_history_surface"
-            candidate = self._published_candidate_from_surface(surface, source=source, store=store)
+        for index, review_surface in enumerate(review_surfaces):
+            source = "db_active_delivery_surface" if index == 0 and (review_surface.get("artifact") or {}).get("status") == "active" else "db_delivery_history_surface"
+            candidate = self._published_candidate_from_review_surface(review_surface, source=source)
             if candidate:
                 results.append(candidate)
         return results

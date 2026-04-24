@@ -93,10 +93,12 @@ class _BoardStore(_DummyStore):
             "resolution": {"mode": resolution_mode, "business_date": business_date},
             "main": self.report_workflow_handoff_from_surface(main) if main else None,
             "main_package": self.report_package_surface_from_surface(main) if main else None,
+            "main_review": {"artifact": {"artifact_id": "main-artifact"}, "review_summary": {"go_no_go_decision": "GO"}},
             "support": {domain: self.report_workflow_handoff_from_surface(surface) if surface else None for domain, surface in support.items()},
             "support_packages": {domain: self.report_package_surface_from_surface(surface) if surface else None for domain, surface in support.items()},
             "history": [self.report_workflow_handoff_from_surface(surface) for surface in history],
             "history_packages": [self.report_package_surface_from_surface(surface) for surface in history],
+            "history_reviews": [{"artifact": {"artifact_id": "main-artifact"}, "review_summary": {"go_no_go_decision": "GO"}}],
             "db_candidates": [{"artifact_id": "main-artifact", "recommended_action": "send", "selection_reason": "best_ready_candidate strongest_slot=late qa_score=100"}],
         }
 class _DummyHelper:
@@ -115,12 +117,14 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["business_date"] == "2099-04-22"
     assert payload["main"]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["main_package"]["package_paths"]["delivery_package_dir"] is None
+    assert payload["main_review"]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
     assert payload["support_packages"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
     assert payload["support"]["commodities"]["artifact"]["artifact_id"] == "commodities-artifact"
     assert payload["support"]["ai_tech"]["artifact"]["artifact_id"] == "ai_tech-artifact"
     assert payload["history"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["history_packages"][0]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["history_reviews"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["db_candidates"][0]["artifact_id"] == "main-artifact"
 
 
