@@ -280,6 +280,10 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["llm_fallback_count"] == 1
     assert summary["review_summary"]["llm_lineage_status"] == "degraded"
     assert summary["review_summary"]["llm_lineage_summary"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late]"
+    assert summary["llm_role_policy"]["slot_boundary_modes"] == {}
+    assert summary["review_summary"]["llm_deterministic_owner_fields"] == []
+    assert summary["review_summary"]["llm_override_precedence"] == []
+    assert summary["review_summary"]["llm_slot_boundary_modes"] == {}
 
 
 def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> None:
@@ -327,7 +331,9 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
     assert lineage["summary"]["missing_bundle_count"] == 1
     assert lineage["summary"]["role_policy_versions"] == ["fsj_llm_role_policy_v1"]
     assert lineage["summary"]["boundary_modes"] == ["intraday_working"]
+    assert lineage["role_policy"]["deterministic_owner_fields"] == ["judgment.action"]
     assert lineage["role_policy"]["forbidden_decisions"] == ["declare_close_final_confirmation"]
+    assert lineage["role_policy"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
     assert lineage["bundles"][0]["bundle_id"] == "bundle-mid"
     assert lineage["bundles"][0]["role_policy_boundary_mode"] == "intraday_working"
     assert lineage["bundles"][1]["missing"] is True
@@ -357,7 +363,7 @@ def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_li
 
     assert summary["llm_lineage"]["artifact_id"] == "artifact-exported"
     assert summary["llm_lineage"]["summary"]["bundle_count"] == 1
-    assert summary["llm_role_policy"] == {}
+    assert summary["llm_role_policy"]["slot_boundary_modes"] == {}
     assert summary["llm_lineage_summary"]["status"] == "applied"
     assert summary["llm_lineage_summary"]["summary_line"] == "applied [applied=1/1 | primary=1]"
     assert summary["review_summary"]["llm_applied_count"] == 1

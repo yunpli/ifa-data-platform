@@ -256,6 +256,16 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert Path(result["candidate_comparison_path"]).exists()
     assert "## Candidate Comparison" in operator_review_readme
     assert workflow["support_summary_aggregate"]["domains"] == ["macro"]
+    assert operator_review_bundle["llm_role_policy_review"] == {
+        "policy_versions": [],
+        "slot_boundary_modes": {},
+        "deterministic_owner_fields": [],
+        "forbidden_decisions": [],
+        "override_precedence": [],
+    }
+    assert "## LLM Role Policy" in operator_review_readme
+    assert "deterministic_owner_fields:" in operator_review_readme
+    assert "override_precedence:" in operator_review_readme
     assert "## Review Checklist" in operator_review_readme
     assert "## Operator Go / No-Go" in operator_review_readme
     assert "## Artifact Integrity" in operator_review_readme

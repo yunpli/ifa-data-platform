@@ -940,6 +940,11 @@ class FSJStore:
         )
         llm_lineage_summary = self.report_llm_lineage_summary(llm_lineage)
         llm_role_policy = dict(llm_lineage.get("role_policy") or {})
+        llm_role_policy_by_slot = {
+            str(item.get("slot")): str(item.get("role_policy_boundary_mode"))
+            for item in (llm_lineage.get("bundles") or [])
+            if str(item.get("slot") or "").strip() and str(item.get("role_policy_boundary_mode") or "").strip()
+        }
 
         review_payload = dict(
             dict(normalized_surface.get("review_surface") or {})
@@ -984,7 +989,10 @@ class FSJStore:
             "workflow_handoff": workflow_handoff,
             "llm_lineage": llm_lineage,
             "llm_lineage_summary": llm_lineage_summary,
-            "llm_role_policy": llm_role_policy,
+            "llm_role_policy": {
+                **llm_role_policy,
+                "slot_boundary_modes": llm_role_policy_by_slot,
+            },
             "candidate_comparison": {
                 **candidate_comparison,
                 "selected": selected,
@@ -1023,6 +1031,9 @@ class FSJStore:
                 "llm_boundary_modes": list(llm_role_policy.get("boundary_modes") or []),
                 "llm_policy_versions": list(llm_role_policy.get("policy_versions") or []),
                 "llm_forbidden_decision_count": len(llm_role_policy.get("forbidden_decisions") or []),
+                "llm_deterministic_owner_fields": list(llm_role_policy.get("deterministic_owner_fields") or []),
+                "llm_override_precedence": list(llm_role_policy.get("override_precedence") or []),
+                "llm_slot_boundary_modes": llm_role_policy_by_slot,
             },
         }
 

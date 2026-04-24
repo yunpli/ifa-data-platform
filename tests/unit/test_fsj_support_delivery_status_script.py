@@ -123,6 +123,9 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
                 "policy_versions": ["fsj_llm_role_policy_v1"],
                 "boundary_modes": ["candidate_only"],
                 "forbidden_decisions": ["promote_candidate_to_same_day_confirmed_theme"],
+                "deterministic_owner_fields": ["judgment.action", "workflow_state_and_send_readiness"],
+                "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                "slot_boundary_modes": {"late": "candidate_only"},
             },
             "review_summary": {
                 "go_no_go_decision": "REVIEW",
@@ -152,6 +155,9 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     assert "llm_policy_versions=fsj_llm_role_policy_v1" in output
     assert "llm_boundary_modes=candidate_only" in output
     assert "llm_forbidden_decision_count=1" in output
+    assert "llm_deterministic_owner_fields=judgment.action,workflow_state_and_send_readiness" in output
+    assert "llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
+    assert "llm_slot_boundary_modes=late:candidate_only" in output
     assert "history_count=2" in output
 
 

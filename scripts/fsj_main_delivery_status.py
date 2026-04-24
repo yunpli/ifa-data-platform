@@ -126,6 +126,11 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"llm_policy_versions={','.join(llm_role_policy.get('policy_versions') or [])}")
     print(f"llm_boundary_modes={','.join(llm_role_policy.get('boundary_modes') or [])}")
     print(f"llm_forbidden_decision_count={len(llm_role_policy.get('forbidden_decisions') or [])}")
+    print(f"llm_deterministic_owner_fields={','.join(llm_role_policy.get('deterministic_owner_fields') or [])}")
+    print(f"llm_override_precedence={'>'.join(llm_role_policy.get('override_precedence') or [])}")
+    slot_boundary_modes = llm_role_policy.get('slot_boundary_modes') or {}
+    slot_boundary_mode_line = ','.join(f"{slot}:{slot_boundary_modes[slot]}" for slot in sorted(slot_boundary_modes))
+    print(f"llm_slot_boundary_modes={slot_boundary_mode_line}")
     print(f"history_count={len(payload.get('history') or [])}")
 
 

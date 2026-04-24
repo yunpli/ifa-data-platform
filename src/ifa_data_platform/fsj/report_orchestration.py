@@ -499,6 +499,7 @@ class MainReportMorningDeliveryOrchestrator:
             "package_browse_readme": published.get("package_browse_readme_path"),
         }
         artifact_checks = self._build_artifact_checks(package_artifacts)
+        llm_role_policy_review = self._build_llm_role_policy_review(llm_lineage)
         return {
             "artifact_type": "fsj_main_report_operator_review_bundle",
             "artifact_version": self.WORKFLOW_VERSION,
@@ -524,6 +525,7 @@ class MainReportMorningDeliveryOrchestrator:
             "support_summary_aggregate": delivery_manifest.get("support_summary_aggregate") or {},
             "llm_lineage": llm_lineage,
             "llm_lineage_summary": llm_lineage_summary,
+            "llm_role_policy_review": llm_role_policy_review,
             "send_manifest": send_manifest,
             "review_manifest": review_manifest,
             "artifact_checks": artifact_checks,
@@ -551,6 +553,7 @@ class MainReportMorningDeliveryOrchestrator:
         artifact_checks = list(bundle.get("artifact_checks") or [])
         operator_go_no_go = dict(bundle.get("operator_go_no_go") or {})
         candidate_comparison = dict(bundle.get("candidate_comparison") or {})
+        llm_role_policy_review = dict(bundle.get("llm_role_policy_review") or {})
 
         source_health = dict(quality_gate.get("source_health") or {})
         lines = [
@@ -582,6 +585,12 @@ class MainReportMorningDeliveryOrchestrator:
             f"- support_summary_count: `{support_summary.get('support_summary_count')}`",
             f"- support_report_link_count: `{support_summary.get('report_link_count')}`",
             "",
+            "## LLM Role Policy",
+            f"- policy_versions: `{', '.join(llm_role_policy_review.get('policy_versions') or []) or '-'}`",
+            f"- deterministic_owner_fields: `{', '.join(llm_role_policy_review.get('deterministic_owner_fields') or []) or '-'}`",
+            f"- forbidden_decisions: `{', '.join(llm_role_policy_review.get('forbidden_decisions') or []) or '-'}`",
+            f"- override_precedence: `{' > '.join(llm_role_policy_review.get('override_precedence') or []) or '-'}`",
+            "",
             "## Immediate Next Step",
             f"- send_manifest.next_step: `{send_manifest.get('next_step')}`",
             f"- review_manifest.next_step: `{review_manifest.get('next_step')}`",
@@ -599,6 +608,12 @@ class MainReportMorningDeliveryOrchestrator:
             lines.append(f"- [{item.get('status')}] {item.get('item')}: {item.get('detail')}")
 
         ranked_candidates = list(candidate_comparison.get("ranked_candidates") or [])
+        slot_boundary_modes = dict(llm_role_policy_review.get("slot_boundary_modes") or {})
+        if slot_boundary_modes:
+            lines.extend(["", "### Slot Boundary Modes"])
+            for slot, boundary_mode in slot_boundary_modes.items():
+                lines.append(f"- slot=`{slot}` boundary_mode=`{boundary_mode}`")
+
         if ranked_candidates:
             lines.extend(["", "## Candidate Comparison"])
             for item in ranked_candidates:
@@ -667,6 +682,27 @@ class MainReportMorningDeliveryOrchestrator:
 
         lines.append("")
         return "\n".join(lines)
+
+    def _build_llm_role_policy_review(self, llm_lineage: dict[str, Any]) -> dict[str, Any]:
+        bundles = list(llm_lineage.get("bundles") or [])
+        role_policy = dict(llm_lineage.get("role_policy") or {})
+        slot_boundary_modes: dict[str, str] = {}
+        for item in bundles:
+            slot = str(item.get("slot") or "").strip()
+            boundary_mode = str(
+                item.get("role_policy_boundary_mode")
+                or dict(item.get("role_policy") or {}).get("boundary_mode")
+                or ""
+            ).strip()
+            if slot and boundary_mode:
+                slot_boundary_modes[slot] = boundary_mode
+        return {
+            "policy_versions": list(role_policy.get("policy_versions") or []),
+            "slot_boundary_modes": slot_boundary_modes,
+            "deterministic_owner_fields": list(role_policy.get("deterministic_owner_fields") or []),
+            "forbidden_decisions": list(role_policy.get("forbidden_decisions") or []),
+            "override_precedence": list(role_policy.get("override_precedence") or []),
+        }
 
     def _build_artifact_checks(self, package_artifacts: dict[str, Any]) -> list[dict[str, Any]]:
         checks: list[dict[str, Any]] = []
