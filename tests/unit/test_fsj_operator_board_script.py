@@ -595,3 +595,54 @@ def test_store_build_operator_board_surface_projects_review_held_db_candidate_su
     assert payload["db_candidate_history_summary"][0]["subject"] == "history:1"
     assert payload["db_candidate_history_summary"][0]["verdict"] == "review_held"
     assert payload["db_candidate_history_summary"][0]["current_artifact_id"] == "artifact-current"
+
+
+def test_store_build_operator_board_surface_projects_better_ready_candidate_mismatch(monkeypatch) -> None:
+    class _ReadyHelper:
+        def list_db_delivery_candidates(self, **_: object) -> list[dict]:
+            return [
+                {"artifact": {"artifact_id": "artifact-ready-better"}, "delivery_manifest": {"artifact_id": "artifact-ready-better", "package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 96, "blocker_count": 0, "warning_count": 0}, "slot_evaluation": {"strongest_slot": "late"}}, "report_evaluation": {"summary": {"slot_scores": {"early": 90, "mid": 94, "late": 96}}}},
+                {"artifact": {"artifact_id": "artifact-current"}, "delivery_manifest": {"artifact_id": "artifact-current", "package_state": "ready", "ready_for_delivery": False, "quality_gate": {"score": 91, "blocker_count": 1, "warning_count": 1}, "slot_evaluation": {"strongest_slot": "late"}}, "report_evaluation": {"summary": {"slot_scores": {"early": 86, "mid": 88, "late": 91}}}},
+            ]
+
+        def summarize_candidate(self, candidate: dict) -> dict:
+            artifact_id = candidate["artifact"]["artifact_id"]
+            if artifact_id == "artifact-ready-better":
+                return {
+                    "artifact_id": artifact_id,
+                    "rank": 1,
+                    "ready_for_delivery": True,
+                    "recommended_action": "send",
+                    "selection_reason": "best_ready_candidate strongest_slot=late qa_score=96",
+                }
+            return {
+                "artifact_id": artifact_id,
+                "rank": 2,
+                "ready_for_delivery": False,
+                "recommended_action": "send_review",
+                "selection_reason": "best_available_candidate provisional_close_only_requires_review",
+            }
+
+    monkeypatch.setattr("ifa_data_platform.fsj.report_dispatch.MainReportDeliveryDispatchHelper", _ReadyHelper)
+    payload = _ActualBoardStore().build_operator_board_surface(business_date="2099-04-22", history_limit=2)
+
+    summary = payload["db_candidate_fleet_summary"]
+    assert summary["subject"] == "main"
+    assert summary["verdict"] == "mismatch"
+    assert summary["reason_code"] == "selection_state_diverged_from_best_ready_candidate"
+    assert summary["current_artifact_id"] == "artifact-current"
+    assert summary["selected_artifact_id"] == "artifact-selected"
+    assert summary["best_candidate_artifact_id"] == "artifact-ready-better"
+    assert summary["selected_matches_best"] is False
+    assert summary["current_matches_best"] is False
+    assert summary["best_candidate_recommended_action"] == "send"
+    assert summary["best_candidate_selection_reason"] == "best_ready_candidate strongest_slot=late qa_score=96"
+    assert summary["summary_line"] == (
+        "Current MAIN artifact artifact-current and selected artifact artifact-selected "
+        "both trail better ready DB candidate artifact-ready-better."
+    )
+    assert payload["db_candidates"][0]["artifact_id"] == "artifact-ready-better"
+    assert payload["db_candidate_history_summary"][0]["subject"] == "history:1"
+    assert payload["db_candidate_history_summary"][0]["verdict"] == "mismatch"
+    assert payload["db_candidate_history_summary"][0]["reason_code"] == "selection_state_diverged_from_best_ready_candidate"
+    assert payload["db_candidate_history_summary"][0]["best_candidate_artifact_id"] == "artifact-ready-better"

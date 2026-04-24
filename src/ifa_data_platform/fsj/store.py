@@ -1557,7 +1557,8 @@ class FSJStore:
             state = dict((review_surface or {}).get("state") or {})
             selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
             ranked_candidates = [dict(item) for item in (candidate_comparison.get("ranked_candidates") or []) if isinstance(item, dict)]
-            best_candidate = dict(ranked_candidates[0]) if ranked_candidates else dict((db_candidate_rows or [None])[0] or {})
+            canonical_db_candidates = [dict(item) for item in (db_candidate_rows or []) if isinstance(item, dict)]
+            best_candidate = dict(canonical_db_candidates[0]) if canonical_db_candidates else (dict(ranked_candidates[0]) if ranked_candidates else {})
             current_vs_selected = dict(candidate_comparison.get("current_vs_selected") or {})
 
             current_artifact_id = (
@@ -1651,11 +1652,18 @@ class FSJStore:
                     )
             else:
                 verdict = "mismatch"
-                reason_code = "selection_state_diverged_from_best_candidate"
-                summary_line = (
-                    f"Current MAIN artifact {current_artifact_id or '-'}, selected artifact {selected_artifact_id or '-'}, "
-                    f"and best DB candidate {best_artifact_id or '-'} are not aligned."
-                )
+                if best_candidate.get("ready_for_delivery"):
+                    reason_code = "selection_state_diverged_from_best_ready_candidate"
+                    summary_line = (
+                        f"Current MAIN artifact {current_artifact_id or '-'} and selected artifact {selected_artifact_id or '-'} "
+                        f"both trail better ready DB candidate {best_artifact_id or '-'}."
+                    )
+                else:
+                    reason_code = "selection_state_diverged_from_best_candidate"
+                    summary_line = (
+                        f"Current MAIN artifact {current_artifact_id or '-'}, selected artifact {selected_artifact_id or '-'}, "
+                        f"and best DB candidate {best_artifact_id or '-'} are not aligned."
+                    )
 
             return {
                 "subject": subject,
