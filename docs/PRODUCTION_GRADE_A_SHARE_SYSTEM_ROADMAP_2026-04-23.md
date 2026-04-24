@@ -464,14 +464,31 @@ QA exists, but full quality governance does not.
 ---
 
 ### P3-4. Test/live isolation hardening
-**Status:** Open risk  
+**Status:** Materially closed for current roadmap scope — FSJ pytest flows now fail fast unless an explicit non-live DB is set, publish paths also require an explicit non-live artifact root, default-`FSJStore()` helper/status/operator entrypoints are covered by regression tests, and the canonical FSJ live-touchpoint inventory is documented for audit  
 **Target:** prevent tests from polluting live production truth
 
-**Tasks**
-- isolate integration test DB from live DB
-- isolate fixture writes
-- add destructive-test guardrails
-- review current tests touching canonical tables
+**Delivered in current scope**
+- [x] isolate integration-test FSJ DB paths from live DB via pytest-time explicit non-live `DATABASE_URL` enforcement in `FSJStore`
+- [x] isolate fixture/artifact writes from canonical artifact roots via explicit non-live artifact-root guardrails on publish flows
+- [x] add destructive/live-write guardrails on default-store helper/status/operator entrypoints that would otherwise resolve canonical truth implicitly under pytest
+- [x] review and inventory current FSJ tests/touchpoints touching canonical tables and artifact roots
+
+**Evidence anchors**
+- `src/ifa_data_platform/fsj/test_live_isolation.py`
+- `src/ifa_data_platform/fsj/store.py`
+- `docs/FSJ_P3_4A_LIVE_DB_TOUCHPOINT_INVENTORY_2026-04-24.md`
+- `docs/FSJ_P3_4_TEST_LIVE_ISOLATION_CLOSEOUT_2026-04-24.md`
+- `tests/unit/test_fsj_store_live_isolation.py`
+- `tests/unit/test_fsj_report_dispatch.py`
+- `tests/unit/test_fsj_main_delivery_status_script.py`
+- `tests/unit/test_fsj_support_delivery_status_script.py`
+- `tests/unit/test_fsj_operator_board_script.py`
+- `tests/unit/test_fsj_support_dispatch_failure_status_script.py`
+- `tests/unit/test_fsj_report_rendering.py`
+
+**Deferred non-blocking expansions**
+- [ ] broaden the same isolation contract outside the current FSJ seam (archive/highfreq/lowfreq/midfreq and unrelated scripts)
+- [ ] add stronger repo-wide destructive-test linting or CI policy beyond the current FSJ guard envelope
 
 **Parallelizable:** yes
 
