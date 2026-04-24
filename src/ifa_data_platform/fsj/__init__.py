@@ -65,7 +65,11 @@ from .report_assembly import (
 )
 from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
-from .report_orchestration import MainReportMorningDeliveryOrchestrator, build_main_report_morning_delivery_orchestrator
+from .report_orchestration import (
+    MainReportMorningDeliveryOrchestrator,
+    build_main_report_morning_delivery_orchestrator,
+    build_support_report_delivery_publisher,
+)
 from .report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
 from .report_rendering import (
     MainReportArtifactPublishingService,
@@ -129,6 +133,7 @@ __all__ = [
     "MainReportMorningDeliveryOrchestrator",
     "MainReportHTMLRenderer",
     "build_main_report_morning_delivery_orchestrator",
+    "build_support_report_delivery_publisher",
     "MainReportQAEvaluator",
     "MainReportRenderingService",
     "MainReportSectionAssembler",

@@ -7,7 +7,12 @@ from typing import Any, Sequence
 import json
 
 from .report_dispatch import MainReportDeliveryDispatchHelper
-from .report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
+from .report_rendering import (
+    MainReportArtifactPublishingService,
+    MainReportRenderingService,
+    SupportReportArtifactPublishingService,
+    SupportReportRenderingService,
+)
 
 
 @dataclass(frozen=True)
@@ -47,6 +52,33 @@ def build_main_report_morning_delivery_orchestrator(
     return MainReportMorningDeliveryOrchestrator(
         publisher=publisher,
         dispatch_helper=dispatch_helper,
+    )
+
+
+def build_support_report_delivery_publisher(
+    *,
+    assembly_service: Any,
+    store: Any,
+    artifact_root: str | Path | None,
+    renderer: Any | None = None,
+    qa_evaluator: Any | None = None,
+) -> SupportReportArtifactPublishingService:
+    """Build the canonical support delivery/publish stack.
+
+    This is the reusable support-side assembly seam above rendering/publishing services.
+    Under pytest, publisher construction still fails fast unless an explicit non-live
+    artifact_root is supplied.
+    """
+
+    rendering_service = SupportReportRenderingService(
+        assembly_service=assembly_service,
+        renderer=renderer,
+    )
+    return SupportReportArtifactPublishingService(
+        rendering_service=rendering_service,
+        store=store,
+        qa_evaluator=qa_evaluator,
+        artifact_root=artifact_root,
     )
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ifa_data_platform.fsj.report_assembly import FSJReportAssemblyStore, SupportReportAssemblyService
-from ifa_data_platform.fsj.report_rendering import SupportReportArtifactPublishingService, SupportReportRenderingService
+from ifa_data_platform.fsj.report_orchestration import build_support_report_delivery_publisher
 from ifa_data_platform.fsj.store import FSJStore
 from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError, enforce_non_live_test_roots
 
@@ -55,11 +55,8 @@ def main() -> None:
     store = FSJStore()
     assembly_store = FSJReportAssemblyStore()
     assembly_service = SupportReportAssemblyService(store=assembly_store)
-    rendering_service = SupportReportRenderingService(
+    publisher = build_support_report_delivery_publisher(
         assembly_service=assembly_service,
-    )
-    publisher = SupportReportArtifactPublishingService(
-        rendering_service=rendering_service,
         store=store,
         artifact_root=Path(args.output_dir),
     )

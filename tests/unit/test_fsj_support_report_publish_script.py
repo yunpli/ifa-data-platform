@@ -63,8 +63,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
 
     monkeypatch.setattr(module, "FSJReportAssemblyStore", lambda: object())
     monkeypatch.setattr(module, "SupportReportAssemblyService", lambda store: _DummyAssemblyService())
-    monkeypatch.setattr(module, "SupportReportRenderingService", lambda assembly_service: object())
-    monkeypatch.setattr(module, "SupportReportArtifactPublishingService", _DummyPublisher)
+    monkeypatch.setattr(module, "build_support_report_delivery_publisher", lambda **kwargs: _DummyPublisher(rendering_service=None, store=kwargs["store"]))
     monkeypatch.setattr(
         module,
         "_resolve_canonical_publish_surface",
@@ -154,8 +153,7 @@ def test_support_publish_require_ready_blocks_without_publish(
 
     monkeypatch.setattr(module, "FSJReportAssemblyStore", lambda: object())
     monkeypatch.setattr(module, "SupportReportAssemblyService", lambda store: _DummyAssemblyService())
-    monkeypatch.setattr(module, "SupportReportRenderingService", lambda assembly_service: object())
-    monkeypatch.setattr(module, "SupportReportArtifactPublishingService", _UnexpectedPublisher)
+    monkeypatch.setattr(module, "build_support_report_delivery_publisher", lambda **kwargs: _UnexpectedPublisher())
 
     with pytest.raises(SystemExit) as exc:
         module.main()
