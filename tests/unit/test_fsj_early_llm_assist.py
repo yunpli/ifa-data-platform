@@ -154,6 +154,9 @@ def test_early_assembler_applies_llm_text_without_changing_deterministic_shape()
     assert "候选" in signal["statement"] and "验证" in signal["statement"]
     assert payload["bundle"]["payload_json"]["llm_assist"]["applied"] is True
     assert payload["bundle"]["payload_json"]["llm_assist"]["model_alias"] == "grok41_thinking"
+    assert payload["bundle"]["payload_json"]["llm_role_policy"]["policy_version"] == "fsj_llm_role_policy_v1"
+    assert payload["bundle"]["payload_json"]["llm_role_policy"]["boundary_mode"] == "candidate_only"
+    assert "promote_candidate_to_same_day_confirmed_theme" in payload["bundle"]["payload_json"]["llm_role_policy"]["forbidden_decisions"]
     assert judgment["attributes_json"]["llm_assist_applied"] is True
     assert judgment["attributes_json"]["llm_reasoning_trace"]
 

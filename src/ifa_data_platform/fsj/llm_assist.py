@@ -21,6 +21,102 @@ FSJ_FALLBACK_MODEL_ALIAS = "gemini31_pro_jmr"
 BUSINESS_REPO_MODELS_CONFIG = BUSINESS_REPO_ROOT / "config" / "llm" / "models.yaml"
 
 
+def build_fsj_role_policy(*, slot: str, contract_mode: str, completeness_label: str, degrade_reason: str | None) -> dict[str, Any]:
+    slot_policy: dict[str, dict[str, Any]] = {
+        "early": {
+            "boundary_mode": "candidate_only",
+            "allowed_output_fields": [
+                "bundle.summary",
+                "signal.statement",
+                "judgment.statement",
+                "judgment.invalidators",
+                "judgment.attributes.llm_reasoning_trace",
+            ],
+            "forbidden_decisions": [
+                "promote_candidate_to_same_day_confirmed_theme",
+                "rewrite_contract_mode_or_completeness_label",
+                "invent_open_or_post_open_market_truth",
+                "override_deterministic_object_type_or_judgment_action",
+            ],
+            "boundary_invariants": [
+                "llm_must_frame_output_as_candidate_pending_open_validation",
+                "llm_must_not_state_same_day_theme_is_confirmed",
+                "t_minus_1_or_text_context_cannot_be_presented_as_same_day_confirmation",
+            ],
+        },
+        "mid": {
+            "boundary_mode": "intraday_working",
+            "allowed_output_fields": [
+                "bundle.summary",
+                "validation_signal.statement",
+                "afternoon_signal.statement",
+                "judgment.statement",
+                "judgment.invalidators",
+                "judgment.attributes.llm_reasoning_trace",
+            ],
+            "forbidden_decisions": [
+                "declare_close_final_confirmation",
+                "rewrite_contract_mode_or_completeness_label",
+                "invent_afternoon_or_close_outcome",
+                "override_deterministic_object_type_or_judgment_action",
+            ],
+            "boundary_invariants": [
+                "llm_must_frame_output_as_intraday_working_state",
+                "llm_must_keep_afternoon_signal_as_follow_up_not_result",
+                "early_anchor_or_t_minus_1_context_cannot_be_presented_as_intraday_fact",
+            ],
+        },
+        "late": {
+            "boundary_mode": "same_day_close",
+            "allowed_output_fields": [
+                "bundle.summary",
+                "close_signal.statement",
+                "context_signal.statement",
+                "judgment.statement",
+                "judgment.invalidators",
+                "judgment.attributes.llm_reasoning_trace",
+            ],
+            "forbidden_decisions": [
+                "upgrade_provisional_close_without_required_same_day_evidence",
+                "rewrite_contract_mode_or_completeness_label",
+                "treat_intraday_context_as_final_close_confirmation",
+                "override_deterministic_object_type_or_judgment_action",
+            ],
+            "boundary_invariants": [
+                "llm_must_bind_close_conclusions_to_same_day_final_or_stable_inputs_only",
+                "intraday_context_is_explanatory_only_not_final_confirmation",
+                "llm_must_not_change_operator_visible_degrade_posture",
+            ],
+        },
+    }
+    policy = dict(slot_policy[slot])
+    policy.update(
+        {
+            "policy_version": "fsj_llm_role_policy_v1",
+            "slot": slot,
+            "contract_mode": contract_mode,
+            "completeness_label": completeness_label,
+            "degrade_reason": degrade_reason,
+            "deterministic_owner_fields": [
+                "implemented_scope",
+                "degrade.contract_mode",
+                "degrade.completeness_label",
+                "degrade.degrade_reason",
+                "object_types",
+                "judgment.action",
+                "workflow_state_and_send_readiness",
+            ],
+            "override_precedence": [
+                "deterministic_input_contract",
+                "deterministic_boundary_and_degrade_policy",
+                "validated_llm_text_fields_only",
+                "operator_review_and_send_selection",
+            ],
+        }
+    )
+    return policy
+
+
 @dataclass(frozen=True)
 class FSJLateLLMRequest:
     business_date: str

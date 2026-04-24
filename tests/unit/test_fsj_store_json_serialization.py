@@ -302,7 +302,14 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
                                 "outcome": "primary_applied",
                                 "attempted_model_chain": ["grok41_thinking"],
                             },
-                        }
+                        },
+                        "llm_role_policy": {
+                            "policy_version": "fsj_llm_role_policy_v1",
+                            "boundary_mode": "intraday_working",
+                            "forbidden_decisions": ["declare_close_final_confirmation"],
+                            "deterministic_owner_fields": ["judgment.action"],
+                            "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                        },
                     },
                 }
             }
@@ -318,7 +325,11 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
     assert lineage["summary"]["bundle_count"] == 2
     assert lineage["summary"]["primary_applied_count"] == 1
     assert lineage["summary"]["missing_bundle_count"] == 1
+    assert lineage["summary"]["role_policy_versions"] == ["fsj_llm_role_policy_v1"]
+    assert lineage["summary"]["boundary_modes"] == ["intraday_working"]
+    assert lineage["role_policy"]["forbidden_decisions"] == ["declare_close_final_confirmation"]
     assert lineage["bundles"][0]["bundle_id"] == "bundle-mid"
+    assert lineage["bundles"][0]["role_policy_boundary_mode"] == "intraday_working"
     assert lineage["bundles"][1]["missing"] is True
 
 
@@ -346,6 +357,7 @@ def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_li
 
     assert summary["llm_lineage"]["artifact_id"] == "artifact-exported"
     assert summary["llm_lineage"]["summary"]["bundle_count"] == 1
+    assert summary["llm_role_policy"] == {}
     assert summary["llm_lineage_summary"]["status"] == "applied"
     assert summary["llm_lineage_summary"]["summary_line"] == "applied [applied=1/1 | primary=1]"
     assert summary["review_summary"]["llm_applied_count"] == 1

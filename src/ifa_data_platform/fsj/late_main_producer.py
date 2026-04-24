@@ -11,6 +11,7 @@ from ifa_data_platform.fsj.llm_assist import (
     FSJLateLLMAssistant,
     FSJLateLLMRequest,
     build_fsj_late_evidence_packet,
+    build_fsj_role_policy,
 )
 from ifa_data_platform.fsj.store import FSJStore
 
@@ -948,6 +949,12 @@ class LateMainFSJAssembler:
                 "has_same_day_low_text": data.has_same_day_low_text,
             },
             "llm_assist": llm_audit,
+            "llm_role_policy": build_fsj_role_policy(
+                slot="late",
+                contract_mode=contract_mode,
+                completeness_label=completeness_label,
+                degrade_reason=degrade_reason,
+            ),
         }
 
     def _bundle_summary(self, data: LateMainProducerInput) -> str:

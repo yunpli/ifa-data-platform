@@ -14,6 +14,7 @@ from ifa_data_platform.fsj.llm_assist import (
     FSJEarlyLLMAssistant,
     FSJEarlyLLMRequest,
     build_fsj_early_evidence_packet,
+    build_fsj_role_policy,
 )
 from ifa_data_platform.fsj.store import FSJStore
 
@@ -692,6 +693,12 @@ class EarlyMainFSJAssembler:
                 "candidate_only": contract_mode == "candidate_only",
             },
             "llm_assist": llm_audit,
+            "llm_role_policy": build_fsj_role_policy(
+                slot="early",
+                contract_mode=contract_mode,
+                completeness_label=completeness_label,
+                degrade_reason=degrade_reason,
+            ),
         }
 
     def _bundle_summary(self, data: EarlyMainProducerInput) -> str:

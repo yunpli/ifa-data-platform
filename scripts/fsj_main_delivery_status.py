@@ -79,6 +79,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     llm_lineage = _safe_dict(active.get("llm_lineage"))
     llm_summary = _safe_dict(llm_lineage.get("summary"))
     llm_lineage_summary = _safe_dict(active.get("llm_lineage_summary"))
+    llm_role_policy = _safe_dict(active.get("llm_role_policy"))
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
     print(f"resolution_mode={resolution.get('mode')}")
@@ -122,6 +123,9 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"llm_operator_tags={','.join(llm_summary.get('operator_tags') or [])}")
     print(f"llm_lineage_status={llm_lineage_summary.get('status')}")
     print(f"llm_lineage_summary={llm_lineage_summary.get('summary_line')}")
+    print(f"llm_policy_versions={','.join(llm_role_policy.get('policy_versions') or [])}")
+    print(f"llm_boundary_modes={','.join(llm_role_policy.get('boundary_modes') or [])}")
+    print(f"llm_forbidden_decision_count={len(llm_role_policy.get('forbidden_decisions') or [])}")
     print(f"history_count={len(payload.get('history') or [])}")
 
 

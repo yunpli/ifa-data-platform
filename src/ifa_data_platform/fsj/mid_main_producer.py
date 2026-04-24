@@ -12,6 +12,7 @@ from ifa_data_platform.fsj.llm_assist import (
     FSJMidLLMAssistant,
     FSJMidLLMRequest,
     build_fsj_mid_evidence_packet,
+    build_fsj_role_policy,
 )
 from ifa_data_platform.fsj.store import FSJStore
 
@@ -844,6 +845,12 @@ class MidMainFSJAssembler:
             },
             "contract_mode": contract_mode,
             "llm_assist": llm_audit,
+            "llm_role_policy": build_fsj_role_policy(
+                slot="mid",
+                contract_mode=contract_mode,
+                completeness_label=completeness_label,
+                degrade_reason=degrade_reason,
+            ),
             "degrade": {
                 "freshness_label": freshness,
                 "has_any_high_evidence": data.has_any_high_evidence,

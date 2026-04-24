@@ -159,6 +159,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "status": "degraded",
                 "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late]",
             },
+            "llm_role_policy": {
+                "policy_versions": ["fsj_llm_role_policy_v1"],
+                "boundary_modes": ["same_day_close"],
+                "forbidden_decisions": ["upgrade_provisional_close_without_required_same_day_evidence"],
+            },
             "review_summary": {
                 "go_no_go_decision": "REVIEW",
             },
@@ -185,6 +190,9 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
     assert "llm_lineage_status=degraded" in output
     assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late]" in output
+    assert "llm_policy_versions=fsj_llm_role_policy_v1" in output
+    assert "llm_boundary_modes=same_day_close" in output
+    assert "llm_forbidden_decision_count=1" in output
     assert "history_count=2" in output
 
 

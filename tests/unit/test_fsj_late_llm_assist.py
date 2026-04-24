@@ -176,6 +176,9 @@ def test_late_assembler_applies_llm_text_without_changing_deterministic_shape() 
     assert close_signal["object_type"] == "confirmation"
     assert payload["bundle"]["payload_json"]["llm_assist"]["applied"] is True
     assert payload["bundle"]["payload_json"]["llm_assist"]["model_alias"] == "grok41_thinking"
+    assert payload["bundle"]["payload_json"]["llm_role_policy"]["policy_version"] == "fsj_llm_role_policy_v1"
+    assert payload["bundle"]["payload_json"]["llm_role_policy"]["boundary_mode"] == "same_day_close"
+    assert "upgrade_provisional_close_without_required_same_day_evidence" in payload["bundle"]["payload_json"]["llm_role_policy"]["forbidden_decisions"]
     assert judgment["attributes_json"]["llm_assist_applied"] is True
     assert judgment["attributes_json"]["llm_reasoning_trace"]
 

@@ -939,6 +939,7 @@ class FSJStore:
             or self.report_llm_lineage_from_artifact(artifact)
         )
         llm_lineage_summary = self.report_llm_lineage_summary(llm_lineage)
+        llm_role_policy = dict(llm_lineage.get("role_policy") or {})
 
         review_payload = dict(
             dict(normalized_surface.get("review_surface") or {})
@@ -983,6 +984,7 @@ class FSJStore:
             "workflow_handoff": workflow_handoff,
             "llm_lineage": llm_lineage,
             "llm_lineage_summary": llm_lineage_summary,
+            "llm_role_policy": llm_role_policy,
             "candidate_comparison": {
                 **candidate_comparison,
                 "selected": selected,
@@ -1018,6 +1020,9 @@ class FSJStore:
                 "llm_fallback_count": llm_lineage.get("summary", {}).get("fallback_applied_count"),
                 "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
                 "llm_lineage_status": llm_lineage_summary.get("status"),
+                "llm_boundary_modes": list(llm_role_policy.get("boundary_modes") or []),
+                "llm_policy_versions": list(llm_role_policy.get("policy_versions") or []),
+                "llm_forbidden_decision_count": len(llm_role_policy.get("forbidden_decisions") or []),
             },
         }
 
@@ -1087,6 +1092,7 @@ class FSJStore:
                 bundle_entries.append({"bundle_id": bundle_id, "missing": True})
                 continue
             policy = dict(llm_assist.get("policy") or {})
+            role_policy = dict(payload.get("llm_role_policy") or {})
             attempt_failures = list(llm_assist.get("attempt_failures") or policy.get("prior_failures") or [])
             bundle_entries.append(
                 {
@@ -1107,8 +1113,38 @@ class FSJStore:
                     "attempt_failure_count": len(attempt_failures),
                     "attempt_failures": attempt_failures,
                     "usage": dict(llm_assist.get("usage") or {}) if isinstance(llm_assist.get("usage"), dict) else None,
+                    "role_policy": role_policy,
+                    "role_policy_boundary_mode": role_policy.get("boundary_mode"),
+                    "role_policy_version": role_policy.get("policy_version"),
                 }
             )
+
+        role_policy_versions = sorted({str(item.get("role_policy_version")) for item in bundle_entries if item.get("role_policy_version")})
+        boundary_modes = sorted({str(item.get("role_policy_boundary_mode")) for item in bundle_entries if item.get("role_policy_boundary_mode")})
+        deterministic_owner_fields = sorted(
+            {
+                str(field)
+                for item in bundle_entries
+                for field in (dict(item.get("role_policy") or {}).get("deterministic_owner_fields") or [])
+                if str(field).strip()
+            }
+        )
+        forbidden_decisions = sorted(
+            {
+                str(field)
+                for item in bundle_entries
+                for field in (dict(item.get("role_policy") or {}).get("forbidden_decisions") or [])
+                if str(field).strip()
+            }
+        )
+        override_precedence = next(
+            (
+                list(dict(item.get("role_policy") or {}).get("override_precedence") or [])
+                for item in bundle_entries
+                if (dict(item.get("role_policy") or {}).get("override_precedence") or [])
+            ),
+            [],
+        )
 
         summary = {
             "bundle_count": len(bundle_entries),
@@ -1120,12 +1156,24 @@ class FSJStore:
             "deterministic_degrade_count": len([item for item in bundle_entries if item.get("outcome") == "deterministic_degrade"]),
             "operator_tags": sorted({str(item.get("operator_tag")) for item in bundle_entries if item.get("operator_tag")}),
             "slots": [item.get("slot") for item in bundle_entries if item.get("slot")],
+            "role_policy_versions": role_policy_versions,
+            "boundary_modes": boundary_modes,
+            "deterministic_owner_fields": deterministic_owner_fields,
+            "forbidden_decisions": forbidden_decisions,
+            "override_precedence": override_precedence,
         }
         return {
             "artifact_id": normalized_artifact.get("artifact_id"),
             "bundle_ids": bundle_ids,
             "summary": summary,
             "bundles": bundle_entries,
+            "role_policy": {
+                "policy_versions": role_policy_versions,
+                "boundary_modes": boundary_modes,
+                "deterministic_owner_fields": deterministic_owner_fields,
+                "forbidden_decisions": forbidden_decisions,
+                "override_precedence": override_precedence,
+            },
         }
 
     def build_operator_board_surface(
