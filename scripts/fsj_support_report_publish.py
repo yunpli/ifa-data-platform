@@ -58,7 +58,11 @@ def main() -> None:
     rendering_service = SupportReportRenderingService(
         assembly_service=assembly_service,
     )
-    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = SupportReportArtifactPublishingService(
+        rendering_service=rendering_service,
+        store=store,
+        artifact_root=Path(args.output_dir),
+    )
     assembled = assembly_service.assemble_support_section(
         business_date=args.business_date,
         agent_domain=args.agent_domain,

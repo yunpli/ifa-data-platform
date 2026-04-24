@@ -11,6 +11,7 @@ from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelp
 from ifa_data_platform.fsj.report_orchestration import MainReportMorningDeliveryOrchestrator
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 from ifa_data_platform.fsj.store import FSJStore
+from ifa_data_platform.fsj.test_live_isolation import enforce_non_live_test_roots
 
 
 def _parse_generated_at(value: str | None) -> datetime | None:
@@ -74,6 +75,8 @@ def main() -> None:
     parser.add_argument("--comparison-manifest", action="append", default=[], help="Path to an existing delivery_manifest.json to compare against; repeatable")
     args = parser.parse_args()
 
+    enforce_non_live_test_roots(flow_name="fsj_main_report_morning_delivery", output_path=args.output_dir)
+
     helper = MainReportDeliveryDispatchHelper()
     store = FSJStore()
     comparison_candidates = _load_comparison_candidates(
@@ -90,7 +93,11 @@ def main() -> None:
     rendering_service = MainReportRenderingService(
         assembly_service=MainReportAssemblyService(store=assembly_store),
     )
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(
+        rendering_service=rendering_service,
+        store=store,
+        artifact_root=Path(args.output_dir),
+    )
     orchestrator = MainReportMorningDeliveryOrchestrator(publisher=publisher, dispatch_helper=helper)
     result = orchestrator.run_workflow(
         business_date=args.business_date,

@@ -38,7 +38,11 @@ def main() -> None:
     rendering_service = MainReportRenderingService(
         assembly_service=MainReportAssemblyService(store=assembly_store),
     )
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(
+        rendering_service=rendering_service,
+        store=store,
+        artifact_root=Path(args.output_dir),
+    )
     published = publisher.publish_delivery_package(
         business_date=args.business_date,
         output_dir=Path(args.output_dir),

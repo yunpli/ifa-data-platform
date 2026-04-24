@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import json
+import pytest
 
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
@@ -15,6 +16,12 @@ from ifa_data_platform.fsj.report_rendering import (
     SupportReportHTMLRenderer,
     SupportReportRenderingService,
 )
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError as LiveIsolationError
+
+
+@pytest.fixture(autouse=True)
+def _explicit_test_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp")
 
 
 def _assembled_sections() -> dict:
@@ -337,7 +344,7 @@ def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=tmp_path)
 
     published = publisher.publish_main_report_html(
         business_date="2099-04-22",
@@ -380,7 +387,7 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=tmp_path)
 
     published = publisher.publish_delivery_package(
         business_date="2099-04-22",
@@ -558,7 +565,7 @@ def test_support_report_artifact_publisher_writes_html_manifest_and_linkage(tmp_
     stub = _StubSupportAssemblyService(_assembled_support_section())
     rendering_service = SupportReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=tmp_path)
 
     published = publisher.publish_support_report_html(
         business_date="2099-04-22",
@@ -606,7 +613,7 @@ def test_support_report_artifact_publisher_builds_delivery_package(tmp_path: Pat
     stub = _StubSupportAssemblyService(_assembled_support_section())
     rendering_service = SupportReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = SupportReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=tmp_path)
 
     published = publisher.publish_delivery_package(
         business_date="2099-04-22",
@@ -641,7 +648,7 @@ def test_main_report_artifact_delivery_package_marks_blocked_when_qa_fails(tmp_p
     stub = _StubAssemblyService(assembled)
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=tmp_path)
 
     published = publisher.publish_delivery_package(
         business_date="2099-04-22",
@@ -813,3 +820,55 @@ def test_main_report_delivery_dispatch_helper_falls_back_to_send_review_for_best
     assert decision["selection_reason"] == "best_available_candidate provisional_close_only_requires_review"
     assert comparison["selected_artifact_id"] == "artifact-provisional"
     assert comparison["current_vs_selected"]["delta_current_vs_selected"]["qa_score_delta"] == 0
+
+
+def test_main_report_artifact_publisher_requires_explicit_non_live_artifact_root_under_pytest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp")
+
+    with pytest.raises(LiveIsolationError, match="artifact_root must be set explicitly"):
+        MainReportArtifactPublishingService(
+            rendering_service=MainReportRenderingService(assembly_service=_StubAssemblyService(_assembled_sections())),
+            store=_StubStore(),
+        )
+
+    publisher = MainReportArtifactPublishingService(
+        rendering_service=MainReportRenderingService(assembly_service=_StubAssemblyService(_assembled_sections())),
+        store=_StubStore(),
+        artifact_root=tmp_path,
+    )
+    escaped_output = tmp_path.parent / "escaped-output"
+
+    with pytest.raises(LiveIsolationError, match="escapes explicit artifact_root contract"):
+        publisher.publish_main_report_html(
+            business_date="2099-04-22",
+            output_dir=escaped_output,
+            report_run_id="report-run-escaped",
+            generated_at=datetime(2099, 4, 22, 9, 30, tzinfo=timezone.utc),
+        )
+
+
+def test_support_report_artifact_publisher_requires_explicit_non_live_artifact_root_under_pytest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp")
+
+    with pytest.raises(LiveIsolationError, match="artifact_root must be set explicitly"):
+        SupportReportArtifactPublishingService(
+            rendering_service=SupportReportRenderingService(assembly_service=_StubSupportAssemblyService(_assembled_support_section())),
+            store=_StubStore(),
+        )
+
+    publisher = SupportReportArtifactPublishingService(
+        rendering_service=SupportReportRenderingService(assembly_service=_StubSupportAssemblyService(_assembled_support_section())),
+        store=_StubStore(),
+        artifact_root=tmp_path,
+    )
+    escaped_output = tmp_path.parent / "escaped-support-output"
+
+    with pytest.raises(LiveIsolationError, match="escapes explicit artifact_root contract"):
+        publisher.publish_support_report_html(
+            business_date="2099-04-22",
+            agent_domain="macro",
+            slot="early",
+            output_dir=escaped_output,
+            report_run_id="support-report-run-escaped",
+            generated_at=datetime(2099, 4, 22, 9, 0, tzinfo=timezone.utc),
+        )

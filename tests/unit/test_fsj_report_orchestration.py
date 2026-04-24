@@ -4,9 +4,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import json
+import pytest
 
 from ifa_data_platform.fsj.report_orchestration import MainReportMorningDeliveryOrchestrator
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
+
+
+@pytest.fixture(autouse=True)
+def _explicit_test_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp")
 
 
 def _assembled_sections() -> dict:
@@ -134,16 +140,16 @@ class _StubStore:
         return {"artifact_id": artifact_id, "metadata_json": {"workflow_linkage": workflow_linkage}}
 
 
-def _build_orchestrator() -> tuple[MainReportMorningDeliveryOrchestrator, _StubStore]:
+def _build_orchestrator(artifact_root: Path) -> tuple[MainReportMorningDeliveryOrchestrator, _StubStore]:
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=artifact_root)
     return MainReportMorningDeliveryOrchestrator(publisher=publisher), store
 
 
 def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(tmp_path: Path) -> None:
-    orchestrator, store = _build_orchestrator()
+    orchestrator, store = _build_orchestrator(tmp_path)
 
     result = orchestrator.run_workflow(
         business_date="2099-04-22",
@@ -209,7 +215,7 @@ def test_main_report_morning_delivery_workflow_marks_review_required_for_provisi
     stub = _StubAssemblyService(assembled)
     rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store)
+    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=tmp_path)
     orchestrator = MainReportMorningDeliveryOrchestrator(publisher=publisher)
 
     result = orchestrator.run_workflow(
@@ -233,7 +239,7 @@ def test_main_report_morning_delivery_workflow_marks_review_required_for_provisi
 
 
 def test_main_report_morning_delivery_workflow_marks_superseded_when_better_ready_candidate_exists(tmp_path: Path) -> None:
-    orchestrator, _ = _build_orchestrator()
+    orchestrator, _ = _build_orchestrator(tmp_path)
     better_ready = {
         "artifact": {"artifact_id": "artifact-better-ready", "report_run_id": "run-better-ready", "business_date": "2099-04-22"},
         "delivery_package_dir": "/tmp/better-ready",

@@ -16,6 +16,7 @@ from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
 from .report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
 from .store import FSJStore
+from .test_live_isolation import enforce_artifact_publish_root_contract, require_explicit_non_live_artifact_root
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
 RENDERER_VERSION = "v3"
@@ -424,12 +425,17 @@ class MainReportArtifactPublishingService:
         store: FSJStore,
         qa_evaluator: MainReportQAEvaluator | None = None,
         evaluation_harness: MainReportEvaluationHarness | None = None,
+        artifact_root: str | Path | None = None,
     ) -> None:
         self.rendering_service = rendering_service
         self.store = store
         self.qa_evaluator = qa_evaluator or MainReportQAEvaluator()
         self.evaluation_harness = evaluation_harness or MainReportEvaluationHarness()
         self.dispatch_helper = MainReportDeliveryDispatchHelper()
+        self.artifact_root = require_explicit_non_live_artifact_root(
+            flow_name=f"{self.__class__.__name__}.__init__",
+            artifact_root=artifact_root,
+        )
 
     def publish_main_report_html(
         self,
@@ -441,7 +447,11 @@ class MainReportArtifactPublishingService:
         generated_at: datetime | None = None,
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
-        output_path = Path(output_dir)
+        output_path = enforce_artifact_publish_root_contract(
+            flow_name=f"{self.__class__.__name__}.publish_main_report_html",
+            artifact_root=self.artifact_root,
+            output_path=output_dir,
+        )
         output_path.mkdir(parents=True, exist_ok=True)
         stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
         artifact_id = f"fsj-main-report:{business_date}:{stamp}:{uuid4().hex[:8]}"
@@ -594,7 +604,11 @@ class MainReportArtifactPublishingService:
             generated_at=generated_at,
             artifact_id=str(artifact["artifact_id"]),
         )
-        root_output_dir = Path(output_dir)
+        root_output_dir = enforce_artifact_publish_root_contract(
+            flow_name=f"{self.__class__.__name__}.publish_delivery_package",
+            artifact_root=self.artifact_root,
+            output_path=output_dir,
+        )
         package_dir = root_output_dir / package_slug
         package_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1034,10 +1048,15 @@ class SupportReportArtifactPublishingService:
         rendering_service: SupportReportRenderingService,
         store: FSJStore,
         qa_evaluator: SupportReportQAEvaluator | None = None,
+        artifact_root: str | Path | None = None,
     ) -> None:
         self.rendering_service = rendering_service
         self.store = store
         self.qa_evaluator = qa_evaluator or SupportReportQAEvaluator()
+        self.artifact_root = require_explicit_non_live_artifact_root(
+            flow_name=f"{self.__class__.__name__}.__init__",
+            artifact_root=artifact_root,
+        )
 
     def publish_support_report_html(
         self,
@@ -1050,7 +1069,11 @@ class SupportReportArtifactPublishingService:
         generated_at: datetime | None = None,
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
-        output_path = Path(output_dir)
+        output_path = enforce_artifact_publish_root_contract(
+            flow_name=f"{self.__class__.__name__}.publish_support_report_html",
+            artifact_root=self.artifact_root,
+            output_path=output_dir,
+        )
         output_path.mkdir(parents=True, exist_ok=True)
         stamp = generated_at.strftime("%Y%m%dT%H%M%SZ")
         artifact_id = f"fsj-support-report:{agent_domain}:{slot}:{business_date}:{stamp}:{uuid4().hex[:8]}"
@@ -1171,7 +1194,12 @@ class SupportReportArtifactPublishingService:
             slot=slot,
         )
         qa = self.qa_evaluator.evaluate(assembled, rendered)
-        qa_path = Path(output_dir) / f"a_share_support_{agent_domain}_{slot}_{business_date}_{generated_at.strftime('%Y%m%dT%H%M%SZ')}.qa.json"
+        root_output_dir = enforce_artifact_publish_root_contract(
+            flow_name=f"{self.__class__.__name__}.publish_delivery_package",
+            artifact_root=self.artifact_root,
+            output_path=output_dir,
+        )
+        qa_path = root_output_dir / f"a_share_support_{agent_domain}_{slot}_{business_date}_{generated_at.strftime('%Y%m%dT%H%M%SZ')}.qa.json"
         qa_path.write_text(json.dumps(qa, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
         package_slug = self._delivery_package_slug(
@@ -1181,7 +1209,6 @@ class SupportReportArtifactPublishingService:
             generated_at=generated_at,
             artifact_id=str(artifact["artifact_id"]),
         )
-        root_output_dir = Path(output_dir)
         package_dir = root_output_dir / package_slug
         package_dir.mkdir(parents=True, exist_ok=True)
 

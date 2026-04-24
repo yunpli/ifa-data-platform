@@ -328,6 +328,7 @@ def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active
         publisher_v1 = MainReportArtifactPublishingService(
             rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='v1 summary')),
             store=store,
+            artifact_root=tmp_path,
         )
         first = publisher_v1.publish_main_report_html(
             business_date='2099-04-18',
@@ -339,6 +340,7 @@ def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active
         publisher_v2 = MainReportArtifactPublishingService(
             rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='v2 summary')),
             store=store,
+            artifact_root=tmp_path,
         )
         second = publisher_v2.publish_main_report_html(
             business_date='2099-04-18',
@@ -398,6 +400,7 @@ def test_latest_active_main_report_delivery_surface_resolves_by_business_date_an
         publisher = MainReportArtifactPublishingService(
             rendering_service=MainReportRenderingService(_StubAssemblyService(latest_bundle_id, summary='delivery summary')),
             store=store,
+            artifact_root=tmp_path,
         )
         older = publisher.publish_delivery_package(
             business_date=older_date,
@@ -472,6 +475,7 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         publisher = MainReportArtifactPublishingService(
             rendering_service=MainReportRenderingService(_StubAssemblyService(bundle_id, summary='delivery summary')),
             store=store,
+            artifact_root=tmp_path,
         )
         first = publisher.publish_delivery_package(
             business_date=business_date,
