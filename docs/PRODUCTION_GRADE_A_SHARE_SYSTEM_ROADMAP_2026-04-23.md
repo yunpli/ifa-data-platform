@@ -330,7 +330,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-2. Unified artifact registry / lineage index
-**Status:** Partial pieces exist  
+**Status:** In progress — first bounded registry slice landed via canonical artifact-family version-chain summary/query surface (`FSJStore.summarize_report_artifact_registry`, `scripts/fsj_artifact_lineage.py`)  
 **Target:** every report/package/review/send artifact must be queryable and comparable
 
 **Tasks**

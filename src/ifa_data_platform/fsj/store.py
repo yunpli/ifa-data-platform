@@ -1625,6 +1625,99 @@ class FSJStore:
             if (lineage := self.report_artifact_lineage_from_surface(surface)) is not None
         ]
 
+    def summarize_report_artifact_registry(
+        self,
+        *,
+        active_lineage: dict[str, Any] | None,
+        history_lineages: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        active = dict(active_lineage or {})
+        history = [dict(item) for item in (history_lineages or []) if isinstance(item, dict)]
+        if active and not history:
+            history = [active]
+
+        version_chain: list[dict[str, Any]] = []
+        seen_artifact_ids: set[str] = set()
+        for item in history:
+            artifact = dict(item.get("artifact") or {})
+            artifact_id = str(artifact.get("artifact_id") or "").strip()
+            if not artifact_id or artifact_id in seen_artifact_ids:
+                continue
+            seen_artifact_ids.add(artifact_id)
+            selection = dict(item.get("selection") or {})
+            canonical_lifecycle = dict(item.get("canonical_lifecycle") or {})
+            what_user_received = dict(item.get("what_user_received") or {})
+            bundle_summary = dict(item.get("bundle_lineage_summary") or {})
+            governance = dict(item.get("governance") or {})
+            promotion_authority = dict(item.get("promotion_authority") or {})
+            version_chain.append(
+                {
+                    "artifact_id": artifact_id,
+                    "status": artifact.get("status"),
+                    "report_run_id": artifact.get("report_run_id"),
+                    "supersedes_artifact_id": artifact.get("supersedes_artifact_id"),
+                    "created_at": artifact.get("created_at"),
+                    "updated_at": artifact.get("updated_at"),
+                    "selected_is_current": selection.get("selected_is_current"),
+                    "selected_artifact_id": selection.get("selected_artifact_id"),
+                    "canonical_lifecycle_state": canonical_lifecycle.get("state"),
+                    "canonical_lifecycle_reason": canonical_lifecycle.get("reason"),
+                    "dispatch_state": what_user_received.get("dispatch_state"),
+                    "provider_message_id": what_user_received.get("provider_message_id"),
+                    "bundle_count": int(bundle_summary.get("bundle_count") or 0),
+                    "missing_bundle_count": int(bundle_summary.get("missing_bundle_count") or 0),
+                    "governance_decision": governance.get("decision"),
+                    "promotion_authority_status": promotion_authority.get("status"),
+                    "is_active_head": bool(active and artifact_id == dict(active.get("artifact") or {}).get("artifact_id")),
+                }
+            )
+
+        artifact_ids = {str(item.get("artifact_id")) for item in version_chain if item.get("artifact_id")}
+        supersedes_targets = [
+            str(item.get("supersedes_artifact_id"))
+            for item in version_chain
+            if str(item.get("supersedes_artifact_id") or "").strip()
+        ]
+        dangling_supersedes_ids = sorted({target for target in supersedes_targets if target not in artifact_ids})
+        superseded_by_counts: dict[str, int] = {}
+        for target in supersedes_targets:
+            superseded_by_counts[target] = superseded_by_counts.get(target, 0) + 1
+        multiply_superseded_artifact_ids = sorted(
+            artifact_id for artifact_id, count in superseded_by_counts.items() if count > 1
+        )
+        active_artifact = dict(active.get("artifact") or {}) if active else {}
+        active_artifact_id = active_artifact.get("artifact_id")
+        active_dispatch_state = dict(active.get("what_user_received") or {}).get("dispatch_state") if active else None
+        active_bundle_summary = dict(active.get("bundle_lineage_summary") or {}) if active else {}
+        summary_line = (
+            f"head={active_artifact_id or '-'} | depth={len(version_chain)}"
+            f" | superseded={len([item for item in version_chain if item.get('status') == 'superseded'])}"
+            f" | withdrawn={len([item for item in version_chain if item.get('status') == 'withdrawn'])}"
+            f" | sent={len([item for item in version_chain if item.get('dispatch_state') == 'dispatch_succeeded'])}"
+            f" | dangling_supersedes={len(dangling_supersedes_ids)}"
+            f" | multiply_superseded={len(multiply_superseded_artifact_ids)}"
+        )
+        fallback_artifact = dict(history[0].get("artifact") or {}) if history else {}
+        return {
+            "artifact_family": active_artifact.get("artifact_family") or fallback_artifact.get("artifact_family"),
+            "business_date": active_artifact.get("business_date") or fallback_artifact.get("business_date"),
+            "agent_domain": active_artifact.get("agent_domain") or fallback_artifact.get("agent_domain"),
+            "active_artifact_id": active_artifact_id,
+            "active_report_run_id": active_artifact.get("report_run_id"),
+            "active_dispatch_state": active_dispatch_state,
+            "active_bundle_count": int(active_bundle_summary.get("bundle_count") or 0),
+            "active_missing_bundle_count": int(active_bundle_summary.get("missing_bundle_count") or 0),
+            "chain_depth": len(version_chain),
+            "superseded_count": len([item for item in version_chain if item.get("status") == "superseded"]),
+            "withdrawn_count": len([item for item in version_chain if item.get("status") == "withdrawn"]),
+            "sent_count": len([item for item in version_chain if item.get("dispatch_state") == "dispatch_succeeded"]),
+            "dangling_supersedes_ids": dangling_supersedes_ids,
+            "multiply_superseded_artifact_ids": multiply_superseded_artifact_ids,
+            "head_matches_history": bool(active_artifact_id) and active_artifact_id in artifact_ids,
+            "version_chain": version_chain,
+            "summary_line": summary_line,
+        }
+
     def _report_dispatch_receipt_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any]:
         normalized_surface = dict(surface or {})
         workflow_linkage = dict(normalized_surface.get("workflow_linkage") or {})

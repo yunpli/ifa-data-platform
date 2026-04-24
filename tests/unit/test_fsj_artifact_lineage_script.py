@@ -30,6 +30,19 @@ class _DummyStore:
             {"artifact": {"artifact_id": "artifact-prev"}},
         ]
 
+    def summarize_report_artifact_registry(self, **_: object) -> dict:
+        return {
+            "active_artifact_id": "artifact-active",
+            "chain_depth": 2,
+            "superseded_count": 1,
+            "withdrawn_count": 0,
+            "sent_count": 1,
+            "head_matches_history": True,
+            "dangling_supersedes_ids": [],
+            "multiply_superseded_artifact_ids": [],
+            "summary_line": "head=artifact-active | depth=2 | superseded=1 | withdrawn=0 | sent=1 | dangling_supersedes=0 | multiply_superseded=0",
+        }
+
 
 def test_build_payload_uses_artifact_lineage_store_helpers() -> None:
     payload = build_payload(
@@ -49,6 +62,8 @@ def test_build_payload_uses_artifact_lineage_store_helpers() -> None:
     assert payload["active"]["review_summary"]["promotion_authority_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
     assert payload["active"]["board_state_source"]["state_source_of_truth"] == "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
     assert len(payload["history"]) == 2
+    assert payload["registry"]["chain_depth"] == 2
+    assert payload["registry"]["head_matches_history"] is True
 
 
 def test_print_text_exposes_governance_and_promotion_authority_fields(capsys) -> None:
@@ -71,3 +86,5 @@ def test_print_text_exposes_governance_and_promotion_authority_fields(capsys) ->
     assert "promotion_authority_source_of_truth=ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff" in output
     assert "board_state_source=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff" in output
     assert "canonical_operator_bucket=terminal_dispatch" in output
+    assert "registry_chain_depth=2" in output
+    assert "registry_summary=head=artifact-active | depth=2 | superseded=1 | withdrawn=0 | sent=1 | dangling_supersedes=0 | multiply_superseded=0" in output

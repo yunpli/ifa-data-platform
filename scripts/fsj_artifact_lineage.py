@@ -43,6 +43,7 @@ def build_payload(
     )
     active = None
     history: list[dict[str, Any]] = []
+    registry: dict[str, Any] | None = None
     if resolved_business_date:
         active = store.get_active_report_artifact_lineage(
             business_date=resolved_business_date,
@@ -53,8 +54,12 @@ def build_payload(
             business_date=resolved_business_date,
             agent_domain=agent_domain,
             artifact_family=artifact_family,
-            statuses=["active", "superseded"],
+            statuses=["active", "superseded", "withdrawn"],
             limit=history_limit,
+        )
+        registry = store.summarize_report_artifact_registry(
+            active_lineage=active,
+            history_lineages=history,
         )
     return {
         "business_date": resolved_business_date,
@@ -63,6 +68,7 @@ def build_payload(
         "strongest_slot": strongest_slot,
         "active": active,
         "history": history,
+        "registry": registry,
     }
 
 
@@ -84,6 +90,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     canonical_state_vocabulary = _safe_dict(active.get("canonical_state_vocabulary"))
     bundle_summary = _safe_dict(active.get("bundle_lineage_summary"))
     llm_summary = _safe_dict(active.get("llm_lineage_summary"))
+    registry = _safe_dict(payload.get("registry"))
     if not artifact:
         print("active_artifact=NONE")
         print(f"history_count={len(payload.get('history') or [])}")
@@ -127,6 +134,15 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"bundle_section_keys={','.join(bundle_summary.get('section_keys') or [])}")
     print(f"llm_lineage_status={llm_summary.get('status')}")
     print(f"llm_lineage_summary={llm_summary.get('summary_line')}")
+    print(f"registry_active_artifact_id={registry.get('active_artifact_id')}")
+    print(f"registry_chain_depth={registry.get('chain_depth')}")
+    print(f"registry_superseded_count={registry.get('superseded_count')}")
+    print(f"registry_withdrawn_count={registry.get('withdrawn_count')}")
+    print(f"registry_sent_count={registry.get('sent_count')}")
+    print(f"registry_head_matches_history={registry.get('head_matches_history')}")
+    print(f"registry_dangling_supersedes_ids={','.join(registry.get('dangling_supersedes_ids') or [])}")
+    print(f"registry_multiply_superseded_artifact_ids={','.join(registry.get('multiply_superseded_artifact_ids') or [])}")
+    print(f"registry_summary={registry.get('summary_line')}")
     print(f"history_count={len(payload.get('history') or [])}")
 
 

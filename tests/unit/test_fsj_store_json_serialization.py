@@ -484,6 +484,73 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
     assert summary["bundle_lineage"][1]["missing"] is True
 
 
+def test_summarize_report_artifact_registry_exposes_version_chain_audit_surface() -> None:
+    store = _ProjectionOnlyStore()
+
+    active = {
+        "artifact": {
+            "artifact_id": "artifact-current",
+            "artifact_family": "main_final_report",
+            "business_date": "2099-04-22",
+            "agent_domain": "main",
+            "report_run_id": "run-current",
+        },
+        "what_user_received": {"dispatch_state": "dispatch_succeeded"},
+        "bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 0},
+    }
+    history = [
+        {
+            "artifact": {
+                "artifact_id": "artifact-current",
+                "status": "active",
+                "report_run_id": "run-current",
+                "artifact_family": "main_final_report",
+                "business_date": "2099-04-22",
+                "agent_domain": "main",
+                "supersedes_artifact_id": "artifact-prev",
+            },
+            "selection": {"selected_is_current": True, "selected_artifact_id": "artifact-current"},
+            "canonical_lifecycle": {"state": "sent", "reason": "dispatch_receipt_succeeded"},
+            "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "42"},
+            "bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 0},
+            "governance": {"decision": "GO"},
+            "promotion_authority": {"status": "approved_to_send"},
+        },
+        {
+            "artifact": {
+                "artifact_id": "artifact-prev",
+                "status": "superseded",
+                "report_run_id": "run-prev",
+                "artifact_family": "main_final_report",
+                "business_date": "2099-04-22",
+                "agent_domain": "main",
+                "supersedes_artifact_id": "artifact-root",
+            },
+            "selection": {"selected_is_current": False, "selected_artifact_id": "artifact-current"},
+            "canonical_lifecycle": {"state": "superseded", "reason": "artifact_status_superseded"},
+            "what_user_received": {"dispatch_state": None, "provider_message_id": None},
+            "bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 0},
+            "governance": {"decision": "HOLD"},
+            "promotion_authority": {"status": "blocked"},
+        },
+    ]
+
+    summary = store.summarize_report_artifact_registry(active_lineage=active, history_lineages=history)
+
+    assert summary["active_artifact_id"] == "artifact-current"
+    assert summary["chain_depth"] == 2
+    assert summary["superseded_count"] == 1
+    assert summary["withdrawn_count"] == 0
+    assert summary["sent_count"] == 1
+    assert summary["head_matches_history"] is True
+    assert summary["dangling_supersedes_ids"] == ["artifact-root"]
+    assert summary["multiply_superseded_artifact_ids"] == []
+    assert summary["version_chain"][0]["is_active_head"] is True
+    assert summary["version_chain"][0]["dispatch_state"] == "dispatch_succeeded"
+    assert summary["version_chain"][1]["supersedes_artifact_id"] == "artifact-root"
+    assert summary["summary_line"] == "head=artifact-current | depth=2 | superseded=1 | withdrawn=0 | sent=1 | dangling_supersedes=1 | multiply_superseded=0"
+
+
 def test_project_report_state_vocabulary_exposes_explicit_canonical_mapping() -> None:
     store = _ProjectionOnlyStore()
 
