@@ -1,0 +1,213 @@
+{
+  "fixture": {
+    "business_date": "2099-04-22",
+    "slot": "late",
+    "section_key": "post_close_main",
+    "section_type": "thesis",
+    "bundle_topic_key": "mainline_close:2099-04-22",
+    "summary_topic": "A股收盘主线复盘",
+    "equity_daily_count": 420,
+    "equity_daily_latest_trade_date": "2099-04-22",
+    "equity_daily_sample_symbols": [
+      "300024.SZ",
+      "002031.SZ",
+      "601127.SH"
+    ],
+    "northbound_flow_count": 1,
+    "northbound_latest_trade_date": "2099-04-22",
+    "northbound_net_amount": 38.5,
+    "limit_up_detail_count": 78,
+    "limit_up_detail_latest_trade_date": "2099-04-22",
+    "limit_up_detail_sample_symbols": [
+      "300024.SZ",
+      "002031.SZ"
+    ],
+    "limit_up_down_status_count": 1,
+    "limit_up_down_latest_trade_date": "2099-04-22",
+    "limit_up_count": 56,
+    "limit_down_count": 3,
+    "dragon_tiger_count": 12,
+    "dragon_tiger_latest_trade_date": "2099-04-22",
+    "dragon_tiger_sample_symbols": [
+      "300024.SZ",
+      "002031.SZ"
+    ],
+    "sector_performance_count": 42,
+    "sector_performance_latest_trade_date": "2099-04-22",
+    "sector_performance_top_sector": "机器人",
+    "sector_performance_top_pct_chg": 4.8,
+    "latest_text_count": 4,
+    "latest_text_titles": [
+      "盘后业绩快报",
+      "政策催化",
+      "龙头澄清",
+      "机构点评"
+    ],
+    "latest_text_source_times": [
+      "2099-04-22T16:03:00+08:00",
+      "2099-04-22T15:41:00+08:00"
+    ],
+    "intraday_event_count": 5,
+    "intraday_event_latest_time": "2099-04-22T14:56:00+08:00",
+    "intraday_event_titles": [
+      "机器人午后回流",
+      "AI 应用分支走强"
+    ],
+    "intraday_leader_count": 3,
+    "intraday_leader_latest_time": "2099-04-22T14:57:00+08:00",
+    "intraday_leader_symbols": [
+      "300024.SZ",
+      "002031.SZ"
+    ],
+    "intraday_signal_scope_count": 2,
+    "intraday_signal_latest_time": "2099-04-22T14:58:00+08:00",
+    "intraday_validation_state": "confirmed",
+    "previous_late_summary": "T-1 晚报维持机器人主线高位扩散",
+    "same_day_mid_summary": "盘中机器人链条继续扩散并保持 validation=confirmed",
+    "replay_id": "replay-late-2099-04-22",
+    "slot_run_id": "slot-run-late-2099-04-22",
+    "report_run_id": null
+  },
+  "fallback_success": {
+    "bundle_summary": "A股收盘主线复盘：机器人链条在同日收盘稳定表、涨停结构与盘后文本之间形成共振，已通过 fallback 模型完成主线收盘结论补强。",
+    "judgment_statement": "晚报主线聚焦机器人链条：结论以同日 stable/final 事实为准；本次由 fallback 模型在 primary 超时后完成补强，盘中与T-1背景仅作演化解释和历史对照。",
+    "judgment_attributes": {
+      "contract_mode": "full_close_package",
+      "provisional_close_only": false,
+      "degrade_reason": null,
+      "same_day_final_structure_ready": true,
+      "same_day_stable_support_ready": true,
+      "same_day_low_text_ready": true,
+      "deferred": [
+        "support-agent merge not yet implemented",
+        "report artifact linking deferred",
+        "supersede/orchestration policy deferred"
+      ],
+      "llm_assist_applied": true,
+      "llm_reasoning_trace": [
+        "same-day final tables present",
+        "same-day timed text present",
+        "primary timeout then fallback success"
+      ]
+    },
+    "llm_assist": {
+      "applied": true,
+      "provider": "eval-stub",
+      "model_alias": "gemini31_pro_jmr",
+      "model_id": "gemini-3.1-pro",
+      "prompt_version": "fsj_late_main_v1",
+      "input_digest": "a94e1bc8d0c86e01023ed8cc6d0ae015d1202c70",
+      "usage": {
+        "total_tokens": 377
+      },
+      "reasoning_trace": [
+        "same-day final tables present",
+        "same-day timed text present",
+        "primary timeout then fallback success"
+      ],
+      "policy": {
+        "primary_model_alias": "grok41_thinking",
+        "fallback_model_aliases": [
+          "gemini31_pro_jmr"
+        ],
+        "attempted_model_chain": [
+          "grok41_thinking",
+          "gemini31_pro_jmr"
+        ],
+        "outcome": "fallback_applied",
+        "prior_failures": [
+          {
+            "model_alias": "grok41_thinking",
+            "classification": "timeout",
+            "detail": "Command '['ifa_llm_cli.py']' timed out after 120 seconds"
+          }
+        ]
+      }
+    },
+    "policy": {
+      "primary_model_alias": "grok41_thinking",
+      "fallback_model_aliases": [
+        "gemini31_pro_jmr"
+      ],
+      "attempted_model_chain": [
+        "grok41_thinking",
+        "gemini31_pro_jmr"
+      ],
+      "outcome": "fallback_applied",
+      "prior_failures": [
+        {
+          "model_alias": "grok41_thinking",
+          "classification": "timeout",
+          "detail": "Command '['ifa_llm_cli.py']' timed out after 120 seconds"
+        }
+      ]
+    }
+  },
+  "deterministic_degrade": {
+    "bundle_summary": "A股收盘主线复盘：已基于 same-day stable/final 市场表与 same-day 文本事实形成收盘结论。",
+    "judgment_statement": "将当前 same-day stable/final 事实作为晚报主线收盘结论依据；intraday retained 仅做演化解释，T-1 仅做历史对照。",
+    "judgment_attributes": {
+      "contract_mode": "full_close_package",
+      "provisional_close_only": false,
+      "degrade_reason": null,
+      "same_day_final_structure_ready": true,
+      "same_day_stable_support_ready": true,
+      "same_day_low_text_ready": true,
+      "deferred": [
+        "support-agent merge not yet implemented",
+        "report artifact linking deferred",
+        "supersede/orchestration policy deferred"
+      ],
+      "llm_assist_applied": false,
+      "llm_reasoning_trace": []
+    },
+    "llm_assist": {
+      "applied": false,
+      "model_alias": "grok41_thinking",
+      "prompt_version": "fsj_late_main_v1",
+      "input_digest": "a94e1bc8d0c86e01023ed8cc6d0ae015d1202c70",
+      "error": "{\"failures\": [{\"model_alias\": \"grok41_thinking\", \"classification\": \"timeout\", \"detail\": \"Command '['ifa_llm_cli.py']' timed out after 120 seconds\"}, {\"model_alias\": \"gemini31_pro_jmr\", \"classification\": \"provider_failure\", \"detail\": \"business repo llm cli failed: synthetic provider failure\"}]}",
+      "failure_classification": "provider_failure",
+      "policy": {
+        "primary_model_alias": "grok41_thinking",
+        "fallback_model_aliases": [
+          "gemini31_pro_jmr"
+        ],
+        "attempted_model_chain": [
+          "grok41_thinking",
+          "gemini31_pro_jmr"
+        ],
+        "outcome": "deterministic_degrade",
+        "operator_tag": "llm_provider_failure"
+      },
+      "attempt_failures": [
+        {
+          "model_alias": "grok41_thinking",
+          "classification": "timeout",
+          "detail": "Command '['ifa_llm_cli.py']' timed out after 120 seconds"
+        },
+        {
+          "model_alias": "gemini31_pro_jmr",
+          "classification": "provider_failure",
+          "detail": "business repo llm cli failed: synthetic provider failure"
+        }
+      ]
+    },
+    "policy": {
+      "primary_model_alias": "grok41_thinking",
+      "fallback_model_aliases": [
+        "gemini31_pro_jmr"
+      ],
+      "attempted_model_chain": [
+        "grok41_thinking",
+        "gemini31_pro_jmr"
+      ],
+      "outcome": "deterministic_degrade",
+      "operator_tag": "llm_provider_failure"
+    }
+  },
+  "verification": {
+    "policy_envelope_visible_beyond_unit_scope": true,
+    "verified_at_cli_eval_seam": "scripts/prove_fsj_late_llm_fallback.py"
+  }
+}

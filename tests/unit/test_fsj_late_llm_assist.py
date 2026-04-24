@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from ifa_data_platform.fsj.late_main_producer import LateMainFSJAssembler, LateMainProducerInput
+import subprocess
+
 from ifa_data_platform.fsj.llm_assist import (
     FSJLateLLMAssistant,
     FSJLateLLMRequest,
     FSJLateLLMResult,
+    LLMInvocationFailure,
+    ResilientLateLLMClient,
+    _classify_llm_exception,
     build_fsj_late_evidence_packet,
     build_fsj_late_prompt,
     parse_fsj_late_result,
@@ -45,6 +50,26 @@ class FailingLateLLMClient:
 
     def synthesize(self, request: FSJLateLLMRequest) -> FSJLateLLMResult:
         raise RuntimeError("synthetic llm failure")
+
+
+class TimeoutLateLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_late_main_v1"
+
+    def synthesize(self, request: FSJLateLLMRequest) -> FSJLateLLMResult:
+        raise subprocess.TimeoutExpired(cmd=["ifa_llm_cli.py"], timeout=120)
+
+
+class FallbackSuccessLateLLMClient(FakeLateLLMClient):
+    model_alias = "gemini31_pro_jmr"
+
+
+class BoundaryFailLateLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_late_main_v1"
+
+    def synthesize(self, request: FSJLateLLMRequest) -> FSJLateLLMResult:
+        raise RuntimeError("invalid llm field: close_signal_statement")
 
 
 def _sample_input() -> LateMainProducerInput:
@@ -163,3 +188,57 @@ def test_late_assembler_falls_back_when_llm_fails() -> None:
     assert "晚报主线收盘结论依据" in judgment["statement"]
     assert payload["bundle"]["payload_json"]["llm_assist"]["applied"] is False
     assert "synthetic llm failure" in payload["bundle"]["payload_json"]["llm_assist"]["error"]
+
+
+def test_resilient_late_client_uses_fallback_model_after_primary_failure() -> None:
+    client = ResilientLateLLMClient(clients=[FailingLateLLMClient(), FallbackSuccessLateLLMClient()])
+    result = client.synthesize(
+        FSJLateLLMRequest(
+            business_date="2099-04-22",
+            section_key="post_close_main",
+            contract_mode="full_close_package",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert result.model_alias == "gemini31_pro_jmr"
+    assert result.raw_response["_fsj_resilience"]["attempted_model_chain"] == ["grok41_thinking", "gemini31_pro_jmr"]
+    assert result.raw_response["_fsj_resilience"]["failures"][0]["classification"] == "invoke_error"
+
+
+def test_late_assistant_tags_timeout_deterministic_degrade() -> None:
+    _, audit = FSJLateLLMAssistant(TimeoutLateLLMClient()).maybe_synthesize(
+        FSJLateLLMRequest(
+            business_date="2099-04-22",
+            section_key="post_close_main",
+            contract_mode="full_close_package",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["applied"] is False
+    assert audit["failure_classification"] == "timeout"
+    assert audit["policy"]["operator_tag"] == "llm_timeout"
+    assert audit["policy"]["outcome"] == "deterministic_degrade"
+
+
+def test_late_assistant_surfaces_malformed_output_classification() -> None:
+    _, audit = FSJLateLLMAssistant(BoundaryFailLateLLMClient()).maybe_synthesize(
+        FSJLateLLMRequest(
+            business_date="2099-04-22",
+            section_key="post_close_main",
+            contract_mode="full_close_package",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["failure_classification"] == "malformed_output"
+    assert audit["policy"]["operator_tag"] == "llm_malformed_output"
+
+
+def test_late_failure_classifier_covers_timeout_and_malformed() -> None:
+    assert _classify_llm_exception(subprocess.TimeoutExpired(cmd=["x"], timeout=3)) == "timeout"
+    assert _classify_llm_exception(LLMInvocationFailure("malformed_output", "bad json", "grok41_thinking")) == "malformed_output"
