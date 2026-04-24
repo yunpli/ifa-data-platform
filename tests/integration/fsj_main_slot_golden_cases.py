@@ -10,15 +10,17 @@ from sqlalchemy import text
 
 from ifa_data_platform.fsj import FSJStore
 from ifa_data_platform.fsj.early_main_producer import EarlyMainFSJAssembler, EarlyMainFSJProducer, EarlyMainProducerInput
-from ifa_data_platform.fsj.late_main_producer import LateMainFSJProducer, LateMainProducerInput
+from ifa_data_platform.fsj.late_main_producer import LateMainFSJAssembler, LateMainFSJProducer, LateMainProducerInput
 from ifa_data_platform.fsj.llm_assist import (
     FSJEarlyLLMAssistant,
     FSJEarlyLLMRequest,
     FSJEarlyLLMResult,
+    FSJLateLLMAssistant,
     FSJMidLLMAssistant,
     FSJMidLLMRequest,
     FSJMidLLMResult,
     ResilientEarlyLLMClient,
+    ResilientLateLLMClient,
     ResilientMidLLMClient,
 )
 from ifa_data_platform.fsj.mid_main_producer import MidMainFSJAssembler, MidMainFSJProducer, MidMainProducerInput
@@ -137,6 +139,45 @@ class FakeLateMainInputReader:
         assert slot == self.payload.slot
         assert section_key == self.payload.section_key
         return self.payload
+
+
+class PrimaryTimeoutLateLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_late_main_v1"
+
+    def synthesize(self, request) -> Any:
+        raise subprocess.TimeoutExpired(cmd=["ifa_llm_cli.py"], timeout=120)
+
+
+class FallbackSuccessLateLLMClient:
+    model_alias = "gemini31_pro_jmr"
+    prompt_version = "fsj_late_main_v1"
+
+    def synthesize(self, request) -> Any:
+        from ifa_data_platform.fsj.llm_assist import FSJLateLLMResult
+
+        return FSJLateLLMResult(
+            summary="A股收盘主线复盘：机器人链条在同日收盘稳定表、涨停结构与盘后文本之间形成共振，primary 超时后由 fallback 模型完成收盘结论补强。",
+            close_signal_statement="same-day stable/final 市场表、北向/涨停结构与盘后文本已同向对齐；primary 超时后由 fallback 模型完成 close package 表达。",
+            context_signal_statement="盘中机器人回流、龙头样本与 validation=confirmed 只用于解释日内强化路径，不替代收盘 final confirmation。",
+            judgment_statement="晚报主线聚焦机器人链条：结论以 same-day stable/final 事实为准；本次由 fallback 模型在 primary 超时后完成补强，盘中与 T-1 背景仅作演化解释和历史对照。",
+            invalidators=[
+                "若盘后稳定表复核后关键字段回撤或缺失，则当前主线结论回退",
+                "若同日文本样本无法对应机器人链条，则不得把结论扩写成更宽泛题材",
+                "若把 retained intraday context 当成收盘最终确认，则该判断无效",
+            ],
+            reasoning_trace=[
+                "same-day final tables present",
+                "same-day timed text present",
+                "primary timeout then fallback success",
+            ],
+            provider="eval-stub",
+            model_alias=self.model_alias,
+            model_id="gemini-3.1-pro",
+            prompt_version=self.prompt_version,
+            usage={"total_tokens": 377},
+            raw_response={"stub": True, "fallback": True},
+        )
 
 
 @dataclass(frozen=True)
@@ -401,37 +442,37 @@ def _build_mid_llm_fallback_case(store: FSJStore) -> MidMainFSJProducer:
     )
 
 
-def _build_late_case(store: FSJStore) -> LateMainFSJProducer:
-    sample = LateMainProducerInput(
+def _sample_late_input(*, bundle_topic_prefix: str = "mainline_close", full_close_ready: bool = False) -> LateMainProducerInput:
+    return LateMainProducerInput(
         business_date="2099-04-22",
         slot="late",
         section_key="post_close_main",
         section_type="thesis",
-        bundle_topic_key=f"mainline_close:{uuid.uuid4()}",
+        bundle_topic_key=f"{bundle_topic_prefix}:{uuid.uuid4()}",
         summary_topic="A股收盘主线复盘",
         equity_daily_count=420,
         equity_daily_latest_trade_date="2099-04-22",
         equity_daily_sample_symbols=["300024.SZ", "002031.SZ", "601127.SH"],
-        northbound_flow_count=0,
-        northbound_latest_trade_date=None,
-        northbound_net_amount=None,
-        limit_up_detail_count=0,
-        limit_up_detail_latest_trade_date=None,
-        limit_up_detail_sample_symbols=[],
-        limit_up_down_status_count=0,
-        limit_up_down_latest_trade_date=None,
-        limit_up_count=None,
-        limit_down_count=None,
-        dragon_tiger_count=0,
-        dragon_tiger_latest_trade_date=None,
-        dragon_tiger_sample_symbols=[],
-        sector_performance_count=0,
-        sector_performance_latest_trade_date=None,
-        sector_performance_top_sector=None,
-        sector_performance_top_pct_chg=None,
-        latest_text_count=0,
-        latest_text_titles=[],
-        latest_text_source_times=[],
+        northbound_flow_count=1 if full_close_ready else 0,
+        northbound_latest_trade_date="2099-04-22" if full_close_ready else None,
+        northbound_net_amount=38.5 if full_close_ready else None,
+        limit_up_detail_count=78 if full_close_ready else 0,
+        limit_up_detail_latest_trade_date="2099-04-22" if full_close_ready else None,
+        limit_up_detail_sample_symbols=["300024.SZ", "002031.SZ"] if full_close_ready else [],
+        limit_up_down_status_count=1 if full_close_ready else 0,
+        limit_up_down_latest_trade_date="2099-04-22" if full_close_ready else None,
+        limit_up_count=56 if full_close_ready else None,
+        limit_down_count=3 if full_close_ready else None,
+        dragon_tiger_count=12 if full_close_ready else 0,
+        dragon_tiger_latest_trade_date="2099-04-22" if full_close_ready else None,
+        dragon_tiger_sample_symbols=["300024.SZ", "002031.SZ"] if full_close_ready else [],
+        sector_performance_count=42 if full_close_ready else 0,
+        sector_performance_latest_trade_date="2099-04-22" if full_close_ready else None,
+        sector_performance_top_sector="机器人" if full_close_ready else None,
+        sector_performance_top_pct_chg=4.8 if full_close_ready else None,
+        latest_text_count=4 if full_close_ready else 0,
+        latest_text_titles=["盘后业绩快报", "政策催化", "龙头澄清", "机构点评"] if full_close_ready else [],
+        latest_text_source_times=["2099-04-22T16:03:00+08:00", "2099-04-22T15:41:00+08:00"] if full_close_ready else [],
         intraday_event_count=4,
         intraday_event_latest_time="2099-04-22T14:55:00+08:00",
         intraday_event_titles=["机器人午后回流", "AI 应用分支走强"],
@@ -447,7 +488,22 @@ def _build_late_case(store: FSJStore) -> LateMainFSJProducer:
         slot_run_id=f"slot-run:{uuid.uuid4()}",
         report_run_id=None,
     )
-    return LateMainFSJProducer(reader=FakeLateMainInputReader(sample), store=store)
+
+
+def _build_late_case(store: FSJStore) -> LateMainFSJProducer:
+    return LateMainFSJProducer(reader=FakeLateMainInputReader(_sample_late_input()), store=store)
+
+
+def _build_late_llm_fallback_case(store: FSJStore) -> LateMainFSJProducer:
+    return LateMainFSJProducer(
+        reader=FakeLateMainInputReader(_sample_late_input(bundle_topic_prefix="mainline_close_fallback", full_close_ready=True)),
+        store=store,
+        assembler=LateMainFSJAssembler(
+            llm_assistant=FSJLateLLMAssistant(
+                ResilientLateLLMClient(clients=[PrimaryTimeoutLateLLMClient(), FallbackSuccessLateLLMClient()])
+            )
+        ),
+    )
 
 
 MAIN_SLOT_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = (
@@ -540,6 +596,29 @@ MAIN_SLOT_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = (
             ("historical_reference", "archive_v2"),
         },
         minimum_counts={"object_cnt": 6, "edge_cnt": 4, "evidence_cnt": 8, "observed_cnt": 6},
+        expected_llm_outcome="fallback_applied",
+        expected_llm_applied=True,
+        expected_llm_model_alias="gemini31_pro_jmr",
+        expected_attempted_model_chain=["grok41_thinking", "gemini31_pro_jmr"],
+        required_attempt_failure_classifications={"timeout"},
+    ),
+    SlotGoldenCase(
+        name="late_llm_fallback_applied",
+        slot="late",
+        section_key="post_close_main",
+        producer_factory=_build_late_llm_fallback_case,
+        expected_judgment_action="confirm",
+        expected_object_type="thesis",
+        expected_contract_mode="full_close_package",
+        required_evidence_roles={
+            ("slot_replay", "runtime"),
+            ("source_observed", "midfreq"),
+            ("source_observed", "lowfreq"),
+            ("source_observed", "highfreq"),
+            ("prior_slot_reference", "fsj"),
+            ("historical_reference", "archive_v2"),
+        },
+        minimum_counts={"object_cnt": 8, "edge_cnt": 10, "evidence_cnt": 13, "observed_cnt": 10},
         expected_llm_outcome="fallback_applied",
         expected_llm_applied=True,
         expected_llm_model_alias="gemini31_pro_jmr",
