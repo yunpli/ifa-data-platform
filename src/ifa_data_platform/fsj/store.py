@@ -1897,6 +1897,75 @@ class FSJStore:
             "dispatch_receipt_error": dispatch_receipt.get("error"),
         }
 
+    def summarize_rerun_compare_surface(
+        self,
+        review_surface: dict[str, Any] | None,
+        db_candidate_rows: list[dict[str, Any]] | None,
+        *,
+        subject: str,
+    ) -> dict[str, Any]:
+        alignment = self.summarize_db_candidate_alignment(
+            review_surface,
+            db_candidate_rows,
+            subject=subject,
+        )
+        verdict = str(alignment.get("verdict") or "").strip()
+        current_artifact_id = alignment.get("current_artifact_id")
+        selected_artifact_id = alignment.get("selected_artifact_id")
+        best_candidate_artifact_id = alignment.get("best_candidate_artifact_id")
+
+        if verdict == "aligned":
+            compare_outcome = "no_rerun_gap"
+            operator_action = "keep_current_active_artifact"
+            operator_summary = (
+                f"{subject} rerun/replay compare is aligned; current active artifact "
+                f"{current_artifact_id or '-'} remains the operator truth."
+            )
+        elif verdict == "mismatch":
+            compare_outcome = "supersede_candidate_available"
+            operator_action = "review_and_promote_selected_candidate"
+            operator_summary = (
+                f"{subject} rerun/replay compare found a better candidate: current={current_artifact_id or '-'} "
+                f"selected={selected_artifact_id or '-'} best={best_candidate_artifact_id or '-'}; "
+                "operator should review and promote the selected candidate if evidence is accepted."
+            )
+        elif verdict == "review_held":
+            compare_outcome = "rerun_candidate_held_for_review"
+            operator_action = "review_selected_candidate_before_supersede"
+            operator_summary = (
+                f"{subject} rerun/replay compare is holding on selected candidate {selected_artifact_id or '-'}; "
+                "manual review is required before any supersede decision."
+            )
+        elif verdict == "hold":
+            compare_outcome = "candidate_on_hold"
+            operator_action = "hold_current_until_selected_candidate_clears"
+            operator_summary = (
+                f"{subject} rerun/replay compare is on hold: current={current_artifact_id or '-'} "
+                f"selected={selected_artifact_id or '-'} best={best_candidate_artifact_id or '-'}; "
+                "keep the current artifact active until the held candidate clears."
+            )
+        elif verdict == "current_only":
+            compare_outcome = "no_candidate_set"
+            operator_action = "inspect_candidate_generation"
+            operator_summary = (
+                f"{subject} rerun/replay compare has no alternate DB candidate; current artifact "
+                f"{current_artifact_id or '-'} is the only operator-visible version."
+            )
+        else:
+            compare_outcome = "not_available"
+            operator_action = "resolve_compare_inputs"
+            operator_summary = f"{subject} rerun/replay compare is not available yet; resolve current artifact and candidate inputs first."
+
+        return {
+            **alignment,
+            "compare_outcome": compare_outcome,
+            "operator_action": operator_action,
+            "operator_summary": operator_summary,
+            "rerun_candidate_present": bool(best_candidate_artifact_id),
+            "rerun_candidate_differs_from_current": bool(best_candidate_artifact_id and current_artifact_id and best_candidate_artifact_id != current_artifact_id),
+            "selected_candidate_differs_from_current": bool(selected_artifact_id and current_artifact_id and selected_artifact_id != current_artifact_id),
+        }
+
     def summarize_db_candidate_history(
         self,
         history_review_surfaces: list[dict[str, Any]] | None,
@@ -1907,7 +1976,7 @@ class FSJStore:
             artifact = dict((review_surface or {}).get("artifact") or {})
             history_summaries.append(
                 {
-                    **self.summarize_db_candidate_alignment(
+                    **self.summarize_rerun_compare_surface(
                         review_surface,
                         db_candidate_rows,
                         subject=f"history:{index}",

@@ -197,6 +197,21 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
             "selected_matches_best": True,
             "current_matches_best": False,
         },
+        "rerun_compare_summary": {
+            "subject": "main",
+            "verdict": "mismatch",
+            "reason_code": "better_ready_candidate_selected_current_outdated",
+            "summary_line": "Current MAIN artifact artifact-active is not the best DB candidate; selected artifact artifact-selected supersedes it as the best ready candidate.",
+            "current_artifact_id": "artifact-active",
+            "selected_artifact_id": "artifact-selected",
+            "best_candidate_artifact_id": "artifact-selected",
+            "compare_outcome": "supersede_candidate_available",
+            "operator_action": "review_and_promote_selected_candidate",
+            "operator_summary": "main rerun/replay compare found a better candidate: current=artifact-active selected=artifact-selected best=artifact-selected; operator should review and promote the selected candidate if evidence is accepted.",
+            "rerun_candidate_present": True,
+            "rerun_candidate_differs_from_current": True,
+            "selected_candidate_differs_from_current": True,
+        },
         "db_candidate_history_summary": [
             {
                 "subject": "history:1",
@@ -392,6 +407,12 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "db_candidate_best_artifact_id=artifact-selected" in output
     assert "db_candidate_candidate_count=2" in output
     assert "db_candidate_ready_candidate_count=1" in output
+    assert "rerun_compare_outcome=supersede_candidate_available" in output
+    assert "rerun_compare_operator_action=review_and_promote_selected_candidate" in output
+    assert "rerun_compare_candidate_present=True" in output
+    assert "rerun_compare_candidate_differs_from_current=True" in output
+    assert "rerun_compare_selected_differs_from_current=True" in output
+    assert "rerun_compare_summary=main rerun/replay compare found a better candidate: current=artifact-active selected=artifact-selected best=artifact-selected; operator should review and promote the selected candidate if evidence is accepted." in output
     assert "db_candidate_history_count=1" in output
     assert "db_candidate_history_1_subject=history:1" in output
     assert "db_candidate_history_1_verdict=mismatch" in output
@@ -450,9 +471,9 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
         def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
             return {"artifact": surface.get("artifact")}
 
-        def summarize_db_candidate_alignment(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
+        def summarize_rerun_compare_surface(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
             assert subject == "main"
-            return {"subject": subject, "verdict": "aligned", "candidate_count": len(db_candidates)}
+            return {"subject": subject, "verdict": "aligned", "candidate_count": len(db_candidates), "compare_outcome": "no_rerun_gap"}
 
         def summarize_db_candidate_history(self, history_surfaces: list[dict], db_candidates: list[dict]) -> list[dict]:
             assert history_surfaces == []
@@ -476,6 +497,7 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
     assert payload["business_date"] == "2099-04-22"
     assert payload["db_candidates"][0]["artifact_id"] == "artifact-1"
     assert payload["db_candidate_alignment_summary"]["verdict"] == "aligned"
+    assert payload["rerun_compare_summary"]["compare_outcome"] == "no_rerun_gap"
 
 
 def test_resolve_latest_main_business_date_uses_store_latest_operator_review_surface(monkeypatch) -> None:
@@ -559,8 +581,8 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
         def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
             return {"artifact": surface.get("artifact")}
 
-        def summarize_db_candidate_alignment(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
-            return {"subject": subject, "verdict": "aligned", "candidate_count": len(db_candidates)}
+        def summarize_rerun_compare_surface(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
+            return {"subject": subject, "verdict": "aligned", "candidate_count": len(db_candidates), "compare_outcome": "no_rerun_gap"}
 
         def summarize_db_candidate_history(self, history_surfaces: list[dict], db_candidates: list[dict]) -> list[dict]:
             return []
@@ -582,6 +604,8 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
     assert '"llm_lineage_summary": {' in output
     assert '"summary_line": "applied [applied=1/1 | primary=1 | models=grok41_thinking]"' in output
     assert '"db_candidate_alignment_summary": {' in output
+    assert '"rerun_compare_summary": {' in output
+    assert '"compare_outcome": "no_rerun_gap"' in output
     assert '"candidate_count": 1' in output
 
 

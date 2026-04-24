@@ -344,7 +344,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-3. Rerun / replay productization
-**Status:** Partial evidence/replay substrate exists  
+**Status:** In progress — first operator compare slice landed on 2026-04-24 via canonical `rerun_compare_summary` projection surfaced symmetrically in MAIN/support delivery-status reads, making rerun-vs-active gaps explicit/auditable without introducing a parallel replay system  
 **Target:** rerun becomes an operator action, not an engineering improvisation
 
 **Tasks**
@@ -359,7 +359,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-4. Production runbooks
-**Status:** In progress — early-slot normal-operations slice landed (`docs/FSJ_EARLY_SLOT_RUNBOOK.md`), thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`), thin send/dispatch-failure slice landed (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`), and thin data-source outage slice landed (`docs/FSJ_DATA_SOURCE_OUTAGE_RUNBOOK.md`, `scripts/fsj_source_health_status.py`)  
+**Status:** In progress — early-slot normal-operations slice landed (`docs/FSJ_EARLY_SLOT_RUNBOOK.md`), mid-slot normal-operations slice landed (`docs/FSJ_MID_SLOT_RUNBOOK.md`, `scripts/fsj_main_mid_publish.py`), thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`), thin send/dispatch-failure slice landed (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`), and thin data-source outage slice landed (`docs/FSJ_DATA_SOURCE_OUTAGE_RUNBOOK.md`, `scripts/fsj_source_health_status.py`)  
 **Target:** slot-specific incident handling and normal operations docs
 
 **Tasks**

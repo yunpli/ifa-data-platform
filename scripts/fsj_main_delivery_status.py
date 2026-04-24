@@ -77,13 +77,15 @@ def build_status_payload(*, business_date: str, history_limit: int = 5, resoluti
     )
     active_summary = _surface_summary(active_surface) if active_surface else None
     history_summaries = [_surface_summary(surface) for surface in history_surfaces]
+    rerun_compare_summary = store.summarize_rerun_compare_surface(active_summary, db_candidates, subject="main") if active_summary else None
     return {
         "business_date": business_date,
         "resolution": dict(resolution or {"mode": "explicit_business_date", "business_date": business_date}),
         "active_surface": active_summary,
         "history": history_summaries,
         "db_candidates": db_candidates,
-        "db_candidate_alignment_summary": store.summarize_db_candidate_alignment(active_summary, db_candidates, subject="main") if active_summary else None,
+        "db_candidate_alignment_summary": rerun_compare_summary,
+        "rerun_compare_summary": rerun_compare_summary,
         "db_candidate_history_summary": store.summarize_db_candidate_history(history_summaries, db_candidates),
     }
 
@@ -149,6 +151,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     received = _safe_dict(artifact_lineage.get("what_user_received"))
     history_rows = [_artifact_row(item) for item in (payload.get("history") or [])]
     db_candidate_alignment = _safe_dict(payload.get("db_candidate_alignment_summary"))
+    rerun_compare = _safe_dict(payload.get("rerun_compare_summary"))
     db_candidate_history = [_safe_dict(item) for item in (payload.get("db_candidate_history_summary") or []) if isinstance(item, dict)]
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
@@ -241,6 +244,12 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"db_candidate_ready_candidate_count={db_candidate_alignment.get('ready_candidate_count')}")
     print(f"db_candidate_selected_matches_best={db_candidate_alignment.get('selected_matches_best')}")
     print(f"db_candidate_current_matches_best={db_candidate_alignment.get('current_matches_best')}")
+    print(f"rerun_compare_outcome={rerun_compare.get('compare_outcome')}")
+    print(f"rerun_compare_operator_action={rerun_compare.get('operator_action')}")
+    print(f"rerun_compare_candidate_present={rerun_compare.get('rerun_candidate_present')}")
+    print(f"rerun_compare_candidate_differs_from_current={rerun_compare.get('rerun_candidate_differs_from_current')}")
+    print(f"rerun_compare_selected_differs_from_current={rerun_compare.get('selected_candidate_differs_from_current')}")
+    print(f"rerun_compare_summary={rerun_compare.get('operator_summary')}")
     print(f"db_candidate_history_count={len(db_candidate_history)}")
     if db_candidate_history:
         first_db_history = db_candidate_history[0]
