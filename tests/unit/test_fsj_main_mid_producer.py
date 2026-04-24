@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import subprocess
+
 from ifa_data_platform.fsj.llm_assist import (
     FSJMidLLMAssistant,
     FSJMidLLMRequest,
     FSJMidLLMResult,
+    LLMInvocationFailure,
+    ResilientMidLLMClient,
+    _classify_llm_exception,
     build_fsj_mid_evidence_packet,
     build_fsj_mid_prompt,
     parse_fsj_mid_result,
@@ -48,6 +53,26 @@ class FailingMidLLMClient:
 
     def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
         raise RuntimeError("synthetic mid llm failure")
+
+
+class TimeoutMidLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_mid_main_v1"
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        raise subprocess.TimeoutExpired(cmd=["ifa_llm_cli.py"], timeout=120)
+
+
+class FallbackSuccessMidLLMClient(FakeMidLLMClient):
+    model_alias = "gemini31_pro_jmr"
+
+
+class BoundaryFailMidLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_mid_main_v1"
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        raise RuntimeError("invalid llm field: validation_signal_statement")
 
 
 def _sample_input(*, has_sufficient_high: bool = True, has_any_high: bool = True, has_background: bool = True) -> MidMainProducerInput:
@@ -239,6 +264,82 @@ def test_mid_assembler_falls_back_when_llm_fails() -> None:
     assert "intraday thesis/adjust" in judgment["statement"]
     assert payload["bundle"]["payload_json"]["llm_assist"]["applied"] is False
     assert "synthetic mid llm failure" in payload["bundle"]["payload_json"]["llm_assist"]["error"]
+
+
+def test_resilient_mid_client_uses_fallback_model_after_primary_failure() -> None:
+    client = ResilientMidLLMClient(clients=[FailingMidLLMClient(), FallbackSuccessMidLLMClient()])
+    result = client.synthesize(
+        FSJMidLLMRequest(
+            business_date="2099-04-22",
+            section_key="midday_main",
+            contract_mode="intraday_structure",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert result.model_alias == "gemini31_pro_jmr"
+    assert result.raw_response["_fsj_resilience"]["attempted_model_chain"] == ["grok41_thinking", "gemini31_pro_jmr"]
+    assert result.raw_response["_fsj_resilience"]["failures"][0]["classification"] == "invoke_error"
+
+
+
+def test_mid_assistant_surfaces_fallback_policy_envelope() -> None:
+    _, audit = FSJMidLLMAssistant(ResilientMidLLMClient(clients=[TimeoutMidLLMClient(), FallbackSuccessMidLLMClient()])).maybe_synthesize(
+        FSJMidLLMRequest(
+            business_date="2099-04-22",
+            section_key="midday_main",
+            contract_mode="intraday_structure",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["applied"] is True
+    assert audit["model_alias"] == "gemini31_pro_jmr"
+    assert audit["policy"]["outcome"] == "fallback_applied"
+    assert audit["policy"]["attempted_model_chain"] == ["grok41_thinking", "gemini31_pro_jmr"]
+    assert audit["policy"]["prior_failures"][0]["classification"] == "timeout"
+
+
+
+def test_mid_assistant_tags_timeout_deterministic_degrade() -> None:
+    _, audit = FSJMidLLMAssistant(TimeoutMidLLMClient()).maybe_synthesize(
+        FSJMidLLMRequest(
+            business_date="2099-04-22",
+            section_key="midday_main",
+            contract_mode="intraday_structure",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["applied"] is False
+    assert audit["failure_classification"] == "timeout"
+    assert audit["policy"]["operator_tag"] == "llm_timeout"
+    assert audit["policy"]["outcome"] == "deterministic_degrade"
+
+
+
+def test_mid_assistant_surfaces_malformed_output_classification() -> None:
+    _, audit = FSJMidLLMAssistant(BoundaryFailMidLLMClient()).maybe_synthesize(
+        FSJMidLLMRequest(
+            business_date="2099-04-22",
+            section_key="midday_main",
+            contract_mode="intraday_structure",
+            completeness_label="complete",
+            degrade_reason=None,
+            evidence_packet={"k": "v"},
+        )
+    )
+    assert audit["failure_classification"] == "malformed_output"
+    assert audit["policy"]["operator_tag"] == "llm_malformed_output"
+
+
+
+def test_mid_failure_classifier_covers_timeout_and_malformed() -> None:
+    assert _classify_llm_exception(subprocess.TimeoutExpired(cmd=["x"], timeout=3)) == "timeout"
+    assert _classify_llm_exception(LLMInvocationFailure("malformed_output", "bad json", "grok41_thinking")) == "malformed_output"
 
 
 def test_assembler_degrades_to_monitoring_only_when_intraday_structure_missing() -> None:
