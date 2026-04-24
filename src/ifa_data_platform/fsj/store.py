@@ -1268,6 +1268,11 @@ class FSJStore:
                 "promotion_authority_rationale": promotion_authority.get("rationale"),
                 "promotion_authority_summary": promotion_authority.get("summary_line"),
                 "promotion_authority_source_of_truth": promotion_authority.get("source_of_truth"),
+                "promotion_authority_approver_kind": promotion_authority.get("approver_kind"),
+                "promotion_authority_approver_id": promotion_authority.get("approver_id"),
+                "promotion_authority_approver_label": promotion_authority.get("approver_label"),
+                "promotion_authority_decided_at": promotion_authority.get("decided_at"),
+                "promotion_authority_approver_summary": promotion_authority.get("approver_summary"),
                 "board_state_source": board_state_source,
                 "review_blocking_item_count": governance_summary.get("review_blocking_item_count"),
                 "review_warning_item_count": governance_summary.get("review_warning_item_count"),
@@ -1383,6 +1388,37 @@ class FSJStore:
         selected_is_current = normalized_selected_handoff.get("selected_is_current")
         next_step = normalized_review_manifest.get("next_step") or normalized_send_manifest.get("next_step") or normalized_state.get("next_step")
         rationale = normalized_go_no_go.get("rationale")
+        approver_kind = (
+            normalized_go_no_go.get("approver_kind")
+            or normalized_go_no_go.get("authority_actor_kind")
+            or normalized_go_no_go.get("actor_kind")
+            or ("system" if normalized_go_no_go else None)
+        )
+        approver_id = (
+            normalized_go_no_go.get("approver_id")
+            or normalized_go_no_go.get("authority_actor_id")
+            or normalized_go_no_go.get("actor_id")
+        )
+        approver_label = (
+            normalized_go_no_go.get("approver_label")
+            or normalized_go_no_go.get("authority_actor_label")
+            or normalized_go_no_go.get("actor_label")
+            or normalized_go_no_go.get("approved_by")
+        )
+        decided_at = (
+            normalized_go_no_go.get("decided_at")
+            or normalized_go_no_go.get("approved_at")
+            or normalized_go_no_go.get("decision_at")
+            or normalized_go_no_go.get("timestamp")
+        )
+        approver_summary = " | ".join(
+            [
+                f"kind={approver_kind or '-'}",
+                f"id={approver_id or '-'}",
+                f"label={approver_label or '-'}",
+                f"decided_at={decided_at or '-'}",
+            ]
+        )
         source_of_truth = " + ".join([
             "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go",
             "ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow",
@@ -1409,6 +1445,11 @@ class FSJStore:
             "authority_kind": "system_policy_projection",
             "decision": computed_decision,
             "approver_ref": "operator_go_no_go",
+            "approver_kind": approver_kind,
+            "approver_id": approver_id,
+            "approver_label": approver_label,
+            "decided_at": decided_at,
+            "approver_summary": approver_summary,
             "artifact_id": normalized_artifact.get("artifact_id"),
             "selected_artifact_id": normalized_selected_handoff.get("selected_artifact_id") or normalized_artifact.get("artifact_id"),
             "selected_is_current": selected_is_current,

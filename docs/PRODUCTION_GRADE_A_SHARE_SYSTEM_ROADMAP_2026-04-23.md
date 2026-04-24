@@ -96,8 +96,10 @@ Execution must still be reflected in the Task DB / template change DB / runtime 
 Make the required business chain actually produce the required outputs on time, with real artifacts and truthful gating.
 
 ## Current Status
-**In progress / partially landed.**  
-Core contracts and slices exist, but full slot-by-slot production closure is not yet fully proven.
+**Materially closed for the current roadmap scope.**  
+Core slot-by-slot production closure is now evidenced for the 2026-04-23 acceptance slice and normalized in:
+- `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
 
 ## Completed / material progress already landed
 - Support producer parity complete in business layer
@@ -108,7 +110,7 @@ Core contracts and slices exist, but full slot-by-slot production closure is not
 ## Task Queue
 
 ### P0-1. Early slot end-to-end closure (one-main / three-support)
-**Status:** In progress  
+**Status:** Materially closed for current roadmap scope — early support standalone proof is green across all three support domains, final green MAIN acceptance preserves `slot_status.early = ready`, and exact closure proof is documented in `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`  
 **Target:** prove stable generation of:
 - MAIN early
 - macro early
@@ -129,7 +131,7 @@ Core contracts and slices exist, but full slot-by-slot production closure is not
 ---
 
 ### P0-2. Mid slot closure (MAIN only in phase-1)
-**Status:** In progress  
+**Status:** Materially closed for current roadmap scope — final green MAIN acceptance package proves `slot_status.mid = ready`, `mid=100`, and all-slot progression complete without missing-slot gaps; exact closure proof is documented in `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`  
 **Target:** prove stable generation of MAIN mid by SLA
 
 **Tasks**
@@ -145,7 +147,7 @@ Core contracts and slices exist, but full slot-by-slot production closure is not
 ---
 
 ### P0-3. Late slot end-to-end closure (one-main / three-support)
-**Status:** In progress  
+**Status:** Materially closed for current roadmap scope — late support standalone convergence is green across all three support domains, final green MAIN acceptance is delivery-ready with strongest slot `late`, and exact closure proof is documented in `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`  
 **Target:** prove stable generation of:
 - MAIN late
 - macro late

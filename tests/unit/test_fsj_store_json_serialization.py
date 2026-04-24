@@ -254,6 +254,10 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
                     "decision": "NO_GO",
                     "artifact_integrity_ok": True,
                     "missing_artifacts": [],
+                    "approver_kind": "human_operator",
+                    "approver_id": "op-17",
+                    "approver_label": "night-shift-operator",
+                    "decided_at": "2099-04-22T09:58:00Z",
                 },
                 "review_manifest": {"next_step": "switch_to_selected_package_and_do_not_send_current"},
                 "send_manifest": {"next_step": "switch_to_selected_package_and_do_not_send_current"},
@@ -283,11 +287,11 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
         "rationale": None,
         "source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
         "summary_line": "blocked | decision=NO_GO | selected_is_current=False | required_action=switch_to_selected_package_and_do_not_send_current | rationale=-",
-        "approver_kind": "system",
-        "approver_id": None,
-        "approver_label": None,
-        "decided_at": None,
-        "approver_summary": "kind=system | id=- | label=- | decided_at=-",
+        "approver_kind": "human_operator",
+        "approver_id": "op-17",
+        "approver_label": "night-shift-operator",
+        "decided_at": "2099-04-22T09:58:00Z",
+        "approver_summary": "kind=human_operator | id=op-17 | label=night-shift-operator | decided_at=2099-04-22T09:58:00Z",
     }
     assert summary["governance"] == {
         "decision": "NO_GO",
@@ -307,6 +311,11 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["promotion_authority_required_action"] == "switch_to_selected_package_and_do_not_send_current"
     assert summary["review_summary"]["promotion_authority_summary"] == "blocked | decision=NO_GO | selected_is_current=False | required_action=switch_to_selected_package_and_do_not_send_current | rationale=-"
     assert summary["review_summary"]["promotion_authority_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    assert summary["review_summary"]["promotion_authority_approver_kind"] == "human_operator"
+    assert summary["review_summary"]["promotion_authority_approver_id"] == "op-17"
+    assert summary["review_summary"]["promotion_authority_approver_label"] == "night-shift-operator"
+    assert summary["review_summary"]["promotion_authority_decided_at"] == "2099-04-22T09:58:00Z"
+    assert summary["review_summary"]["promotion_authority_approver_summary"] == "kind=human_operator | id=op-17 | label=night-shift-operator | decided_at=2099-04-22T09:58:00Z"
     assert summary["review_summary"]["governance_blocking_reasons"] == []
     assert summary["dispatch_state"] is None
     assert summary["review_summary"]["selected_is_current"] is False

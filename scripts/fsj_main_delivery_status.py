@@ -124,6 +124,11 @@ def _artifact_row(surface: dict[str, Any] | None) -> dict[str, Any]:
         "promotion_authority_required_action": review_summary.get("promotion_authority_required_action"),
         "promotion_authority_rationale": review_summary.get("promotion_authority_rationale"),
         "promotion_authority_summary": review_summary.get("promotion_authority_summary"),
+        "promotion_authority_approver_kind": review_summary.get("promotion_authority_approver_kind"),
+        "promotion_authority_approver_id": review_summary.get("promotion_authority_approver_id"),
+        "promotion_authority_approver_label": review_summary.get("promotion_authority_approver_label"),
+        "promotion_authority_decided_at": review_summary.get("promotion_authority_decided_at"),
+        "promotion_authority_approver_summary": review_summary.get("promotion_authority_approver_summary"),
         "review_blocking_item_count": review_summary.get("review_blocking_item_count"),
         "review_warning_item_count": review_summary.get("review_warning_item_count"),
         "send_blocker_count": review_summary.get("send_blocker_count"),
@@ -185,6 +190,11 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"promotion_authority_required_action={_safe_dict(active.get('review_summary')).get('promotion_authority_required_action')}")
     print(f"promotion_authority_rationale={_safe_dict(active.get('review_summary')).get('promotion_authority_rationale')}")
     print(f"promotion_authority_summary={_safe_dict(active.get('review_summary')).get('promotion_authority_summary')}")
+    print(f"promotion_authority_approver_kind={_safe_dict(active.get('review_summary')).get('promotion_authority_approver_kind')}")
+    print(f"promotion_authority_approver_id={_safe_dict(active.get('review_summary')).get('promotion_authority_approver_id')}")
+    print(f"promotion_authority_approver_label={_safe_dict(active.get('review_summary')).get('promotion_authority_approver_label')}")
+    print(f"promotion_authority_decided_at={_safe_dict(active.get('review_summary')).get('promotion_authority_decided_at')}")
+    print(f"promotion_authority_approver_summary={_safe_dict(active.get('review_summary')).get('promotion_authority_approver_summary')}")
     print(f"review_blocking_item_count={_safe_dict(active.get('review_summary')).get('review_blocking_item_count')}")
     print(f"review_warning_item_count={_safe_dict(active.get('review_summary')).get('review_warning_item_count')}")
     print(f"send_blocker_count={_safe_dict(active.get('review_summary')).get('send_blocker_count')}")
@@ -280,6 +290,11 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"history_{index}_promotion_authority_required_action={row.get('promotion_authority_required_action')}")
         print(f"history_{index}_promotion_authority_rationale={row.get('promotion_authority_rationale')}")
         print(f"history_{index}_promotion_authority_summary={row.get('promotion_authority_summary')}")
+        print(f"history_{index}_promotion_authority_approver_kind={row.get('promotion_authority_approver_kind')}")
+        print(f"history_{index}_promotion_authority_approver_id={row.get('promotion_authority_approver_id')}")
+        print(f"history_{index}_promotion_authority_approver_label={row.get('promotion_authority_approver_label')}")
+        print(f"history_{index}_promotion_authority_decided_at={row.get('promotion_authority_decided_at')}")
+        print(f"history_{index}_promotion_authority_approver_summary={row.get('promotion_authority_approver_summary')}")
         print(f"history_{index}_review_blocking_item_count={row.get('review_blocking_item_count')}")
         print(f"history_{index}_review_warning_item_count={row.get('review_warning_item_count')}")
         print(f"history_{index}_send_blocker_count={row.get('send_blocker_count')}")

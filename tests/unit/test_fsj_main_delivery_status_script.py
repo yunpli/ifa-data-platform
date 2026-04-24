@@ -170,6 +170,11 @@ def test_artifact_row_projects_canonical_lifecycle_fields() -> None:
         "promotion_authority_required_action": None,
         "promotion_authority_rationale": None,
         "promotion_authority_summary": None,
+        "promotion_authority_approver_kind": None,
+        "promotion_authority_approver_id": None,
+        "promotion_authority_approver_label": None,
+        "promotion_authority_decided_at": None,
+        "promotion_authority_approver_summary": None,
         "review_blocking_item_count": None,
         "review_warning_item_count": None,
         "send_blocker_count": None,
@@ -295,6 +300,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "promotion_authority_required_action": "operator_review_selected_candidate",
                 "promotion_authority_rationale": "manual review is required before sending",
                 "promotion_authority_summary": "review_required | decision=REVIEW | selected_is_current=False | required_action=operator_review_selected_candidate | rationale=manual review is required before sending",
+                "promotion_authority_approver_kind": "human_operator",
+                "promotion_authority_approver_id": "op-main-1",
+                "promotion_authority_approver_label": "main-reviewer",
+                "promotion_authority_decided_at": "2099-04-22T09:58:00Z",
+                "promotion_authority_approver_summary": "kind=human_operator | id=op-main-1 | label=main-reviewer | decided_at=2099-04-22T09:58:00Z",
                 "review_blocking_item_count": 0,
                 "review_warning_item_count": 2,
                 "send_blocker_count": 1,
@@ -320,6 +330,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                     "promotion_authority_required_action": "operator_review_selected_candidate",
                     "promotion_authority_rationale": "manual review is required before sending",
                     "promotion_authority_summary": "review_required | decision=REVIEW | selected_is_current=False | required_action=operator_review_selected_candidate | rationale=manual review is required before sending",
+                    "promotion_authority_approver_kind": "human_operator",
+                    "promotion_authority_approver_id": "op-main-1",
+                    "promotion_authority_approver_label": "main-reviewer",
+                    "promotion_authority_decided_at": "2099-04-22T09:58:00Z",
+                    "promotion_authority_approver_summary": "kind=human_operator | id=op-main-1 | label=main-reviewer | decided_at=2099-04-22T09:58:00Z",
                     "review_blocking_item_count": 0,
                     "review_warning_item_count": 2,
                     "send_blocker_count": 1,
@@ -345,6 +360,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                     "promotion_authority_required_action": "send_selected_package_to_primary_channel",
                     "promotion_authority_rationale": "quality gate and artifact integrity both pass",
                     "promotion_authority_summary": "approved_to_send | decision=GO | selected_is_current=True | required_action=send_selected_package_to_primary_channel | rationale=quality gate and artifact integrity both pass",
+                    "promotion_authority_approver_kind": "system",
+                    "promotion_authority_approver_id": None,
+                    "promotion_authority_approver_label": "fsj_policy_projection",
+                    "promotion_authority_decided_at": None,
+                    "promotion_authority_approver_summary": "kind=system | id=- | label=fsj_policy_projection | decided_at=-",
                     "review_blocking_item_count": 0,
                     "review_warning_item_count": 0,
                     "send_blocker_count": 0,
@@ -376,6 +396,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "promotion_authority_status=review_required" in output
     assert "promotion_authority_approved=False" in output
     assert "promotion_authority_required_action=operator_review_selected_candidate" in output
+    assert "promotion_authority_approver_kind=human_operator" in output
+    assert "promotion_authority_approver_id=op-main-1" in output
+    assert "promotion_authority_approver_label=main-reviewer" in output
+    assert "promotion_authority_decided_at=2099-04-22T09:58:00Z" in output
+    assert "promotion_authority_approver_summary=kind=human_operator | id=op-main-1 | label=main-reviewer | decided_at=2099-04-22T09:58:00Z" in output
     assert "review_blocking_item_count=0" in output
     assert "review_warning_item_count=2" in output
     assert "send_blocker_count=1" in output
@@ -430,6 +455,11 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "history_1_operator_action_required=True" in output
     assert "history_1_promotion_authority_status=review_required" in output
     assert "history_1_promotion_authority_approved=False" in output
+    assert "history_1_promotion_authority_approver_kind=human_operator" in output
+    assert "history_1_promotion_authority_approver_id=op-main-1" in output
+    assert "history_1_promotion_authority_approver_label=main-reviewer" in output
+    assert "history_1_promotion_authority_decided_at=2099-04-22T09:58:00Z" in output
+    assert "history_1_promotion_authority_approver_summary=kind=human_operator | id=op-main-1 | label=main-reviewer | decided_at=2099-04-22T09:58:00Z" in output
     assert "history_1_review_blocking_item_count=0" in output
     assert "history_1_review_warning_item_count=2" in output
     assert "history_1_send_blocker_count=1" in output
@@ -447,6 +477,9 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "history_2_operator_action_required=False" in output
     assert "history_2_promotion_authority_status=approved_to_send" in output
     assert "history_2_promotion_authority_approved=True" in output
+    assert "history_2_promotion_authority_approver_kind=system" in output
+    assert "history_2_promotion_authority_approver_label=fsj_policy_projection" in output
+    assert "history_2_promotion_authority_approver_summary=kind=system | id=- | label=fsj_policy_projection | decided_at=-" in output
     assert "history_2_review_blocking_item_count=0" in output
     assert "history_2_review_warning_item_count=0" in output
     assert "history_2_send_blocker_count=0" in output
