@@ -68,6 +68,17 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
         module,
         "_resolve_canonical_publish_surface",
         lambda **_: {
+            "package_surface": {
+                "package_paths": {
+                    "delivery_package_dir": "/tmp/db/pkg",
+                    "delivery_manifest_path": "/tmp/db/pkg/delivery_manifest.json",
+                    "delivery_zip_path": "/tmp/db/pkg.zip",
+                    "package_index_path": "/tmp/db/pkg/package_index.from_package_surface.json",
+                },
+                "package_state": {
+                    "package_state": "ready",
+                },
+            },
             "delivery_surface": {
                 "delivery_package": {
                     "package_state": "ready",
@@ -113,6 +124,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
     payload = json.loads(capsys.readouterr().out)
     assert payload["artifact"]["artifact_id"] == "artifact-raw"
     assert payload["workflow_handoff"]["artifact"]["artifact_id"] == "artifact-db"
+    assert payload["package_surface"]["package_paths"]["delivery_package_dir"] == "/tmp/db/pkg"
     assert payload["workflow_handoff"]["state"]["dispatch_recommended_action"] == "send"
     assert payload["workflow_handoff"]["state"]["next_step"] == "dispatch_send_manifest"
     assert payload["workflow_handoff"]["state"]["selection_reason"] == "support_ready_candidate domain=macro"
@@ -121,7 +133,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
     assert payload["delivery_manifest_path"] == "/tmp/db/pkg/delivery_manifest.json"
     assert payload["delivery_zip_path"] == "/tmp/db/pkg.zip"
     assert payload["operator_summary_path"] == "/tmp/db/pkg/OPERATOR_REVIEW.md"
-    assert payload["package_index_path"] == "/tmp/db/pkg/package_index.json"
+    assert payload["package_index_path"] == "/tmp/db/pkg/package_index.from_package_surface.json"
     assert payload["operator_review_surface"]["llm_role_policy"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
 
 

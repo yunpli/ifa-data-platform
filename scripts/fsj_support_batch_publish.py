@@ -32,10 +32,15 @@ def _resolve_canonical_publish_surface(*, business_date: str, agent_domain: str,
     )
     if not surface:
         return None
+    workflow_handoff = store.report_workflow_handoff_from_surface(surface)
+    operator_review_surface = store.report_operator_review_surface_from_surface(surface)
+    package_surface = store.report_package_surface_from_surface(surface)
     return {
+        "package_surface": package_surface,
+        "workflow_handoff": workflow_handoff,
+        "operator_review_surface": operator_review_surface,
+        # Compatibility alias while downstream consumers migrate fully off raw delivery surfaces.
         "delivery_surface": surface,
-        "workflow_handoff": store.report_workflow_handoff_from_surface(surface),
-        "operator_review_surface": store.report_operator_review_surface_from_surface(surface),
     }
 
 
@@ -153,17 +158,18 @@ def main() -> None:
         )
         if canonical_surface:
             item.update(canonical_surface)
-        delivery_surface = dict(item.get("delivery_surface") or {})
-        delivery_package = dict(delivery_surface.get("delivery_package") or {})
-        manifest_pointers = dict((item.get("workflow_handoff") or {}).get("manifest_pointers") or {})
-        state = dict((item.get("workflow_handoff") or {}).get("state") or {})
+        package_surface = dict(item.get("package_surface") or {})
+        package_state = dict(package_surface.get("package_state") or {})
+        workflow_handoff = dict(item.get("workflow_handoff") or {})
+        manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
+        state = dict(workflow_handoff.get("state") or {})
         item["bundle_id"] = (
-            dict(delivery_package.get("lineage") or {}).get("bundle_id")
+            ((parsed.get("delivery_manifest") or {}).get("lineage") or {}).get("bundle_id")
             or ((parsed.get("bundle") or {}).get("bundle_id") if isinstance(parsed.get("bundle"), dict) else None)
-            or ((parsed.get("delivery_manifest") or {}).get("lineage") or {}).get("bundle_id")
+            or dict(dict(item.get("delivery_surface") or {}).get("delivery_package") or {}).get("lineage", {}).get("bundle_id")
         )
-        item["package_state"] = state.get("package_state") or delivery_package.get("package_state") or (parsed.get("delivery_manifest") or {}).get("package_state")
-        item["delivery_manifest_path"] = manifest_pointers.get("delivery_manifest_path") or parsed.get("delivery_manifest_path")
+        item["package_state"] = state.get("package_state") or package_state.get("package_state") or (parsed.get("delivery_manifest") or {}).get("package_state")
+        item["delivery_manifest_path"] = manifest_pointers.get("delivery_manifest_path") or dict(package_surface.get("package_paths") or {}).get("delivery_manifest_path") or parsed.get("delivery_manifest_path")
         item["send_manifest_path"] = manifest_pointers.get("send_manifest_path")
         if completed.returncode != 0 and not item.get("reason"):
             item["reason"] = (completed.stderr.strip() or "publish_command_failed")
