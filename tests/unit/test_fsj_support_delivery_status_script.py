@@ -108,6 +108,14 @@ def test_artifact_row_projects_support_canonical_lifecycle_fields() -> None:
         "qa_score": 94,
         "blocker_count": 0,
         "warning_count": 2,
+        "go_no_go_decision": None,
+        "operator_decision_rationale": None,
+        "operator_next_step": None,
+        "operator_action_required": None,
+        "review_blocking_item_count": None,
+        "review_warning_item_count": None,
+        "send_blocker_count": None,
+        "governance_blocking_reasons": [],
         "bundle_count": None,
         "missing_bundle_count": None,
         "dispatch_state": None,
@@ -206,6 +214,12 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
             },
             "review_summary": {
                 "go_no_go_decision": "REVIEW",
+                "operator_decision_rationale": "manual review is required before sending",
+                "operator_action_required": True,
+                "review_blocking_item_count": 0,
+                "review_warning_item_count": 2,
+                "send_blocker_count": 1,
+                "governance_blocking_reasons": ["manual_review_required", "selected_candidate_not_current"],
             },
         },
         "history": [
@@ -214,7 +228,19 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
                 "state": {"workflow_state": "review_required", "recommended_action": "send_review"},
                 "selected_handoff": {"selected_is_current": True},
                 "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
-                "review_summary": {"qa_score": 94, "blocker_count": 0, "warning_count": 2},
+                "review_summary": {
+                    "qa_score": 94,
+                    "blocker_count": 0,
+                    "warning_count": 2,
+                    "go_no_go_decision": "REVIEW",
+                    "operator_decision_rationale": "manual review is required before sending",
+                    "operator_next_step": "operator_review_selected_candidate",
+                    "operator_action_required": True,
+                    "review_blocking_item_count": 0,
+                    "review_warning_item_count": 2,
+                    "send_blocker_count": 1,
+                    "governance_blocking_reasons": ["manual_review_required", "selected_candidate_not_current"],
+                },
                 "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 1}, "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "tg-52"}},
             },
             {
@@ -222,7 +248,19 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
                 "state": {"workflow_state": "ready_to_send", "recommended_action": "send"},
                 "selected_handoff": {"selected_is_current": False},
                 "canonical_lifecycle": {"state": "superseded", "reason": "artifact_status_superseded"},
-                "review_summary": {"qa_score": 90, "blocker_count": 0, "warning_count": 0},
+                "review_summary": {
+                    "qa_score": 90,
+                    "blocker_count": 0,
+                    "warning_count": 0,
+                    "go_no_go_decision": "GO",
+                    "operator_decision_rationale": "quality gate and artifact integrity both pass",
+                    "operator_next_step": "send_selected_package_to_primary_channel",
+                    "operator_action_required": False,
+                    "review_blocking_item_count": 0,
+                    "review_warning_item_count": 0,
+                    "send_blocker_count": 0,
+                    "governance_blocking_reasons": [],
+                },
                 "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 0}, "what_user_received": {"dispatch_state": "dispatch_failed", "provider_message_id": "tg-51"}},
             },
         ],
@@ -242,6 +280,13 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     assert "dispatch_recommended_action=send" in output
     assert "canonical_lifecycle_state=review_ready" in output
     assert "canonical_lifecycle_reason=manual_review_required" in output
+    assert "go_no_go_decision=REVIEW" in output
+    assert "operator_decision_rationale=manual review is required before sending" in output
+    assert "operator_action_required=True" in output
+    assert "review_blocking_item_count=0" in output
+    assert "review_warning_item_count=2" in output
+    assert "send_blocker_count=1" in output
+    assert "governance_blocking_reasons=manual_review_required,selected_candidate_not_current" in output
     assert "next_step=operator_review_selected_candidate" in output
     assert "selection_reason=support_ready_candidate slot=early qa_score=94" in output
     assert "dispatch_selected_artifact_id=artifact-macro-active" in output
@@ -283,6 +328,14 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     assert "history_1_artifact_id=artifact-macro-active" in output
     assert "history_1_canonical_lifecycle_state=review_ready" in output
     assert "history_1_canonical_lifecycle_reason=manual_review_required" in output
+    assert "history_1_go_no_go_decision=REVIEW" in output
+    assert "history_1_operator_decision_rationale=manual review is required before sending" in output
+    assert "history_1_operator_next_step=operator_review_selected_candidate" in output
+    assert "history_1_operator_action_required=True" in output
+    assert "history_1_review_blocking_item_count=0" in output
+    assert "history_1_review_warning_item_count=2" in output
+    assert "history_1_send_blocker_count=1" in output
+    assert "history_1_governance_blocking_reasons=manual_review_required,selected_candidate_not_current" in output
     assert "history_1_bundle_count=2" in output
     assert "history_1_missing_bundle_count=1" in output
     assert "history_1_dispatch_state=dispatch_succeeded" in output
@@ -290,6 +343,14 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     assert "history_2_artifact_id=artifact-macro-old" in output
     assert "history_2_canonical_lifecycle_state=superseded" in output
     assert "history_2_canonical_lifecycle_reason=artifact_status_superseded" in output
+    assert "history_2_go_no_go_decision=GO" in output
+    assert "history_2_operator_decision_rationale=quality gate and artifact integrity both pass" in output
+    assert "history_2_operator_next_step=send_selected_package_to_primary_channel" in output
+    assert "history_2_operator_action_required=False" in output
+    assert "history_2_review_blocking_item_count=0" in output
+    assert "history_2_review_warning_item_count=0" in output
+    assert "history_2_send_blocker_count=0" in output
+    assert "history_2_governance_blocking_reasons=" in output
     assert "history_2_bundle_count=1" in output
     assert "history_2_missing_bundle_count=0" in output
     assert "history_2_dispatch_state=dispatch_failed" in output

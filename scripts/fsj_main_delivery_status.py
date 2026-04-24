@@ -113,6 +113,14 @@ def _artifact_row(surface: dict[str, Any] | None) -> dict[str, Any]:
         "qa_score": review_summary.get("qa_score", state.get("qa_score")),
         "blocker_count": review_summary.get("blocker_count", state.get("blocker_count")),
         "warning_count": review_summary.get("warning_count", state.get("warning_count")),
+        "go_no_go_decision": review_summary.get("go_no_go_decision"),
+        "operator_decision_rationale": review_summary.get("operator_decision_rationale"),
+        "operator_next_step": review_summary.get("operator_next_step"),
+        "operator_action_required": review_summary.get("operator_action_required"),
+        "review_blocking_item_count": review_summary.get("review_blocking_item_count"),
+        "review_warning_item_count": review_summary.get("review_warning_item_count"),
+        "send_blocker_count": review_summary.get("send_blocker_count"),
+        "governance_blocking_reasons": list(review_summary.get("governance_blocking_reasons") or []),
         "bundle_count": bundle_summary.get("bundle_count"),
         "missing_bundle_count": bundle_summary.get("missing_bundle_count"),
         "dispatch_state": received.get("dispatch_state"),
@@ -159,6 +167,13 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"workflow_state={state.get('workflow_state')}")
     print(f"canonical_lifecycle_state={canonical_lifecycle.get('state')}")
     print(f"canonical_lifecycle_reason={canonical_lifecycle.get('reason')}")
+    print(f"go_no_go_decision={_safe_dict(active.get('review_summary')).get('go_no_go_decision')}")
+    print(f"operator_decision_rationale={_safe_dict(active.get('review_summary')).get('operator_decision_rationale')}")
+    print(f"operator_action_required={_safe_dict(active.get('review_summary')).get('operator_action_required')}")
+    print(f"review_blocking_item_count={_safe_dict(active.get('review_summary')).get('review_blocking_item_count')}")
+    print(f"review_warning_item_count={_safe_dict(active.get('review_summary')).get('review_warning_item_count')}")
+    print(f"send_blocker_count={_safe_dict(active.get('review_summary')).get('send_blocker_count')}")
+    print(f"governance_blocking_reasons={','.join(_safe_dict(active.get('review_summary')).get('governance_blocking_reasons') or [])}")
     print(f"send_ready={state.get('send_ready')}")
     print(f"review_required={state.get('review_required')}")
     print(f"next_step={state.get('next_step')}")
@@ -233,6 +248,14 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"history_{index}_canonical_lifecycle_state={row.get('canonical_lifecycle_state')}")
         print(f"history_{index}_canonical_lifecycle_reason={row.get('canonical_lifecycle_reason')}")
         print(f"history_{index}_selected_is_current={row.get('selected_is_current')}")
+        print(f"history_{index}_go_no_go_decision={row.get('go_no_go_decision')}")
+        print(f"history_{index}_operator_decision_rationale={row.get('operator_decision_rationale')}")
+        print(f"history_{index}_operator_next_step={row.get('operator_next_step')}")
+        print(f"history_{index}_operator_action_required={row.get('operator_action_required')}")
+        print(f"history_{index}_review_blocking_item_count={row.get('review_blocking_item_count')}")
+        print(f"history_{index}_review_warning_item_count={row.get('review_warning_item_count')}")
+        print(f"history_{index}_send_blocker_count={row.get('send_blocker_count')}")
+        print(f"history_{index}_governance_blocking_reasons={','.join(row.get('governance_blocking_reasons') or [])}")
         print(f"history_{index}_bundle_count={row.get('bundle_count')}")
         print(f"history_{index}_missing_bundle_count={row.get('missing_bundle_count')}")
         print(f"history_{index}_dispatch_state={row.get('dispatch_state')}")
