@@ -330,7 +330,7 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["llm_lineage_summary"]["usage_bundle_count"] == 0
     assert summary["llm_lineage_summary"]["token_totals"]["total_tokens"] == 0
     assert summary["llm_lineage_summary"]["uncosted_bundle_count"] == 0
-    assert summary["llm_lineage_summary"]["summary_line"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking]"
+    assert summary["llm_lineage_summary"]["summary_line"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | prompts=fsj_early_main_v1,fsj_late_main_v1]"
     assert summary["review_summary"]["llm_bundle_count"] == 2
     assert summary["review_summary"]["llm_applied_count"] == 1
     assert summary["review_summary"]["llm_degraded_count"] == 1
@@ -339,7 +339,7 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["llm_total_tokens"] == 0
     assert summary["review_summary"]["llm_models"] == ["gemini31_pro_jmr", "grok41_thinking"]
     assert summary["review_summary"]["llm_uncosted_bundle_count"] == 0
-    assert summary["review_summary"]["llm_lineage_summary"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking]"
+    assert summary["review_summary"]["llm_lineage_summary"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | prompts=fsj_early_main_v1,fsj_late_main_v1]"
     assert summary["llm_role_policy"]["slot_boundary_modes"] == {}
     assert summary["review_summary"]["llm_deterministic_owner_fields"] == []
     assert summary["review_summary"]["llm_override_precedence"] == []
@@ -828,6 +828,7 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
                         "llm_assist": {
                             "applied": True,
                             "model_alias": "grok41_thinking",
+                            "model_id": "grok-4.1-thinking",
                             "prompt_version": "fsj_mid_main_v1",
                             "adopted_output_fields": [
                                 "bundle.summary",
@@ -867,15 +868,24 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
     assert lineage["summary"]["bundle_count"] == 2
     assert lineage["summary"]["primary_applied_count"] == 1
     assert lineage["summary"]["missing_bundle_count"] == 1
+    assert lineage["summary"]["prompt_versions"] == ["fsj_mid_main_v1"]
     assert lineage["summary"]["role_policy_versions"] == ["fsj_llm_role_policy_v1"]
     assert lineage["summary"]["boundary_modes"] == ["intraday_working"]
     assert lineage["summary"]["adopted_output_field_count"] == 5
     assert lineage["summary"]["discarded_output_field_count"] == 0
-    assert lineage["summary"]["field_replay_ready_bundle_count"] == 1
+    assert lineage["summary"]["field_replay_ready_count"] == 1
+    assert lineage["summary"]["adopted_output_fields"] == [
+        "afternoon_signal.statement",
+        "bundle.summary",
+        "judgment.invalidators",
+        "judgment.statement",
+        "validation_signal.statement",
+    ]
     assert lineage["role_policy"]["deterministic_owner_fields"] == ["judgment.action"]
     assert lineage["role_policy"]["forbidden_decisions"] == ["declare_close_final_confirmation"]
     assert lineage["role_policy"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
     assert lineage["bundles"][0]["bundle_id"] == "bundle-mid"
+    assert lineage["bundles"][0]["model_id"] == "grok-4.1-thinking"
     assert lineage["bundles"][0]["role_policy_boundary_mode"] == "intraday_working"
     assert lineage["bundles"][0]["adopted_output_field_count"] == 5
     assert lineage["bundles"][0]["discarded_output_fields"] == []
@@ -899,9 +909,10 @@ def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tm
                     "applied_count": 1,
                     "primary_applied_count": 1,
                     "models": ["grok41_thinking"],
+                    "prompt_versions": ["fsj_mid_main_v1"],
                     "adopted_output_field_count": 5,
                     "discarded_output_field_count": 0,
-                    "field_replay_ready_bundle_count": 1,
+                    "field_replay_ready_count": 1,
                     "usage_bundle_count": 1,
                     "costed_bundle_count": 1,
                     "uncosted_bundle_count": 0,
@@ -915,7 +926,34 @@ def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tm
         store_module._load_llm_model_pricing.cache_clear()
 
     assert summary["estimated_cost_usd"] == 0.01
-    assert summary["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking | tokens=5000 | adopted_fields=5 | field_replay_ready=1 | usage=1 | cost_usd=0.010000]"
+    assert summary["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking | prompts=fsj_mid_main_v1 | tokens=5000 | adopted_fields=5 | replay_ready=1 | usage=1 | cost_usd=0.010000]"
+
+
+def test_report_llm_lineage_summary_projects_field_audit_counts() -> None:
+    summary = _ProjectionOnlyStore().report_llm_lineage_summary(
+        {
+            "summary": {
+                "bundle_count": 2,
+                "applied_count": 1,
+                "degraded_count": 1,
+                "fallback_applied_count": 0,
+                "primary_applied_count": 1,
+                "models": ["grok41_thinking"],
+                "prompt_versions": ["fsj_early_main_v1"],
+                "field_replay_ready_count": 1,
+                "adopted_output_field_count": 6,
+                "discarded_output_field_count": 6,
+                "discard_reasons": ["timeout"],
+            }
+        }
+    )
+
+    assert summary["prompt_versions"] == ["fsj_early_main_v1"]
+    assert summary["field_replay_ready_count"] == 1
+    assert summary["adopted_output_field_count"] == 6
+    assert summary["discarded_output_field_count"] == 6
+    assert summary["discard_reasons"] == ["timeout"]
+    assert summary["summary_line"] == "degraded [applied=1/2 | primary=1 | degraded=1 | models=grok41_thinking | prompts=fsj_early_main_v1 | adopted_fields=6 | discarded_fields=6 | replay_ready=1 | discard_reasons=timeout]"
 
 
 def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_lineage() -> None:

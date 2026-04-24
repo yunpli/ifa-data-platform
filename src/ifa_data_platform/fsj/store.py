@@ -45,11 +45,17 @@ CANONICAL_REPORT_STATE_VOCABULARY = {
 }
 BUSINESS_REPO_MODELS_CONFIG = Path("/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml")
 
-@lru_cache(maxsize=1)
-def _load_llm_model_pricing() -> dict[str, dict[str, Any]]:
+
+def _load_models_config_payload() -> dict[str, Any]:
     if not BUSINESS_REPO_MODELS_CONFIG.exists():
         return {}
     payload = yaml.safe_load(BUSINESS_REPO_MODELS_CONFIG.read_text(encoding="utf-8")) or {}
+    return payload if isinstance(payload, dict) else {}
+
+
+@lru_cache(maxsize=1)
+def _load_llm_model_pricing() -> dict[str, dict[str, Any]]:
+    payload = _load_models_config_payload()
     models = dict(payload.get("models") or {})
     pricing: dict[str, dict[str, Any]] = {}
     for alias, cfg in models.items():
@@ -59,6 +65,13 @@ def _load_llm_model_pricing() -> dict[str, dict[str, Any]]:
         if pricing_cfg:
             pricing[str(alias)] = pricing_cfg
     return pricing
+
+
+@lru_cache(maxsize=1)
+def _load_llm_budget_policy() -> dict[str, Any]:
+    payload = _load_models_config_payload()
+    policy = payload.get("fsj_budget_policy") or {}
+    return dict(policy) if isinstance(policy, dict) else {}
 
 
 def _usage_int(usage: dict[str, Any], *keys: str) -> int:
@@ -135,6 +148,113 @@ def _llm_budget_posture(*, usage_bundle_count: int, costed_bundle_count: int, un
         "uncosted_bundle_count": uncosted_bundle_count,
         "attention": attention,
         "summary_line": summary_line,
+    }
+
+
+def _float_or_none(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _evaluate_llm_budget_governance(
+    *,
+    usage_bundle_count: int,
+    costed_bundle_count: int,
+    uncosted_bundle_count: int,
+    estimated_cost_usd: float | None,
+    total_tokens: int,
+    fallback_applied_count: int,
+    degraded_count: int,
+    scope: str,
+) -> dict[str, Any]:
+    policy = _load_llm_budget_policy()
+    if not policy:
+        return {
+            "status": "no_policy_configured",
+            "attention": True,
+            "required_action": "define_fsj_budget_policy",
+            "scope": scope,
+            "summary_line": "no_policy_configured | action=define_fsj_budget_policy",
+        }
+
+    require_pricing = bool(policy.get("require_pricing_for_all_usage"))
+    cost_limit = _float_or_none(policy.get(f"max_estimated_cost_usd_{scope}"))
+    token_limit = int(policy.get(f"max_total_tokens_{scope}") or 0)
+    max_fallback_rate = _float_or_none(policy.get("max_fallback_rate"))
+    max_degraded_rate = _float_or_none(policy.get("max_degraded_rate"))
+
+    fallback_rate = round((int(fallback_applied_count or 0) / usage_bundle_count), 6) if usage_bundle_count > 0 else 0.0
+    degraded_rate = round((int(degraded_count or 0) / usage_bundle_count), 6) if usage_bundle_count > 0 else 0.0
+    threshold_parts: list[str] = []
+    if cost_limit is not None:
+        threshold_parts.append(f"cost<={cost_limit:.6f}")
+    if token_limit > 0:
+        threshold_parts.append(f"tokens<={token_limit}")
+    if max_fallback_rate is not None:
+        threshold_parts.append(f"fallback_rate<={max_fallback_rate:.3f}")
+    if max_degraded_rate is not None:
+        threshold_parts.append(f"degraded_rate<={max_degraded_rate:.3f}")
+    if require_pricing:
+        threshold_parts.append("pricing=required")
+
+    if usage_bundle_count <= 0:
+        status = "no_usage"
+        attention = False
+        required_action = None
+        rationale = "no_llm_usage_recorded"
+    elif require_pricing and uncosted_bundle_count > 0:
+        status = "pricing_incomplete"
+        attention = True
+        required_action = "price_all_active_models_before_budget_enforcement"
+        rationale = f"unpriced_usage={uncosted_bundle_count}"
+    elif cost_limit is not None and estimated_cost_usd is not None and estimated_cost_usd > cost_limit:
+        status = "budget_exceeded"
+        attention = True
+        required_action = "reduce_llm_spend_or_raise_budget"
+        rationale = f"estimated_cost_usd={estimated_cost_usd:.6f}>{cost_limit:.6f}"
+    elif token_limit > 0 and total_tokens > token_limit:
+        status = "token_budget_exceeded"
+        attention = True
+        required_action = "reduce_token_usage_or_raise_budget"
+        rationale = f"total_tokens={total_tokens}>{token_limit}"
+    elif max_degraded_rate is not None and degraded_rate > max_degraded_rate:
+        status = "roi_review_required"
+        attention = True
+        required_action = "review_llm_roi_for_degraded_outcomes"
+        rationale = f"degraded_rate={degraded_rate:.3f}>{max_degraded_rate:.3f}"
+    elif max_fallback_rate is not None and fallback_rate > max_fallback_rate:
+        status = "roi_review_required"
+        attention = True
+        required_action = "review_primary_model_roi_or_routing"
+        rationale = f"fallback_rate={fallback_rate:.3f}>{max_fallback_rate:.3f}"
+    else:
+        status = "within_budget"
+        attention = False
+        required_action = None
+        rationale = "within_configured_budget_policy"
+
+    summary_parts = [status, f"scope={scope}", rationale]
+    if threshold_parts:
+        summary_parts.append("policy=" + ",".join(threshold_parts))
+    if required_action:
+        summary_parts.append(f"action={required_action}")
+    return {
+        "status": status,
+        "attention": attention,
+        "required_action": required_action,
+        "scope": scope,
+        "estimated_cost_limit_usd": cost_limit,
+        "token_limit": token_limit or None,
+        "max_fallback_rate": max_fallback_rate,
+        "max_degraded_rate": max_degraded_rate,
+        "require_pricing_for_all_usage": require_pricing,
+        "fallback_rate": fallback_rate,
+        "degraded_rate": degraded_rate,
+        "summary_line": " | ".join(summary_parts),
     }
 
 
@@ -2225,6 +2345,10 @@ class FSJStore:
         costed_bundle_count = int(summary.get("costed_bundle_count") or 0)
         uncosted_bundle_count = int(summary.get("uncosted_bundle_count") or 0)
         estimated_cost_usd = summary.get("estimated_cost_usd")
+        prompt_versions = [str(item) for item in (summary.get("prompt_versions") or []) if str(item).strip()]
+        adopted_output_fields = [str(item) for item in (summary.get("adopted_output_fields") or []) if str(item).strip()]
+        discarded_output_fields = [str(item) for item in (summary.get("discarded_output_fields") or []) if str(item).strip()]
+        discard_reasons = [str(item) for item in (summary.get("discard_reasons") or []) if str(item).strip()]
         model_usage_breakdown = {
             str(model): dict(payload)
             for model, payload in dict(summary.get("model_usage_breakdown") or {}).items()
@@ -2262,17 +2386,21 @@ class FSJStore:
             detail_parts.append(f"slots={','.join(slots)}")
         if models:
             detail_parts.append(f"models={','.join(models)}")
+        if prompt_versions:
+            detail_parts.append(f"prompts={','.join(prompt_versions)}")
         if total_tokens:
             detail_parts.append(f"tokens={total_tokens}")
         adopted_output_field_count = int(summary.get("adopted_output_field_count") or 0)
         discarded_output_field_count = int(summary.get("discarded_output_field_count") or 0)
-        field_replay_ready_bundle_count = int(summary.get("field_replay_ready_bundle_count") or 0)
+        field_replay_ready_count = int(summary.get("field_replay_ready_count") or summary.get("field_replay_ready_bundle_count") or 0)
         if adopted_output_field_count:
             detail_parts.append(f"adopted_fields={adopted_output_field_count}")
         if discarded_output_field_count:
             detail_parts.append(f"discarded_fields={discarded_output_field_count}")
-        if field_replay_ready_bundle_count:
-            detail_parts.append(f"field_replay_ready={field_replay_ready_bundle_count}")
+        if field_replay_ready_count:
+            detail_parts.append(f"replay_ready={field_replay_ready_count}")
+        if discard_reasons:
+            detail_parts.append(f"discard_reasons={','.join(discard_reasons)}")
         if usage_bundle_count:
             detail_parts.append(f"usage={usage_bundle_count}")
         if estimated_cost_usd is not None:
@@ -2283,6 +2411,16 @@ class FSJStore:
             usage_bundle_count=usage_bundle_count,
             costed_bundle_count=costed_bundle_count,
             uncosted_bundle_count=uncosted_bundle_count,
+        )
+        budget_governance = _evaluate_llm_budget_governance(
+            usage_bundle_count=usage_bundle_count,
+            costed_bundle_count=costed_bundle_count,
+            uncosted_bundle_count=uncosted_bundle_count,
+            estimated_cost_usd=estimated_cost_usd,
+            total_tokens=total_tokens,
+            fallback_applied_count=fallback_count,
+            degraded_count=degraded_count,
+            scope="per_artifact",
         )
 
         return {
@@ -2297,9 +2435,13 @@ class FSJStore:
             "operator_tags": operator_tags,
             "slots": slots,
             "models": models,
+            "prompt_versions": prompt_versions,
+            "adopted_output_fields": adopted_output_fields,
+            "discarded_output_fields": discarded_output_fields,
+            "discard_reasons": discard_reasons,
             "adopted_output_field_count": adopted_output_field_count,
             "discarded_output_field_count": discarded_output_field_count,
-            "field_replay_ready_bundle_count": field_replay_ready_bundle_count,
+            "field_replay_ready_count": field_replay_ready_count,
             "usage_bundle_count": usage_bundle_count,
             "costed_bundle_count": costed_bundle_count,
             "priced_bundle_count": budget_posture.get("priced_bundle_count"),
@@ -2307,6 +2449,11 @@ class FSJStore:
             "budget_posture": budget_posture.get("posture"),
             "budget_attention": budget_posture.get("attention"),
             "budget_summary_line": budget_posture.get("summary_line"),
+            "budget_governance_status": budget_governance.get("status"),
+            "budget_governance_attention": budget_governance.get("attention"),
+            "budget_governance_required_action": budget_governance.get("required_action"),
+            "budget_governance_summary_line": budget_governance.get("summary_line"),
+            "budget_governance": budget_governance,
             "token_totals": token_totals,
             "estimated_cost_usd": estimated_cost_usd,
             "model_usage_breakdown": model_usage_breakdown,
@@ -2338,6 +2485,7 @@ class FSJStore:
                     "summary": bundle.get("summary"),
                     "applied": bool(llm_assist.get("applied")),
                     "model_alias": llm_assist.get("model_alias"),
+                    "model_id": llm_assist.get("model_id"),
                     "prompt_version": llm_assist.get("prompt_version"),
                     "input_digest": llm_assist.get("input_digest"),
                     "failure_classification": llm_assist.get("failure_classification"),
@@ -2365,6 +2513,7 @@ class FSJStore:
         role_policy_versions = sorted({str(item.get("role_policy_version")) for item in bundle_entries if item.get("role_policy_version")})
         boundary_modes = sorted({str(item.get("role_policy_boundary_mode")) for item in bundle_entries if item.get("role_policy_boundary_mode")})
         models = sorted({str(item.get("model_alias")) for item in bundle_entries if item.get("model_alias")})
+        prompt_versions = sorted({str(item.get("prompt_version")) for item in bundle_entries if item.get("prompt_version")})
         slots = [str(item.get("slot")) for item in bundle_entries if item.get("slot")]
         token_totals = {
             "input_tokens": 0,
@@ -2444,6 +2593,24 @@ class FSJStore:
             ),
             [],
         )
+        adopted_output_fields = sorted(
+            {
+                str(field)
+                for item in bundle_entries
+                for field in (item.get("adopted_output_fields") or [])
+                if str(field).strip()
+            }
+        )
+        discarded_output_fields = sorted(
+            {
+                str(field)
+                for item in bundle_entries
+                for field in (item.get("discarded_output_fields") or [])
+                if str(field).strip()
+            }
+        )
+        discard_reasons = sorted({str(item.get("discard_reason")) for item in bundle_entries if item.get("discard_reason")})
+        field_replay_ready_count = len([item for item in bundle_entries if item.get("field_replay_ready") is True])
 
         summary = {
             "bundle_count": len(bundle_entries),
@@ -2456,6 +2623,7 @@ class FSJStore:
             "operator_tags": sorted({str(item.get("operator_tag")) for item in bundle_entries if item.get("operator_tag")}),
             "slots": slots,
             "models": models,
+            "prompt_versions": prompt_versions,
             "role_policy_versions": role_policy_versions,
             "boundary_modes": boundary_modes,
             "deterministic_owner_fields": deterministic_owner_fields,
@@ -2463,7 +2631,10 @@ class FSJStore:
             "override_precedence": override_precedence,
             "adopted_output_field_count": sum(int(item.get("adopted_output_field_count") or 0) for item in bundle_entries if not item.get("missing")),
             "discarded_output_field_count": sum(int(item.get("discarded_output_field_count") or 0) for item in bundle_entries if not item.get("missing")),
-            "field_replay_ready_bundle_count": len([item for item in bundle_entries if item.get("field_replay_ready") is True]),
+            "adopted_output_fields": adopted_output_fields,
+            "discarded_output_fields": discarded_output_fields,
+            "discard_reasons": discard_reasons,
+            "field_replay_ready_count": field_replay_ready_count,
             "usage_bundle_count": usage_bundle_count,
             "uncosted_bundle_count": max(usage_bundle_count - costed_bundle_count, 0),
             "costed_bundle_count": costed_bundle_count,
@@ -2479,6 +2650,20 @@ class FSJStore:
                 uncosted_bundle_count=summary["uncosted_bundle_count"],
             )
         )
+        summary["budget_governance"] = _evaluate_llm_budget_governance(
+            usage_bundle_count=summary["usage_bundle_count"],
+            costed_bundle_count=summary["costed_bundle_count"],
+            uncosted_bundle_count=summary["uncosted_bundle_count"],
+            estimated_cost_usd=summary["estimated_cost_usd"],
+            total_tokens=_usage_int(summary["token_totals"], "total_tokens", "totalTokens"),
+            fallback_applied_count=summary["fallback_applied_count"],
+            degraded_count=summary["degraded_count"],
+            scope="per_artifact",
+        )
+        summary["budget_governance_status"] = summary["budget_governance"].get("status")
+        summary["budget_governance_attention"] = summary["budget_governance"].get("attention")
+        summary["budget_governance_required_action"] = summary["budget_governance"].get("required_action")
+        summary["budget_governance_summary_line"] = summary["budget_governance"].get("summary_line")
         return {
             "artifact_id": normalized_artifact.get("artifact_id"),
             "bundle_ids": bundle_ids,
@@ -2568,6 +2753,16 @@ class FSJStore:
                 costed_bundle_count=fleet_costed_bundle_count,
                 uncosted_bundle_count=fleet_uncosted_bundle_count,
             )
+            budget_governance = _evaluate_llm_budget_governance(
+                usage_bundle_count=fleet_usage_bundle_count,
+                costed_bundle_count=fleet_costed_bundle_count,
+                uncosted_bundle_count=fleet_uncosted_bundle_count,
+                estimated_cost_usd=round(sum(fleet_cost_values), 6) if fleet_cost_values else None,
+                total_tokens=fleet_total_tokens,
+                fallback_applied_count=sum(int(item.get("fallback_applied_count") or 0) for item in present_subjects),
+                degraded_count=status_counts.get("degraded", 0) + status_counts.get("incomplete", 0),
+                scope="fleet",
+            )
             return {
                 "overall_status": overall_status,
                 "subject_count": len(subjects),
@@ -2583,6 +2778,11 @@ class FSJStore:
                 "budget_posture": budget_posture.get("posture"),
                 "budget_attention": budget_posture.get("attention"),
                 "budget_summary_line": budget_posture.get("summary_line"),
+                "budget_governance_status": budget_governance.get("status"),
+                "budget_governance_attention": budget_governance.get("attention"),
+                "budget_governance_required_action": budget_governance.get("required_action"),
+                "budget_governance_summary_line": budget_governance.get("summary_line"),
+                "budget_governance": budget_governance,
                 "estimated_cost_usd": round(sum(fleet_cost_values), 6) if fleet_cost_values else None,
                 "model_usage_breakdown": fleet_model_usage_breakdown,
                 "slot_usage_breakdown": fleet_slot_usage_breakdown,

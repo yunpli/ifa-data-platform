@@ -21,7 +21,15 @@ class _DummyStore:
             "canonical_state_vocabulary": {"status_semantic": "sent", "operator_bucket": "terminal_dispatch"},
             "what_user_received": {"dispatch_state": "dispatch_succeeded", "channel": "telegram_document", "provider_message_id": "42", "sent_at": "2099-04-22T10:00:03Z", "error": None},
             "bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 0, "slots": ["early", "late"], "section_keys": ["pre_open_main", "post_close_main"]},
-            "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=2/2]"},
+            "llm_lineage_summary": {
+                "status": "applied",
+                "summary_line": "applied [applied=2/2 | prompts=fsj_early_main_v1,fsj_late_main_v1 | adopted_fields=12 | replay_ready=2]",
+                "prompt_versions": ["fsj_early_main_v1", "fsj_late_main_v1"],
+                "field_replay_ready_count": 2,
+                "adopted_output_field_count": 12,
+                "discarded_output_field_count": 0,
+                "discard_reasons": [],
+            },
         }
 
     def list_report_artifact_lineages(self, **_: object) -> list[dict]:
@@ -91,5 +99,10 @@ def test_print_text_exposes_governance_and_promotion_authority_fields(capsys) ->
     assert "promotion_authority_approver_summary=kind=system | id=- | label=fsj_policy_projection | decided_at=-" in output
     assert "board_state_source=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff" in output
     assert "canonical_operator_bucket=terminal_dispatch" in output
+    assert "llm_prompt_versions=fsj_early_main_v1,fsj_late_main_v1" in output
+    assert "llm_field_replay_ready_count=2" in output
+    assert "llm_adopted_output_field_count=12" in output
+    assert "llm_discarded_output_field_count=0" in output
+    assert "llm_discard_reasons=" in output
     assert "registry_chain_depth=2" in output
     assert "registry_summary=head=artifact-active | depth=2 | superseded=1 | withdrawn=0 | sent=1 | dangling_supersedes=0 | multiply_superseded=0" in output

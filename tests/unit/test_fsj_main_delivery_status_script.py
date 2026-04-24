@@ -276,8 +276,13 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
             },
             "llm_lineage_summary": {
                 "status": "degraded",
-                "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | tokens=579 | usage=2 | unpriced=2]",
+                "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | prompts=fsj_early_main_v1,fsj_late_main_v1 | tokens=579 | adopted_fields=6 | discarded_fields=6 | replay_ready=1 | discard_reasons=timeout | usage=2 | unpriced=2]",
                 "models": ["gemini31_pro_jmr", "grok41_thinking"],
+                "prompt_versions": ["fsj_early_main_v1", "fsj_late_main_v1"],
+                "field_replay_ready_count": 1,
+                "adopted_output_field_count": 6,
+                "discarded_output_field_count": 6,
+                "discard_reasons": ["timeout"],
                 "usage_bundle_count": 2,
                 "token_totals": {"total_tokens": 579},
                 "estimated_cost_usd": None,
@@ -420,9 +425,14 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "lineage_dispatch_error=None" in output
     assert "llm_lineage_status=degraded" in output
     assert "llm_models=gemini31_pro_jmr,grok41_thinking" in output
+    assert "llm_prompt_versions=fsj_early_main_v1,fsj_late_main_v1" in output
+    assert "llm_field_replay_ready_count=1" in output
+    assert "llm_adopted_output_field_count=6" in output
+    assert "llm_discarded_output_field_count=6" in output
+    assert "llm_discard_reasons=timeout" in output
     assert "llm_total_tokens=579" in output
     assert "llm_uncosted_bundle_count=2" in output
-    assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | tokens=579 | usage=2 | unpriced=2]" in output
+    assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | prompts=fsj_early_main_v1,fsj_late_main_v1 | tokens=579 | adopted_fields=6 | discarded_fields=6 | replay_ready=1 | discard_reasons=timeout | usage=2 | unpriced=2]" in output
     assert "llm_policy_versions=fsj_llm_role_policy_v1" in output
     assert "llm_boundary_modes=same_day_close" in output
     assert "llm_forbidden_decision_count=1" in output
