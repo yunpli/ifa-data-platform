@@ -155,7 +155,53 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
 
 
 def test_report_operator_review_surface_projection_prefers_db_backed_review_payload() -> None:
-    store = _ProjectionOnlyStore()
+    class _Store(_ProjectionOnlyStore):
+        def get_bundle_graph(self, bundle_id: str) -> dict | None:
+            graphs = {
+                "bundle-early": {
+                    "bundle": {
+                        "bundle_id": "bundle-early",
+                        "slot": "early",
+                        "section_key": "pre_open_main",
+                        "summary": "early summary",
+                        "payload_json": {
+                            "llm_assist": {
+                                "applied": False,
+                                "model_alias": "grok41_thinking",
+                                "prompt_version": "fsj_early_main_v1",
+                                "failure_classification": "timeout",
+                                "policy": {
+                                    "outcome": "deterministic_degrade",
+                                    "operator_tag": "llm_timeout",
+                                    "attempted_model_chain": ["grok41_thinking", "gemini31_pro_jmr"],
+                                },
+                            }
+                        },
+                    }
+                },
+                "bundle-late": {
+                    "bundle": {
+                        "bundle_id": "bundle-late",
+                        "slot": "late",
+                        "section_key": "post_close_main",
+                        "summary": "late summary",
+                        "payload_json": {
+                            "llm_assist": {
+                                "applied": True,
+                                "model_alias": "gemini31_pro_jmr",
+                                "prompt_version": "fsj_late_main_v1",
+                                "policy": {
+                                    "outcome": "fallback_applied",
+                                    "attempted_model_chain": ["grok41_thinking", "gemini31_pro_jmr"],
+                                },
+                            }
+                        },
+                    }
+                },
+            }
+            return graphs.get(bundle_id)
+
+    store = _Store()
     surface = {
         "artifact": {
             "artifact_id": "artifact-current",
@@ -163,6 +209,7 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
             "business_date": "2099-04-22",
             "status": "active",
             "artifact_version": "v2",
+            "metadata_json": {"bundle_ids": ["bundle-early", "bundle-late"]},
         },
         "delivery_package": {
             "delivery_package_dir": "/tmp/current-pkg",
@@ -220,6 +267,55 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["go_no_go_decision"] == "NO_GO"
     assert summary["review_summary"]["selected_is_current"] is False
     assert summary["package_paths"]["delivery_package_dir"] == "/tmp/selected-pkg"
+    assert summary["llm_lineage"]["summary"]["bundle_count"] == 2
+    assert summary["llm_lineage"]["summary"]["applied_count"] == 1
+    assert summary["llm_lineage"]["summary"]["degraded_count"] == 1
+    assert summary["llm_lineage"]["summary"]["fallback_applied_count"] == 1
+    assert summary["llm_lineage"]["summary"]["operator_tags"] == ["llm_timeout"]
+    assert summary["review_summary"]["llm_bundle_count"] == 2
+    assert summary["review_summary"]["llm_applied_count"] == 1
+    assert summary["review_summary"]["llm_degraded_count"] == 1
+    assert summary["review_summary"]["llm_fallback_count"] == 1
+
+
+def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> None:
+    class _Store(_ProjectionOnlyStore):
+        def get_bundle_graph(self, bundle_id: str) -> dict | None:
+            if bundle_id == "bundle-missing":
+                return None
+            return {
+                "bundle": {
+                    "bundle_id": bundle_id,
+                    "slot": "mid",
+                    "section_key": "midday_main",
+                    "summary": "mid summary",
+                    "payload_json": {
+                        "llm_assist": {
+                            "applied": True,
+                            "model_alias": "grok41_thinking",
+                            "prompt_version": "fsj_mid_main_v1",
+                            "policy": {
+                                "outcome": "primary_applied",
+                                "attempted_model_chain": ["grok41_thinking"],
+                            },
+                        }
+                    },
+                }
+            }
+
+    lineage = _Store().report_llm_lineage_from_artifact(
+        {
+            "artifact_id": "artifact-1",
+            "metadata_json": {"bundle_ids": ["bundle-mid", "bundle-missing"]},
+        }
+    )
+
+    assert lineage["artifact_id"] == "artifact-1"
+    assert lineage["summary"]["bundle_count"] == 2
+    assert lineage["summary"]["primary_applied_count"] == 1
+    assert lineage["summary"]["missing_bundle_count"] == 1
+    assert lineage["bundles"][0]["bundle_id"] == "bundle-mid"
+    assert lineage["bundles"][1]["missing"] is True
 
 
 def test_report_operator_review_query_helpers_project_from_delivery_surfaces() -> None:

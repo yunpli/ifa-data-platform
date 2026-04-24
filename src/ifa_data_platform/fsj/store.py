@@ -819,6 +819,7 @@ class FSJStore:
         metadata = dict(artifact.get("metadata_json") or {})
         delivery_package = dict(metadata.get("delivery_package") or {})
         workflow_linkage = dict(metadata.get("workflow_linkage") or {})
+        llm_lineage = self.report_llm_lineage_from_artifact(artifact)
         if not delivery_package:
             return {
                 "artifact": artifact,
@@ -829,6 +830,7 @@ class FSJStore:
                     delivery_package=None,
                     workflow_linkage=workflow_linkage,
                 ),
+                "llm_lineage": llm_lineage,
                 "send_ready": False,
                 "review_required": False,
             }
@@ -853,6 +855,7 @@ class FSJStore:
                 delivery_package=normalized_delivery_package,
                 workflow_linkage=workflow_linkage,
             ),
+            "llm_lineage": llm_lineage,
             "send_ready": bool(delivery_package.get("ready_for_delivery")) and recommended_action == "send",
             "review_required": recommended_action == "send_review",
         }
@@ -929,6 +932,7 @@ class FSJStore:
         package_state = dict(package_surface.get("package_state") or {})
         quality_gate = dict(package_state.get("quality_gate") or {})
         state = dict(workflow_handoff.get("state") or {})
+        llm_lineage = dict(normalized_surface.get("llm_lineage") or self.report_llm_lineage_from_artifact(artifact))
 
         review_payload = dict(
             dict(normalized_surface.get("review_surface") or {})
@@ -971,6 +975,7 @@ class FSJStore:
             "package_versions": dict(package_surface.get("package_versions") or {}),
             "package_state": package_state,
             "workflow_handoff": workflow_handoff,
+            "llm_lineage": llm_lineage,
             "candidate_comparison": {
                 **candidate_comparison,
                 "selected": selected,
@@ -999,7 +1004,67 @@ class FSJStore:
                 "blocker_count": quality_gate.get("blocker_count"),
                 "warning_count": quality_gate.get("warning_count"),
                 "go_no_go_decision": computed_decision,
+                "llm_bundle_count": llm_lineage.get("summary", {}).get("bundle_count"),
+                "llm_applied_count": llm_lineage.get("summary", {}).get("applied_count"),
+                "llm_degraded_count": llm_lineage.get("summary", {}).get("degraded_count"),
+                "llm_primary_count": llm_lineage.get("summary", {}).get("primary_applied_count"),
+                "llm_fallback_count": llm_lineage.get("summary", {}).get("fallback_applied_count"),
             },
+        }
+
+    def report_llm_lineage_from_artifact(self, artifact: dict[str, Any] | None) -> dict[str, Any]:
+        normalized_artifact = dict(artifact or {})
+        metadata = dict(normalized_artifact.get("metadata_json") or {})
+        bundle_ids = [str(item) for item in (metadata.get("bundle_ids") or []) if str(item).strip()]
+        bundle_entries: list[dict[str, Any]] = []
+        for bundle_id in bundle_ids:
+            graph = self.get_bundle_graph(bundle_id)
+            bundle = dict((graph or {}).get("bundle") or {})
+            payload = dict(bundle.get("payload_json") or {})
+            llm_assist = dict(payload.get("llm_assist") or {})
+            if not bundle:
+                bundle_entries.append({"bundle_id": bundle_id, "missing": True})
+                continue
+            policy = dict(llm_assist.get("policy") or {})
+            attempt_failures = list(llm_assist.get("attempt_failures") or policy.get("prior_failures") or [])
+            bundle_entries.append(
+                {
+                    "bundle_id": bundle_id,
+                    "slot": bundle.get("slot"),
+                    "section_key": bundle.get("section_key"),
+                    "summary": bundle.get("summary"),
+                    "applied": bool(llm_assist.get("applied")),
+                    "model_alias": llm_assist.get("model_alias"),
+                    "prompt_version": llm_assist.get("prompt_version"),
+                    "input_digest": llm_assist.get("input_digest"),
+                    "failure_classification": llm_assist.get("failure_classification"),
+                    "operator_tag": policy.get("operator_tag"),
+                    "outcome": policy.get("outcome") or ("applied" if llm_assist.get("applied") else "not_applied"),
+                    "attempted_model_chain": list(policy.get("attempted_model_chain") or []),
+                    "primary_model_alias": policy.get("primary_model_alias"),
+                    "fallback_model_aliases": list(policy.get("fallback_model_aliases") or []),
+                    "attempt_failure_count": len(attempt_failures),
+                    "attempt_failures": attempt_failures,
+                    "usage": dict(llm_assist.get("usage") or {}) if isinstance(llm_assist.get("usage"), dict) else None,
+                }
+            )
+
+        summary = {
+            "bundle_count": len(bundle_entries),
+            "applied_count": len([item for item in bundle_entries if item.get("applied") is True]),
+            "degraded_count": len([item for item in bundle_entries if item.get("applied") is False and not item.get("missing")]),
+            "missing_bundle_count": len([item for item in bundle_entries if item.get("missing")]),
+            "fallback_applied_count": len([item for item in bundle_entries if item.get("outcome") == "fallback_applied"]),
+            "primary_applied_count": len([item for item in bundle_entries if item.get("outcome") == "primary_applied"]),
+            "deterministic_degrade_count": len([item for item in bundle_entries if item.get("outcome") == "deterministic_degrade"]),
+            "operator_tags": sorted({str(item.get("operator_tag")) for item in bundle_entries if item.get("operator_tag")}),
+            "slots": [item.get("slot") for item in bundle_entries if item.get("slot")],
+        }
+        return {
+            "artifact_id": normalized_artifact.get("artifact_id"),
+            "bundle_ids": bundle_ids,
+            "summary": summary,
+            "bundles": bundle_entries,
         }
 
     def build_operator_board_surface(

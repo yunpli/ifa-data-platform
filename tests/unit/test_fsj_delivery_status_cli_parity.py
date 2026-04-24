@@ -81,6 +81,29 @@ class _ParityStore:
                 "selected_handoff": {"selected_artifact_id": selected_artifact_id},
                 "state": {"workflow_state": "review_required"},
             },
+            "llm_lineage": {
+                "artifact_id": artifact_id,
+                "bundle_ids": [f"{artifact_id}-bundle"],
+                "summary": {
+                    "bundle_count": 1,
+                    "applied_count": 1,
+                    "degraded_count": 0,
+                    "primary_applied_count": 1,
+                    "fallback_applied_count": 0,
+                    "operator_tags": [],
+                },
+                "bundles": [
+                    {
+                        "bundle_id": f"{artifact_id}-bundle",
+                        "slot": slot,
+                        "section_key": "mainline",
+                        "applied": True,
+                        "model_alias": "grok41_thinking",
+                        "prompt_version": "fsj_v1",
+                        "outcome": "primary_applied",
+                    }
+                ],
+            },
             "candidate_comparison": {
                 "selected_artifact_id": selected_artifact_id,
                 "current_artifact_id": artifact_id,
@@ -102,6 +125,11 @@ class _ParityStore:
                 "blocker_count": 0,
                 "warning_count": 1,
                 "go_no_go_decision": "REVIEW",
+                "llm_bundle_count": 1,
+                "llm_applied_count": 1,
+                "llm_degraded_count": 0,
+                "llm_primary_count": 1,
+                "llm_fallback_count": 0,
             },
         }
 
@@ -119,6 +147,8 @@ def _active_schema(payload: dict) -> dict:
         "package_version_keys": sorted(active["package_versions"].keys()),
         "package_state_keys": sorted(active["package_state"].keys()),
         "review_summary_keys": sorted(active["review_summary"].keys()),
+        "llm_lineage_keys": sorted(active["llm_lineage"].keys()),
+        "llm_summary_keys": sorted(active["llm_lineage"]["summary"].keys()),
     }
 
 
@@ -142,3 +172,5 @@ def test_main_and_support_status_cli_json_contracts_are_symmetric(monkeypatch, c
     assert support_payload["active_surface"]["review_summary"]["go_no_go_decision"] == "REVIEW"
     assert main_payload["active_surface"]["package_paths"]["operator_review_bundle_path"].endswith("operator_review_bundle.json")
     assert support_payload["active_surface"]["package_paths"]["operator_review_bundle_path"].endswith("operator_review_bundle.json")
+    assert main_payload["active_surface"]["llm_lineage"]["summary"]["applied_count"] == 1
+    assert support_payload["active_surface"]["llm_lineage"]["summary"]["applied_count"] == 1

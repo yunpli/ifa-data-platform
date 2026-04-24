@@ -80,6 +80,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     selected = _safe_dict(active.get("selected_handoff"))
     state = _safe_dict(active.get("state"))
     pointers = _safe_dict(active.get("package_paths") or active.get("manifest_pointers"))
+    llm_lineage = _safe_dict(active.get("llm_lineage"))
+    llm_summary = _safe_dict(llm_lineage.get("summary"))
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
     print(f"agent_domain={payload.get('agent_domain')}")
@@ -117,6 +119,11 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"workflow_manifest_path={pointers.get('workflow_manifest_path')}")
     print(f"package_index_path={pointers.get('package_index_path')}")
     print(f"delivery_zip_path={pointers.get('delivery_zip_path')}")
+    print(f"llm_bundle_count={llm_summary.get('bundle_count')}")
+    print(f"llm_applied_count={llm_summary.get('applied_count')}")
+    print(f"llm_degraded_count={llm_summary.get('degraded_count')}")
+    print(f"llm_fallback_count={llm_summary.get('fallback_applied_count')}")
+    print(f"llm_operator_tags={','.join(llm_summary.get('operator_tags') or [])}")
     print(f"history_count={len(payload.get('history') or [])}")
 
 
