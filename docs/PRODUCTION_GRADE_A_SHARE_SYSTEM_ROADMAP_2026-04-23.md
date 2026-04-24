@@ -350,7 +350,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-4. Production runbooks
-**Status:** In progress — thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`)  
+**Status:** In progress — thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`) and thin send/dispatch-failure slice landed (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`)  
 **Target:** slot-specific incident handling and normal operations docs
 
 **Tasks**
