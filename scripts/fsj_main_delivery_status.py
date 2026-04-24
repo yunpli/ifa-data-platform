@@ -70,6 +70,31 @@ def build_status_payload(*, business_date: str, history_limit: int = 5, resoluti
     }
 
 
+def _artifact_row(surface: dict[str, Any] | None) -> dict[str, Any]:
+    summary = _safe_dict(surface)
+    artifact = _safe_dict(summary.get("artifact"))
+    state = _safe_dict(summary.get("state"))
+    lifecycle = _safe_dict(summary.get("canonical_lifecycle"))
+    review_summary = _safe_dict(summary.get("review_summary"))
+    return {
+        "artifact_id": artifact.get("artifact_id"),
+        "report_run_id": artifact.get("report_run_id"),
+        "status": artifact.get("status"),
+        "workflow_state": state.get("workflow_state"),
+        "recommended_action": state.get("recommended_action"),
+        "package_state": state.get("package_state"),
+        "ready_for_delivery": state.get("ready_for_delivery"),
+        "send_ready": state.get("send_ready"),
+        "review_required": state.get("review_required"),
+        "canonical_lifecycle_state": lifecycle.get("state") or review_summary.get("canonical_lifecycle_state"),
+        "canonical_lifecycle_reason": lifecycle.get("reason") or review_summary.get("canonical_lifecycle_reason"),
+        "selected_is_current": _safe_dict(summary.get("selected_handoff")).get("selected_is_current"),
+        "qa_score": review_summary.get("qa_score", state.get("qa_score")),
+        "blocker_count": review_summary.get("blocker_count", state.get("blocker_count")),
+        "warning_count": review_summary.get("warning_count", state.get("warning_count")),
+    }
+
+
 def _print_text(payload: dict[str, Any]) -> None:
     active = payload.get("active_surface") or {}
     artifact = _safe_dict(active.get("artifact"))
@@ -80,6 +105,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     llm_summary = _safe_dict(llm_lineage.get("summary"))
     llm_lineage_summary = _safe_dict(active.get("llm_lineage_summary"))
     llm_role_policy = _safe_dict(active.get("llm_role_policy"))
+    canonical_lifecycle = _safe_dict(active.get("canonical_lifecycle"))
+    history_rows = [_artifact_row(item) for item in (payload.get("history") or [])]
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
     print(f"resolution_mode={resolution.get('mode')}")
@@ -100,6 +127,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"recommended_action={state.get('recommended_action')}")
     print(f"dispatch_recommended_action={state.get('dispatch_recommended_action')}")
     print(f"workflow_state={state.get('workflow_state')}")
+    print(f"canonical_lifecycle_state={canonical_lifecycle.get('state')}")
+    print(f"canonical_lifecycle_reason={canonical_lifecycle.get('reason')}")
     print(f"send_ready={state.get('send_ready')}")
     print(f"review_required={state.get('review_required')}")
     print(f"next_step={state.get('next_step')}")
@@ -136,7 +165,15 @@ def _print_text(payload: dict[str, Any]) -> None:
     slot_boundary_modes = llm_role_policy.get('slot_boundary_modes') or {}
     slot_boundary_mode_line = ','.join(f"{slot}:{slot_boundary_modes[slot]}" for slot in sorted(slot_boundary_modes))
     print(f"llm_slot_boundary_modes={slot_boundary_mode_line}")
-    print(f"history_count={len(payload.get('history') or [])}")
+    print(f"history_count={len(history_rows)}")
+    for index, row in enumerate(history_rows, start=1):
+        print(f"history_{index}_artifact_id={row.get('artifact_id')}")
+        print(f"history_{index}_status={row.get('status')}")
+        print(f"history_{index}_workflow_state={row.get('workflow_state')}")
+        print(f"history_{index}_recommended_action={row.get('recommended_action')}")
+        print(f"history_{index}_canonical_lifecycle_state={row.get('canonical_lifecycle_state')}")
+        print(f"history_{index}_canonical_lifecycle_reason={row.get('canonical_lifecycle_reason')}")
+        print(f"history_{index}_selected_is_current={row.get('selected_is_current')}")
 
 
 def main() -> None:

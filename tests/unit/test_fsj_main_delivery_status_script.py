@@ -12,6 +12,7 @@ _module = importlib.util.module_from_spec(_spec)
 assert _spec is not None and _spec.loader is not None
 _spec.loader.exec_module(_module)
 _surface_summary = _module._surface_summary
+_artifact_row = _module._artifact_row
 _print_text = _module._print_text
 build_status_payload = _module.build_status_payload
 resolve_latest_main_business_date = _module.resolve_latest_main_business_date
@@ -113,6 +114,44 @@ def test_surface_summary_falls_back_to_store_normalized_handoff() -> None:
     assert summary["review_summary"]["go_no_go_decision"] == "GO"
 
 
+def test_artifact_row_projects_canonical_lifecycle_fields() -> None:
+    row = _artifact_row(
+        {
+            "artifact": {"artifact_id": "artifact-1", "report_run_id": "run-1", "status": "superseded"},
+            "state": {
+                "workflow_state": "review_required",
+                "recommended_action": "send_review",
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "send_ready": False,
+                "review_required": True,
+            },
+            "selected_handoff": {"selected_is_current": False},
+            "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
+            "review_summary": {"qa_score": 94, "blocker_count": 0, "warning_count": 2},
+        }
+    )
+
+    assert row == {
+        "artifact_id": "artifact-1",
+        "report_run_id": "run-1",
+        "status": "superseded",
+        "workflow_state": "review_required",
+        "recommended_action": "send_review",
+        "package_state": "ready",
+        "ready_for_delivery": True,
+        "send_ready": False,
+        "review_required": True,
+        "canonical_lifecycle_state": "review_ready",
+        "canonical_lifecycle_reason": "manual_review_required",
+        "selected_is_current": False,
+        "qa_score": 94,
+        "blocker_count": 0,
+        "warning_count": 2,
+    }
+
+
+
 def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
@@ -147,6 +186,7 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "blocker_count": 0,
                 "warning_count": 2,
             },
+            "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
             "package_paths": {
                 "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
                 "send_manifest_path": "/tmp/pkg/send_manifest.json",
@@ -176,7 +216,22 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "go_no_go_decision": "REVIEW",
             },
         },
-        "history": [{}, {}],
+        "history": [
+            {
+                "artifact": {"artifact_id": "artifact-active", "status": "active"},
+                "state": {"workflow_state": "review_required", "recommended_action": "send_review"},
+                "selected_handoff": {"selected_is_current": False},
+                "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
+                "review_summary": {"qa_score": 94, "blocker_count": 0, "warning_count": 2},
+            },
+            {
+                "artifact": {"artifact_id": "artifact-old", "status": "superseded"},
+                "state": {"workflow_state": "ready_to_send", "recommended_action": "send"},
+                "selected_handoff": {"selected_is_current": True},
+                "canonical_lifecycle": {"state": "superseded", "reason": "artifact_status_superseded"},
+                "review_summary": {"qa_score": 92, "blocker_count": 0, "warning_count": 0},
+            },
+        ],
     }
 
     _print_text(payload)
@@ -192,6 +247,8 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "recommended_action=send_review" in output
     assert "dispatch_recommended_action=send" in output
     assert "workflow_state=review_required" in output
+    assert "canonical_lifecycle_state=review_ready" in output
+    assert "canonical_lifecycle_reason=manual_review_required" in output
     assert "next_step=operator_review_selected_candidate" in output
     assert "selection_reason=best_ready_candidate strongest_slot=late qa_score=94" in output
     assert "dispatch_selected_artifact_id=artifact-selected" in output
@@ -208,6 +265,12 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "llm_slot_boundary_modes=late:same_day_close" in output
     assert "history_count=2" in output
+    assert "history_1_artifact_id=artifact-active" in output
+    assert "history_1_canonical_lifecycle_state=review_ready" in output
+    assert "history_1_canonical_lifecycle_reason=manual_review_required" in output
+    assert "history_2_artifact_id=artifact-old" in output
+    assert "history_2_canonical_lifecycle_state=superseded" in output
+    assert "history_2_canonical_lifecycle_reason=artifact_status_superseded" in output
 
 
 def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
