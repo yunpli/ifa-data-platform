@@ -420,12 +420,15 @@ QA exists, but full quality governance does not.
 ---
 
 ### P3-2. Historical drift monitoring
-**Status:** In progress — thin production slice landed (`scripts/fsj_drift_monitor.py`), then expanded with recent-drift streak projection on the same operator surface  
+**Status:** Materially closed for current roadmap scope — canonical drift monitor landed (`scripts/fsj_drift_monitor.py`), recent-drift streak projection landed on that surface, and the same drift truth is now embedded on the canonical operator board as per-scope summary lines plus a fleet digest  
 **Target:** detect quality and behavior drift over time
 
-**Tasks**
+**Delivered in current scope**
 - [x] operator-visible historical trend summary over canonical operator-review surfaces (ready/review/hold, QA posture, lineage degraded/fallback/missing, selected-current mismatch)
 - [x] recent consecutive-drift streak projection on the canonical drift monitor surface (hold/fallback/mismatch/QA attention streaks)
+- [x] canonical operator-board embedding of the same drift truth (`drift_summary_lines`, `fleet_drift_digest`, `fleet_drift_digest_line`) so operators do not have to pivot to a separate tool to see current multi-day posture
+
+**Deferred non-blocking expansions**
 - [ ] slot-level quality trend dashboards
 - [ ] support-summary missing rate
 - [ ] artifact hold rate
