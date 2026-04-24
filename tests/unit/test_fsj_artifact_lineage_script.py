@@ -23,12 +23,32 @@ class _DummyStore:
             "bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 0, "slots": ["early", "late"], "section_keys": ["pre_open_main", "post_close_main"]},
             "llm_lineage_summary": {
                 "status": "applied",
-                "summary_line": "applied [applied=2/2 | prompts=fsj_early_main_v1,fsj_late_main_v1 | adopted_fields=12 | replay_ready=2]",
+                "summary_line": "applied [applied=2/2 | prompts=fsj_early_main_v1,fsj_late_main_v1 | adopted_fields=12 | replay_ready=2 | usage=2 | cost_usd=0.012560]",
                 "prompt_versions": ["fsj_early_main_v1", "fsj_late_main_v1"],
                 "field_replay_ready_count": 2,
                 "adopted_output_field_count": 12,
                 "discarded_output_field_count": 0,
                 "discard_reasons": [],
+                "usage_bundle_count": 2,
+                "priced_bundle_count": 2,
+                "uncosted_bundle_count": 0,
+                "estimated_cost_usd": 0.01256,
+                "budget_posture": "fully_priced",
+                "budget_attention": False,
+                "budget_summary_line": "fully_priced [2/2]",
+                "budget_governance_status": "within_budget",
+                "budget_governance_required_action": None,
+                "budget_governance_summary_line": "within_budget | scope=per_artifact | within_configured_budget_policy | policy=cost<=0.020000,tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required",
+                "budget_governance": {
+                    "scope": "per_artifact",
+                    "estimated_cost_limit_usd": 0.02,
+                    "token_limit": 12000,
+                    "require_pricing_for_all_usage": True,
+                    "fallback_rate": 0.0,
+                    "max_fallback_rate": 0.5,
+                    "degraded_rate": 0.0,
+                    "max_degraded_rate": 0.5,
+                },
             },
         }
 
@@ -104,5 +124,23 @@ def test_print_text_exposes_governance_and_promotion_authority_fields(capsys) ->
     assert "llm_adopted_output_field_count=12" in output
     assert "llm_discarded_output_field_count=0" in output
     assert "llm_discard_reasons=" in output
+    assert "llm_usage_bundle_count=2" in output
+    assert "llm_priced_bundle_count=2" in output
+    assert "llm_uncosted_bundle_count=0" in output
+    assert "llm_estimated_cost_usd=0.01256" in output
+    assert "llm_budget_posture=fully_priced" in output
+    assert "llm_budget_attention=False" in output
+    assert "llm_budget_summary_line=fully_priced [2/2]" in output
+    assert "llm_budget_governance_status=within_budget" in output
+    assert "llm_budget_governance_required_action=None" in output
+    assert "llm_budget_governance_summary_line=within_budget | scope=per_artifact | within_configured_budget_policy | policy=cost<=0.020000,tokens<=12000,fallback_rate<=0.500,degraded_rate<=0.500,pricing=required" in output
+    assert "llm_budget_governance_scope=per_artifact" in output
+    assert "llm_budget_governance_estimated_cost_limit_usd=0.02" in output
+    assert "llm_budget_governance_token_limit=12000" in output
+    assert "llm_budget_governance_require_pricing_for_all_usage=True" in output
+    assert "llm_budget_governance_fallback_rate=0.0" in output
+    assert "llm_budget_governance_max_fallback_rate=0.5" in output
+    assert "llm_budget_governance_degraded_rate=0.0" in output
+    assert "llm_budget_governance_max_degraded_rate=0.5" in output
     assert "registry_chain_depth=2" in output
     assert "registry_summary=head=artifact-active | depth=2 | superseded=1 | withdrawn=0 | sent=1 | dangling_supersedes=0 | multiply_superseded=0" in output
