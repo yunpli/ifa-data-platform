@@ -310,6 +310,11 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["llm_deterministic_owner_fields"] == []
     assert summary["review_summary"]["llm_override_precedence"] == []
     assert summary["review_summary"]["llm_slot_boundary_modes"] == {}
+    assert summary["board_state_source"]["canonical_state"] == "review_ready"
+    assert summary["board_state_source"]["state_source_of_truth"] == "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    assert summary["board_state_source"]["blocking_reason_source_of_truth"] is None
+    assert summary["board_state_source"]["next_action_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"
+    assert summary["review_summary"]["board_state_source"]["canonical_reason"] == "manual_review_required"
 
 
 def test_report_artifact_lineage_projection_unifies_package_review_send_and_bundle_surfaces() -> None:

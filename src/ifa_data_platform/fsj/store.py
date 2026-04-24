@@ -2591,6 +2591,16 @@ class FSJStore:
                         "lineage_attention_subjects": [],
                     },
                 },
+                "board_state_source_summary": {
+                    "main": None,
+                    "support": dict(empty_domains),
+                    "aggregate": {
+                        "reported_subject_count": 0,
+                        "state_source_counts": {},
+                        "subjects_with_next_action_source": [],
+                        "subjects_with_blocking_reason_source": [],
+                    },
+                },
             }
         main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
         main_review = self.get_active_report_operator_review_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
