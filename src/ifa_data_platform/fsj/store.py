@@ -2500,6 +2500,8 @@ class FSJStore:
 
         def _operator_board_row(
             readiness: dict[str, Any] | None,
+            review_surface: dict[str, Any] | None,
+            artifact_lineage: dict[str, Any] | None,
             *,
             subject: str,
             history_index: int | None = None,
@@ -2507,11 +2509,43 @@ class FSJStore:
             normalized = dict(readiness or {})
             if not normalized:
                 return None
+            normalized_review_surface = dict(review_surface or {})
+            normalized_artifact_lineage = dict(artifact_lineage or {})
             canonical_state = str(normalized.get("canonical_lifecycle_state") or "").strip() or None
             semantic_status = _operator_status_semantic(canonical_state=canonical_state)
             next_action = str(normalized.get("operator_next_step") or "").strip() or None
             blocking_reason = _operator_blocking_reason(normalized)
             artifact_id = str(normalized.get("artifact_id") or "").strip() or None
+            workflow_handoff = dict(normalized_review_surface.get("workflow_handoff") or {})
+            selected_handoff = dict(normalized_review_surface.get("selected_handoff") or workflow_handoff.get("selected_handoff") or {})
+            package_state = dict(normalized_review_surface.get("package_state") or {})
+            package_paths = dict(normalized_review_surface.get("package_paths") or {})
+            package_versions = dict(normalized_review_surface.get("package_versions") or {})
+            package_lineage = dict(package_state.get("lineage") or {})
+            review_dispatch_receipt = dict(normalized_review_surface.get("dispatch_receipt") or {})
+            what_user_received = dict(normalized_artifact_lineage.get("what_user_received") or {})
+            bundle_lineage_summary = dict(normalized_artifact_lineage.get("bundle_lineage_summary") or {})
+            strongest_slot = dict(package_state.get("slot_evaluation") or {}).get("strongest_slot")
+            generated_at_utc = (
+                selected_handoff.get("selected_generated_at_utc")
+                or selected_handoff.get("generated_at_utc")
+                or package_paths.get("generated_at_utc")
+                or package_state.get("generated_at_utc")
+            )
+            dispatch_state = what_user_received.get("dispatch_state") or normalized_review_surface.get("dispatch_state")
+            selected_artifact_id = selected_handoff.get("selected_artifact_id")
+            selected_is_current = selected_handoff.get("selected_is_current")
+            bundle_count = int(bundle_lineage_summary.get("bundle_count") or 0)
+            missing_bundle_count = int(bundle_lineage_summary.get("missing_bundle_count") or 0)
+            lineage_sla_summary_parts = [
+                f"selected={selected_artifact_id or artifact_id or '-'}",
+                f"slot={strongest_slot or '-'}",
+                f"bundles={bundle_count}",
+                f"missing={missing_bundle_count}",
+                f"dispatch={dispatch_state or '-'}",
+            ]
+            if generated_at_utc:
+                lineage_sla_summary_parts.append(f"generated={generated_at_utc}")
             summary_parts = [
                 f"{subject}",
                 f"status={semantic_status or '-'}",
@@ -2531,29 +2565,60 @@ class FSJStore:
                 "recommended_action": normalized.get("recommended_action"),
                 "next_action": next_action,
                 "blocking_reason": blocking_reason,
+                "selected_artifact_id": selected_artifact_id,
+                "selected_is_current": selected_is_current,
+                "strongest_slot": strongest_slot,
+                "generated_at_utc": generated_at_utc,
+                "dispatch_state": dispatch_state,
+                "dispatch_attempted_at": review_dispatch_receipt.get("attempted_at"),
+                "dispatch_succeeded_at": review_dispatch_receipt.get("succeeded_at"),
+                "dispatch_failed_at": review_dispatch_receipt.get("failed_at"),
+                "bundle_count": bundle_count,
+                "missing_bundle_count": missing_bundle_count,
+                "bundle_ids": list(package_lineage.get("bundle_ids") or []),
+                "delivery_manifest_version": package_versions.get("delivery_manifest_version"),
                 "governance_action_required": bool(normalized.get("governance_action_required")),
                 "needs_attention": bool(normalized.get("needs_attention")),
+                "lineage_sla_summary": " | ".join(lineage_sla_summary_parts),
                 "summary_line": " | ".join(summary_parts),
             }
 
         def _aggregate_operator_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
             present_rows = [dict(item) for item in rows if item]
             semantic_counts: dict[str, int] = {}
+            dispatch_state_counts: dict[str, int] = {}
+            strongest_slot_counts: dict[str, int] = {}
             blocked_subjects: list[str] = []
             next_action_subjects: list[str] = []
+            selected_mismatch_subjects: list[str] = []
+            missing_bundle_subjects: list[str] = []
             for row in present_rows:
                 semantic = str(row.get("status_semantic") or "").strip()
                 if semantic:
                     semantic_counts[semantic] = semantic_counts.get(semantic, 0) + 1
+                dispatch_state = str(row.get("dispatch_state") or "").strip()
+                if dispatch_state:
+                    dispatch_state_counts[dispatch_state] = dispatch_state_counts.get(dispatch_state, 0) + 1
+                strongest_slot = str(row.get("strongest_slot") or "").strip()
+                if strongest_slot:
+                    strongest_slot_counts[strongest_slot] = strongest_slot_counts.get(strongest_slot, 0) + 1
                 if row.get("blocking_reason"):
                     blocked_subjects.append(str(row.get("subject") or ""))
                 if row.get("next_action"):
                     next_action_subjects.append(str(row.get("subject") or ""))
+                if row.get("selected_is_current") is False:
+                    selected_mismatch_subjects.append(str(row.get("subject") or ""))
+                if int(row.get("missing_bundle_count") or 0) > 0:
+                    missing_bundle_subjects.append(str(row.get("subject") or ""))
             return {
                 "reported_subject_count": len(present_rows),
                 "status_semantic_counts": semantic_counts,
+                "dispatch_state_counts": dispatch_state_counts,
+                "strongest_slot_counts": strongest_slot_counts,
                 "subjects_with_blocking_reason": blocked_subjects,
                 "subjects_with_next_action": next_action_subjects,
+                "selected_mismatch_subjects": selected_mismatch_subjects,
+                "subjects_with_missing_bundles": missing_bundle_subjects,
             }
 
         def _board_source_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
@@ -2724,6 +2789,12 @@ class FSJStore:
         main_lineage = _lineage_summary(main_review)
         support_lineage = {domain: _lineage_summary(review) for domain, review in support_reviews.items()}
         history_lineage = [_lineage_summary(review) for review in history_reviews]
+        main_artifact_lineage = self.report_artifact_lineage_from_surface(main_active) if main_active else None
+        support_artifact_lineage = {
+            domain: self.report_artifact_lineage_from_surface(surface) if surface else None
+            for domain, surface in support_active.items()
+        }
+        history_artifact_lineage = [self.report_artifact_lineage_from_surface(surface) for surface in history]
         main_role_policy = _role_policy_subject(main_review, subject="main")
         support_role_policy = {
             domain: _role_policy_subject(review, subject=f"support:{domain}")
@@ -2759,14 +2830,16 @@ class FSJStore:
             domain: _board_source_subject(review, subject=f"support:{domain}")
             for domain, review in support_reviews.items()
         }
-        board_rows_main = _operator_board_row(readiness_main, subject="main")
+        board_rows_main = _operator_board_row(readiness_main, main_review, main_artifact_lineage, subject="main")
         board_rows_support = {
-            domain: _operator_board_row(readiness, subject=f"support:{domain}")
+            domain: _operator_board_row(readiness, support_reviews.get(domain), support_artifact_lineage.get(domain), subject=f"support:{domain}")
             for domain, readiness in readiness_support.items()
         }
         board_rows_history = [
             _operator_board_row(
                 _readiness_subject(review, subject=f"history:{index}"),
+                review,
+                history_artifact_lineage[index - 1] if index - 1 < len(history_artifact_lineage) else None,
                 subject=f"history:{index}",
                 history_index=index,
             )

@@ -273,7 +273,7 @@ There is meaningful implementation here already, but not yet full system closure
 ---
 
 ### P1-5. Operator-facing production board
-**Status:** In progress (`P1-5a` provenance slice + `P1-5b` minimal board surface slice landed)  
+**Status:** In progress (`P1-5a` provenance slice + `P1-5b` minimal board surface slice + `P1-5c` lineage/SLA row enhancement slice landed)  
 **Target:** a single operator view for slot/domain/report state
 
 **Tasks**
@@ -285,6 +285,7 @@ There is meaningful implementation here already, but not yet full system closure
 **Thin slices already landed**
 - `P1-5a`: board state/data-source provenance (`board_state_source`, provenance summaries, next-action/blocker provenance)
 - `P1-5b`: minimal operator board rows on the canonical board surface (`board_rows`) with semantic status, canonical lifecycle, next action, blocker visibility, and CLI parity across main/support/history subjects
+- `P1-5c`: board row lineage/SLA enhancement on the canonical board surface (`board_rows`) with selected-artifact visibility, strongest-slot exposure, generated-at timing, dispatch state, bundle counts, missing-bundle visibility, and fleet aggregates for operator triage
 
 **Parallelizable:** no, should reuse P1-3 + P1-4 outputs
 

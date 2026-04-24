@@ -184,6 +184,14 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_board_status={main_board_row.get('status_semantic')}")
         print(f"main_board_blocking_reason={main_board_row.get('blocking_reason')}")
         print(f"main_board_next_action={main_board_row.get('next_action')}")
+        print(f"main_board_selected_artifact_id={main_board_row.get('selected_artifact_id')}")
+        print(f"main_board_selected_is_current={main_board_row.get('selected_is_current')}")
+        print(f"main_board_strongest_slot={main_board_row.get('strongest_slot')}")
+        print(f"main_board_generated_at_utc={main_board_row.get('generated_at_utc')}")
+        print(f"main_board_dispatch_state={main_board_row.get('dispatch_state')}")
+        print(f"main_board_bundle_count={main_board_row.get('bundle_count')}")
+        print(f"main_board_missing_bundle_count={main_board_row.get('missing_bundle_count')}")
+        print(f"main_board_lineage_sla_summary={main_board_row.get('lineage_sla_summary')}")
         print(f"main_board_row_summary={main_board_row.get('summary_line')}")
         print(f"main_board_state_source={main_board_source.get('state_source_of_truth')}")
         print(f"main_board_next_action_source={main_board_source.get('next_action_source_of_truth')}")
@@ -246,6 +254,14 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"support_{domain}_board_status={item_board_row.get('status_semantic')}")
         print(f"support_{domain}_board_blocking_reason={item_board_row.get('blocking_reason')}")
         print(f"support_{domain}_board_next_action={item_board_row.get('next_action')}")
+        print(f"support_{domain}_board_selected_artifact_id={item_board_row.get('selected_artifact_id')}")
+        print(f"support_{domain}_board_selected_is_current={item_board_row.get('selected_is_current')}")
+        print(f"support_{domain}_board_strongest_slot={item_board_row.get('strongest_slot')}")
+        print(f"support_{domain}_board_generated_at_utc={item_board_row.get('generated_at_utc')}")
+        print(f"support_{domain}_board_dispatch_state={item_board_row.get('dispatch_state')}")
+        print(f"support_{domain}_board_bundle_count={item_board_row.get('bundle_count')}")
+        print(f"support_{domain}_board_missing_bundle_count={item_board_row.get('missing_bundle_count')}")
+        print(f"support_{domain}_board_lineage_sla_summary={item_board_row.get('lineage_sla_summary')}")
         print(f"support_{domain}_board_row_summary={item_board_row.get('summary_line')}")
         print(f"support_{domain}_board_state_source={item_board_source.get('state_source_of_truth')}")
         print(f"support_{domain}_board_next_action_source={item_board_source.get('next_action_source_of_truth')}")
@@ -357,8 +373,22 @@ def _print_text(payload: dict[str, Any]) -> None:
             f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('status_semantic_counts')).items())
         )
     )
+    print(
+        "fleet_board_dispatch_state_counts="
+        + ",".join(
+            f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('dispatch_state_counts')).items())
+        )
+    )
+    print(
+        "fleet_board_strongest_slot_counts="
+        + ",".join(
+            f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('strongest_slot_counts')).items())
+        )
+    )
     print(f"fleet_board_next_action_subjects={','.join(board_rows_aggregate.get('subjects_with_next_action') or [])}")
     print(f"fleet_board_blocking_reason_subjects={','.join(board_rows_aggregate.get('subjects_with_blocking_reason') or [])}")
+    print(f"fleet_board_selected_mismatch_subjects={','.join(board_rows_aggregate.get('selected_mismatch_subjects') or [])}")
+    print(f"fleet_board_missing_bundle_subjects={','.join(board_rows_aggregate.get('subjects_with_missing_bundles') or [])}")
     print(
         "fleet_board_state_source_counts="
         + ",".join(
@@ -394,6 +424,14 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"board_history_1_status={first_board_history.get('status_semantic')}")
         print(f"board_history_1_blocking_reason={first_board_history.get('blocking_reason')}")
         print(f"board_history_1_next_action={first_board_history.get('next_action')}")
+        print(f"board_history_1_selected_artifact_id={first_board_history.get('selected_artifact_id')}")
+        print(f"board_history_1_selected_is_current={first_board_history.get('selected_is_current')}")
+        print(f"board_history_1_strongest_slot={first_board_history.get('strongest_slot')}")
+        print(f"board_history_1_generated_at_utc={first_board_history.get('generated_at_utc')}")
+        print(f"board_history_1_dispatch_state={first_board_history.get('dispatch_state')}")
+        print(f"board_history_1_bundle_count={first_board_history.get('bundle_count')}")
+        print(f"board_history_1_missing_bundle_count={first_board_history.get('missing_bundle_count')}")
+        print(f"board_history_1_lineage_sla_summary={first_board_history.get('lineage_sla_summary')}")
         print(f"board_history_1_summary={first_board_history.get('summary_line')}")
     if db_candidate_history:
         first_history = db_candidate_history[0]
