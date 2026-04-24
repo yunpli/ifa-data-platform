@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError as LiveIsolationError
 
 
 class _DummyStore:
@@ -198,3 +203,44 @@ def test_choose_best_projects_qa_posture_into_ranked_candidates() -> None:
     assert decision["ranked_candidates"][1]["qa_axes_summary"]["not_ready_axes"] == ["policy"]
     assert comparison["ranked_candidates"][0]["qa_axes_posture"] == "ready"
     assert comparison["current_vs_selected"]["delta_current_vs_selected"]["qa_score_delta"] < 0
+
+
+TEST_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
+LIVE_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp"
+
+
+def _clear_caches() -> None:
+    make_engine.cache_clear()
+    get_settings.cache_clear()
+
+
+def test_list_db_delivery_candidates_requires_explicit_non_live_db_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    _clear_caches()
+
+    with pytest.raises(LiveIsolationError, match="DATABASE_URL must be set explicitly"):
+        MainReportDeliveryDispatchHelper().list_db_delivery_candidates(business_date="2099-04-22")
+
+
+def test_list_db_delivery_candidates_rejects_canonical_live_db_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", LIVE_DB_URL)
+    _clear_caches()
+
+    with pytest.raises(LiveIsolationError, match="canonical/live DB"):
+        MainReportDeliveryDispatchHelper().list_db_delivery_candidates(business_date="2099-04-22")
+
+
+def test_list_db_delivery_candidates_allows_explicit_test_db_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", TEST_DB_URL)
+    _clear_caches()
+
+    class _EmptyStore(_DummyStore):
+        def list_report_operator_review_surfaces(self, **_: object) -> list[dict]:
+            return []
+
+    published = MainReportDeliveryDispatchHelper().list_db_delivery_candidates(
+        business_date="2099-04-22",
+        store=_EmptyStore(),
+    )
+
+    assert published == []
