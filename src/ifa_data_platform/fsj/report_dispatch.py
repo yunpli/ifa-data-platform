@@ -187,10 +187,15 @@ class MainReportDeliveryDispatchHelper:
 
     def summarize_candidate(self, published: dict[str, Any]) -> dict[str, Any]:
         candidate = self.candidate_from_published(published)
+        qa_axes_summary = self._qa_axes_summary(published)
         return {
             **candidate.as_dict(),
             "recommended_action": self._recommended_action(candidate),
             "selection_reason": self._selection_reason(candidate),
+            "qa_axes_summary": qa_axes_summary,
+            "qa_axes_posture": qa_axes_summary.get("overall_posture"),
+            "llm_lineage_summary": self._llm_lineage_summary(published),
+            "llm_role_policy": self._llm_role_policy(published),
         }
 
     def load_published_candidate(self, path: str | Path) -> dict[str, Any]:
@@ -301,6 +306,12 @@ class MainReportDeliveryDispatchHelper:
         ranked = sorted(candidates, key=lambda item: item.rank_tuple(), reverse=True)
         alternatives = [candidate for candidate in ranked if candidate.artifact_id != selected.artifact_id]
         recommended_action = self._recommended_action(selected)
+        selected_published = next((item for item in published_candidates if self.candidate_from_published(item).artifact_id == selected.artifact_id), None)
+        alternative_published = {
+            self.candidate_from_published(item).artifact_id: item
+            for item in published_candidates
+            if self.candidate_from_published(item).artifact_id != selected.artifact_id
+        }
         return {
             "artifact_type": "fsj_main_report_dispatch_decision",
             "artifact_version": "v1",
@@ -309,14 +320,19 @@ class MainReportDeliveryDispatchHelper:
             "ready_candidate_count": len(ready),
             "recommended_action": recommended_action,
             "selection_reason": self._selection_reason(selected),
-            "selected": selected.as_dict(),
-            "alternatives": [candidate.as_dict() for candidate in alternatives],
+            "selected": self.summarize_candidate(selected_published) if selected_published else selected.as_dict(),
+            "alternatives": [
+                self.summarize_candidate(alternative_published[candidate.artifact_id])
+                if candidate.artifact_id in alternative_published
+                else candidate.as_dict()
+                for candidate in alternatives
+            ],
             "ranked_candidates": [
                 {
-                    **candidate.as_dict(),
+                    **(
+                        self.summarize_candidate(next(item for item in published_candidates if self.candidate_from_published(item).artifact_id == candidate.artifact_id))
+                    ),
                     "rank": index,
-                    "recommended_action": self._recommended_action(candidate),
-                    "selection_reason": self._selection_reason(candidate),
                     "delta_vs_selected": self._delta_vs_selected(selected, candidate),
                 }
                 for index, candidate in enumerate(ranked, start=1)
@@ -356,6 +372,63 @@ class MainReportDeliveryDispatchHelper:
             "current_artifact_id": current_artifact_id,
             "ranked_candidates": ranked,
             "current_vs_selected": current_vs_selected,
+        }
+
+    def _qa_axes_summary(self, published: dict[str, Any]) -> dict[str, Any]:
+        review_surface = dict(published.get("review_surface") or {})
+        if review_surface:
+            state = dict(review_surface.get("state") or {})
+            qa_axes = {
+                str(axis): dict(payload or {})
+                for axis, payload in dict(state.get("qa_axes") or {}).items()
+                if str(axis).strip()
+            }
+        else:
+            delivery_manifest = dict(published.get("delivery_manifest") or {})
+            quality_gate = dict(delivery_manifest.get("quality_gate") or {})
+            qa_axes = {
+                str(axis): dict(payload or {})
+                for axis, payload in dict(quality_gate.get("qa_axes") or {}).items()
+                if str(axis).strip()
+            }
+        axes_with_attention = sorted(
+            axis for axis, payload in qa_axes.items() if (payload.get("blocker_count") or 0) > 0 or (payload.get("warning_count") or 0) > 0
+        )
+        not_ready_axes = sorted(axis for axis, payload in qa_axes.items() if payload.get("ready") is False)
+        overall_posture = "not_available"
+        if qa_axes:
+            if not_ready_axes:
+                overall_posture = "blocked"
+            elif axes_with_attention:
+                overall_posture = "attention"
+            else:
+                overall_posture = "ready"
+        return {
+            "qa_axes": qa_axes,
+            "axes_with_attention": axes_with_attention,
+            "not_ready_axes": not_ready_axes,
+            "qa_axis_count": len(qa_axes),
+            "qa_axis_ready_count": len([axis for axis, payload in qa_axes.items() if payload.get("ready") is True]),
+            "qa_axis_attention_count": len(axes_with_attention),
+            "overall_posture": overall_posture,
+        }
+
+    def _llm_lineage_summary(self, published: dict[str, Any]) -> dict[str, Any] | None:
+        review_surface = dict(published.get("review_surface") or {})
+        summary = dict(review_surface.get("llm_lineage_summary") or {})
+        return summary or None
+
+    def _llm_role_policy(self, published: dict[str, Any]) -> dict[str, Any]:
+        review_surface = dict(published.get("review_surface") or {})
+        llm_role_policy = dict(review_surface.get("llm_role_policy") or {})
+        slot_boundary_modes = {
+            str(slot): str(mode)
+            for slot, mode in dict(llm_role_policy.get("slot_boundary_modes") or {}).items()
+            if str(slot).strip() and str(mode).strip()
+        }
+        return {
+            **llm_role_policy,
+            "slot_boundary_modes": slot_boundary_modes,
         }
 
     def _recommended_action(self, candidate: DeliveryDispatchCandidate) -> str:
