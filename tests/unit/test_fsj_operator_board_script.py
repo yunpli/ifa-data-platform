@@ -64,6 +64,12 @@ class _DummyStore:
             "version_pointers": {},
         }
 
+
+    def list_report_business_dates(self, **kwargs: object) -> list[str]:
+        return [str(kwargs.get("business_date") or "2099-04-22")]
+
+    def get_active_report_operator_review_surface(self, **kwargs: object) -> dict | None:
+        return self.report_operator_review_surface_from_surface(self.get_active_report_delivery_surface(**kwargs))
     def report_package_surface_from_surface(self, surface: dict) -> dict:
         handoff = self.report_workflow_handoff_from_surface(surface)
         delivery_package = surface.get("delivery_package") or {}
@@ -268,6 +274,19 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["qa_axes_summary"]["aggregate"]["not_ready_subjects"] == ["support:commodities"]
 
 
+def test_build_board_payload_includes_drift_summary_lines(monkeypatch) -> None:
+    store = _BoardStore()
+    monkeypatch.setattr(_module, "FSJStore", lambda: store)
+    payload = _build_board_payload(business_date="2099-04-22", history_limit=2)
+
+    assert payload["drift_summary_lines"] == {
+        "main": "7d drift main: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+        "support:ai_tech": "7d drift support:ai_tech: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+        "support:commodities": "7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1",
+        "support:macro": "7d drift support:macro: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+    }
+
+
 def test_build_board_payload_can_resolve_latest_business_date(monkeypatch) -> None:
     store = _BoardStore()
     monkeypatch.setattr(_module, "FSJStore", lambda: store)
@@ -352,6 +371,12 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             },
             "aggregate": {"overall_posture": "blocked", "subjects_with_attention": ["support:commodities"], "not_ready_subjects": ["support:commodities"], "axes": {"structural": {"ready": True}, "lineage": {"ready": True}, "policy": {"ready": False}}},
         },
+        "drift_summary_lines": {
+            "main": "7d drift main: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+            "support:ai_tech": "7d drift support:ai_tech: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+            "support:commodities": "7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1",
+            "support:macro": "7d drift support:macro: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+        }
     }
 
     _print_text(payload)
@@ -377,6 +402,8 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_qa_axes=lineage:ready:b0:w0,policy:ready:b0:w0,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes=lineage:ready:b0:w0,policy:attention:b0:w1,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes_attention=policy" in output
+    assert "main_drift_summary_line=7d drift main: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1" in output
+    assert "support_commodities_drift_summary_line=7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1" in output
     assert "fleet_qa_axes_posture=blocked" in output
     assert "fleet_qa_axes_attention_subjects=support:commodities" in output
     assert "fleet_qa_axes_not_ready_subjects=support:commodities" in output

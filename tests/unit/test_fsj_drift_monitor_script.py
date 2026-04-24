@@ -131,10 +131,31 @@ def test_build_drift_payload_summarizes_multi_day_operator_drift() -> None:
     assert payload["aggregate"]["llm_degraded_dates"] == ["2099-04-22"]
     assert payload["aggregate"]["llm_missing_bundle_dates"] == ["2099-04-21"]
     assert payload["aggregate"]["llm_operator_tags"] == ["llm_timeout", "missing_bundle"]
+    assert payload["aggregate"]["selection_mismatch_dates"] == ["2099-04-22"]
     assert payload["days"][1]["posture"] == "review_required"
     assert payload["days"][1]["selection_mismatch"] is True
     assert payload["days"][2]["qa_posture"] == "blocked"
     assert payload["days"][2]["not_ready_axes"] == ["lineage"]
+
+
+def test_resolve_latest_business_dates_with_slot_filters_to_matching_surfaces() -> None:
+    class SlotStore(_DummyStore):
+        def list_report_business_dates(self, **kwargs: object) -> list[str]:
+            self.list_calls.append(dict(kwargs))
+            return ["2099-04-23", "2099-04-22", "2099-04-21", "2099-04-20"]
+
+        def get_active_report_delivery_surface(self, **kwargs: object) -> dict | None:
+            self.surface_calls.append(dict(kwargs))
+            business_date = str(kwargs["business_date"])
+            slot = "late" if business_date in {"2099-04-22", "2099-04-20"} else "early"
+            return {"delivery_package": {"slot_evaluation": {"strongest_slot": slot}}}
+
+    store = SlotStore()
+    business_dates = resolve_latest_business_dates(scope="main", days=2, slot="late", store=store)
+
+    assert business_dates == ["2099-04-22", "2099-04-20"]
+    assert store.list_calls[0]["limit"] == 20
+    assert len(store.surface_calls) == 4
 
 
 def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
@@ -210,5 +231,6 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
     assert "llm_fallback_rate=0.3333" in output
     assert "llm_missing_bundle_dates=2099-04-21" in output
     assert "llm_operator_tags=llm_timeout,missing_bundle" in output
+    assert "summary_line=3d drift main: hold 1/3 | fallback 1/3 | mismatch 1/3 | qa_attn 2/3" in output
     assert "day_1=business_date:2099-04-23|artifact_id:main-3|posture:ready_to_send|qa_posture:ready|llm_lineage_status:applied|llm_fallback_count:0|selection_mismatch:False|axes_attention:|not_ready_axes:" in output
     assert "day_2=business_date:2099-04-22|artifact_id:main-2|posture:review_required|qa_posture:attention|llm_lineage_status:degraded|llm_fallback_count:1|selection_mismatch:True|axes_attention:lineage|not_ready_axes:" in output

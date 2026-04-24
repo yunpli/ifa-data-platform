@@ -34,6 +34,18 @@ def _scope_config(scope: str) -> tuple[str, str, set[str]]:
     return _VALID_SCOPE[scope]
 
 
+def _surface_slot(surface: dict[str, Any]) -> str | None:
+    delivery_package = _safe_dict(surface.get("delivery_package"))
+    slot_evaluation = _safe_dict(delivery_package.get("slot_evaluation"))
+    return str(slot_evaluation.get("strongest_slot") or delivery_package.get("slot") or "").strip() or None
+
+
+def _surface_matches_slot(surface: dict[str, Any], *, slot: str | None) -> bool:
+    if slot is None:
+        return True
+    return _surface_slot(surface) == slot
+
+
 def resolve_latest_business_dates(
     *,
     scope: str,
@@ -45,13 +57,28 @@ def resolve_latest_business_dates(
     if slot is not None and slot not in valid_slots:
         raise ValueError(f"unsupported slot for {scope}: {slot}")
     store = store or FSJStore()
-    return store.list_report_business_dates(
+    business_dates = store.list_report_business_dates(
         agent_domain=agent_domain,
         artifact_family=artifact_family,
         statuses=["active"],
-        limit=days,
+        limit=max(days, days * 10) if slot else days,
         max_business_date=datetime.now(_BEIJING).date(),
     )
+    if slot is None:
+        return business_dates
+
+    matched_dates: list[str] = []
+    for business_date in business_dates:
+        surface = store.get_active_report_delivery_surface(
+            business_date=business_date,
+            agent_domain=agent_domain,
+            artifact_family=artifact_family,
+        )
+        if surface and _surface_matches_slot(surface, slot=slot):
+            matched_dates.append(business_date)
+        if len(matched_dates) >= days:
+            break
+    return matched_dates
 
 
 def _lineage_attention(summary: dict[str, Any]) -> bool:
@@ -221,6 +248,24 @@ def build_drift_payload(*, scope: str, days: int = 7, slot: str | None = None, s
     }
 
 
+def format_drift_summary_line(payload: dict[str, Any]) -> str:
+    aggregate = _safe_dict(payload.get("aggregate"))
+    total = _safe_int(payload.get("reported_day_count"))
+    window_days = _safe_int(payload.get("window_days"))
+    label = str(payload.get("scope") or "scope")
+    slot = payload.get("slot")
+    if slot:
+        label = f"{label}:{slot}"
+    blocked = _safe_int(_safe_dict(aggregate.get("posture_counts")).get("blocked"))
+    fallback = len(aggregate.get("llm_fallback_dates") or [])
+    mismatch = len(aggregate.get("selection_mismatch_dates") or [])
+    qa_attention = len(aggregate.get("qa_attention_dates") or [])
+    return (
+        f"{window_days}d drift {label}: hold {blocked}/{total} | "
+        f"fallback {fallback}/{total} | mismatch {mismatch}/{total} | qa_attn {qa_attention}/{total}"
+    )
+
+
 def _print_text(payload: dict[str, Any]) -> None:
     aggregate = _safe_dict(payload.get("aggregate"))
     posture_counts = _safe_dict(aggregate.get("posture_counts"))
@@ -273,6 +318,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"llm_degraded_dates={','.join(aggregate.get('llm_degraded_dates') or [])}")
     print(f"llm_missing_bundle_dates={','.join(aggregate.get('llm_missing_bundle_dates') or [])}")
     print(f"llm_operator_tags={','.join(aggregate.get('llm_operator_tags') or [])}")
+    print(f"summary_line={format_drift_summary_line(payload)}")
     for index, item in enumerate(payload.get("days") or [], start=1):
         print(
             "day_{idx}=".format(idx=index)
