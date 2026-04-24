@@ -386,7 +386,6 @@ Pieces exist, but the product/control-plane form does not yet exist.
 **Thin slices already landed**
 - `P2-5a`: canonical operator board now projects a first bounded failure taxonomy from existing persisted truth, classifying a meaningful subset into `auto_retry` / `auto_degrade` / `hold_review` using dispatch receipts, send-readiness, lineage/source-health degrade posture, candidate-selection mismatch, and bundle/governance blockers; taxonomy is queryable per row and aggregated fleet-wide for operator triage
 - `P2-5b`: canonical operator/review/status surfaces now project a first explicit promotion-authority seam from existing persisted truth. `promotion_authority` exposes whether the current package is actually approved to move from review-ready toward send-ready, the bounded authority source (`operator_go_no_go` + workflow + selected_handoff), the required operator action, and a compact provenance summary without introducing a new governance framework
-- `P2-5c`: canonical artifact-lineage read surface now exposes the same bounded governance posture carried by board/status reads — `governance`, `promotion_authority`, compact `review_summary` provenance fields, and board-state source breadcrumbs — so package/review/send lineage inspection no longer loses operator-visible approval truth when pivoting away from board/status views
 
 **Parallelizable:** no, policy-heavy
 

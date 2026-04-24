@@ -1178,7 +1178,7 @@ class FSJStore:
                 *[str(item) for item in send_blockers if str(item).strip()],
             ],
         }
-        local_to_canonical_state_mapping = self.project_local_report_state_mapping(
+        canonical_lifecycle = self.project_report_lifecycle_state(
             artifact=artifact,
             workflow_state=state.get("workflow_state"),
             package_state=state.get("package_state"),
@@ -1188,7 +1188,6 @@ class FSJStore:
             dispatch_state=dispatch_state,
             selected_is_current=(workflow_handoff.get("selected_handoff") or {}).get("selected_is_current"),
         )
-        canonical_lifecycle = dict(local_to_canonical_state_mapping.get("canonical_lifecycle") or {})
         board_state_source = self._report_board_state_source_summary(
             artifact=artifact,
             workflow_handoff=workflow_handoff,
@@ -1196,7 +1195,7 @@ class FSJStore:
             canonical_lifecycle=canonical_lifecycle,
             dispatch_receipt=dispatch_receipt,
         )
-        canonical_state_vocabulary = dict(local_to_canonical_state_mapping.get("canonical_state_vocabulary") or {})
+        canonical_state_vocabulary = self.project_report_state_vocabulary(canonical_lifecycle=canonical_lifecycle)
 
         return {
             "artifact": dict(workflow_handoff.get("artifact") or artifact),
@@ -1232,7 +1231,6 @@ class FSJStore:
             "governance": governance_summary,
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
-            "local_to_canonical_state_mapping": local_to_canonical_state_mapping,
             "canonical_lifecycle": canonical_lifecycle,
             "canonical_state_vocabulary": canonical_state_vocabulary,
             "board_state_source": board_state_source,
@@ -1264,8 +1262,6 @@ class FSJStore:
                 "promotion_authority_rationale": promotion_authority.get("rationale"),
                 "promotion_authority_summary": promotion_authority.get("summary_line"),
                 "promotion_authority_source_of_truth": promotion_authority.get("source_of_truth"),
-                "local_to_canonical_state_mapping": local_to_canonical_state_mapping,
-                "local_to_canonical_state_mapping_summary": local_to_canonical_state_mapping.get("summary_line"),
                 "board_state_source": board_state_source,
                 "review_blocking_item_count": governance_summary.get("review_blocking_item_count"),
                 "review_warning_item_count": governance_summary.get("review_warning_item_count"),
@@ -1490,11 +1486,6 @@ class FSJStore:
             "send_manifest_path": package_paths.get("send_manifest_path"),
             "error": dispatch_receipt.get("error"),
         }
-        promotion_authority = dict(review_surface.get("promotion_authority") or {})
-        governance = dict(review_surface.get("governance") or {})
-        review_summary = dict(review_surface.get("review_summary") or {})
-        board_state_source = dict(review_surface.get("board_state_source") or {})
-        canonical_state_vocabulary = dict(review_surface.get("canonical_state_vocabulary") or {})
 
         return {
             "artifact": {
@@ -1511,7 +1502,6 @@ class FSJStore:
                 "updated_at": artifact.get("updated_at"),
             },
             "canonical_lifecycle": dict(review_surface.get("canonical_lifecycle") or {}),
-            "local_to_canonical_state_mapping": dict(review_surface.get("local_to_canonical_state_mapping") or {}),
             "state": {
                 "recommended_action": state.get("recommended_action"),
                 "workflow_state": state.get("workflow_state"),
@@ -1540,25 +1530,6 @@ class FSJStore:
                 "review_manifest": dict(review_surface.get("review_manifest") or {}),
                 "send_manifest": dict(review_surface.get("send_manifest") or {}),
             },
-            "governance": governance,
-            "promotion_authority": promotion_authority,
-            "review_summary": {
-                "go_no_go_decision": review_summary.get("go_no_go_decision"),
-                "operator_decision_rationale": review_summary.get("operator_decision_rationale"),
-                "operator_next_step": review_summary.get("operator_next_step"),
-                "operator_action_required": review_summary.get("operator_action_required"),
-                "promotion_authority_status": review_summary.get("promotion_authority_status"),
-                "promotion_authority_approved": review_summary.get("promotion_authority_approved"),
-                "promotion_authority_required_action": review_summary.get("promotion_authority_required_action"),
-                "promotion_authority_rationale": review_summary.get("promotion_authority_rationale"),
-                "promotion_authority_summary": review_summary.get("promotion_authority_summary"),
-                "promotion_authority_source_of_truth": review_summary.get("promotion_authority_source_of_truth"),
-                "board_state_source": board_state_source,
-                "canonical_lifecycle_state": review_summary.get("canonical_lifecycle_state"),
-                "canonical_lifecycle_reason": review_summary.get("canonical_lifecycle_reason"),
-            },
-            "board_state_source": board_state_source,
-            "canonical_state_vocabulary": canonical_state_vocabulary,
             "dispatch": dispatch_receipt,
             "what_user_received": what_user_received,
             "bundle_lineage": bundle_lineage,
@@ -1935,60 +1906,6 @@ class FSJStore:
             "operator_bucket": operator_bucket,
             "terminal": bool(projection.get("terminal")),
             "summary_line": f"canonical={resolved_state} | status={status_semantic or '-'} | bucket={operator_bucket or '-'}",
-        }
-
-    def project_local_report_state_mapping(
-        self,
-        *,
-        artifact: dict[str, Any] | None,
-        workflow_state: str | None,
-        package_state: str | None,
-        recommended_action: str | None,
-        ready_for_delivery: bool | None,
-        review_required: bool | None,
-        dispatch_state: str | None,
-        selected_is_current: bool | None,
-    ) -> dict[str, Any]:
-        canonical_lifecycle = self.project_report_lifecycle_state(
-            artifact=artifact,
-            workflow_state=workflow_state,
-            package_state=package_state,
-            recommended_action=recommended_action,
-            ready_for_delivery=ready_for_delivery,
-            review_required=review_required,
-            dispatch_state=dispatch_state,
-            selected_is_current=selected_is_current,
-        )
-        canonical_state_vocabulary = self.project_report_state_vocabulary(canonical_lifecycle=canonical_lifecycle)
-        local_state = {
-            "artifact_status": str(dict(artifact or {}).get("status") or "").strip() or None,
-            "workflow_state": str(workflow_state or "").strip() or None,
-            "package_state": str(package_state or "").strip() or None,
-            "recommended_action": str(recommended_action or "").strip() or None,
-            "ready_for_delivery": bool(ready_for_delivery),
-            "review_required": bool(review_required),
-            "dispatch_state": str(dispatch_state or "").strip() or None,
-            "selected_is_current": selected_is_current,
-        }
-        summary_inputs = [
-            f"artifact_status={local_state['artifact_status'] or '-'}",
-            f"workflow_state={local_state['workflow_state'] or '-'}",
-            f"package_state={local_state['package_state'] or '-'}",
-            f"recommended_action={local_state['recommended_action'] or '-'}",
-            f"ready_for_delivery={local_state['ready_for_delivery']}",
-            f"review_required={local_state['review_required']}",
-            f"dispatch_state={local_state['dispatch_state'] or '-'}",
-            f"selected_is_current={local_state['selected_is_current']}",
-        ]
-        return {
-            "local_state": local_state,
-            "canonical_lifecycle": canonical_lifecycle,
-            "canonical_state_vocabulary": canonical_state_vocabulary,
-            "summary_line": (
-                f"{' | '.join(summary_inputs)} => "
-                f"canonical={canonical_state_vocabulary.get('canonical_state') or '-'}"
-                f" ({canonical_state_vocabulary.get('status_semantic') or '-'}/{canonical_state_vocabulary.get('operator_bucket') or '-'})"
-            ),
         }
 
     def report_llm_lineage_summary(self, llm_lineage: dict[str, Any] | None) -> dict[str, Any]:
