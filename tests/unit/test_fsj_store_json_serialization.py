@@ -366,11 +366,15 @@ def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and
     )
 
     assert ready_summary["dispatch_state"] == "ready_to_dispatch"
+    assert ready_summary["canonical_lifecycle"]["state"] == "send_ready"
     assert ready_summary["review_summary"]["dispatch_state"] == "ready_to_dispatch"
+    assert ready_summary["review_summary"]["canonical_lifecycle_state"] == "send_ready"
     assert attempted_summary["dispatch_state"] == "dispatch_attempted"
+    assert attempted_summary["canonical_lifecycle"]["state"] == "send_ready"
     assert attempted_summary["dispatch_receipt"]["channel"] == "telegram_document"
     assert attempted_summary["review_summary"]["dispatch_attempted"] is True
     assert failed_summary["dispatch_state"] == "dispatch_failed"
+    assert failed_summary["canonical_lifecycle"]["state"] == "failed"
     assert failed_summary["dispatch_receipt"]["error"] == "429 rate limit"
     assert failed_summary["review_summary"]["dispatch_failed"] is True
 

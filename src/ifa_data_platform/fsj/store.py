@@ -19,6 +19,18 @@ VALID_BUNDLE_STATUS = {"active", "superseded", "withdrawn"}
 VALID_REPORT_ARTIFACT_STATUS = {"active", "superseded", "withdrawn"}
 VALID_FSJ_KINDS = {"fact", "signal", "judgment"}
 VALID_EDGE_TYPES = {"fact_to_signal", "signal_to_judgment", "judgment_to_judgment"}
+CANONICAL_REPORT_LIFECYCLE_STATES = {
+    "planned",
+    "collecting",
+    "producing",
+    "qa_pending",
+    "review_ready",
+    "send_ready",
+    "sent",
+    "held",
+    "failed",
+    "superseded",
+}
 BUSINESS_REPO_MODELS_CONFIG = Path("/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml")
 
 @lru_cache(maxsize=1)
@@ -1126,6 +1138,16 @@ class FSJStore:
             state=state,
             dispatch_receipt=dispatch_receipt,
         )
+        canonical_lifecycle = self.project_report_lifecycle_state(
+            artifact=artifact,
+            workflow_state=state.get("workflow_state"),
+            package_state=state.get("package_state"),
+            recommended_action=state.get("recommended_action"),
+            ready_for_delivery=state.get("ready_for_delivery"),
+            review_required=state.get("review_required"),
+            dispatch_state=dispatch_state,
+            selected_is_current=(workflow_handoff.get("selected_handoff") or {}).get("selected_is_current"),
+        )
 
         return {
             "artifact": dict(workflow_handoff.get("artifact") or artifact),
@@ -1159,10 +1181,13 @@ class FSJStore:
             "send_manifest": send_manifest,
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
+            "canonical_lifecycle": canonical_lifecycle,
             "review_summary": {
                 "recommended_action": state.get("recommended_action"),
                 "workflow_state": state.get("workflow_state"),
                 "dispatch_state": dispatch_state,
+                "canonical_lifecycle_state": canonical_lifecycle.get("state"),
+                "canonical_lifecycle_reason": canonical_lifecycle.get("reason"),
                 "dispatch_attempted": dispatch_state == "dispatch_attempted",
                 "dispatch_succeeded": dispatch_state == "dispatch_succeeded",
                 "dispatch_failed": dispatch_state == "dispatch_failed",
@@ -1216,6 +1241,88 @@ class FSJStore:
         if bool(normalized_state.get("send_ready")):
             return "ready_to_dispatch"
         return None
+
+    def project_report_lifecycle_state(
+        self,
+        *,
+        artifact: dict[str, Any] | None,
+        workflow_state: str | None,
+        package_state: str | None,
+        recommended_action: str | None,
+        ready_for_delivery: bool | None,
+        review_required: bool | None,
+        dispatch_state: str | None,
+        selected_is_current: bool | None,
+    ) -> dict[str, Any]:
+        normalized_artifact = dict(artifact or {})
+        normalized_workflow_state = str(workflow_state or "").strip()
+        normalized_package_state = str(package_state or "").strip()
+        normalized_recommended_action = str(recommended_action or "").strip()
+        normalized_dispatch_state = str(dispatch_state or "").strip()
+        normalized_status = str(normalized_artifact.get("status") or "").strip()
+
+        reasons: list[str] = []
+        if normalized_status == "superseded":
+            reasons.append("artifact_status_superseded")
+            return {
+                "state": "superseded",
+                "reason": reasons[0],
+                "reason_chain": reasons,
+                "workflow_state": normalized_workflow_state or None,
+                "dispatch_state": normalized_dispatch_state or None,
+            }
+
+        if normalized_dispatch_state == "dispatch_succeeded":
+            reasons.append("dispatch_receipt_succeeded")
+            state = "sent"
+        elif normalized_dispatch_state == "dispatch_failed":
+            reasons.append("dispatch_receipt_failed")
+            state = "failed"
+        elif normalized_recommended_action == "send" and bool(ready_for_delivery):
+            reasons.append("ready_for_delivery_send")
+            state = "send_ready"
+        elif bool(review_required) or normalized_recommended_action == "send_review":
+            reasons.append("manual_review_required")
+            state = "review_ready"
+        elif normalized_status == "withdrawn":
+            reasons.append("artifact_status_withdrawn")
+            state = "held"
+        elif normalized_recommended_action == "hold":
+            reasons.append("recommended_action_hold")
+            state = "held"
+        elif normalized_dispatch_state == "dispatch_attempted":
+            reasons.append("dispatch_attempted_pending_receipt")
+            state = "send_ready"
+        elif normalized_package_state == "ready":
+            reasons.append("package_ready_pending_workflow")
+            state = "qa_pending"
+        elif normalized_package_state == "blocked":
+            reasons.append("package_blocked")
+            state = "held"
+        elif normalized_workflow_state in {"assembling", "rendering", "producing", "publishing"}:
+            reasons.append(f"workflow_state_{normalized_workflow_state}")
+            state = "producing"
+        elif normalized_workflow_state in {"collecting", "scheduled", "planned"}:
+            reasons.append(f"workflow_state_{normalized_workflow_state}")
+            state = "collecting" if normalized_workflow_state == "collecting" else "planned"
+        else:
+            reasons.append("insufficient_runtime_progress_defaults_to_planned")
+            state = "planned"
+
+        if not bool(selected_is_current) and state not in {"sent", "superseded"}:
+            reasons.append("selected_candidate_differs_from_current")
+            if state == "send_ready":
+                state = "review_ready"
+
+        if state not in CANONICAL_REPORT_LIFECYCLE_STATES:
+            raise ValueError(f"invalid projected canonical lifecycle state: {state}")
+        return {
+            "state": state,
+            "reason": reasons[0],
+            "reason_chain": reasons,
+            "workflow_state": normalized_workflow_state or None,
+            "dispatch_state": normalized_dispatch_state or None,
+        }
 
     def report_llm_lineage_summary(self, llm_lineage: dict[str, Any] | None) -> dict[str, Any]:
         normalized_lineage = dict(llm_lineage or {})
@@ -1678,6 +1785,7 @@ class FSJStore:
             state = dict(review_surface.get("state") or {})
             review_summary = dict(review_surface.get("review_summary") or {})
             llm_lineage_summary = dict(review_surface.get("llm_lineage_summary") or {})
+            canonical_lifecycle = dict(review_surface.get("canonical_lifecycle") or {})
             recommended_action = str(state.get("recommended_action") or review_summary.get("recommended_action") or "hold")
             send_ready = bool(state.get("send_ready"))
             review_required = bool(state.get("review_required")) or recommended_action == "send_review"
@@ -1696,6 +1804,8 @@ class FSJStore:
                 "recommended_action": recommended_action,
                 "workflow_state": state.get("workflow_state"),
                 "package_state": state.get("package_state"),
+                "canonical_lifecycle_state": canonical_lifecycle.get("state"),
+                "canonical_lifecycle_reason": canonical_lifecycle.get("reason"),
                 "go_no_go_decision": review_summary.get("go_no_go_decision"),
                 "qa_score": review_summary.get("qa_score"),
                 "blocker_count": review_summary.get("blocker_count"),
@@ -1819,6 +1929,14 @@ class FSJStore:
             blocked_subjects = [item["subject"] for item in present_subjects if item.get("blocked")]
             lineage_attention_subjects = [item["subject"] for item in present_subjects if item.get("lineage_attention")]
             attention_subjects = [item["subject"] for item in present_subjects if item.get("needs_attention")]
+            lifecycle_state_counts: dict[str, int] = {}
+            lifecycle_subjects: dict[str, list[str]] = {}
+            for item in present_subjects:
+                lifecycle_state = str(item.get("canonical_lifecycle_state") or "").strip()
+                if not lifecycle_state:
+                    continue
+                lifecycle_state_counts[lifecycle_state] = lifecycle_state_counts.get(lifecycle_state, 0) + 1
+                lifecycle_subjects.setdefault(lifecycle_state, []).append(str(item.get("subject") or ""))
             overall_posture = "not_available"
             if present_subjects:
                 if blocked_subjects:
@@ -1843,6 +1961,8 @@ class FSJStore:
                 "blocked_subjects": blocked_subjects,
                 "attention_subjects": attention_subjects,
                 "lineage_attention_subjects": lineage_attention_subjects,
+                "canonical_lifecycle_state_counts": lifecycle_state_counts,
+                "canonical_lifecycle_subjects": lifecycle_subjects,
             }
 
         def _summarize_db_candidate_alignment(
@@ -2244,6 +2364,7 @@ class FSJStore:
                 "recommended_action": recommended_action,
                 "dispatch_recommended_action": workflow.get("dispatch_recommended_action"),
                 "workflow_state": workflow.get("workflow_state"),
+                "ready_for_delivery": normalized_delivery_package.get("ready_for_delivery"),
                 "send_ready": bool(normalized_delivery_package.get("ready_for_delivery")) and recommended_action == "send",
                 "review_required": recommended_action == "send_review",
                 "next_step": workflow.get("next_step"),

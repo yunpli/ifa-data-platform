@@ -56,10 +56,13 @@ class _DummyStore:
         delivery_package = surface.get("delivery_package") or {}
         workflow = dict(delivery_package.get("workflow") or {})
         quality_gate = dict(delivery_package.get("quality_gate") or {})
+        lifecycle_state = "review_ready" if workflow.get("recommended_action") == "send_review" else "send_ready"
+        lifecycle_reason = "manual_review_required" if lifecycle_state == "review_ready" else "ready_for_delivery_send"
         return {
             "artifact": {"artifact_id": artifact.get("artifact_id"), "report_run_id": artifact.get("report_run_id"), "business_date": artifact.get("business_date"), "status": artifact.get("status")},
             "selected_handoff": {"selected_artifact_id": artifact.get("artifact_id"), "selected_is_current": True},
             "state": {"recommended_action": workflow.get("recommended_action"), "dispatch_recommended_action": workflow.get("dispatch_recommended_action"), "workflow_state": workflow.get("workflow_state"), "package_state": delivery_package.get("package_state"), "qa_score": quality_gate.get("score"), "blocker_count": quality_gate.get("blocker_count"), "warning_count": quality_gate.get("warning_count"), "qa_axes": dict(quality_gate.get("qa_axes") or {})},
+            "canonical_lifecycle": {"state": lifecycle_state, "reason": lifecycle_reason},
             "manifest_pointers": {},
             "version_pointers": {},
         }
@@ -119,7 +122,7 @@ class _BoardStore(_DummyStore):
             "operator_go_no_go": {"decision": "GO"},
             "review_manifest": {},
             "send_manifest": {},
-            "review_summary": {"go_no_go_decision": "GO", "llm_lineage_status": lineage_status, "llm_lineage_summary": lineage_summary["summary_line"]},
+            "review_summary": {"go_no_go_decision": "GO", "llm_lineage_status": lineage_status, "llm_lineage_summary": lineage_summary["summary_line"], "canonical_lifecycle_state": "review_ready" if artifact_id == "commodities-artifact" else "send_ready"},
         }
 
     def build_operator_board_surface(self, *, business_date: str | None = None, history_limit: int = 5) -> dict:
@@ -207,11 +210,11 @@ class _BoardStore(_DummyStore):
                 },
             },
             "board_readiness_summary": {
-                "main": {"subject": "main", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
+                "main": {"subject": "main", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False, "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send"},
                 "support": {
-                    "ai_tech": {"subject": "support:ai_tech", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
-                    "commodities": {"subject": "support:commodities", "posture": "review_required", "send_ready": False, "review_required": True, "blocked": False, "lineage_attention": True, "needs_attention": True},
-                    "macro": {"subject": "support:macro", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
+                    "ai_tech": {"subject": "support:ai_tech", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False, "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send"},
+                    "commodities": {"subject": "support:commodities", "posture": "review_required", "send_ready": False, "review_required": True, "blocked": False, "lineage_attention": True, "needs_attention": True, "canonical_lifecycle_state": "review_ready", "canonical_lifecycle_reason": "manual_review_required"},
+                    "macro": {"subject": "support:macro", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False, "canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send"},
                 },
                 "aggregate": {
                     "overall_posture": "review_required",
@@ -219,6 +222,8 @@ class _BoardStore(_DummyStore):
                     "review_required_subjects": ["support:commodities"],
                     "blocked_subjects": [],
                     "attention_subjects": ["support:commodities"],
+                    "canonical_lifecycle_state_counts": {"review_ready": 1, "send_ready": 3},
+                    "canonical_lifecycle_subjects": {"review_ready": ["support:commodities"], "send_ready": ["main", "support:ai_tech", "support:macro"]},
                 },
             },
             "qa_axes_summary": {
@@ -278,6 +283,7 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["llm_role_policy_review"]["aggregate"]["slot_boundary_modes_by_subject"]["main"] == {"late": "same_day_close"}
     assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
     assert payload["board_readiness_summary"]["aggregate"]["review_required_subjects"] == ["support:commodities"]
+    assert payload["board_readiness_summary"]["aggregate"]["canonical_lifecycle_state_counts"] == {"review_ready": 1, "send_ready": 3}
     assert payload["qa_axes_summary"]["support"]["commodities"]["axes_with_attention"] == ["policy"]
     assert payload["qa_axes_summary"]["aggregate"]["overall_posture"] == "blocked"
     assert payload["qa_axes_summary"]["aggregate"]["subjects_with_attention"] == ["support:commodities"]
@@ -344,10 +350,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
         "resolution": {"mode": "explicit_business_date", "business_date": "2099-04-22"},
-        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
+        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
         "support": {
-            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
-            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
+            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
+            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
             "macro": None,
         },
         "history": [{}, {}],
@@ -404,6 +410,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "review_required_subjects": ["support:commodities"],
                 "blocked_subjects": [],
                 "attention_subjects": ["support:commodities"],
+                "canonical_lifecycle_state_counts": {"review_ready": 1, "send_ready": 2},
             },
         },
         "qa_axes_summary": {
@@ -474,6 +481,8 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "resolution_mode=explicit_business_date" in output
     assert "main_artifact_id=main-artifact" in output
     assert "main_recommended_action=send" in output
+    assert "main_canonical_lifecycle_state=send_ready" in output
+    assert "main_canonical_lifecycle_reason=ready_for_delivery_send" in output
     assert "main_llm_lineage_status=applied" in output
     assert "main_llm_models=grok41_thinking" in output
     assert "main_llm_total_tokens=341" in output
@@ -481,6 +490,8 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_llm_slot_boundary_modes=late:same_day_close" in output
     assert "support_ai_tech_artifact_id=ai-tech-artifact" in output
     assert "support_commodities_recommended_action=send_review" in output
+    assert "support_commodities_canonical_lifecycle_state=review_ready" in output
+    assert "support_commodities_canonical_lifecycle_reason=manual_review_required" in output
     assert "support_commodities_llm_lineage_status=degraded" in output
     assert "support_commodities_llm_models=gemini31_pro_jmr" in output
     assert "support_commodities_llm_total_tokens=355" in output
@@ -496,6 +507,7 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "fleet_llm_attention_policy_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_posture=review_required" in output
+    assert "fleet_canonical_lifecycle_state_counts=review_ready:1,send_ready:2" in output
     assert "fleet_drift_digest_line=7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3" in output
     assert "fleet_drift_main_llm_model_counts=grok41_thinking:1" in output
     assert "fleet_drift_main_llm_slot_counts=late:1" in output

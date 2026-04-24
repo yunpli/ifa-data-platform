@@ -123,6 +123,8 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_recommended_action={_safe_dict(main.get('state')).get('recommended_action')}")
         print(f"main_workflow_state={_safe_dict(main.get('state')).get('workflow_state')}")
         print(f"main_package_state={_safe_dict(main.get('state')).get('package_state')}")
+        print(f"main_canonical_lifecycle_state={_safe_dict(main.get('canonical_lifecycle')).get('state')}")
+        print(f"main_canonical_lifecycle_reason={_safe_dict(main.get('canonical_lifecycle')).get('reason')}")
         print(f"main_llm_lineage_status={main_lineage.get('status')}")
         print(f"main_llm_lineage_summary={main_lineage.get('summary_line')}")
         print(f"main_llm_models={','.join(main_lineage.get('models') or [])}")
@@ -160,6 +162,8 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"support_{domain}_recommended_action={state.get('recommended_action')}")
         print(f"support_{domain}_workflow_state={state.get('workflow_state')}")
         print(f"support_{domain}_package_state={state.get('package_state')}")
+        print(f"support_{domain}_canonical_lifecycle_state={_safe_dict(item.get('canonical_lifecycle')).get('state')}")
+        print(f"support_{domain}_canonical_lifecycle_reason={_safe_dict(item.get('canonical_lifecycle')).get('reason')}")
         print(f"support_{domain}_llm_lineage_status={item_lineage.get('status')}")
         print(f"support_{domain}_llm_lineage_summary={item_lineage.get('summary_line')}")
         print(f"support_{domain}_llm_models={','.join(item_lineage.get('models') or [])}")
@@ -237,6 +241,12 @@ def _print_text(payload: dict[str, Any]) -> None:
         key = f"support:{domain}"
         print(f"{key.replace(':', '_')}_drift_summary_line={drift_lines.get(key) or '-'}")
     print(f"fleet_board_posture={board_aggregate.get('overall_posture')}")
+    print(
+        "fleet_canonical_lifecycle_state_counts="
+        + ",".join(
+            f"{state}:{count}" for state, count in sorted(_safe_dict(board_aggregate.get('canonical_lifecycle_state_counts')).items())
+        )
+    )
     print(f"fleet_qa_axes_posture={qa_axes_aggregate.get('overall_posture')}")
     print(f"fleet_budget_posture={lineage_aggregate.get('budget_posture')}")
     print(f"fleet_budget_attention={lineage_aggregate.get('budget_attention')}")
