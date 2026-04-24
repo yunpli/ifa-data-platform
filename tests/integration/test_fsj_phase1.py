@@ -551,9 +551,12 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         )
         delivery_package = dict((active_artifact or {}).get('metadata_json', {}).get('delivery_package') or {})
         workflow_linkage = dict((active_artifact or {}).get('metadata_json', {}).get('workflow_linkage') or {})
+        review_surface = dict((active_artifact or {}).get('metadata_json', {}).get('review_surface') or {})
         assert delivery_package['delivery_package_dir'] == workflow_result['delivery_package_dir']
         assert delivery_package['artifacts']['delivery_manifest'] == 'delivery_manifest.json'
         assert workflow_linkage['send_manifest_path'] == workflow_result['send_manifest_path']
+        assert review_surface['candidate_comparison']['selected_artifact_id'] == workflow_result['selected_handoff']['selected_artifact_id']
+        assert review_surface['operator_go_no_go']['decision'] == workflow_result['operator_review_bundle']['operator_go_no_go']['decision']
     finally:
         _cleanup([bundle_id])
         artifact_ids = [artifact['artifact']['artifact_id'] for artifact in (first, second, workflow_result) if artifact]

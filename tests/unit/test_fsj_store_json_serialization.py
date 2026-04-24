@@ -147,3 +147,71 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
     assert summary["package_versions"]["review_manifest_version"] == "review_manifest.json"
     assert summary["package_state"]["support_summary_aggregate"]["domain_count"] == 3
     assert summary["workflow_handoff"]["state"]["workflow_state"] == "selected_candidate_mismatch"
+
+
+def test_report_operator_review_surface_projection_prefers_db_backed_review_payload() -> None:
+    store = FSJStore()
+    surface = {
+        "artifact": {
+            "artifact_id": "artifact-current",
+            "report_run_id": "run-current",
+            "business_date": "2099-04-22",
+            "status": "active",
+            "artifact_version": "v2",
+        },
+        "delivery_package": {
+            "delivery_package_dir": "/tmp/current-pkg",
+            "package_state": "ready",
+            "ready_for_delivery": False,
+            "quality_gate": {"score": 91, "blocker_count": 1, "warning_count": 2},
+            "workflow": {
+                "recommended_action": "send_review",
+                "workflow_state": "review_required",
+            },
+        },
+        "workflow_linkage": {
+            "selected_handoff": {
+                "selected_artifact_id": "artifact-selected",
+                "selected_is_current": False,
+                "delivery_package_dir": "/tmp/selected-pkg",
+                "delivery_manifest_path": "/tmp/selected-pkg/delivery_manifest.json",
+            },
+            "review_surface": {
+                "candidate_comparison": {
+                    "selected_artifact_id": "artifact-selected",
+                    "current_artifact_id": "artifact-current",
+                    "candidate_count": 2,
+                    "ready_candidate_count": 1,
+                    "ranked_candidates": [
+                        {"artifact_id": "artifact-selected", "ready_for_delivery": True},
+                        {"artifact_id": "artifact-current", "ready_for_delivery": False},
+                    ],
+                    "current_vs_selected": {
+                        "current_artifact_id": "artifact-current",
+                        "selected_artifact_id": "artifact-selected",
+                        "current_rank": 2,
+                        "selected_rank": 1,
+                    },
+                },
+                "operator_go_no_go": {
+                    "decision": "NO_GO",
+                    "artifact_integrity_ok": True,
+                    "missing_artifacts": [],
+                },
+                "review_manifest": {"next_step": "switch_to_selected_package_and_do_not_send_current"},
+                "send_manifest": {"next_step": "switch_to_selected_package_and_do_not_send_current"},
+            },
+        },
+    }
+
+    summary = store.report_operator_review_surface_from_surface(surface)
+
+    assert summary["candidate_comparison"]["selected_artifact_id"] == "artifact-selected"
+    assert summary["candidate_comparison"]["current_artifact_id"] == "artifact-current"
+    assert summary["candidate_comparison"]["candidate_count"] == 2
+    assert summary["candidate_comparison"]["ready_candidate_count"] == 1
+    assert summary["operator_go_no_go"]["decision"] == "NO_GO"
+    assert summary["review_manifest"]["next_step"] == "switch_to_selected_package_and_do_not_send_current"
+    assert summary["review_summary"]["go_no_go_decision"] == "NO_GO"
+    assert summary["review_summary"]["selected_is_current"] is False
+    assert summary["package_paths"]["delivery_package_dir"] == "/tmp/selected-pkg"

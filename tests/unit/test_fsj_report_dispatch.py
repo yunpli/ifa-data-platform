@@ -52,6 +52,20 @@ class _DummyStore:
             "workflow_handoff": workflow_handoff,
         }
 
+    def report_operator_review_surface_from_surface(self, surface: dict) -> dict:
+        return {
+            "candidate_comparison": {
+                "selected_artifact_id": "artifact-selected",
+                "current_artifact_id": surface["artifact"]["artifact_id"],
+                "ranked_candidates": [],
+                "current_vs_selected": {
+                    "current_artifact_id": surface["artifact"]["artifact_id"],
+                    "selected_artifact_id": "artifact-selected",
+                },
+            },
+            "operator_go_no_go": {"decision": "REVIEW"},
+        }
+
 
 def test_published_candidate_from_surface_uses_canonical_workflow_handoff() -> None:
     helper = MainReportDeliveryDispatchHelper()
@@ -96,3 +110,5 @@ def test_published_candidate_from_surface_uses_canonical_workflow_handoff() -> N
     assert published["selected_handoff"]["selected_artifact_id"] == "artifact-selected"
     assert published["workflow_handoff"]["manifest_pointers"]["operator_review_bundle_path"] == "/normalized/pkg/operator_review_bundle.json"
     assert published["package_surface"]["package_paths"]["operator_review_bundle_path"] == "/normalized/pkg/operator_review_bundle.json"
+    assert published["candidate_comparison"]["selected_artifact_id"] == "artifact-selected"
+    assert published["operator_go_no_go"]["decision"] == "REVIEW"

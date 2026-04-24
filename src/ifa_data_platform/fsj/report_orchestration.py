@@ -180,6 +180,12 @@ class MainReportMorningDeliveryOrchestrator:
                     "selected_delivery_manifest_path": selected_handoff.get("delivery_manifest_path"),
                     "selected_delivery_zip_path": selected_handoff.get("delivery_zip_path"),
                     "selected_delivery_package_dir": selected_handoff.get("delivery_package_dir"),
+                    "review_surface": {
+                        "candidate_comparison": candidate_comparison,
+                        "operator_go_no_go": operator_review_bundle.get("operator_go_no_go") or {},
+                        "review_manifest": review_manifest,
+                        "send_manifest": send_manifest,
+                    },
                 },
             )
 

@@ -858,6 +858,87 @@ class FSJStore:
             "workflow_handoff": workflow_handoff,
         }
 
+    def report_operator_review_surface_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any]:
+        normalized_surface = dict(surface or {})
+        artifact = dict(normalized_surface.get("artifact") or {})
+        workflow_handoff = self.report_workflow_handoff_from_surface(normalized_surface)
+        package_surface = self.report_package_surface_from_surface(normalized_surface)
+        package_state = dict(package_surface.get("package_state") or {})
+        quality_gate = dict(package_state.get("quality_gate") or {})
+        state = dict(workflow_handoff.get("state") or {})
+
+        review_payload = dict(
+            dict(normalized_surface.get("review_surface") or {})
+            or dict((normalized_surface.get("workflow_linkage") or {}).get("review_surface") or {})
+        )
+        candidate_comparison = dict(review_payload.get("candidate_comparison") or {})
+        operator_go_no_go = dict(review_payload.get("operator_go_no_go") or {})
+        review_manifest = dict(review_payload.get("review_manifest") or {})
+        send_manifest = dict(review_payload.get("send_manifest") or {})
+
+        selected = dict(candidate_comparison.get("selected") or {})
+        current_vs_selected = dict(candidate_comparison.get("current_vs_selected") or {})
+        selected_artifact_id = (
+            candidate_comparison.get("selected_artifact_id")
+            or current_vs_selected.get("selected_artifact_id")
+            or (workflow_handoff.get("selected_handoff") or {}).get("selected_artifact_id")
+        )
+        current_artifact_id = (
+            candidate_comparison.get("current_artifact_id")
+            or current_vs_selected.get("current_artifact_id")
+            or artifact.get("artifact_id")
+        )
+        candidate_count = candidate_comparison.get("candidate_count")
+        ready_candidate_count = candidate_comparison.get("ready_candidate_count")
+        ranked_candidates = list(candidate_comparison.get("ranked_candidates") or [])
+        if candidate_count is None:
+            candidate_count = len(ranked_candidates)
+        if ready_candidate_count is None:
+            ready_candidate_count = len([item for item in ranked_candidates if item.get("ready_for_delivery")])
+
+        computed_decision = operator_go_no_go.get("decision") or (
+            "GO" if state.get("send_ready") else ("REVIEW" if state.get("review_required") else "NO_GO")
+        )
+
+        return {
+            "artifact": dict(workflow_handoff.get("artifact") or artifact),
+            "selected_handoff": dict(workflow_handoff.get("selected_handoff") or {}),
+            "state": state,
+            "package_paths": dict(package_surface.get("package_paths") or {}),
+            "package_versions": dict(package_surface.get("package_versions") or {}),
+            "package_state": package_state,
+            "workflow_handoff": workflow_handoff,
+            "candidate_comparison": {
+                **candidate_comparison,
+                "selected": selected,
+                "selected_artifact_id": selected_artifact_id,
+                "current_artifact_id": current_artifact_id,
+                "candidate_count": candidate_count,
+                "ready_candidate_count": ready_candidate_count,
+            },
+            "operator_go_no_go": {
+                **operator_go_no_go,
+                "decision": computed_decision,
+                "artifact_integrity_ok": operator_go_no_go.get("artifact_integrity_ok"),
+                "missing_artifacts": list(operator_go_no_go.get("missing_artifacts") or []),
+            },
+            "review_manifest": review_manifest,
+            "send_manifest": send_manifest,
+            "review_summary": {
+                "recommended_action": state.get("recommended_action"),
+                "workflow_state": state.get("workflow_state"),
+                "selected_artifact_id": selected_artifact_id,
+                "current_artifact_id": current_artifact_id,
+                "selected_is_current": (workflow_handoff.get("selected_handoff") or {}).get("selected_is_current"),
+                "candidate_count": candidate_count,
+                "ready_candidate_count": ready_candidate_count,
+                "qa_score": quality_gate.get("score"),
+                "blocker_count": quality_gate.get("blocker_count"),
+                "warning_count": quality_gate.get("warning_count"),
+                "go_no_go_decision": computed_decision,
+            },
+        }
+
     def build_operator_board_surface(
         self,
         *,
@@ -995,6 +1076,14 @@ class FSJStore:
             if delivery_package:
                 delivery_package["workflow"] = delivery_workflow
             metadata["workflow_linkage"] = normalized_linkage
+            review_surface = dict(metadata.get("review_surface") or {})
+            incoming_review_surface = dict(normalized_linkage.get("review_surface") or {})
+            if incoming_review_surface:
+                review_surface = {
+                    **review_surface,
+                    **incoming_review_surface,
+                }
+                metadata["review_surface"] = review_surface
             if delivery_package:
                 metadata["delivery_package"] = delivery_package
             conn.execute(

@@ -72,6 +72,7 @@ class MainReportDeliveryDispatchHelper:
         store = store or FSJStore()
         workflow_linkage = dict(surface.get("workflow_linkage") or {})
         package_surface = store.report_package_surface_from_surface(surface)
+        review_surface = store.report_operator_review_surface_from_surface(surface)
         workflow_handoff = dict(package_surface.get("workflow_handoff") or {})
         package_paths = dict(package_surface.get("package_paths") or {})
         selected_handoff = dict(package_surface.get("selected_handoff") or {})
@@ -108,6 +109,9 @@ class MainReportDeliveryDispatchHelper:
             "workflow_linkage": workflow_linkage,
             "workflow_handoff": workflow_handoff,
             "package_surface": package_surface,
+            "review_surface": review_surface,
+            "candidate_comparison": dict(review_surface.get("candidate_comparison") or {}),
+            "operator_go_no_go": dict(review_surface.get("operator_go_no_go") or {}),
             "source": source,
         }
 
