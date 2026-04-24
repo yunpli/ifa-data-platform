@@ -350,7 +350,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-4. Production runbooks
-**Status:** Not started for business report chain  
+**Status:** In progress — thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`)  
 **Target:** slot-specific incident handling and normal operations docs
 
 **Tasks**
