@@ -503,6 +503,8 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         assert helper_surfaces[0]['delivery_manifest']['dispatch_advice']['recommended_action'] == second['delivery_manifest']['dispatch_advice']['recommended_action']
         assert helper_surfaces[0]['workflow_handoff']['selected_handoff']['selected_artifact_id'] == second['artifact']['artifact_id']
         assert helper_surfaces[0]['workflow_handoff']['manifest_pointers']['delivery_manifest_path'] == second['delivery_manifest_path']
+        assert helper_surfaces[0]['package_surface']['package_paths']['delivery_manifest_path'] == second['delivery_manifest_path']
+        assert helper_surfaces[0]['package_surface']['package_paths']['delivery_package_dir'] == second['delivery_package_dir']
         assert helper_surfaces[1]['delivery_manifest_path'] == first['delivery_manifest_path']
         assert history_surfaces[0]['workflow_handoff']['selected_handoff']['selected_artifact_id'] == second['artifact']['artifact_id']
         assert history_surfaces[1]['artifact']['status'] == 'superseded'
@@ -533,6 +535,10 @@ def test_main_report_delivery_surface_is_queryable_from_active_and_recent_supers
         assert refreshed_surface['workflow_linkage']['review_manifest_path'] == workflow_result['review_manifest_path']
         assert refreshed_surface['workflow_linkage']['workflow_manifest_path'] == workflow_result['workflow_manifest_path']
         assert refreshed_surface['workflow_linkage']['selected_handoff']['selected_artifact_id'] == workflow_result['selected_handoff']['selected_artifact_id']
+        refreshed_package_surface = store.report_package_surface_from_surface(refreshed_surface)
+        assert refreshed_package_surface['package_paths']['send_manifest_path'] == workflow_result['send_manifest_path']
+        assert refreshed_package_surface['package_paths']['review_manifest_path'] == workflow_result['review_manifest_path']
+        assert refreshed_package_surface['package_paths']['operator_review_bundle_path'] == workflow_result['operator_review_bundle_path']
         assert refreshed_helper_surfaces[0]['send_manifest_path'] == workflow_result['send_manifest_path']
         assert refreshed_helper_surfaces[0]['review_manifest_path'] == workflow_result['review_manifest_path']
         assert refreshed_helper_surfaces[0]['workflow_manifest_path'] == workflow_result['workflow_manifest_path']

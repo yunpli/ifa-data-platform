@@ -83,3 +83,67 @@ def test_report_workflow_handoff_projection_preserves_operator_readiness_fields(
     assert summary["state"]["selection_reason"] == "best_ready_candidate strongest_slot=late qa_score=93"
     assert summary["state"]["dispatch_selected_artifact_id"] == "artifact-selected"
     assert summary["state"]["send_blockers"] == ["selected_candidate_differs_from_current"]
+
+
+def test_report_package_surface_projection_preserves_review_and_send_package_pointers() -> None:
+    store = FSJStore()
+    surface = {
+        "artifact": {
+            "artifact_id": "artifact-current",
+            "report_run_id": "run-current",
+            "business_date": "2099-04-22",
+            "status": "active",
+            "artifact_version": "v1",
+        },
+        "delivery_package": {
+            "delivery_package_dir": "/tmp/current-pkg",
+            "package_state": "ready",
+            "ready_for_delivery": True,
+            "quality_gate": {"score": 93, "blocker_count": 0, "warning_count": 1},
+            "slot_evaluation": {"strongest_slot": "late"},
+            "dispatch_advice": {"recommended_action": "send_review"},
+            "support_summary_aggregate": {"domain_count": 3},
+            "artifacts": {
+                "delivery_manifest": "delivery_manifest.json",
+                "send_manifest": "send_manifest.json",
+                "review_manifest": "review_manifest.json",
+                "workflow_manifest": "workflow_manifest.json",
+                "package_index": "package_index.json",
+            },
+            "workflow": {
+                "recommended_action": "send_review",
+                "workflow_state": "selected_candidate_mismatch",
+            },
+        },
+        "workflow_linkage": {
+            "selected_handoff": {
+                "selected_artifact_id": "artifact-selected",
+                "selected_report_run_id": "run-selected",
+                "selected_business_date": "2099-04-22",
+                "selected_is_current": False,
+                "delivery_package_dir": "/tmp/selected-pkg",
+                "delivery_manifest_path": "/tmp/selected-pkg/delivery_manifest.json",
+                "delivery_zip_path": "/tmp/selected-pkg.zip",
+                "telegram_caption_path": "/tmp/selected-pkg/telegram_caption.txt",
+            },
+            "send_manifest_path": "/tmp/current/send_manifest.json",
+            "review_manifest_path": "/tmp/current/review_manifest.json",
+            "workflow_manifest_path": "/tmp/current/workflow_manifest.json",
+            "operator_review_bundle_path": "/tmp/current/operator_review_bundle.json",
+            "operator_review_readme_path": "/tmp/current/OPERATOR_REVIEW.md",
+        },
+    }
+
+    summary = store.report_package_surface_from_surface(surface)
+
+    assert summary["artifact"]["artifact_id"] == "artifact-current"
+    assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-selected"
+    assert summary["package_paths"]["delivery_package_dir"] == "/tmp/selected-pkg"
+    assert summary["package_paths"]["delivery_manifest_path"] == "/tmp/selected-pkg/delivery_manifest.json"
+    assert summary["package_paths"]["send_manifest_path"] == "/tmp/current/send_manifest.json"
+    assert summary["package_paths"]["review_manifest_path"] == "/tmp/current/review_manifest.json"
+    assert summary["package_paths"]["operator_review_bundle_path"] == "/tmp/current/operator_review_bundle.json"
+    assert summary["package_versions"]["artifact_version"] == "v1"
+    assert summary["package_versions"]["review_manifest_version"] == "review_manifest.json"
+    assert summary["package_state"]["support_summary_aggregate"]["domain_count"] == 3
+    assert summary["workflow_handoff"]["state"]["workflow_state"] == "selected_candidate_mismatch"

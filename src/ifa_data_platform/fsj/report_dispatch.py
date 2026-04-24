@@ -71,22 +71,23 @@ class MainReportDeliveryDispatchHelper:
             return None
         store = store or FSJStore()
         workflow_linkage = dict(surface.get("workflow_linkage") or {})
-        workflow_handoff = store.report_workflow_handoff_from_surface(surface)
-        manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
-        selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+        package_surface = store.report_package_surface_from_surface(surface)
+        workflow_handoff = dict(package_surface.get("workflow_handoff") or {})
+        package_paths = dict(package_surface.get("package_paths") or {})
+        selected_handoff = dict(package_surface.get("selected_handoff") or {})
         return {
             "artifact": artifact,
-            "delivery_package_dir": selected_handoff.get("selected_delivery_package_dir") or delivery_package.get("delivery_package_dir"),
-            "delivery_manifest_path": manifest_pointers.get("delivery_manifest_path"),
-            "delivery_zip_path": manifest_pointers.get("delivery_zip_path"),
-            "telegram_caption_path": manifest_pointers.get("telegram_caption_path"),
-            "package_index_path": manifest_pointers.get("package_index_path"),
-            "package_browse_readme_path": manifest_pointers.get("package_browse_readme_path"),
-            "send_manifest_path": manifest_pointers.get("send_manifest_path"),
-            "review_manifest_path": manifest_pointers.get("review_manifest_path"),
-            "workflow_manifest_path": manifest_pointers.get("workflow_manifest_path"),
-            "operator_review_bundle_path": manifest_pointers.get("operator_review_bundle_path"),
-            "operator_review_readme_path": manifest_pointers.get("operator_review_readme_path"),
+            "delivery_package_dir": package_paths.get("delivery_package_dir"),
+            "delivery_manifest_path": package_paths.get("delivery_manifest_path"),
+            "delivery_zip_path": package_paths.get("delivery_zip_path"),
+            "telegram_caption_path": package_paths.get("telegram_caption_path"),
+            "package_index_path": package_paths.get("package_index_path"),
+            "package_browse_readme_path": package_paths.get("package_browse_readme_path"),
+            "send_manifest_path": package_paths.get("send_manifest_path"),
+            "review_manifest_path": package_paths.get("review_manifest_path"),
+            "workflow_manifest_path": package_paths.get("workflow_manifest_path"),
+            "operator_review_bundle_path": package_paths.get("operator_review_bundle_path"),
+            "operator_review_readme_path": package_paths.get("operator_review_readme_path"),
             "selected_handoff": selected_handoff,
             "delivery_manifest": {
                 "artifact_id": artifact.get("artifact_id"),
@@ -106,6 +107,7 @@ class MainReportDeliveryDispatchHelper:
             "package_index": {},
             "workflow_linkage": workflow_linkage,
             "workflow_handoff": workflow_handoff,
+            "package_surface": package_surface,
             "source": source,
         }
 

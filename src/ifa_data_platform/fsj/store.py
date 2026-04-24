@@ -808,6 +808,55 @@ class FSJStore:
             workflow_linkage=dict(workflow_linkage or {}) or None,
         )
 
+    def report_package_surface_from_surface(self, surface: dict[str, Any] | None) -> dict[str, Any]:
+        normalized_surface = dict(surface or {})
+        artifact = dict(normalized_surface.get("artifact") or {})
+        delivery_package = dict(normalized_surface.get("delivery_package") or {})
+        workflow_handoff = self.report_workflow_handoff_from_surface(normalized_surface)
+        manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
+        selected_handoff = dict(workflow_handoff.get("selected_handoff") or {})
+        state = dict(workflow_handoff.get("state") or {})
+        version_pointers = dict(workflow_handoff.get("version_pointers") or {})
+        artifacts = dict(delivery_package.get("artifacts") or {})
+
+        package_paths = {
+            "delivery_package_dir": selected_handoff.get("selected_delivery_package_dir") or selected_handoff.get("delivery_package_dir") or delivery_package.get("delivery_package_dir"),
+            "delivery_manifest_path": manifest_pointers.get("delivery_manifest_path") or selected_handoff.get("selected_delivery_manifest_path") or selected_handoff.get("delivery_manifest_path"),
+            "delivery_zip_path": manifest_pointers.get("delivery_zip_path") or selected_handoff.get("selected_delivery_zip_path") or selected_handoff.get("delivery_zip_path"),
+            "telegram_caption_path": manifest_pointers.get("telegram_caption_path") or selected_handoff.get("selected_telegram_caption_path") or selected_handoff.get("telegram_caption_path"),
+            "package_index_path": manifest_pointers.get("package_index_path"),
+            "package_browse_readme_path": manifest_pointers.get("package_browse_readme_path"),
+            "send_manifest_path": manifest_pointers.get("send_manifest_path"),
+            "review_manifest_path": manifest_pointers.get("review_manifest_path"),
+            "workflow_manifest_path": manifest_pointers.get("workflow_manifest_path"),
+            "operator_review_bundle_path": manifest_pointers.get("operator_review_bundle_path"),
+            "operator_review_readme_path": manifest_pointers.get("operator_review_readme_path"),
+        }
+        package_versions = {
+            "artifact_version": version_pointers.get("artifact_version") or artifact.get("artifact_version"),
+            "delivery_manifest_version": version_pointers.get("delivery_manifest_version") or artifacts.get("delivery_manifest"),
+            "send_manifest_version": version_pointers.get("send_manifest_version") or artifacts.get("send_manifest"),
+            "review_manifest_version": version_pointers.get("review_manifest_version") or artifacts.get("review_manifest"),
+            "workflow_manifest_version": version_pointers.get("workflow_manifest_version") or artifacts.get("workflow_manifest"),
+            "package_index_version": version_pointers.get("package_index_version") or artifacts.get("package_index"),
+        }
+        return {
+            "artifact": dict(workflow_handoff.get("artifact") or {}),
+            "selected_handoff": selected_handoff,
+            "state": state,
+            "package_paths": package_paths,
+            "package_versions": package_versions,
+            "package_state": {
+                "package_state": delivery_package.get("package_state"),
+                "ready_for_delivery": delivery_package.get("ready_for_delivery"),
+                "quality_gate": dict(delivery_package.get("quality_gate") or {}),
+                "slot_evaluation": dict(delivery_package.get("slot_evaluation") or {}),
+                "dispatch_advice": dict(delivery_package.get("dispatch_advice") or {}),
+                "support_summary_aggregate": dict(delivery_package.get("support_summary_aggregate") or {}),
+            },
+            "package_artifacts": artifacts,
+            "workflow_handoff": workflow_handoff,
+        }
 
     def build_operator_board_surface(
         self,
@@ -834,12 +883,22 @@ class FSJStore:
         else:
             resolution = {"mode": "explicit_business_date", "business_date": resolved_business_date}
         if not resolved_business_date:
-            return {"business_date": None, "resolution": resolution, "main": None, "support": {d: None for d in ("ai_tech", "commodities", "macro")}, "history": [], "db_candidates": []}
+            return {"business_date": None, "resolution": resolution, "main": None, "main_package": None, "support": {d: None for d in ("ai_tech", "commodities", "macro")}, "support_packages": {d: None for d in ("ai_tech", "commodities", "macro")}, "history": [], "history_packages": [], "db_candidates": []}
         main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
         support = {d: self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain=d, artifact_family="support_domain_report") for d in ("ai_tech", "commodities", "macro")}
         history = self.list_report_delivery_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         db_candidates = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
-        return {"business_date": resolved_business_date, "resolution": resolution, "main": self.report_workflow_handoff_from_surface(main_active) if main_active else None, "support": {d: self.report_workflow_handoff_from_surface(s) if s else None for d, s in support.items()}, "history": [self.report_workflow_handoff_from_surface(s) for s in history], "db_candidates": [helper.summarize_candidate(c) for c in db_candidates]}
+        return {
+            "business_date": resolved_business_date,
+            "resolution": resolution,
+            "main": self.report_workflow_handoff_from_surface(main_active) if main_active else None,
+            "main_package": self.report_package_surface_from_surface(main_active) if main_active else None,
+            "support": {d: self.report_workflow_handoff_from_surface(s) if s else None for d, s in support.items()},
+            "support_packages": {d: self.report_package_surface_from_surface(s) if s else None for d, s in support.items()},
+            "history": [self.report_workflow_handoff_from_surface(s) for s in history],
+            "history_packages": [self.report_package_surface_from_surface(s) for s in history],
+            "db_candidates": [helper.summarize_candidate(c) for c in db_candidates],
+        }
 
     def _report_workflow_handoff_from_artifact(
         self,
