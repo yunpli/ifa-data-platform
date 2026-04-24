@@ -139,6 +139,17 @@ def test_build_drift_payload_summarizes_multi_day_operator_drift() -> None:
     assert payload["aggregate"]["llm_usage_bundle_count"] == 5
     assert payload["aggregate"]["llm_uncosted_bundle_count"] == 3
     assert payload["aggregate"]["llm_estimated_cost_usd"] == 0.008
+    assert payload["aggregate"]["recent_streaks"] == {
+        "blocked": 0,
+        "review_required": 0,
+        "lineage_attention": 0,
+        "qa_attention": 0,
+        "qa_blocked": 0,
+        "selection_mismatch": 0,
+        "llm_fallback": 0,
+        "llm_degraded": 0,
+        "llm_missing_bundle": 0,
+    }
     assert payload["aggregate"]["selection_mismatch_dates"] == ["2099-04-22"]
     assert payload["days"][1]["posture"] == "review_required"
     assert payload["days"][1]["selection_mismatch"] is True
@@ -238,6 +249,17 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
             "llm_usage_bundle_count": 5,
             "llm_uncosted_bundle_count": 3,
             "llm_estimated_cost_usd": 0.008,
+            "recent_streaks": {
+                "blocked": 0,
+                "lineage_attention": 0,
+                "llm_degraded": 0,
+                "llm_fallback": 0,
+                "llm_missing_bundle": 0,
+                "qa_attention": 0,
+                "qa_blocked": 0,
+                "review_required": 0,
+                "selection_mismatch": 0,
+            },
         },
     }
 
@@ -261,9 +283,78 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
     assert "llm_usage_bundle_count=5" in output
     assert "llm_uncosted_bundle_count=3" in output
     assert "llm_estimated_cost_usd=0.008" in output
+    assert "recent_streaks=blocked:0,lineage_attention:0,llm_degraded:0,llm_fallback:0,llm_missing_bundle:0,qa_attention:0,qa_blocked:0,review_required:0,selection_mismatch:0" in output
     assert "summary_line=3d drift main: hold 1/3 | fallback 1/3 | mismatch 1/3 | qa_attn 2/3" in output
     assert "day_1=business_date:2099-04-23|artifact_id:main-3|posture:ready_to_send|qa_posture:ready|llm_lineage_status:applied|llm_fallback_count:0|llm_models:grok41_thinking|llm_slots:late|llm_total_tokens:400|llm_estimated_cost_usd:0.008|llm_uncosted_bundle_count:0|selection_mismatch:False|axes_attention:|not_ready_axes:" in output
     assert "day_2=business_date:2099-04-22|artifact_id:main-2|posture:review_required|qa_posture:attention|llm_lineage_status:degraded|llm_fallback_count:1|llm_models:gemini31_pro_jmr|llm_slots:mid|llm_total_tokens:600|llm_estimated_cost_usd:None|llm_uncosted_bundle_count:2|selection_mismatch:True|axes_attention:lineage|not_ready_axes:" in output
+
+
+def test_build_drift_payload_tracks_recent_streaks_for_latest_days() -> None:
+    class StreakStore(_DummyStore):
+        def list_report_business_dates(self, **kwargs: object) -> list[str]:
+            self.list_calls.append(dict(kwargs))
+            return ["2099-04-23", "2099-04-22", "2099-04-21"]
+
+        def get_active_report_operator_review_surface(self, **kwargs: object) -> dict | None:
+            business_date = str(kwargs["business_date"])
+            base = {
+                "artifact": {"artifact_id": f"main-{business_date}", "report_run_id": f"run-{business_date}"},
+                "candidate_comparison": {"current_artifact_id": f"main-{business_date}", "selected_artifact_id": f"main-{business_date}"},
+                "selected_handoff": {"selected_artifact_id": f"main-{business_date}", "selected_is_current": True},
+            }
+            if business_date in {"2099-04-23", "2099-04-22"}:
+                return {
+                    **base,
+                    "state": {
+                        "recommended_action": "hold",
+                        "workflow_state": "blocked",
+                        "send_ready": False,
+                        "review_required": False,
+                        "qa_axes": {
+                            "structural": {"ready": True, "blocker_count": 0, "warning_count": 0},
+                            "lineage": {"ready": True, "blocker_count": 0, "warning_count": 0},
+                            "policy": {"ready": True, "blocker_count": 0, "warning_count": 1},
+                        },
+                    },
+                    "review_summary": {"qa_score": 88, "blocker_count": 0, "warning_count": 1},
+                    "llm_lineage": {"summary": {"bundle_count": 1, "applied_count": 1, "degraded_count": 0, "fallback_applied_count": 1, "missing_bundle_count": 0, "operator_tags": ["llm_timeout"]}},
+                    "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded", "models": ["grok41_thinking"], "slots": ["late"], "token_totals": {"total_tokens": 100}, "usage_bundle_count": 1, "uncosted_bundle_count": 0, "estimated_cost_usd": 0.001},
+                }
+            return {
+                **base,
+                "state": {
+                    "recommended_action": "send",
+                    "workflow_state": "ready_to_send",
+                    "send_ready": True,
+                    "review_required": False,
+                    "qa_axes": {
+                        "structural": {"ready": True, "blocker_count": 0, "warning_count": 0},
+                        "lineage": {"ready": True, "blocker_count": 0, "warning_count": 0},
+                        "policy": {"ready": True, "blocker_count": 0, "warning_count": 0},
+                    },
+                },
+                "review_summary": {"qa_score": 96, "blocker_count": 0, "warning_count": 0},
+                "llm_lineage": {"summary": {"bundle_count": 1, "applied_count": 1, "degraded_count": 0, "fallback_applied_count": 0, "missing_bundle_count": 0, "operator_tags": []}},
+                "llm_lineage_summary": {"status": "applied", "summary_line": "applied", "models": ["grok41_thinking"], "slots": ["late"], "token_totals": {"total_tokens": 100}, "usage_bundle_count": 1, "uncosted_bundle_count": 0, "estimated_cost_usd": 0.001},
+            }
+
+    payload = build_drift_payload(scope="main", days=3, store=StreakStore())
+
+    assert payload["aggregate"]["recent_streaks"] == {
+        "blocked": 2,
+        "review_required": 0,
+        "lineage_attention": 2,
+        "qa_attention": 2,
+        "qa_blocked": 0,
+        "selection_mismatch": 0,
+        "llm_fallback": 2,
+        "llm_degraded": 0,
+        "llm_missing_bundle": 0,
+    }
+    assert (
+        _module.format_drift_summary_line(payload)
+        == "3d drift main: hold 2/3 | fallback 2/3 | mismatch 0/3 | qa_attn 2/3 | recent hold_streak=2; fallback_streak=2; qa_attn_streak=2"
+    )
 
 
 def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:

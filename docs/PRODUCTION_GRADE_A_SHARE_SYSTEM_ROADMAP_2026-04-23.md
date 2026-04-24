@@ -344,7 +344,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-3. Rerun / replay productization
-**Status:** In progress — first operator compare slice landed on 2026-04-24 via canonical `rerun_compare_summary` projection surfaced symmetrically in MAIN/support delivery-status reads, making rerun-vs-active gaps explicit/auditable without introducing a parallel replay system  
+**Status:** In progress — first operator compare slice landed on 2026-04-24 via canonical `rerun_compare_summary` projection surfaced symmetrically in MAIN/support delivery-status reads, making rerun-vs-active gaps explicit/auditable without introducing a parallel replay system; follow-on thin slice now normalizes a first-class rerun outcome label (`keep` / `supersede` / `replace` / `hold` / `unknown`) and projects it onto the canonical compare facade plus operator-board/read surfaces so operators can distinguish “better candidate supersedes current” from “replace current/selected truth with a different better candidate” without inventing a replay state machine  
 **Target:** rerun becomes an operator action, not an engineering improvisation
 
 **Tasks**
@@ -420,11 +420,12 @@ QA exists, but full quality governance does not.
 ---
 
 ### P3-2. Historical drift monitoring
-**Status:** In progress — thin production slice landed (`scripts/fsj_drift_monitor.py`)  
+**Status:** In progress — thin production slice landed (`scripts/fsj_drift_monitor.py`), then expanded with recent-drift streak projection on the same operator surface  
 **Target:** detect quality and behavior drift over time
 
 **Tasks**
 - [x] operator-visible historical trend summary over canonical operator-review surfaces (ready/review/hold, QA posture, lineage degraded/fallback/missing, selected-current mismatch)
+- [x] recent consecutive-drift streak projection on the canonical drift monitor surface (hold/fallback/mismatch/QA attention streaks)
 - [ ] slot-level quality trend dashboards
 - [ ] support-summary missing rate
 - [ ] artifact hold rate

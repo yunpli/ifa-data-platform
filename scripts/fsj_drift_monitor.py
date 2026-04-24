@@ -249,6 +249,27 @@ def build_drift_payload(*, scope: str, days: int = 7, slot: str | None = None, s
     def _rate(count: int) -> float:
         return round((count / total), 4) if total else 0.0
 
+    def _leading_streak(items: list[dict[str, Any]], predicate: Any) -> int:
+        streak = 0
+        for item in items:
+            if predicate(item):
+                streak += 1
+                continue
+            break
+        return streak
+
+    recent_streaks = {
+        "blocked": _leading_streak(day_summaries, lambda item: item.get("posture") == "blocked"),
+        "review_required": _leading_streak(day_summaries, lambda item: item.get("posture") == "review_required"),
+        "lineage_attention": _leading_streak(day_summaries, lambda item: bool(item.get("lineage_attention"))),
+        "qa_attention": _leading_streak(day_summaries, lambda item: bool(item.get("axes_with_attention"))),
+        "qa_blocked": _leading_streak(day_summaries, lambda item: bool(item.get("not_ready_axes"))),
+        "selection_mismatch": _leading_streak(day_summaries, lambda item: bool(item.get("selection_mismatch"))),
+        "llm_fallback": _leading_streak(day_summaries, lambda item: _safe_int(item.get("llm_fallback_count")) > 0),
+        "llm_degraded": _leading_streak(day_summaries, lambda item: _safe_int(item.get("llm_degraded_count")) > 0),
+        "llm_missing_bundle": _leading_streak(day_summaries, lambda item: _safe_int(item.get("llm_missing_bundle_count")) > 0),
+    }
+
     return {
         "scope": scope,
         "agent_domain": agent_domain,
@@ -288,6 +309,7 @@ def build_drift_payload(*, scope: str, days: int = 7, slot: str | None = None, s
             "llm_usage_bundle_count": usage_bundle_count,
             "llm_uncosted_bundle_count": uncosted_bundle_count,
             "llm_estimated_cost_usd": round(sum(estimated_cost_values), 6) if estimated_cost_values else None,
+            "recent_streaks": recent_streaks,
         },
     }
 
@@ -304,9 +326,22 @@ def format_drift_summary_line(payload: dict[str, Any]) -> str:
     fallback = len(aggregate.get("llm_fallback_dates") or [])
     mismatch = len(aggregate.get("selection_mismatch_dates") or [])
     qa_attention = len(aggregate.get("qa_attention_dates") or [])
+    recent_streaks = _safe_dict(aggregate.get("recent_streaks"))
+    streak_parts: list[str] = []
+    for key, short_label in (
+        ("blocked", "hold"),
+        ("llm_fallback", "fallback"),
+        ("selection_mismatch", "mismatch"),
+        ("qa_attention", "qa_attn"),
+    ):
+        streak_value = _safe_int(recent_streaks.get(key))
+        if streak_value > 0:
+            streak_parts.append(f"{short_label}_streak={streak_value}")
+    streak_suffix = f" | recent {'; '.join(streak_parts)}" if streak_parts else ""
     return (
         f"{window_days}d drift {label}: hold {blocked}/{total} | "
         f"fallback {fallback}/{total} | mismatch {mismatch}/{total} | qa_attn {qa_attention}/{total}"
+        f"{streak_suffix}"
     )
 
 
@@ -454,6 +489,14 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"llm_usage_bundle_count={aggregate.get('llm_usage_bundle_count')}")
     print(f"llm_uncosted_bundle_count={aggregate.get('llm_uncosted_bundle_count')}")
     print(f"llm_estimated_cost_usd={aggregate.get('llm_estimated_cost_usd')}")
+    recent_streaks = _safe_dict(aggregate.get("recent_streaks"))
+    print(
+        "recent_streaks="
+        + ",".join(
+            f"{key}:{_safe_int(value)}"
+            for key, value in sorted(recent_streaks.items())
+        )
+    )
     print(f"summary_line={format_drift_summary_line(payload)}")
     for index, item in enumerate(payload.get("days") or [], start=1):
         print(
