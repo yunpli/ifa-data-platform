@@ -1138,6 +1138,41 @@ class FSJStore:
 
         from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 
+        def _lineage_summary(review_surface: dict[str, Any] | None) -> dict[str, Any] | None:
+            if not review_surface:
+                return None
+            return dict(review_surface.get("llm_lineage_summary") or {}) or None
+
+        def _lineage_subject(summary: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
+            if not summary:
+                return None
+            return {
+                "subject": subject,
+                **summary,
+            }
+
+        def _aggregate_lineage_status(subjects: list[dict[str, Any]]) -> dict[str, Any]:
+            status_order = {"incomplete": 0, "degraded": 1, "not_applied": 2, "applied": 3}
+            status_counts = {
+                status: len([item for item in subjects if item.get("status") == status])
+                for status in ("incomplete", "degraded", "not_applied", "applied")
+            }
+            present_subjects = [item for item in subjects if item.get("status")]
+            overall_status = "not_available"
+            if present_subjects:
+                overall_status = min(
+                    (str(item.get("status") or "not_applied") for item in present_subjects),
+                    key=lambda item: status_order.get(item, 99),
+                )
+            attention_subjects = [item["subject"] for item in present_subjects if item.get("status") in {"incomplete", "degraded", "not_applied"}]
+            return {
+                "overall_status": overall_status,
+                "subject_count": len(subjects),
+                "reported_subject_count": len(present_subjects),
+                "status_counts": status_counts,
+                "attention_subjects": attention_subjects,
+            }
+
         beijing = timezone(timedelta(hours=8))
         helper = MainReportDeliveryDispatchHelper()
         resolved_business_date = business_date
@@ -1153,6 +1188,18 @@ class FSJStore:
         else:
             resolution = {"mode": "explicit_business_date", "business_date": resolved_business_date}
         empty_domains = {d: None for d in ("ai_tech", "commodities", "macro")}
+        empty_lineage = {
+            "main": None,
+            "support": dict(empty_domains),
+            "history": [],
+            "aggregate": {
+                "overall_status": "not_available",
+                "subject_count": 0,
+                "reported_subject_count": 0,
+                "status_counts": {"incomplete": 0, "degraded": 0, "not_applied": 0, "applied": 0},
+                "attention_subjects": [],
+            },
+        }
         if not resolved_business_date:
             return {
                 "business_date": None,
@@ -1169,6 +1216,7 @@ class FSJStore:
                 "history_reviews": [],
                 "history_workflow": [],
                 "db_candidates": [],
+                "llm_lineage_summary": empty_lineage,
             }
         main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
         main_review = self.get_active_report_operator_review_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
@@ -1184,6 +1232,19 @@ class FSJStore:
         history = self.list_report_delivery_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         history_reviews = self.list_report_operator_review_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         db_candidates = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
+
+        main_lineage = _lineage_summary(main_review)
+        support_lineage = {domain: _lineage_summary(review) for domain, review in support_reviews.items()}
+        history_lineage = [_lineage_summary(review) for review in history_reviews]
+        lineage_subjects = [
+            item
+            for item in [
+                _lineage_subject(main_lineage, subject="main"),
+                *[_lineage_subject(summary, subject=f"support:{domain}") for domain, summary in support_lineage.items()],
+                *[_lineage_subject(summary, subject=f"history:{index}") for index, summary in enumerate(history_lineage, start=1)],
+            ]
+            if item
+        ]
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
@@ -1199,6 +1260,12 @@ class FSJStore:
             "history_reviews": history_reviews,
             "history_workflow": [self.report_workflow_handoff_from_surface(s) for s in history],
             "db_candidates": [helper.summarize_candidate(c) for c in db_candidates],
+            "llm_lineage_summary": {
+                "main": main_lineage,
+                "support": support_lineage,
+                "history": history_lineage,
+                "aggregate": _aggregate_lineage_status(lineage_subjects),
+            },
         }
 
     def _report_workflow_handoff_from_artifact(

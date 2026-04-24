@@ -81,26 +81,38 @@ def build_board_payload(*, business_date: str | None = None, history_limit: int 
 
 def _print_text(payload: dict[str, Any]) -> None:
     resolution = _safe_dict(payload.get("resolution"))
+    lineage = _safe_dict(payload.get("llm_lineage_summary"))
+    lineage_aggregate = _safe_dict(lineage.get("aggregate"))
     print(f"business_date={payload.get('business_date') or '-'}")
     print(f"resolution_mode={resolution.get('mode') or '-'}")
     main = _safe_dict(payload.get("main"))
+    main_lineage = _safe_dict(lineage.get("main") or (main.get("llm_lineage_summary") if main else None))
     if main:
         print(f"main_artifact_id={_safe_dict(main.get('artifact')).get('artifact_id')}")
         print(f"main_recommended_action={_safe_dict(main.get('state')).get('recommended_action')}")
         print(f"main_workflow_state={_safe_dict(main.get('state')).get('workflow_state')}")
         print(f"main_package_state={_safe_dict(main.get('state')).get('package_state')}")
+        print(f"main_llm_lineage_status={main_lineage.get('status')}")
+        print(f"main_llm_lineage_summary={main_lineage.get('summary_line')}")
     else:
         print("main_artifact=NONE")
+    support_lineage = _safe_dict(lineage.get("support"))
     for domain in sorted(_VALID_DOMAINS):
         item = _safe_dict((payload.get("support") or {}).get(domain))
         if not item:
             print(f"support_{domain}=NONE")
             continue
         state = _safe_dict(item.get("state"))
+        item_lineage = _safe_dict(support_lineage.get(domain) or item.get("llm_lineage_summary"))
         print(f"support_{domain}_artifact_id={_safe_dict(item.get('artifact')).get('artifact_id')}")
         print(f"support_{domain}_recommended_action={state.get('recommended_action')}")
         print(f"support_{domain}_workflow_state={state.get('workflow_state')}")
         print(f"support_{domain}_package_state={state.get('package_state')}")
+        print(f"support_{domain}_llm_lineage_status={item_lineage.get('status')}")
+        print(f"support_{domain}_llm_lineage_summary={item_lineage.get('summary_line')}")
+    print(f"fleet_llm_lineage_status={lineage_aggregate.get('overall_status')}")
+    print(f"fleet_llm_attention_subjects={','.join(lineage_aggregate.get('attention_subjects') or [])}")
+    print(f"fleet_llm_reported_subject_count={lineage_aggregate.get('reported_subject_count')}")
     print(f"main_history_count={len(payload.get('history') or [])}")
     print(f"candidate_count={len(payload.get('db_candidates') or [])}")
 
