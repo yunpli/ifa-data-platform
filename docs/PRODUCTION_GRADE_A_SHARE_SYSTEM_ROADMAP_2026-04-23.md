@@ -346,14 +346,34 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-2. Unified artifact registry / lineage index
-**Status:** In progress — first bounded registry slice landed via canonical artifact-family version-chain summary/query surface (`FSJStore.summarize_report_artifact_registry`, `scripts/fsj_artifact_lineage.py`)  
+**Status:** Materially closed for current roadmap scope — canonical artifact-family version-chain summary/query surface landed (`FSJStore.summarize_report_artifact_registry`, `scripts/fsj_artifact_lineage.py`), later board/read integrations made that lineage truth operator-visible on the canonical fleet surface, and exact closeout proof is captured in `docs/FSJ_P2_2_ARTIFACT_REGISTRY_CLOSEOUT_2026-04-24.md`  
 **Target:** every report/package/review/send artifact must be queryable and comparable
 
-**Tasks**
-- register artifact families and version chain
-- link artifact → bundle graph → support summaries → send manifest
-- expose artifact lineage for operator and audit
-- support “what did user actually receive?” queries
+**Delivered in current scope**
+- [x] register artifact families and version chain on the canonical artifact persistence/read surface
+- [x] link artifact → bundle graph → package/review/send manifest pointers on one lineage view
+- [x] expose artifact lineage for operator and audit via dedicated lineage CLI plus board/read surfaces
+- [x] support bounded “what did user actually receive?” queries from persisted dispatch/package truth
+
+**Evidence anchors**
+- `docs/FSJ_P2_2_ARTIFACT_REGISTRY_CLOSEOUT_2026-04-24.md`
+- `src/ifa_data_platform/fsj/store.py`
+- `scripts/fsj_artifact_lineage.py`
+- `scripts/fsj_operator_board.py`
+- `scripts/fsj_main_delivery_status.py`
+- `scripts/fsj_support_delivery_status.py`
+- `tests/unit/test_fsj_store_json_serialization.py`
+- `tests/unit/test_fsj_artifact_lineage_script.py`
+- `tests/unit/test_fsj_operator_board_script.py`
+- `tests/unit/test_fsj_main_delivery_status_script.py`
+- `tests/unit/test_fsj_support_delivery_status_script.py`
+- `tests/unit/test_fsj_store_delivery_surface_selectors.py`
+- `tests/integration/test_fsj_phase1.py`
+
+**Deferred non-blocking expansions**
+- [ ] broader cross-family/global registry UX
+- [ ] new registry-specific write paths or product surface beyond the current artifact persistence seam
+- [ ] replay/rerun productization remains under `P2-3`, not this registry closeout
 
 **Parallelizable:** yes after schema/interface design
 
@@ -375,16 +395,21 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ---
 
 ### P2-4. Production runbooks
-**Status:** In progress — early-slot normal-operations slice landed (`docs/FSJ_EARLY_SLOT_RUNBOOK.md`), mid-slot normal-operations slice landed (`docs/FSJ_MID_SLOT_RUNBOOK.md`, `scripts/fsj_main_mid_publish.py`), late-slot normal-operations slice landed (`docs/FSJ_LATE_SLOT_RUNBOOK.md`), thin LLM fallback slice landed (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`), thin send/dispatch-failure slice landed (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`), and thin data-source outage slice landed (`docs/FSJ_DATA_SOURCE_OUTAGE_RUNBOOK.md`, `scripts/fsj_source_health_status.py`)  
+**Status:** Materially closed for current roadmap scope — the bounded runbook set requested by this roadmap now exists across early-slot normal operations (`docs/FSJ_EARLY_SLOT_RUNBOOK.md`), mid-slot normal operations (`docs/FSJ_MID_SLOT_RUNBOOK.md`, `scripts/fsj_main_mid_publish.py`), late-slot normal operations (`docs/FSJ_LATE_SLOT_RUNBOOK.md`), LLM fallback (`docs/FSJ_LLM_FALLBACK_RUNBOOK.md`, `scripts/fsj_llm_fallback_status.py`), send/dispatch failure (`docs/FSJ_SEND_DISPATCH_FAILURE_RUNBOOK.md`, `scripts/fsj_send_dispatch_failure_status.py`), and data-source outage (`docs/FSJ_DATA_SOURCE_OUTAGE_RUNBOOK.md`, `scripts/fsj_source_health_status.py`); exact closeout proof is captured in `docs/FSJ_P2_4_RUNBOOK_CLOSEOUT_2026-04-24.md`  
 **Target:** slot-specific incident handling and normal operations docs
 
-**Tasks**
-- early-slot runbook
-- mid-slot runbook
-- late-slot runbook
-- LLM fallback runbook
-- data-source outage runbook
-- send/dispatch failure runbook
+**Delivered in current scope**
+- [x] early-slot runbook
+- [x] mid-slot runbook
+- [x] late-slot runbook
+- [x] LLM fallback runbook
+- [x] data-source outage runbook
+- [x] send/dispatch failure runbook
+
+**Deferred non-blocking expansions**
+- [ ] broader runbook/control-plane framework beyond the current FSJ operator seam
+- [ ] downstream channel-receipt incident handling once receipt truth is actually persisted
+- [ ] repo-wide incident-routing/productization outside the current roadmap-close boundary
 
 **Parallelizable:** yes by area
 
