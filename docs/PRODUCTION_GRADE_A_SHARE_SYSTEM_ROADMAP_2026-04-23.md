@@ -629,17 +629,28 @@ Infra and wiring exist; governance and operational policy are incomplete.
 ---
 
 ### P4-2. Grok fallback and resilience policy
-**Status:** Not formalized  
+**Status:** Materially closed for current roadmap scope — canonical FSJ resilient clients now formalize the primary/fallback model chain, timeout/failure classification, deterministic degrade behavior, and operator-visible fallback tagging across early/mid/late; exact closeout proof is captured in `docs/FSJ_P4_2_FALLBACK_RESILIENCE_CLOSEOUT_2026-04-24.md`  
 **Target:** provider/model failures degrade gracefully and predictably
 
 **Tasks**
-- define primary model per slot/use case
-- define backup model or deterministic fallback path
-- define timeout and retry policy
-- define behavior on malformed output / boundary violation
-- define operator-visible fallback tagging
+- [x] define primary model per slot/use case
+- [x] define backup model or deterministic fallback path
+- [x] define timeout and retry policy
+- [x] define behavior on malformed output / boundary violation
+- [x] define operator-visible fallback tagging
 
 **Parallelizable:** yes after policy skeleton is fixed
+
+**Delivered-in-scope evidence**
+- canonical resilience implementation: `src/ifa_data_platform/fsj/llm_assist.py`
+- review/operator projection: `src/ifa_data_platform/fsj/report_orchestration.py`, `src/ifa_data_platform/fsj/store.py`
+- operator-visible surfaces: `scripts/fsj_main_delivery_status.py`, `scripts/fsj_support_delivery_status.py`, `scripts/fsj_operator_board.py`, `scripts/fsj_llm_fallback_status.py`, `docs/FSJ_LLM_FALLBACK_RUNBOOK.md`
+- proof/eval seams: `scripts/prove_fsj_early_llm_fallback.py`, `scripts/prove_fsj_mid_llm_fallback.py`, `scripts/prove_fsj_late_llm_fallback.py`
+- regression anchors: `tests/unit/test_fsj_early_llm_assist.py`, `tests/unit/test_fsj_main_mid_producer.py`, `tests/unit/test_fsj_late_llm_assist.py`, `tests/unit/test_fsj_llm_fallback_status_script.py`, `tests/unit/test_fsj_drift_monitor_script.py`, `tests/integration/test_fsj_main_llm_resilience_golden_case_family.py`
+
+**Explicitly not claimed in this closeout**
+- broader adopted-vs-discarded field replay/audit completeness under `P4-3`
+- budget ceiling / ROI operating policy under `P4-4`
 
 ---
 
