@@ -1169,6 +1169,16 @@ class FSJStore:
         costed_bundle_count = int(summary.get("costed_bundle_count") or 0)
         uncosted_bundle_count = int(summary.get("uncosted_bundle_count") or 0)
         estimated_cost_usd = summary.get("estimated_cost_usd")
+        model_usage_breakdown = {
+            str(model): dict(payload)
+            for model, payload in dict(summary.get("model_usage_breakdown") or {}).items()
+            if str(model).strip() and isinstance(payload, dict)
+        }
+        slot_usage_breakdown = {
+            str(slot): dict(payload)
+            for slot, payload in dict(summary.get("slot_usage_breakdown") or {}).items()
+            if str(slot).strip() and isinstance(payload, dict)
+        }
 
         if missing_bundle_count > 0:
             status = "incomplete"
@@ -1222,6 +1232,8 @@ class FSJStore:
             "uncosted_bundle_count": uncosted_bundle_count,
             "token_totals": token_totals,
             "estimated_cost_usd": estimated_cost_usd,
+            "model_usage_breakdown": model_usage_breakdown,
+            "slot_usage_breakdown": slot_usage_breakdown,
             "summary_line": f"{status} [{' | '.join(detail_parts)}]",
         }
 
@@ -1429,6 +1441,33 @@ class FSJStore:
             fleet_usage_bundle_count = sum(int(item.get("usage_bundle_count") or 0) for item in present_subjects)
             fleet_uncosted_bundle_count = sum(int(item.get("uncosted_bundle_count") or 0) for item in present_subjects)
             fleet_cost_values = [float(item.get("estimated_cost_usd")) for item in present_subjects if item.get("estimated_cost_usd") is not None]
+            fleet_model_usage_breakdown: dict[str, dict[str, Any]] = {}
+            fleet_slot_usage_breakdown: dict[str, dict[str, Any]] = {}
+            for item in present_subjects:
+                for model, payload in dict(item.get("model_usage_breakdown") or {}).items():
+                    if not str(model).strip() or not isinstance(payload, dict):
+                        continue
+                    bucket = fleet_model_usage_breakdown.setdefault(
+                        str(model),
+                        {"bundle_count": 0, "applied_count": 0, "fallback_applied_count": 0, "total_tokens": 0, "estimated_cost_usd": None},
+                    )
+                    bucket["bundle_count"] += int(payload.get("bundle_count") or 0)
+                    bucket["applied_count"] += int(payload.get("applied_count") or 0)
+                    bucket["fallback_applied_count"] += int(payload.get("fallback_applied_count") or 0)
+                    bucket["total_tokens"] += _usage_int(dict(payload), "total_tokens", "totalTokens")
+                    if payload.get("estimated_cost_usd") is not None:
+                        bucket["estimated_cost_usd"] = round(float(bucket.get("estimated_cost_usd") or 0.0) + float(payload.get("estimated_cost_usd")), 6)
+                for slot_name, payload in dict(item.get("slot_usage_breakdown") or {}).items():
+                    if not str(slot_name).strip() or not isinstance(payload, dict):
+                        continue
+                    bucket = fleet_slot_usage_breakdown.setdefault(
+                        str(slot_name),
+                        {"bundle_count": 0, "applied_count": 0, "fallback_applied_count": 0, "total_tokens": 0},
+                    )
+                    bucket["bundle_count"] += int(payload.get("bundle_count") or 0)
+                    bucket["applied_count"] += int(payload.get("applied_count") or 0)
+                    bucket["fallback_applied_count"] += int(payload.get("fallback_applied_count") or 0)
+                    bucket["total_tokens"] += _usage_int(dict(payload), "total_tokens", "totalTokens")
             return {
                 "overall_status": overall_status,
                 "subject_count": len(subjects),
@@ -1440,6 +1479,8 @@ class FSJStore:
                 "usage_bundle_count": fleet_usage_bundle_count,
                 "uncosted_bundle_count": fleet_uncosted_bundle_count,
                 "estimated_cost_usd": round(sum(fleet_cost_values), 6) if fleet_cost_values else None,
+                "model_usage_breakdown": fleet_model_usage_breakdown,
+                "slot_usage_breakdown": fleet_slot_usage_breakdown,
             }
 
         def _role_policy_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:

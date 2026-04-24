@@ -28,6 +28,15 @@ def _safe_int(value: Any) -> int:
         return 0
 
 
+def _safe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _scope_config(scope: str) -> tuple[str, str, set[str]]:
     if scope not in _VALID_SCOPE:
         raise ValueError(f"unsupported scope: {scope}")
@@ -94,6 +103,13 @@ def _build_day_summary(surface: dict[str, Any], *, business_date: str) -> dict[s
     llm_lineage = _safe_dict(surface.get("llm_lineage"))
     llm_lineage_summary = _safe_dict(surface.get("llm_lineage_summary"))
     llm_summary = _safe_dict(llm_lineage.get("summary"))
+    llm_models = [str(item) for item in (llm_lineage_summary.get("models") or []) if str(item).strip()]
+    llm_slots = [str(item) for item in (llm_lineage_summary.get("slots") or []) if str(item).strip()]
+    llm_token_totals = _safe_dict(llm_lineage_summary.get("token_totals"))
+    llm_total_tokens = _safe_int(llm_token_totals.get("total_tokens"))
+    llm_usage_bundle_count = _safe_int(llm_lineage_summary.get("usage_bundle_count"))
+    llm_uncosted_bundle_count = _safe_int(llm_lineage_summary.get("uncosted_bundle_count"))
+    llm_estimated_cost_usd = _safe_float(llm_lineage_summary.get("estimated_cost_usd"))
     qa_axes = {
         str(axis): _safe_dict(payload)
         for axis, payload in _safe_dict(state.get("qa_axes")).items()
@@ -139,6 +155,12 @@ def _build_day_summary(surface: dict[str, Any], *, business_date: str) -> dict[s
         "llm_lineage_status": llm_lineage_summary.get("status"),
         "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
         "lineage_attention": _lineage_attention(llm_lineage_summary),
+        "llm_models": llm_models,
+        "llm_slots": llm_slots,
+        "llm_usage_bundle_count": llm_usage_bundle_count,
+        "llm_total_tokens": llm_total_tokens,
+        "llm_estimated_cost_usd": llm_estimated_cost_usd,
+        "llm_uncosted_bundle_count": llm_uncosted_bundle_count,
         "llm_bundle_count": _safe_int(llm_summary.get("bundle_count")),
         "llm_applied_count": _safe_int(llm_summary.get("applied_count")),
         "llm_degraded_count": degraded_count,
@@ -189,6 +211,12 @@ def build_drift_payload(*, scope: str, days: int = 7, slot: str | None = None, s
     degraded_dates: list[str] = []
     missing_lineage_dates: list[str] = []
     operator_tags: set[str] = set()
+    model_counts: dict[str, int] = {}
+    slot_counts: dict[str, int] = {}
+    total_tokens = 0
+    usage_bundle_count = 0
+    uncosted_bundle_count = 0
+    estimated_cost_values: list[float] = []
     for item in day_summaries:
         status = str(item.get("llm_lineage_status") or "not_available")
         lineage_status_counts[status] = lineage_status_counts.get(status, 0) + 1
@@ -207,6 +235,16 @@ def build_drift_payload(*, scope: str, days: int = 7, slot: str | None = None, s
         if _safe_int(item.get("llm_missing_bundle_count")) > 0:
             missing_lineage_dates.append(item["business_date"])
         operator_tags.update(str(tag) for tag in (item.get("llm_operator_tags") or []) if str(tag).strip())
+        for model in item.get("llm_models") or []:
+            model_counts[str(model)] = model_counts.get(str(model), 0) + 1
+        for slot_name in item.get("llm_slots") or []:
+            slot_counts[str(slot_name)] = slot_counts.get(str(slot_name), 0) + 1
+        total_tokens += _safe_int(item.get("llm_total_tokens"))
+        usage_bundle_count += _safe_int(item.get("llm_usage_bundle_count"))
+        uncosted_bundle_count += _safe_int(item.get("llm_uncosted_bundle_count"))
+        estimated_cost_usd = _safe_float(item.get("llm_estimated_cost_usd"))
+        if estimated_cost_usd is not None:
+            estimated_cost_values.append(estimated_cost_usd)
 
     def _rate(count: int) -> float:
         return round((count / total), 4) if total else 0.0
@@ -244,6 +282,12 @@ def build_drift_payload(*, scope: str, days: int = 7, slot: str | None = None, s
             "llm_degraded_dates": degraded_dates,
             "llm_missing_bundle_dates": missing_lineage_dates,
             "llm_operator_tags": sorted(operator_tags),
+            "llm_model_counts": dict(sorted(model_counts.items())),
+            "llm_slot_counts": dict(sorted(slot_counts.items())),
+            "llm_total_tokens": total_tokens,
+            "llm_usage_bundle_count": usage_bundle_count,
+            "llm_uncosted_bundle_count": uncosted_bundle_count,
+            "llm_estimated_cost_usd": round(sum(estimated_cost_values), 6) if estimated_cost_values else None,
         },
     }
 
@@ -287,6 +331,24 @@ def build_fleet_drift_digest(
         fallback_days = sum(len(_safe_dict(payload.get("aggregate")).get("llm_fallback_dates") or []) for payload in payloads)
         mismatch_days = sum(len(_safe_dict(payload.get("aggregate")).get("selection_mismatch_dates") or []) for payload in payloads)
         qa_attention_days = sum(len(_safe_dict(payload.get("aggregate")).get("qa_attention_dates") or []) for payload in payloads)
+        model_counts: dict[str, int] = {}
+        slot_counts: dict[str, int] = {}
+        total_tokens = 0
+        usage_bundle_count = 0
+        uncosted_bundle_count = 0
+        estimated_cost_values: list[float] = []
+        for payload in payloads:
+            aggregate = _safe_dict(payload.get("aggregate"))
+            for model, count in _safe_dict(aggregate.get("llm_model_counts")).items():
+                model_counts[str(model)] = model_counts.get(str(model), 0) + _safe_int(count)
+            for slot_name, count in _safe_dict(aggregate.get("llm_slot_counts")).items():
+                slot_counts[str(slot_name)] = slot_counts.get(str(slot_name), 0) + _safe_int(count)
+            total_tokens += _safe_int(aggregate.get("llm_total_tokens"))
+            usage_bundle_count += _safe_int(aggregate.get("llm_usage_bundle_count"))
+            uncosted_bundle_count += _safe_int(aggregate.get("llm_uncosted_bundle_count"))
+            estimated_cost_usd = _safe_float(aggregate.get("llm_estimated_cost_usd"))
+            if estimated_cost_usd is not None:
+                estimated_cost_values.append(estimated_cost_usd)
         scope_count = len(payloads)
         return {
             "label": label,
@@ -296,6 +358,12 @@ def build_fleet_drift_digest(
             "fallback_count": fallback_days,
             "mismatch_count": mismatch_days,
             "qa_attention_count": qa_attention_days,
+            "llm_model_counts": dict(sorted(model_counts.items())),
+            "llm_slot_counts": dict(sorted(slot_counts.items())),
+            "llm_total_tokens": total_tokens,
+            "llm_usage_bundle_count": usage_bundle_count,
+            "llm_uncosted_bundle_count": uncosted_bundle_count,
+            "llm_estimated_cost_usd": round(sum(estimated_cost_values), 6) if estimated_cost_values else None,
         }
 
     main_group = _group_digest("main", [main_payload] if main_payload else [])
@@ -374,6 +442,18 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"llm_degraded_dates={','.join(aggregate.get('llm_degraded_dates') or [])}")
     print(f"llm_missing_bundle_dates={','.join(aggregate.get('llm_missing_bundle_dates') or [])}")
     print(f"llm_operator_tags={','.join(aggregate.get('llm_operator_tags') or [])}")
+    print(
+        "llm_model_counts="
+        + ",".join(f"{model}:{count}" for model, count in sorted(_safe_dict(aggregate.get("llm_model_counts")).items()))
+    )
+    print(
+        "llm_slot_counts="
+        + ",".join(f"{slot_name}:{count}" for slot_name, count in sorted(_safe_dict(aggregate.get("llm_slot_counts")).items()))
+    )
+    print(f"llm_total_tokens={aggregate.get('llm_total_tokens')}")
+    print(f"llm_usage_bundle_count={aggregate.get('llm_usage_bundle_count')}")
+    print(f"llm_uncosted_bundle_count={aggregate.get('llm_uncosted_bundle_count')}")
+    print(f"llm_estimated_cost_usd={aggregate.get('llm_estimated_cost_usd')}")
     print(f"summary_line={format_drift_summary_line(payload)}")
     for index, item in enumerate(payload.get("days") or [], start=1):
         print(
@@ -386,6 +466,11 @@ def _print_text(payload: dict[str, Any]) -> None:
                     f"qa_posture:{item.get('qa_posture')}",
                     f"llm_lineage_status:{item.get('llm_lineage_status')}",
                     f"llm_fallback_count:{item.get('llm_fallback_count')}",
+                    f"llm_models:{','.join(item.get('llm_models') or [])}",
+                    f"llm_slots:{','.join(item.get('llm_slots') or [])}",
+                    f"llm_total_tokens:{item.get('llm_total_tokens')}",
+                    f"llm_estimated_cost_usd:{item.get('llm_estimated_cost_usd')}",
+                    f"llm_uncosted_bundle_count:{item.get('llm_uncosted_bundle_count')}",
                     f"selection_mismatch:{item.get('selection_mismatch')}",
                     f"axes_attention:{','.join(item.get('axes_with_attention') or [])}",
                     f"not_ready_axes:{','.join(item.get('not_ready_axes') or [])}",

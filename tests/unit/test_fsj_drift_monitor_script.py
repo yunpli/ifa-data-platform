@@ -46,7 +46,7 @@ class _DummyStore:
                 "candidate_comparison": {"current_artifact_id": "main-3", "selected_artifact_id": "main-3"},
                 "selected_handoff": {"selected_artifact_id": "main-3", "selected_is_current": True},
                 "llm_lineage": {"summary": {"bundle_count": 2, "applied_count": 2, "degraded_count": 0, "fallback_applied_count": 0, "missing_bundle_count": 0, "operator_tags": []}},
-                "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=2/2 | primary=2]"},
+                "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=2/2 | primary=2]", "models": ["grok41_thinking"], "slots": ["late"], "token_totals": {"total_tokens": 400}, "usage_bundle_count": 2, "uncosted_bundle_count": 0, "estimated_cost_usd": 0.008},
             }
         if business_date == "2099-04-22":
             return {
@@ -66,7 +66,7 @@ class _DummyStore:
                 "candidate_comparison": {"current_artifact_id": "main-2", "selected_artifact_id": "main-2-selected"},
                 "selected_handoff": {"selected_artifact_id": "main-2-selected", "selected_is_current": False},
                 "llm_lineage": {"summary": {"bundle_count": 2, "applied_count": 1, "degraded_count": 1, "fallback_applied_count": 1, "missing_bundle_count": 0, "operator_tags": ["llm_timeout"]}},
-                "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout]"},
+                "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout]", "models": ["gemini31_pro_jmr"], "slots": ["mid"], "token_totals": {"total_tokens": 600}, "usage_bundle_count": 2, "uncosted_bundle_count": 2, "estimated_cost_usd": None},
             }
         return {
             "artifact": {"artifact_id": "main-1", "report_run_id": "run-1"},
@@ -85,7 +85,7 @@ class _DummyStore:
             "candidate_comparison": {"current_artifact_id": "main-1", "selected_artifact_id": "main-1"},
             "selected_handoff": {"selected_artifact_id": "main-1", "selected_is_current": True},
             "llm_lineage": {"summary": {"bundle_count": 2, "applied_count": 0, "degraded_count": 0, "fallback_applied_count": 0, "missing_bundle_count": 1, "operator_tags": ["missing_bundle"]}},
-            "llm_lineage_summary": {"status": "incomplete", "summary_line": "incomplete [applied=0/2 | missing=1 | tags=missing_bundle]"},
+            "llm_lineage_summary": {"status": "incomplete", "summary_line": "incomplete [applied=0/2 | missing=1 | tags=missing_bundle]", "models": ["grok41_thinking"], "slots": ["early"], "token_totals": {"total_tokens": 200}, "usage_bundle_count": 1, "uncosted_bundle_count": 1, "estimated_cost_usd": None},
         }
 
 
@@ -133,6 +133,12 @@ def test_build_drift_payload_summarizes_multi_day_operator_drift() -> None:
     assert payload["aggregate"]["llm_degraded_dates"] == ["2099-04-22"]
     assert payload["aggregate"]["llm_missing_bundle_dates"] == ["2099-04-21"]
     assert payload["aggregate"]["llm_operator_tags"] == ["llm_timeout", "missing_bundle"]
+    assert payload["aggregate"]["llm_model_counts"] == {"gemini31_pro_jmr": 1, "grok41_thinking": 2}
+    assert payload["aggregate"]["llm_slot_counts"] == {"early": 1, "late": 1, "mid": 1}
+    assert payload["aggregate"]["llm_total_tokens"] == 1200
+    assert payload["aggregate"]["llm_usage_bundle_count"] == 5
+    assert payload["aggregate"]["llm_uncosted_bundle_count"] == 3
+    assert payload["aggregate"]["llm_estimated_cost_usd"] == 0.008
     assert payload["aggregate"]["selection_mismatch_dates"] == ["2099-04-22"]
     assert payload["days"][1]["posture"] == "review_required"
     assert payload["days"][1]["selection_mismatch"] is True
@@ -176,6 +182,11 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
                 "qa_posture": "ready",
                 "llm_lineage_status": "applied",
                 "llm_fallback_count": 0,
+                "llm_models": ["grok41_thinking"],
+                "llm_slots": ["late"],
+                "llm_total_tokens": 400,
+                "llm_estimated_cost_usd": 0.008,
+                "llm_uncosted_bundle_count": 0,
                 "selection_mismatch": False,
                 "axes_with_attention": [],
                 "not_ready_axes": [],
@@ -187,6 +198,11 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
                 "qa_posture": "attention",
                 "llm_lineage_status": "degraded",
                 "llm_fallback_count": 1,
+                "llm_models": ["gemini31_pro_jmr"],
+                "llm_slots": ["mid"],
+                "llm_total_tokens": 600,
+                "llm_estimated_cost_usd": None,
+                "llm_uncosted_bundle_count": 2,
                 "selection_mismatch": True,
                 "axes_with_attention": ["lineage"],
                 "not_ready_axes": [],
@@ -216,6 +232,12 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
             "llm_degraded_dates": ["2099-04-22"],
             "llm_missing_bundle_dates": ["2099-04-21"],
             "llm_operator_tags": ["llm_timeout", "missing_bundle"],
+            "llm_model_counts": {"gemini31_pro_jmr": 1, "grok41_thinking": 2},
+            "llm_slot_counts": {"early": 1, "late": 1, "mid": 1},
+            "llm_total_tokens": 1200,
+            "llm_usage_bundle_count": 5,
+            "llm_uncosted_bundle_count": 3,
+            "llm_estimated_cost_usd": 0.008,
         },
     }
 
@@ -233,9 +255,15 @@ def test_print_text_emits_operator_visible_trend_lines(capsys) -> None:
     assert "llm_fallback_rate=0.3333" in output
     assert "llm_missing_bundle_dates=2099-04-21" in output
     assert "llm_operator_tags=llm_timeout,missing_bundle" in output
+    assert "llm_model_counts=gemini31_pro_jmr:1,grok41_thinking:2" in output
+    assert "llm_slot_counts=early:1,late:1,mid:1" in output
+    assert "llm_total_tokens=1200" in output
+    assert "llm_usage_bundle_count=5" in output
+    assert "llm_uncosted_bundle_count=3" in output
+    assert "llm_estimated_cost_usd=0.008" in output
     assert "summary_line=3d drift main: hold 1/3 | fallback 1/3 | mismatch 1/3 | qa_attn 2/3" in output
-    assert "day_1=business_date:2099-04-23|artifact_id:main-3|posture:ready_to_send|qa_posture:ready|llm_lineage_status:applied|llm_fallback_count:0|selection_mismatch:False|axes_attention:|not_ready_axes:" in output
-    assert "day_2=business_date:2099-04-22|artifact_id:main-2|posture:review_required|qa_posture:attention|llm_lineage_status:degraded|llm_fallback_count:1|selection_mismatch:True|axes_attention:lineage|not_ready_axes:" in output
+    assert "day_1=business_date:2099-04-23|artifact_id:main-3|posture:ready_to_send|qa_posture:ready|llm_lineage_status:applied|llm_fallback_count:0|llm_models:grok41_thinking|llm_slots:late|llm_total_tokens:400|llm_estimated_cost_usd:0.008|llm_uncosted_bundle_count:0|selection_mismatch:False|axes_attention:|not_ready_axes:" in output
+    assert "day_2=business_date:2099-04-22|artifact_id:main-2|posture:review_required|qa_posture:attention|llm_lineage_status:degraded|llm_fallback_count:1|llm_models:gemini31_pro_jmr|llm_slots:mid|llm_total_tokens:600|llm_estimated_cost_usd:None|llm_uncosted_bundle_count:2|selection_mismatch:True|axes_attention:lineage|not_ready_axes:" in output
 
 
 def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
@@ -251,6 +279,12 @@ def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
                     "llm_fallback_dates": ["2099-04-22"],
                     "selection_mismatch_dates": [],
                     "qa_attention_dates": ["2099-04-23"],
+                    "llm_model_counts": {"grok41_thinking": 2},
+                    "llm_slot_counts": {"early": 2},
+                    "llm_total_tokens": 700,
+                    "llm_usage_bundle_count": 2,
+                    "llm_uncosted_bundle_count": 1,
+                    "llm_estimated_cost_usd": 0.014,
                 },
             },
             "support:macro": {
@@ -261,6 +295,12 @@ def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
                     "llm_fallback_dates": [],
                     "selection_mismatch_dates": ["2099-04-21"],
                     "qa_attention_dates": ["2099-04-21"],
+                    "llm_model_counts": {"gemini31_pro_jmr": 1},
+                    "llm_slot_counts": {"late": 1},
+                    "llm_total_tokens": 350,
+                    "llm_usage_bundle_count": 1,
+                    "llm_uncosted_bundle_count": 1,
+                    "llm_estimated_cost_usd": None,
                 },
             },
             "support:commodities": {
@@ -271,6 +311,12 @@ def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
                     "llm_fallback_dates": ["2099-04-20"],
                     "selection_mismatch_dates": ["2099-04-20"],
                     "qa_attention_dates": [],
+                    "llm_model_counts": {"grok41_thinking": 1},
+                    "llm_slot_counts": {"late": 1},
+                    "llm_total_tokens": 250,
+                    "llm_usage_bundle_count": 1,
+                    "llm_uncosted_bundle_count": 0,
+                    "llm_estimated_cost_usd": 0.005,
                 },
             },
         }
@@ -285,6 +331,12 @@ def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
         "fallback_count": 1,
         "mismatch_count": 1,
         "qa_attention_count": 2,
+        "llm_model_counts": {"gemini31_pro_jmr": 1, "grok41_thinking": 2},
+        "llm_slot_counts": {"early": 1, "late": 1, "mid": 1},
+        "llm_total_tokens": 1200,
+        "llm_usage_bundle_count": 5,
+        "llm_uncosted_bundle_count": 3,
+        "llm_estimated_cost_usd": 0.008,
     }
     assert digest["support"] == {
         "label": "support",
@@ -294,6 +346,12 @@ def test_build_fleet_drift_digest_aggregates_main_vs_support_groups() -> None:
         "fallback_count": 2,
         "mismatch_count": 2,
         "qa_attention_count": 2,
+        "llm_model_counts": {"gemini31_pro_jmr": 1, "grok41_thinking": 3},
+        "llm_slot_counts": {"early": 2, "late": 2},
+        "llm_total_tokens": 1300,
+        "llm_usage_bundle_count": 4,
+        "llm_uncosted_bundle_count": 2,
+        "llm_estimated_cost_usd": 0.019,
     }
     assert (
         format_fleet_drift_digest_line(digest)

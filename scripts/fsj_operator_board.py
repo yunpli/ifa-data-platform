@@ -190,11 +190,40 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"fleet_llm_total_tokens={lineage_aggregate.get('total_tokens')}")
     print(f"fleet_llm_estimated_cost_usd={lineage_aggregate.get('estimated_cost_usd')}")
     print(f"fleet_llm_uncosted_bundle_count={lineage_aggregate.get('uncosted_bundle_count')}")
+    print(
+        "fleet_llm_model_usage_breakdown="
+        + ",".join(
+            f"{model}:b{_safe_dict(payload).get('bundle_count', 0)}:a{_safe_dict(payload).get('applied_count', 0)}:f{_safe_dict(payload).get('fallback_applied_count', 0)}:t{_safe_dict(payload).get('total_tokens', 0)}:c{_safe_dict(payload).get('estimated_cost_usd')}"
+            for model, payload in sorted(_safe_dict(lineage_aggregate.get('model_usage_breakdown')).items())
+        )
+    )
+    print(
+        "fleet_llm_slot_usage_breakdown="
+        + ",".join(
+            f"{slot}:b{_safe_dict(payload).get('bundle_count', 0)}:a{_safe_dict(payload).get('applied_count', 0)}:f{_safe_dict(payload).get('fallback_applied_count', 0)}:t{_safe_dict(payload).get('total_tokens', 0)}"
+            for slot, payload in sorted(_safe_dict(lineage_aggregate.get('slot_usage_breakdown')).items())
+        )
+    )
     print(f"fleet_llm_policy_versions={','.join(role_policy_aggregate.get('policy_versions') or [])}")
     print(f"fleet_llm_override_precedence={'>'.join(role_policy_aggregate.get('override_precedence') or [])}")
     print(f"fleet_llm_attention_policy_subjects={','.join(role_policy_aggregate.get('attention_subjects') or [])}")
     drift_lines = _safe_dict(payload.get("drift_summary_lines"))
     print(f"fleet_drift_digest_line={payload.get('fleet_drift_digest_line') or '-'}")
+    fleet_drift_digest = _safe_dict(payload.get('fleet_drift_digest'))
+    for group_name in ('main', 'support'):
+        group = _safe_dict(fleet_drift_digest.get(group_name))
+        print(
+            f"fleet_drift_{group_name}_llm_model_counts="
+            + ",".join(f"{model}:{count}" for model, count in sorted(_safe_dict(group.get('llm_model_counts')).items()))
+        )
+        print(
+            f"fleet_drift_{group_name}_llm_slot_counts="
+            + ",".join(f"{slot}:{count}" for slot, count in sorted(_safe_dict(group.get('llm_slot_counts')).items()))
+        )
+        print(f"fleet_drift_{group_name}_llm_total_tokens={group.get('llm_total_tokens')}")
+        print(f"fleet_drift_{group_name}_llm_usage_bundle_count={group.get('llm_usage_bundle_count')}")
+        print(f"fleet_drift_{group_name}_llm_uncosted_bundle_count={group.get('llm_uncosted_bundle_count')}")
+        print(f"fleet_drift_{group_name}_llm_estimated_cost_usd={group.get('llm_estimated_cost_usd')}")
     print(f"main_drift_summary_line={drift_lines.get('main') or '-'}")
     for domain in sorted(_VALID_DOMAINS):
         key = f"support:{domain}"

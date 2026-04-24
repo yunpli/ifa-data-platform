@@ -181,6 +181,14 @@ class _BoardStore(_DummyStore):
                     "overall_status": "degraded",
                     "reported_subject_count": 5,
                     "attention_subjects": ["support:commodities"],
+                    "model_usage_breakdown": {
+                        "gemini31_pro_jmr": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 1, "total_tokens": 355, "estimated_cost_usd": None},
+                        "grok41_thinking": {"bundle_count": 4, "applied_count": 4, "fallback_applied_count": 0, "total_tokens": 628, "estimated_cost_usd": 0.01256},
+                    },
+                    "slot_usage_breakdown": {
+                        "early": {"bundle_count": 3, "applied_count": 3, "fallback_applied_count": 1, "total_tokens": 642},
+                        "late": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 0, "total_tokens": 341},
+                    },
                 },
             },
             "llm_role_policy_review": {
@@ -263,6 +271,8 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["db_candidate_history_summary"][0]["best_candidate_artifact_id"] == "main-artifact"
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
     assert payload["llm_lineage_summary"]["aggregate"]["attention_subjects"] == ["support:commodities"]
+    assert payload["llm_lineage_summary"]["aggregate"]["model_usage_breakdown"]["grok41_thinking"]["estimated_cost_usd"] == 0.01256
+    assert payload["llm_lineage_summary"]["aggregate"]["slot_usage_breakdown"]["early"]["fallback_applied_count"] == 1
     assert payload["llm_role_policy_review"]["aggregate"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
     assert payload["llm_role_policy_review"]["aggregate"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
     assert payload["llm_role_policy_review"]["aggregate"]["slot_boundary_modes_by_subject"]["main"] == {"late": "same_day_close"}
@@ -295,6 +305,12 @@ def test_build_board_payload_includes_drift_summary_lines(monkeypatch) -> None:
             "fallback_count": 0,
             "mismatch_count": 0,
             "qa_attention_count": 0,
+            "llm_model_counts": {},
+            "llm_slot_counts": {},
+            "llm_total_tokens": 0,
+            "llm_usage_bundle_count": 0,
+            "llm_uncosted_bundle_count": 0,
+            "llm_estimated_cost_usd": None,
         },
         "support": {
             "label": "support",
@@ -304,6 +320,12 @@ def test_build_board_payload_includes_drift_summary_lines(monkeypatch) -> None:
             "fallback_count": 0,
             "mismatch_count": 0,
             "qa_attention_count": 1,
+            "llm_model_counts": {},
+            "llm_slot_counts": {},
+            "llm_total_tokens": 0,
+            "llm_usage_bundle_count": 0,
+            "llm_uncosted_bundle_count": 0,
+            "llm_estimated_cost_usd": None,
         },
     }
     assert payload["fleet_drift_digest_line"] == "7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3"
@@ -354,13 +376,13 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             }
         ],
         "llm_lineage_summary": {
-            "main": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None},
+            "main": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": 0.00682},
             "support": {
-                "ai_tech": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None},
+                "ai_tech": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": 0.00574},
                 "commodities": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None},
                 "macro": None,
             },
-            "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3, "models": ["gemini31_pro_jmr", "grok41_thinking"], "total_tokens": 983, "estimated_cost_usd": None, "uncosted_bundle_count": 3},
+            "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3, "models": ["gemini31_pro_jmr", "grok41_thinking"], "total_tokens": 983, "estimated_cost_usd": 0.01256, "uncosted_bundle_count": 1, "model_usage_breakdown": {"gemini31_pro_jmr": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 1, "total_tokens": 355, "estimated_cost_usd": None}, "grok41_thinking": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 0, "total_tokens": 628, "estimated_cost_usd": 0.01256}}, "slot_usage_breakdown": {"early": {"bundle_count": 2, "applied_count": 2, "fallback_applied_count": 1, "total_tokens": 642}, "late": {"bundle_count": 1, "applied_count": 1, "fallback_applied_count": 0, "total_tokens": 341}}},
         },
         "llm_role_policy_review": {
             "main": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}},
@@ -409,6 +431,12 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "fallback_count": 0,
                 "mismatch_count": 0,
                 "qa_attention_count": 0,
+                "llm_model_counts": {"grok41_thinking": 1},
+                "llm_slot_counts": {"late": 1},
+                "llm_total_tokens": 341,
+                "llm_usage_bundle_count": 1,
+                "llm_uncosted_bundle_count": 0,
+                "llm_estimated_cost_usd": 0.00682,
             },
             "support": {
                 "label": "support",
@@ -418,6 +446,12 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "fallback_count": 0,
                 "mismatch_count": 0,
                 "qa_attention_count": 1,
+                "llm_model_counts": {"gemini31_pro_jmr": 1, "grok41_thinking": 1},
+                "llm_slot_counts": {"early": 1, "late": 1},
+                "llm_total_tokens": 642,
+                "llm_usage_bundle_count": 2,
+                "llm_uncosted_bundle_count": 1,
+                "llm_estimated_cost_usd": 0.00574,
             },
         },
         "fleet_drift_digest_line": "7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3"
@@ -445,12 +479,26 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_llm_attention_subjects=support:commodities" in output
     assert "fleet_llm_models=gemini31_pro_jmr,grok41_thinking" in output
     assert "fleet_llm_total_tokens=983" in output
-    assert "fleet_llm_uncosted_bundle_count=3" in output
+    assert "fleet_llm_uncosted_bundle_count=1" in output
+    assert "fleet_llm_model_usage_breakdown=gemini31_pro_jmr:b1:a1:f1:t355:cNone,grok41_thinking:b2:a2:f0:t628:c0.01256" in output
+    assert "fleet_llm_slot_usage_breakdown=early:b2:a2:f1:t642,late:b1:a1:f0:t341" in output
     assert "fleet_llm_policy_versions=fsj_llm_role_policy_v1" in output
     assert "fleet_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "fleet_llm_attention_policy_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_posture=review_required" in output
     assert "fleet_drift_digest_line=7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3" in output
+    assert "fleet_drift_main_llm_model_counts=grok41_thinking:1" in output
+    assert "fleet_drift_main_llm_slot_counts=late:1" in output
+    assert "fleet_drift_main_llm_total_tokens=341" in output
+    assert "fleet_drift_main_llm_usage_bundle_count=1" in output
+    assert "fleet_drift_main_llm_uncosted_bundle_count=0" in output
+    assert "fleet_drift_main_llm_estimated_cost_usd=0.00682" in output
+    assert "fleet_drift_support_llm_model_counts=gemini31_pro_jmr:1,grok41_thinking:1" in output
+    assert "fleet_drift_support_llm_slot_counts=early:1,late:1" in output
+    assert "fleet_drift_support_llm_total_tokens=642" in output
+    assert "fleet_drift_support_llm_usage_bundle_count=2" in output
+    assert "fleet_drift_support_llm_uncosted_bundle_count=1" in output
+    assert "fleet_drift_support_llm_estimated_cost_usd=0.00574" in output
     assert "main_qa_axes=lineage:ready:b0:w0,policy:ready:b0:w0,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes=lineage:ready:b0:w0,policy:attention:b0:w1,structural:ready:b0:w0" in output
     assert "support_commodities_qa_axes_attention=policy" in output
