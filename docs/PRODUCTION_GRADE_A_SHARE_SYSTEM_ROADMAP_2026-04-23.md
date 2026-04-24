@@ -669,14 +669,35 @@ Infra and wiring exist; governance and operational policy are incomplete.
 ---
 
 ### P4-4. LLM cost / ROI governance
-**Status:** Not started  
+**Status:** Materially closed for current roadmap scope — canonical FSJ usage/cost estimation, pricing posture, fallback/degraded ROI thresholds, explicit budget policy config, and operator-visible budget governance now exist across per-artifact, fleet, drift, and lineage surfaces; exact closeout proof is captured in `docs/FSJ_P4_4_LLM_COST_ROI_GOVERNANCE_CLOSEOUT_2026-04-24.md`  
 **Target:** control model usage based on production value
 
-**Tasks**
-- measure call frequency by slot
-- measure fallback rate and failure rate
-- classify where `thinking` is worth it vs overkill
-- define cost ceiling / operational budget policy
+**Delivered in current scope**
+- [x] measure call frequency by slot from persisted FSJ LLM lineage summaries and slot-usage breakdowns
+- [x] measure fallback rate and degraded/failure posture from canonical bundle lineage aggregation
+- [x] classify where primary/fallback behavior requires ROI review via bounded `roi_review_required` governance states
+- [x] define cost ceiling / operational budget policy via `fsj_budget_policy` and project it onto operator-visible read surfaces
+
+**Evidence anchors**
+- `docs/FSJ_P4_4_LLM_COST_ROI_GOVERNANCE_CLOSEOUT_2026-04-24.md`
+- `ifa-business-layer/config/llm/models.yaml`
+- `src/ifa_data_platform/fsj/store.py`
+- `scripts/fsj_main_delivery_status.py`
+- `scripts/fsj_support_delivery_status.py`
+- `scripts/fsj_operator_board.py`
+- `scripts/fsj_artifact_lineage.py`
+- `scripts/fsj_drift_monitor.py`
+- `tests/unit/test_fsj_store_json_serialization.py`
+- `tests/unit/test_fsj_main_delivery_status_script.py`
+- `tests/unit/test_fsj_support_delivery_status_script.py`
+- `tests/unit/test_fsj_operator_board_script.py`
+- `tests/unit/test_fsj_artifact_lineage_script.py`
+- `tests/unit/test_fsj_drift_monitor_script.py`
+
+**Deferred non-blocking expansions**
+- [ ] dynamic cost-aware routing optimization beyond the current bounded governance/read seam
+- [ ] downstream outcome attribution / broader financial ROI modeling
+- [ ] vendor / architecture strategy beyond the current roadmap-close scope
 
 **Parallelizable:** yes
 
