@@ -17,43 +17,47 @@ build_status_payload = _module.build_status_payload
 resolve_latest_support_business_date = _module.resolve_latest_support_business_date
 
 
-def test_surface_summary_exposes_support_handoff_state_and_manifest_pointers() -> None:
+def test_surface_summary_exposes_canonical_support_operator_review_surface() -> None:
     surface = {
-        "workflow_handoff": {
-            "artifact": {
-                "artifact_id": "artifact-macro-active",
-                "report_run_id": "run-macro-active",
-                "business_date": "2099-04-22",
-                "status": "active",
-            },
-            "selected_handoff": {
-                "selected_artifact_id": "artifact-macro-active",
-                "selected_report_run_id": "run-macro-active",
-                "selected_business_date": "2099-04-22",
-                "selected_is_current": True,
-                "selected_delivery_package_dir": "/tmp/pkg",
-                "selected_delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
-                "selected_delivery_zip_path": "/tmp/pkg.zip",
-            },
-            "state": {
-                "recommended_action": "send",
-                "dispatch_recommended_action": "send",
-                "workflow_state": "ready_to_send",
-                "send_ready": True,
-                "review_required": False,
-                "next_step": "dispatch_send_manifest",
-                "selection_reason": "support_ready_candidate slot=early qa_score=95",
-                "dispatch_selected_artifact_id": "artifact-macro-active",
-                "send_blockers": [],
-            },
-            "manifest_pointers": {
-                "send_manifest_path": "/tmp/pkg/send_manifest.json",
-                "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
-            },
-        }
+        "artifact": {
+            "artifact_id": "artifact-macro-active",
+            "report_run_id": "run-macro-active",
+            "business_date": "2099-04-22",
+            "status": "active",
+        },
+        "selected_handoff": {
+            "selected_artifact_id": "artifact-macro-active",
+            "selected_report_run_id": "run-macro-active",
+            "selected_business_date": "2099-04-22",
+            "selected_is_current": True,
+            "selected_delivery_package_dir": "/tmp/pkg",
+            "selected_delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
+            "selected_delivery_zip_path": "/tmp/pkg.zip",
+        },
+        "state": {
+            "recommended_action": "send",
+            "dispatch_recommended_action": "send",
+            "workflow_state": "ready_to_send",
+            "send_ready": True,
+            "review_required": False,
+            "next_step": "dispatch_send_manifest",
+            "selection_reason": "support_ready_candidate slot=early qa_score=95",
+            "dispatch_selected_artifact_id": "artifact-macro-active",
+            "send_blockers": [],
+        },
+        "package_paths": {
+            "send_manifest_path": "/tmp/pkg/send_manifest.json",
+            "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
+        },
+        "package_versions": {
+            "send_manifest_version": "send_manifest.json",
+        },
+        "review_summary": {
+            "go_no_go_decision": "GO",
+        },
     }
 
-    summary = _surface_summary(surface, store=type("_Store", (), {"report_workflow_handoff_from_surface": lambda self, value: value["workflow_handoff"]})())
+    summary = _surface_summary(surface)
 
     assert summary["artifact"]["artifact_id"] == "artifact-macro-active"
     assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-macro-active"
@@ -63,7 +67,8 @@ def test_surface_summary_exposes_support_handoff_state_and_manifest_pointers() -
     assert summary["state"]["selection_reason"] == "support_ready_candidate slot=early qa_score=95"
     assert summary["state"]["dispatch_selected_artifact_id"] == "artifact-macro-active"
     assert summary["state"]["send_blockers"] == []
-    assert summary["manifest_pointers"]["send_manifest_path"] == "/tmp/pkg/send_manifest.json"
+    assert summary["package_paths"]["send_manifest_path"] == "/tmp/pkg/send_manifest.json"
+    assert summary["review_summary"]["go_no_go_decision"] == "GO"
 
 
 
@@ -102,13 +107,16 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
                 "blocker_count": 0,
                 "warning_count": 2,
             },
-            "manifest_pointers": {
+            "package_paths": {
                 "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
                 "send_manifest_path": "/tmp/pkg/send_manifest.json",
                 "review_manifest_path": "/tmp/pkg/review_manifest.json",
                 "workflow_manifest_path": "/tmp/pkg/workflow_manifest.json",
                 "package_index_path": "/tmp/pkg/package_index.json",
                 "delivery_zip_path": "/tmp/pkg.zip",
+            },
+            "review_summary": {
+                "go_no_go_decision": "REVIEW",
             },
         },
         "history": [{}, {}],
@@ -136,24 +144,18 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
 
 def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
     class _DummyStore:
-        def get_active_report_delivery_surface(self, **_: object) -> dict:
+        def get_active_report_operator_review_surface(self, **_: object) -> dict:
             return {
                 "artifact": {"artifact_id": "artifact-1", "report_run_id": "run-1", "business_date": "2099-04-22", "status": "active"},
-                "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {}, "workflow": {}, "artifacts": {}},
-                "workflow_linkage": {},
-            }
-
-        def list_report_delivery_surfaces(self, **_: object) -> list[dict]:
-            return []
-
-        def report_workflow_handoff_from_surface(self, surface: dict) -> dict:
-            return {
-                "artifact": {"artifact_id": surface["artifact"]["artifact_id"]},
                 "selected_handoff": {},
                 "state": {},
-                "manifest_pointers": {},
-                "version_pointers": {},
+                "package_paths": {},
+                "package_versions": {},
+                "review_summary": {"go_no_go_decision": "GO"},
             }
+
+        def list_report_operator_review_surfaces(self, **_: object) -> list[dict]:
+            return []
 
     monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
 
@@ -171,9 +173,9 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
 
 
 
-def test_resolve_latest_support_business_date_uses_store_latest_delivery_surface(monkeypatch) -> None:
+def test_resolve_latest_support_business_date_uses_store_latest_operator_review_surface(monkeypatch) -> None:
     class _DummyStore:
-        def get_latest_active_report_delivery_surface(self, **kwargs: object) -> dict:
+        def get_latest_active_report_operator_review_surface(self, **kwargs: object) -> dict:
             assert kwargs["agent_domain"] == "macro"
             assert kwargs["artifact_family"] == "support_domain_report"
             assert kwargs["strongest_slot"] == "early"
@@ -186,9 +188,12 @@ def test_resolve_latest_support_business_date_uses_store_latest_delivery_surface
                     "status": "active",
                     "updated_at": "2099-04-22T08:00:00+00:00",
                 },
-                "delivery_package": {
-                    "slot": "early",
+                "package_state": {
+                    "slot_evaluation": {
+                        "strongest_slot": "early",
+                    },
                 },
+                "review_summary": {"go_no_go_decision": "GO"},
             }
 
     monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
@@ -204,6 +209,55 @@ def test_resolve_latest_support_business_date_uses_store_latest_delivery_surface
         "slot": "early",
     }
 
+
+
+def test_support_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys) -> None:
+    class _DummyStore:
+        def get_active_report_operator_review_surface(self, **kwargs: object) -> dict:
+            assert kwargs["business_date"] == "2099-04-22"
+            assert kwargs["agent_domain"] == "macro"
+            return {
+                "artifact": {
+                    "artifact_id": "artifact-active",
+                    "report_run_id": "run-active",
+                    "business_date": "2099-04-22",
+                    "status": "active",
+                },
+                "selected_handoff": {
+                    "selected_artifact_id": "artifact-selected",
+                    "selected_is_current": False,
+                },
+                "state": {
+                    "recommended_action": "send_review",
+                    "workflow_state": "review_required",
+                },
+                "package_paths": {
+                    "operator_review_bundle_path": "/tmp/pkg/operator_review_bundle.json",
+                    "review_manifest_path": "/tmp/pkg/review_manifest.json",
+                },
+                "package_versions": {},
+                "package_state": {
+                    "slot_evaluation": {"strongest_slot": "early"},
+                },
+                "review_summary": {
+                    "go_no_go_decision": "REVIEW",
+                    "selected_artifact_id": "artifact-selected",
+                    "current_artifact_id": "artifact-active",
+                },
+            }
+
+        def list_report_operator_review_surfaces(self, **_: object) -> list[dict]:
+            return []
+
+    monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
+    monkeypatch.setattr("sys.argv", ["fsj_support_delivery_status.py", "--agent-domain", "macro", "--business-date", "2099-04-22", "--format", "json"])
+
+    _module.main()
+    output = capsys.readouterr().out
+
+    assert '"artifact_id": "artifact-active"' in output
+    assert '"operator_review_bundle_path": "/tmp/pkg/operator_review_bundle.json"' in output
+    assert '"go_no_go_decision": "REVIEW"' in output
 
 
 def test_resolve_latest_support_business_date_rejects_unknown_slot() -> None:
