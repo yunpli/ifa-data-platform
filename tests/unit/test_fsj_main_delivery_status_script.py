@@ -157,7 +157,12 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
             },
             "llm_lineage_summary": {
                 "status": "degraded",
-                "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late]",
+                "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | tokens=579 | usage=2 | unpriced=2]",
+                "models": ["gemini31_pro_jmr", "grok41_thinking"],
+                "usage_bundle_count": 2,
+                "token_totals": {"total_tokens": 579},
+                "estimated_cost_usd": None,
+                "uncosted_bundle_count": 2,
             },
             "llm_role_policy": {
                 "policy_versions": ["fsj_llm_role_policy_v1"],
@@ -192,7 +197,10 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "dispatch_selected_artifact_id=artifact-selected" in output
     assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
     assert "llm_lineage_status=degraded" in output
-    assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late]" in output
+    assert "llm_models=gemini31_pro_jmr,grok41_thinking" in output
+    assert "llm_total_tokens=579" in output
+    assert "llm_uncosted_bundle_count=2" in output
+    assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | tokens=579 | usage=2 | unpriced=2]" in output
     assert "llm_policy_versions=fsj_llm_role_policy_v1" in output
     assert "llm_boundary_modes=same_day_close" in output
     assert "llm_forbidden_decision_count=1" in output
@@ -296,7 +304,7 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
                 },
                 "llm_lineage_summary": {
                     "status": "applied",
-                    "summary_line": "applied [applied=1/1 | primary=1]",
+                    "summary_line": "applied [applied=1/1 | primary=1 | models=grok41_thinking]",
                 },
                 "review_summary": {
                     "go_no_go_decision": "REVIEW",
@@ -318,7 +326,7 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
     assert '"operator_review_bundle_path": "/tmp/pkg/operator_review_bundle.json"' in output
     assert '"go_no_go_decision": "REVIEW"' in output
     assert '"llm_lineage_summary": {' in output
-    assert '"summary_line": "applied [applied=1/1 | primary=1]"' in output
+    assert '"summary_line": "applied [applied=1/1 | primary=1 | models=grok41_thinking]"' in output
 
 
 def test_resolve_latest_main_business_date_rejects_unknown_slot() -> None:

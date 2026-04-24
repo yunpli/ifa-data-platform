@@ -322,10 +322,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
         "resolution": {"mode": "explicit_business_date", "business_date": "2099-04-22"},
-        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]"}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
+        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
         "support": {
-            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]"}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
-            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]"}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
+            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
+            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
             "macro": None,
         },
         "history": [{}, {}],
@@ -354,13 +354,13 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             }
         ],
         "llm_lineage_summary": {
-            "main": {"status": "applied", "summary_line": "applied [applied=1/1]"},
+            "main": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 341}, "estimated_cost_usd": None},
             "support": {
-                "ai_tech": {"status": "applied", "summary_line": "applied [applied=1/1]"},
-                "commodities": {"status": "degraded", "summary_line": "degraded [applied=1/1]"},
+                "ai_tech": {"status": "applied", "summary_line": "applied [applied=1/1]", "models": ["grok41_thinking"], "token_totals": {"total_tokens": 287}, "estimated_cost_usd": None},
+                "commodities": {"status": "degraded", "summary_line": "degraded [applied=1/1]", "models": ["gemini31_pro_jmr"], "token_totals": {"total_tokens": 355}, "estimated_cost_usd": None},
                 "macro": None,
             },
-            "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3},
+            "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3, "models": ["gemini31_pro_jmr", "grok41_thinking"], "total_tokens": 983, "estimated_cost_usd": None, "uncosted_bundle_count": 3},
         },
         "llm_role_policy_review": {
             "main": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}},
@@ -431,14 +431,21 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_artifact_id=main-artifact" in output
     assert "main_recommended_action=send" in output
     assert "main_llm_lineage_status=applied" in output
+    assert "main_llm_models=grok41_thinking" in output
+    assert "main_llm_total_tokens=341" in output
     assert "main_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "main_llm_slot_boundary_modes=late:same_day_close" in output
     assert "support_ai_tech_artifact_id=ai-tech-artifact" in output
     assert "support_commodities_recommended_action=send_review" in output
     assert "support_commodities_llm_lineage_status=degraded" in output
+    assert "support_commodities_llm_models=gemini31_pro_jmr" in output
+    assert "support_commodities_llm_total_tokens=355" in output
     assert "support_commodities_llm_slot_boundary_modes=late:candidate_only" in output
     assert "fleet_llm_lineage_status=degraded" in output
     assert "fleet_llm_attention_subjects=support:commodities" in output
+    assert "fleet_llm_models=gemini31_pro_jmr,grok41_thinking" in output
+    assert "fleet_llm_total_tokens=983" in output
+    assert "fleet_llm_uncosted_bundle_count=3" in output
     assert "fleet_llm_policy_versions=fsj_llm_role_policy_v1" in output
     assert "fleet_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "fleet_llm_attention_policy_subjects=main,support:ai_tech,support:commodities" in output

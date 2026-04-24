@@ -4,9 +4,11 @@ import json
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import yaml
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
@@ -17,6 +19,67 @@ VALID_BUNDLE_STATUS = {"active", "superseded", "withdrawn"}
 VALID_REPORT_ARTIFACT_STATUS = {"active", "superseded", "withdrawn"}
 VALID_FSJ_KINDS = {"fact", "signal", "judgment"}
 VALID_EDGE_TYPES = {"fact_to_signal", "signal_to_judgment", "judgment_to_judgment"}
+BUSINESS_REPO_MODELS_CONFIG = Path("/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml")
+
+@lru_cache(maxsize=1)
+def _load_llm_model_pricing() -> dict[str, dict[str, Any]]:
+    if not BUSINESS_REPO_MODELS_CONFIG.exists():
+        return {}
+    payload = yaml.safe_load(BUSINESS_REPO_MODELS_CONFIG.read_text(encoding="utf-8")) or {}
+    models = dict(payload.get("models") or {})
+    pricing: dict[str, dict[str, Any]] = {}
+    for alias, cfg in models.items():
+        if not isinstance(cfg, dict):
+            continue
+        pricing_cfg = dict(cfg.get("pricing") or {})
+        if pricing_cfg:
+            pricing[str(alias)] = pricing_cfg
+    return pricing
+
+
+def _usage_int(usage: dict[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = usage.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def _estimate_usage_cost_usd(*, model_alias: str | None, usage: dict[str, Any] | None) -> float | None:
+    if not model_alias or not isinstance(usage, dict):
+        return None
+    pricing = _load_llm_model_pricing().get(str(model_alias)) or {}
+    if not pricing:
+        return None
+
+    total_tokens = _usage_int(usage, "total_tokens", "totalTokens")
+    input_tokens = _usage_int(usage, "input_tokens", "prompt_tokens", "inputTokens", "promptTokens")
+    output_tokens = _usage_int(usage, "output_tokens", "completion_tokens", "outputTokens", "completionTokens")
+    reasoning_tokens = _usage_int(usage, "reasoning_tokens", "reasoningTokens")
+
+    total_rate = pricing.get("usd_per_1m_total_tokens")
+    if total_rate is not None and total_tokens > 0:
+        return round((float(total_rate) * total_tokens) / 1_000_000.0, 6)
+
+    input_rate = pricing.get("usd_per_1m_input_tokens")
+    output_rate = pricing.get("usd_per_1m_output_tokens")
+    reasoning_rate = pricing.get("usd_per_1m_reasoning_tokens")
+    if input_rate is None and output_rate is None and reasoning_rate is None:
+        return None
+
+    estimated = 0.0
+    if input_rate is not None and input_tokens > 0:
+        estimated += (float(input_rate) * input_tokens) / 1_000_000.0
+    if output_rate is not None and output_tokens > 0:
+        estimated += (float(output_rate) * output_tokens) / 1_000_000.0
+    if reasoning_rate is not None and reasoning_tokens > 0:
+        estimated += (float(reasoning_rate) * reasoning_tokens) / 1_000_000.0
+    return round(estimated, 6)
+
 
 SCHEMA_DDL = [
     "CREATE SCHEMA IF NOT EXISTS ifa2",
@@ -1071,6 +1134,11 @@ class FSJStore:
                 "llm_degraded_count": llm_lineage.get("summary", {}).get("degraded_count"),
                 "llm_primary_count": llm_lineage.get("summary", {}).get("primary_applied_count"),
                 "llm_fallback_count": llm_lineage.get("summary", {}).get("fallback_applied_count"),
+                "llm_models": list(llm_lineage_summary.get("models") or []),
+                "llm_usage_bundle_count": llm_lineage_summary.get("usage_bundle_count"),
+                "llm_total_tokens": _usage_int(dict(llm_lineage_summary.get("token_totals") or {}), "total_tokens", "totalTokens"),
+                "llm_estimated_cost_usd": llm_lineage_summary.get("estimated_cost_usd"),
+                "llm_uncosted_bundle_count": llm_lineage_summary.get("uncosted_bundle_count"),
                 "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
                 "llm_lineage_status": llm_lineage_summary.get("status"),
                 "llm_boundary_modes": list(llm_role_policy.get("boundary_modes") or []),
@@ -1094,6 +1162,13 @@ class FSJStore:
         deterministic_degrade_count = int(summary.get("deterministic_degrade_count") or 0)
         operator_tags = sorted({str(item) for item in (summary.get("operator_tags") or []) if str(item).strip()})
         slots = [str(item) for item in (summary.get("slots") or []) if str(item).strip()]
+        models = [str(item) for item in (summary.get("models") or []) if str(item).strip()]
+        token_totals = dict(summary.get("token_totals") or {})
+        total_tokens = _usage_int(token_totals, "total_tokens", "totalTokens")
+        usage_bundle_count = int(summary.get("usage_bundle_count") or 0)
+        costed_bundle_count = int(summary.get("costed_bundle_count") or 0)
+        uncosted_bundle_count = int(summary.get("uncosted_bundle_count") or 0)
+        estimated_cost_usd = summary.get("estimated_cost_usd")
 
         if missing_bundle_count > 0:
             status = "incomplete"
@@ -1119,6 +1194,16 @@ class FSJStore:
             detail_parts.append(f"tags={','.join(operator_tags)}")
         if slots:
             detail_parts.append(f"slots={','.join(slots)}")
+        if models:
+            detail_parts.append(f"models={','.join(models)}")
+        if total_tokens:
+            detail_parts.append(f"tokens={total_tokens}")
+        if usage_bundle_count:
+            detail_parts.append(f"usage={usage_bundle_count}")
+        if estimated_cost_usd is not None:
+            detail_parts.append(f"cost_usd={estimated_cost_usd:.6f}")
+        elif uncosted_bundle_count:
+            detail_parts.append(f"unpriced={uncosted_bundle_count}")
 
         return {
             "status": status,
@@ -1131,6 +1216,12 @@ class FSJStore:
             "missing_bundle_count": missing_bundle_count,
             "operator_tags": operator_tags,
             "slots": slots,
+            "models": models,
+            "usage_bundle_count": usage_bundle_count,
+            "costed_bundle_count": costed_bundle_count,
+            "uncosted_bundle_count": uncosted_bundle_count,
+            "token_totals": token_totals,
+            "estimated_cost_usd": estimated_cost_usd,
             "summary_line": f"{status} [{' | '.join(detail_parts)}]",
         }
 
@@ -1177,6 +1268,62 @@ class FSJStore:
 
         role_policy_versions = sorted({str(item.get("role_policy_version")) for item in bundle_entries if item.get("role_policy_version")})
         boundary_modes = sorted({str(item.get("role_policy_boundary_mode")) for item in bundle_entries if item.get("role_policy_boundary_mode")})
+        models = sorted({str(item.get("model_alias")) for item in bundle_entries if item.get("model_alias")})
+        slots = [str(item.get("slot")) for item in bundle_entries if item.get("slot")]
+        token_totals = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0,
+        }
+        usage_bundle_count = 0
+        costed_bundle_count = 0
+        estimated_cost_usd_total = 0.0
+        model_usage_breakdown: dict[str, dict[str, Any]] = {}
+        slot_usage_breakdown: dict[str, dict[str, Any]] = {}
+        for item in bundle_entries:
+            usage = dict(item.get("usage") or {})
+            if not usage:
+                continue
+            usage_bundle_count += 1
+            input_tokens = _usage_int(usage, "input_tokens", "prompt_tokens", "inputTokens", "promptTokens")
+            output_tokens = _usage_int(usage, "output_tokens", "completion_tokens", "outputTokens", "completionTokens")
+            reasoning_tokens = _usage_int(usage, "reasoning_tokens", "reasoningTokens")
+            total_tokens = _usage_int(usage, "total_tokens", "totalTokens")
+            if total_tokens <= 0:
+                total_tokens = input_tokens + output_tokens + reasoning_tokens
+            token_totals["input_tokens"] += input_tokens
+            token_totals["output_tokens"] += output_tokens
+            token_totals["reasoning_tokens"] += reasoning_tokens
+            token_totals["total_tokens"] += total_tokens
+
+            model_alias = str(item.get("model_alias") or "unknown")
+            model_bucket = model_usage_breakdown.setdefault(
+                model_alias,
+                {"bundle_count": 0, "applied_count": 0, "fallback_applied_count": 0, "total_tokens": 0, "estimated_cost_usd": None},
+            )
+            model_bucket["bundle_count"] += 1
+            model_bucket["applied_count"] += int(bool(item.get("applied")))
+            model_bucket["fallback_applied_count"] += int(item.get("outcome") == "fallback_applied")
+            model_bucket["total_tokens"] += total_tokens
+
+            slot_key = str(item.get("slot") or "unknown")
+            slot_bucket = slot_usage_breakdown.setdefault(
+                slot_key,
+                {"bundle_count": 0, "applied_count": 0, "fallback_applied_count": 0, "total_tokens": 0},
+            )
+            slot_bucket["bundle_count"] += 1
+            slot_bucket["applied_count"] += int(bool(item.get("applied")))
+            slot_bucket["fallback_applied_count"] += int(item.get("outcome") == "fallback_applied")
+            slot_bucket["total_tokens"] += total_tokens
+
+            estimated_cost_usd = _estimate_usage_cost_usd(model_alias=item.get("model_alias"), usage=usage)
+            if estimated_cost_usd is not None:
+                costed_bundle_count += 1
+                estimated_cost_usd_total += estimated_cost_usd
+                current_model_cost = model_bucket.get("estimated_cost_usd")
+                model_bucket["estimated_cost_usd"] = round((float(current_model_cost or 0.0) + estimated_cost_usd), 6)
+
         deterministic_owner_fields = sorted(
             {
                 str(field)
@@ -1211,12 +1358,20 @@ class FSJStore:
             "primary_applied_count": len([item for item in bundle_entries if item.get("outcome") == "primary_applied"]),
             "deterministic_degrade_count": len([item for item in bundle_entries if item.get("outcome") == "deterministic_degrade"]),
             "operator_tags": sorted({str(item.get("operator_tag")) for item in bundle_entries if item.get("operator_tag")}),
-            "slots": [item.get("slot") for item in bundle_entries if item.get("slot")],
+            "slots": slots,
+            "models": models,
             "role_policy_versions": role_policy_versions,
             "boundary_modes": boundary_modes,
             "deterministic_owner_fields": deterministic_owner_fields,
             "forbidden_decisions": forbidden_decisions,
             "override_precedence": override_precedence,
+            "usage_bundle_count": usage_bundle_count,
+            "uncosted_bundle_count": max(usage_bundle_count - costed_bundle_count, 0),
+            "costed_bundle_count": costed_bundle_count,
+            "token_totals": token_totals,
+            "model_usage_breakdown": model_usage_breakdown,
+            "slot_usage_breakdown": slot_usage_breakdown,
+            "estimated_cost_usd": round(estimated_cost_usd_total, 6) if costed_bundle_count else None,
         }
         return {
             "artifact_id": normalized_artifact.get("artifact_id"),
@@ -1269,12 +1424,22 @@ class FSJStore:
                     key=lambda item: status_order.get(item, 99),
                 )
             attention_subjects = [item["subject"] for item in present_subjects if item.get("status") in {"incomplete", "degraded", "not_applied"}]
+            fleet_models = sorted({model for item in present_subjects for model in (item.get("models") or []) if str(model).strip()})
+            fleet_total_tokens = sum(_usage_int(dict(item.get("token_totals") or {}), "total_tokens", "totalTokens") for item in present_subjects)
+            fleet_usage_bundle_count = sum(int(item.get("usage_bundle_count") or 0) for item in present_subjects)
+            fleet_uncosted_bundle_count = sum(int(item.get("uncosted_bundle_count") or 0) for item in present_subjects)
+            fleet_cost_values = [float(item.get("estimated_cost_usd")) for item in present_subjects if item.get("estimated_cost_usd") is not None]
             return {
                 "overall_status": overall_status,
                 "subject_count": len(subjects),
                 "reported_subject_count": len(present_subjects),
                 "status_counts": status_counts,
                 "attention_subjects": attention_subjects,
+                "models": fleet_models,
+                "total_tokens": fleet_total_tokens,
+                "usage_bundle_count": fleet_usage_bundle_count,
+                "uncosted_bundle_count": fleet_uncosted_bundle_count,
+                "estimated_cost_usd": round(sum(fleet_cost_values), 6) if fleet_cost_values else None,
             }
 
         def _role_policy_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:

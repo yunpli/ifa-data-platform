@@ -5,6 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import ifa_data_platform.fsj.store as store_module
 from ifa_data_platform.fsj.store import FSJStore
 
 
@@ -275,13 +276,20 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["llm_lineage"]["summary"]["fallback_applied_count"] == 1
     assert summary["llm_lineage"]["summary"]["operator_tags"] == ["llm_timeout"]
     assert summary["llm_lineage_summary"]["status"] == "degraded"
-    assert summary["llm_lineage_summary"]["summary_line"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late]"
+    assert summary["llm_lineage_summary"]["models"] == ["gemini31_pro_jmr", "grok41_thinking"]
+    assert summary["llm_lineage_summary"]["usage_bundle_count"] == 0
+    assert summary["llm_lineage_summary"]["token_totals"]["total_tokens"] == 0
+    assert summary["llm_lineage_summary"]["uncosted_bundle_count"] == 0
+    assert summary["llm_lineage_summary"]["summary_line"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking]"
     assert summary["review_summary"]["llm_bundle_count"] == 2
     assert summary["review_summary"]["llm_applied_count"] == 1
     assert summary["review_summary"]["llm_degraded_count"] == 1
     assert summary["review_summary"]["llm_fallback_count"] == 1
     assert summary["review_summary"]["llm_lineage_status"] == "degraded"
-    assert summary["review_summary"]["llm_lineage_summary"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late]"
+    assert summary["review_summary"]["llm_total_tokens"] == 0
+    assert summary["review_summary"]["llm_models"] == ["gemini31_pro_jmr", "grok41_thinking"]
+    assert summary["review_summary"]["llm_uncosted_bundle_count"] == 0
+    assert summary["review_summary"]["llm_lineage_summary"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking]"
     assert summary["llm_role_policy"]["slot_boundary_modes"] == {}
     assert summary["review_summary"]["llm_deterministic_owner_fields"] == []
     assert summary["review_summary"]["llm_override_precedence"] == []
@@ -339,6 +347,39 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
     assert lineage["bundles"][0]["bundle_id"] == "bundle-mid"
     assert lineage["bundles"][0]["role_policy_boundary_mode"] == "intraday_working"
     assert lineage["bundles"][1]["missing"] is True
+
+
+def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tmp_path) -> None:
+    pricing_path = tmp_path / "models.yaml"
+    pricing_path.write_text(
+        "models:\n  grok41_thinking:\n    pricing:\n      usd_per_1m_total_tokens: 2.0\n",
+        encoding="utf-8",
+    )
+    store_module._load_llm_model_pricing.cache_clear()
+    original_path = store_module.BUSINESS_REPO_MODELS_CONFIG
+    store_module.BUSINESS_REPO_MODELS_CONFIG = pricing_path
+    try:
+        summary = _ProjectionOnlyStore().report_llm_lineage_summary(
+            {
+                "summary": {
+                    "bundle_count": 1,
+                    "applied_count": 1,
+                    "primary_applied_count": 1,
+                    "models": ["grok41_thinking"],
+                    "usage_bundle_count": 1,
+                    "costed_bundle_count": 1,
+                    "uncosted_bundle_count": 0,
+                    "token_totals": {"total_tokens": 5000},
+                    "estimated_cost_usd": store_module._estimate_usage_cost_usd(model_alias="grok41_thinking", usage={"total_tokens": 5000}),
+                }
+            }
+        )
+    finally:
+        store_module.BUSINESS_REPO_MODELS_CONFIG = original_path
+        store_module._load_llm_model_pricing.cache_clear()
+
+    assert summary["estimated_cost_usd"] == 0.01
+    assert summary["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking | tokens=5000 | usage=1 | cost_usd=0.010000]"
 
 
 def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_lineage() -> None:
