@@ -568,6 +568,22 @@ def test_summarize_report_artifact_registry_exposes_version_chain_audit_surface(
 def test_project_report_state_vocabulary_exposes_explicit_canonical_mapping() -> None:
     store = _ProjectionOnlyStore()
 
+    assert store.project_report_state_vocabulary(canonical_state="planned") == {
+        "canonical_state": "planned",
+        "canonical_reason": None,
+        "status_semantic": "planned",
+        "operator_bucket": "pre_runtime",
+        "terminal": False,
+        "summary_line": "canonical=planned | status=planned | bucket=pre_runtime",
+    }
+    assert store.project_report_state_vocabulary(canonical_state="collecting") == {
+        "canonical_state": "collecting",
+        "canonical_reason": None,
+        "status_semantic": "running",
+        "operator_bucket": "inflight",
+        "terminal": False,
+        "summary_line": "canonical=collecting | status=running | bucket=inflight",
+    }
     assert store.project_report_state_vocabulary(canonical_state="send_ready") == {
         "canonical_state": "send_ready",
         "canonical_reason": None,
@@ -575,6 +591,16 @@ def test_project_report_state_vocabulary_exposes_explicit_canonical_mapping() ->
         "operator_bucket": "dispatch_gate",
         "terminal": False,
         "summary_line": "canonical=send_ready | status=ready | bucket=dispatch_gate",
+    }
+    assert store.project_report_state_vocabulary(
+        canonical_lifecycle={"state": "sent", "reason": "dispatch_receipt_succeeded"}
+    ) == {
+        "canonical_state": "sent",
+        "canonical_reason": "dispatch_receipt_succeeded",
+        "status_semantic": "sent",
+        "operator_bucket": "terminal",
+        "terminal": True,
+        "summary_line": "canonical=sent | status=sent | bucket=terminal",
     }
     assert store.project_report_state_vocabulary(
         canonical_lifecycle={"state": "failed", "reason": "dispatch_receipt_failed"}

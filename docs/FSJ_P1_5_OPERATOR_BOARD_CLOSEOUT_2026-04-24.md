@@ -48,9 +48,9 @@ Operator board row fields carrying this truth:
 
 Regression evidence:
 - `tests/unit/test_fsj_operator_board_script.py`
-  - asserts ready/review/held board rows and aggregate semantic counts
+  - asserts board-row/operator-board behavior for the materially important board states exercised on the current fleet surface (`ready`, `review`, `held`), including aggregate semantic counts
 - `tests/unit/test_fsj_store_json_serialization.py`
-  - asserts projected canonical state/source-of-truth fields from stored artifacts
+  - asserts the canonical state vocabulary mapping for the full roadmap-required state set (`planned`, `running` via `collecting`, `ready`, `sent`, `held`) plus projected state/source-of-truth fields from stored artifacts
 
 ## 3) Artifact lineage and active version visibility — closed
 
