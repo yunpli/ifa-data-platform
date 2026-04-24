@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import json
 
 import pytest
 
@@ -119,6 +120,29 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
         "agent_domain": "macro",
+        "db_candidate_alignment_summary": {
+            "verdict": "mismatch",
+            "reason_code": "better_ready_candidate_selected_current_outdated",
+            "summary_line": "Current support artifact artifact-macro-active is not the best DB candidate; selected artifact artifact-macro-selected supersedes it as the best ready candidate.",
+            "current_artifact_id": "artifact-macro-active",
+            "selected_artifact_id": "artifact-macro-selected",
+            "best_candidate_artifact_id": "artifact-macro-selected",
+            "candidate_count": 2,
+            "ready_candidate_count": 1,
+            "selected_matches_best": True,
+            "current_matches_best": False,
+        },
+        "db_candidate_history_summary": [
+            {
+                "subject": "history:1",
+                "verdict": "mismatch",
+                "reason_code": "better_ready_candidate_selected_current_outdated",
+                "summary_line": "Current support artifact artifact-macro-active is not the best DB candidate; selected artifact artifact-macro-selected supersedes it as the best ready candidate.",
+                "current_artifact_id": "artifact-macro-active",
+                "selected_artifact_id": "artifact-macro-selected",
+                "best_candidate_artifact_id": "artifact-macro-selected",
+            }
+        ],
         "resolution": {
             "mode": "latest_active_lookup",
             "requested_slot": "early",
@@ -132,8 +156,8 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
                 "status": "active",
             },
             "selected_handoff": {
-                "selected_artifact_id": "artifact-macro-active",
-                "selected_is_current": True,
+                "selected_artifact_id": "artifact-macro-selected",
+                "selected_is_current": False,
             },
             "state": {
                 "recommended_action": "send_review",
@@ -242,6 +266,19 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     assert "llm_deterministic_owner_fields=judgment.action,workflow_state_and_send_readiness" in output
     assert "llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "llm_slot_boundary_modes=late:candidate_only" in output
+    assert "db_candidate_verdict=mismatch" in output
+    assert "db_candidate_reason=better_ready_candidate_selected_current_outdated" in output
+    assert "db_candidate_current_artifact_id=artifact-macro-active" in output
+    assert "db_candidate_selected_artifact_id=artifact-macro-selected" in output
+    assert "db_candidate_best_artifact_id=artifact-macro-selected" in output
+    assert "db_candidate_candidate_count=2" in output
+    assert "db_candidate_ready_candidate_count=1" in output
+    assert "db_candidate_selected_matches_best=True" in output
+    assert "db_candidate_current_matches_best=False" in output
+    assert "db_candidate_history_count=1" in output
+    assert "db_candidate_history_1_subject=history:1" in output
+    assert "db_candidate_history_1_reason=better_ready_candidate_selected_current_outdated" in output
+    assert "db_candidate_history_1_selected_artifact_id=artifact-macro-selected" in output
     assert "history_count=2" in output
     assert "history_1_artifact_id=artifact-macro-active" in output
     assert "history_1_canonical_lifecycle_state=review_ready" in output
@@ -265,10 +302,17 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
         def get_active_report_operator_review_surface(self, **_: object) -> dict:
             return {
                 "artifact": {"artifact_id": "artifact-1", "report_run_id": "run-1", "business_date": "2099-04-22", "status": "active"},
-                "selected_handoff": {},
+                "selected_handoff": {"selected_artifact_id": "artifact-selected", "selected_is_current": False},
                 "state": {},
                 "package_paths": {},
                 "package_versions": {},
+                "candidate_comparison": {
+                    "ranked_candidates": [{"artifact_id": "artifact-selected", "ready_for_delivery": True, "rank": 1}],
+                    "selected_artifact_id": "artifact-selected",
+                    "current_artifact_id": "artifact-1",
+                    "candidate_count": 1,
+                    "ready_candidate_count": 1,
+                },
                 "review_summary": {"go_no_go_decision": "GO"},
             }
 
@@ -277,6 +321,14 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
 
         def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
             return {"artifact": surface.get("artifact")}
+
+        def summarize_db_candidate_alignment(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
+            assert subject == "support:macro"
+            return {"subject": subject, "verdict": "aligned", "candidate_count": len(db_candidates)}
+
+        def summarize_db_candidate_history(self, history_surfaces: list[dict], db_candidates: list[dict]) -> list[dict]:
+            assert history_surfaces == []
+            return []
 
     monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
 
@@ -291,6 +343,8 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
     assert payload["resolution"]["requested_slot"] == "early"
     assert payload["agent_domain"] == "macro"
     assert payload["business_date"] == "2099-04-22"
+    assert payload["db_candidates"][0]["artifact_id"] == "artifact-selected"
+    assert payload["db_candidate_alignment_summary"]["verdict"] == "aligned"
 
 
 
@@ -360,6 +414,13 @@ def test_support_cli_json_contract_uses_operator_review_payload(monkeypatch, cap
                 "package_state": {
                     "slot_evaluation": {"strongest_slot": "early"},
                 },
+                "candidate_comparison": {
+                    "ranked_candidates": [{"artifact_id": "artifact-selected", "ready_for_delivery": True, "rank": 1}],
+                    "selected_artifact_id": "artifact-selected",
+                    "current_artifact_id": "artifact-active",
+                    "candidate_count": 1,
+                    "ready_candidate_count": 1,
+                },
                 "llm_lineage_summary": {
                     "status": "applied",
                     "summary_line": "applied [applied=1/1 | primary=1 | models=grok41_thinking]",
@@ -377,17 +438,24 @@ def test_support_cli_json_contract_uses_operator_review_payload(monkeypatch, cap
         def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
             return {"artifact": surface.get("artifact")}
 
+        def summarize_db_candidate_alignment(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
+            return {"subject": subject, "verdict": "aligned", "candidate_count": len(db_candidates)}
+
+        def summarize_db_candidate_history(self, history_surfaces: list[dict], db_candidates: list[dict]) -> list[dict]:
+            return []
+
     monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
     monkeypatch.setattr("sys.argv", ["fsj_support_delivery_status.py", "--agent-domain", "macro", "--business-date", "2099-04-22", "--format", "json"])
 
     _module.main()
-    output = capsys.readouterr().out
+    payload = json.loads(capsys.readouterr().out)
 
-    assert '"artifact_id": "artifact-active"' in output
-    assert '"operator_review_bundle_path": "/tmp/pkg/operator_review_bundle.json"' in output
-    assert '"go_no_go_decision": "REVIEW"' in output
-    assert '"llm_lineage_summary": {' in output
-    assert '"summary_line": "applied [applied=1/1 | primary=1 | models=grok41_thinking]"' in output
+    assert payload["active_surface"]["artifact"]["artifact_id"] == "artifact-active"
+    assert payload["active_surface"]["package_paths"]["operator_review_bundle_path"] == "/tmp/pkg/operator_review_bundle.json"
+    assert payload["active_surface"]["review_summary"]["go_no_go_decision"] == "REVIEW"
+    assert payload["active_surface"]["llm_lineage_summary"]["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking]"
+    assert payload["db_candidate_alignment_summary"]["candidate_count"] == 1
+    assert payload["db_candidates"][0]["artifact_id"] == "artifact-selected"
 
 
 def test_resolve_latest_support_business_date_rejects_unknown_slot() -> None:

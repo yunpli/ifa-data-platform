@@ -157,6 +157,34 @@ class _ParityStore:
     def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
         return dict(surface.get("artifact_lineage") or {})
 
+    def summarize_db_candidate_alignment(self, surface: dict | None, db_candidates: list[dict], *, subject: str) -> dict:
+        return {
+            "subject": subject,
+            "verdict": "aligned",
+            "reason_code": "current_selected_match_best_candidate",
+            "summary_line": f"{subject} aligned",
+            "current_artifact_id": (surface or {}).get("artifact", {}).get("artifact_id"),
+            "selected_artifact_id": (surface or {}).get("selected_handoff", {}).get("selected_artifact_id"),
+            "best_candidate_artifact_id": db_candidates[0]["artifact_id"] if db_candidates else None,
+            "candidate_count": len(db_candidates),
+            "ready_candidate_count": len([item for item in db_candidates if item.get("ready_for_delivery")]),
+            "selected_matches_best": True,
+            "current_matches_best": self.domain == "main",
+        }
+
+    def summarize_db_candidate_history(self, history_surfaces: list[dict], db_candidates: list[dict]) -> list[dict]:
+        return [
+            {
+                "subject": "history:1",
+                "verdict": "aligned",
+                "reason_code": "current_selected_match_best_candidate",
+                "summary_line": "history aligned",
+                "current_artifact_id": (history_surfaces[0] if history_surfaces else {}).get("artifact", {}).get("artifact_id"),
+                "selected_artifact_id": (history_surfaces[0] if history_surfaces else {}).get("selected_handoff", {}).get("selected_artifact_id"),
+                "best_candidate_artifact_id": db_candidates[0]["artifact_id"] if db_candidates else None,
+            }
+        ] if history_surfaces else []
+
 
 def _active_schema(payload: dict) -> dict:
     active = payload["active_surface"]
@@ -193,6 +221,10 @@ def test_main_and_support_status_cli_json_contracts_are_symmetric(monkeypatch, c
     assert _active_schema(main_payload) == _active_schema(support_payload)
     assert main_payload["active_surface"]["review_summary"]["go_no_go_decision"] == "REVIEW"
     assert support_payload["active_surface"]["review_summary"]["go_no_go_decision"] == "REVIEW"
+    assert "db_candidate_alignment_summary" in main_payload
+    assert "db_candidate_alignment_summary" in support_payload
+    assert "candidate_count" in main_payload["db_candidate_alignment_summary"]
+    assert "candidate_count" in support_payload["db_candidate_alignment_summary"]
     assert main_payload["active_surface"]["package_paths"]["operator_review_bundle_path"].endswith("operator_review_bundle.json")
     assert support_payload["active_surface"]["package_paths"]["operator_review_bundle_path"].endswith("operator_review_bundle.json")
     assert main_payload["active_surface"]["llm_lineage"]["summary"]["applied_count"] == 1

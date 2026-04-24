@@ -1430,6 +1430,7 @@ class FSJStore:
         subject: str,
     ) -> dict[str, Any]:
         artifact = dict((review_surface or {}).get("artifact") or {})
+        subject_label = "support artifact" if str(subject).startswith("support:") else "MAIN artifact"
         candidate_comparison = dict((review_surface or {}).get("candidate_comparison") or {})
         workflow_handoff = dict((review_surface or {}).get("workflow_handoff") or {})
         state = dict((review_surface or {}).get("state") or {})
@@ -1475,57 +1476,54 @@ class FSJStore:
         if not current_artifact_id and not best_artifact_id:
             verdict = "not_available"
             reason_code = "no_main_or_candidate"
-            summary_line = "No MAIN artifact or DB candidate is available on the operator board."
+            summary_line = f"No {subject_label} or DB candidate is available on the operator board."
         elif not best_artifact_id:
             verdict = "current_only"
             reason_code = "no_db_candidates"
-            summary_line = f"Current MAIN artifact {current_artifact_id or '-'} has no DB candidate set to compare against."
+            summary_line = f"Current {subject_label} {current_artifact_id or '-'} has no DB candidate set to compare against."
         elif current_matches_best and selected_matches_best:
             verdict = "aligned"
             reason_code = "current_selected_match_best_candidate"
-            summary_line = f"Current MAIN artifact {current_artifact_id or '-'} matches the best DB candidate."
+            summary_line = f"Current {subject_label} {current_artifact_id or '-'} matches the best DB candidate."
         elif selected_matches_best and not current_matches_selected:
             if best_candidate.get("ready_for_delivery"):
                 verdict = "mismatch"
                 reason_code = "better_ready_candidate_selected_current_outdated"
                 summary_line = (
-                    f"Current MAIN artifact {current_artifact_id or '-'} is not the best DB candidate; "
-                    f"selected artifact {selected_artifact_id or '-'} supersedes it as the best ready candidate."
+                    f"Current {subject_label} {current_artifact_id or '-'} is not the best DB candidate; "                    f"selected artifact {selected_artifact_id or '-'} supersedes it as the best ready candidate."
                 )
             elif best_candidate.get("recommended_action") == "send_review":
                 verdict = "review_held"
                 reason_code = "review_held_selected_candidate_differs_from_current"
                 summary_line = (
-                    f"Current MAIN artifact {current_artifact_id or '-'} is not the selected DB candidate; "
-                    f"operator selection is held on {selected_artifact_id or '-'} for review."
+                    f"Current {subject_label} {current_artifact_id or '-'} is not the selected DB candidate; "                    f"operator selection is held on {selected_artifact_id or '-'} for review."
                 )
             else:
                 verdict = "hold"
                 reason_code = "hold_selected_candidate_differs_from_current"
                 summary_line = (
-                    f"Current MAIN artifact {current_artifact_id or '-'} differs from selected candidate {selected_artifact_id or '-'}; "
-                    "board remains on hold pending the selected package."
+                    f"Current {subject_label} {current_artifact_id or '-'} differs from selected candidate {selected_artifact_id or '-'}; "                    "board remains on hold pending the selected package."
                 )
         elif current_matches_selected and not current_matches_best:
             if best_candidate.get("ready_for_delivery"):
                 verdict = "mismatch"
                 reason_code = "selected_current_misses_better_ready_candidate"
                 summary_line = (
-                    f"Current selected MAIN artifact {current_artifact_id or '-'} does not match best DB candidate {best_artifact_id or '-'}; "
+                    f"Current selected {subject_label} {current_artifact_id or '-'} does not match best DB candidate {best_artifact_id or '-'}; "
                     "a better ready candidate exists in DB."
                 )
             elif best_candidate.get("recommended_action") == "send_review":
                 verdict = "review_held"
                 reason_code = "selected_current_held_below_review_candidate"
                 summary_line = (
-                    f"Current selected MAIN artifact {current_artifact_id or '-'} trails best DB candidate {best_artifact_id or '-'}; "
+                    f"Current selected {subject_label} {current_artifact_id or '-'} trails best DB candidate {best_artifact_id or '-'}; "
                     "the better candidate is review-held rather than send-ready."
                 )
             else:
                 verdict = "hold"
                 reason_code = "selected_current_held_below_blocked_candidate"
                 summary_line = (
-                    f"Current selected MAIN artifact {current_artifact_id or '-'} does not match best DB candidate {best_artifact_id or '-'}; "
+                    f"Current selected {subject_label} {current_artifact_id or '-'} does not match best DB candidate {best_artifact_id or '-'}; "
                     "the board is holding rather than promoting the blocked candidate."
                 )
         else:
@@ -1533,14 +1531,12 @@ class FSJStore:
             if best_candidate.get("ready_for_delivery"):
                 reason_code = "selection_state_diverged_from_best_ready_candidate"
                 summary_line = (
-                    f"Current MAIN artifact {current_artifact_id or '-'} and selected artifact {selected_artifact_id or '-'} "
-                    f"both trail better ready DB candidate {best_artifact_id or '-'}."
+                    f"Current {subject_label} {current_artifact_id or '-'} and selected artifact {selected_artifact_id or '-'} "                    f"both trail better ready DB candidate {best_artifact_id or '-'}."
                 )
             else:
                 reason_code = "selection_state_diverged_from_best_candidate"
                 summary_line = (
-                    f"Current MAIN artifact {current_artifact_id or '-'}, selected artifact {selected_artifact_id or '-'}, "
-                    f"and best DB candidate {best_artifact_id or '-'} are not aligned."
+                    f"Current {subject_label} {current_artifact_id or '-'}, selected artifact {selected_artifact_id or '-'}, "                    f"and best DB candidate {best_artifact_id or '-'} are not aligned."
                 )
 
         canonical_lifecycle = dict((review_surface or {}).get("canonical_lifecycle") or {})
