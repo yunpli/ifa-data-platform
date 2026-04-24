@@ -117,6 +117,31 @@ def build_fsj_role_policy(*, slot: str, contract_mode: str, completeness_label: 
     return policy
 
 
+def _audit_field_lineage(*, slot: str, applied: bool, reason: str | None = None) -> dict[str, Any]:
+    policy = build_fsj_role_policy(
+        slot=slot,
+        contract_mode="audit_projection",
+        completeness_label="audit_projection",
+        degrade_reason=reason,
+    )
+    allowed_output_fields = [
+        str(field)
+        for field in (policy.get("allowed_output_fields") or [])
+        if str(field).strip()
+    ]
+    adopted_output_fields = list(allowed_output_fields) if applied else []
+    discarded_output_fields = [] if applied else list(allowed_output_fields)
+    return {
+        "allowed_output_fields": allowed_output_fields,
+        "adopted_output_fields": adopted_output_fields,
+        "discarded_output_fields": discarded_output_fields,
+        "adopted_output_field_count": len(adopted_output_fields),
+        "discarded_output_field_count": len(discarded_output_fields),
+        "field_replay_ready": bool(applied),
+        "discard_reason": None if applied else (reason or "llm_output_not_adopted"),
+    }
+
+
 @dataclass(frozen=True)
 class FSJLateLLMRequest:
     business_date: str
@@ -152,6 +177,7 @@ class FSJLateLLMResult:
             "input_digest": input_digest,
             "usage": self.usage,
             "reasoning_trace": self.reasoning_trace,
+            **_audit_field_lineage(slot="late", applied=True),
         }
 
 
@@ -189,6 +215,7 @@ class FSJEarlyLLMResult:
             "input_digest": input_digest,
             "usage": self.usage,
             "reasoning_trace": self.reasoning_trace,
+            **_audit_field_lineage(slot="early", applied=True),
         }
 
 
@@ -235,6 +262,7 @@ class FSJMidLLMResult:
             "input_digest": input_digest,
             "usage": self.usage,
             "reasoning_trace": self.reasoning_trace,
+            **_audit_field_lineage(slot="mid", applied=True),
         }
 
 
@@ -576,6 +604,7 @@ class FSJLateLLMAssistant:
                     "outcome": "deterministic_degrade",
                     "operator_tag": f"llm_{classification}",
                 },
+                **_audit_field_lineage(slot="late", applied=False, reason=classification),
                 **({"attempt_failures": prior_failures} if prior_failures else {}),
             }
 
@@ -628,6 +657,7 @@ class FSJEarlyLLMAssistant:
                     "outcome": "deterministic_degrade",
                     "operator_tag": f"llm_{classification}",
                 },
+                **_audit_field_lineage(slot="early", applied=False, reason=classification),
                 **({"attempt_failures": prior_failures} if prior_failures else {}),
             }
 
@@ -680,6 +710,7 @@ class FSJMidLLMAssistant:
                     "outcome": "deterministic_degrade",
                     "operator_tag": f"llm_{classification}",
                 },
+                **_audit_field_lineage(slot="mid", applied=False, reason=classification),
                 **({"attempt_failures": prior_failures} if prior_failures else {}),
             }
 

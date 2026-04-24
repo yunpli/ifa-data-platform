@@ -829,6 +829,17 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
                             "applied": True,
                             "model_alias": "grok41_thinking",
                             "prompt_version": "fsj_mid_main_v1",
+                            "adopted_output_fields": [
+                                "bundle.summary",
+                                "validation_signal.statement",
+                                "afternoon_signal.statement",
+                                "judgment.statement",
+                                "judgment.invalidators",
+                            ],
+                            "adopted_output_field_count": 5,
+                            "discarded_output_fields": [],
+                            "discarded_output_field_count": 0,
+                            "field_replay_ready": True,
                             "policy": {
                                 "outcome": "primary_applied",
                                 "attempted_model_chain": ["grok41_thinking"],
@@ -858,11 +869,16 @@ def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> No
     assert lineage["summary"]["missing_bundle_count"] == 1
     assert lineage["summary"]["role_policy_versions"] == ["fsj_llm_role_policy_v1"]
     assert lineage["summary"]["boundary_modes"] == ["intraday_working"]
+    assert lineage["summary"]["adopted_output_field_count"] == 5
+    assert lineage["summary"]["discarded_output_field_count"] == 0
+    assert lineage["summary"]["field_replay_ready_bundle_count"] == 1
     assert lineage["role_policy"]["deterministic_owner_fields"] == ["judgment.action"]
     assert lineage["role_policy"]["forbidden_decisions"] == ["declare_close_final_confirmation"]
     assert lineage["role_policy"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
     assert lineage["bundles"][0]["bundle_id"] == "bundle-mid"
     assert lineage["bundles"][0]["role_policy_boundary_mode"] == "intraday_working"
+    assert lineage["bundles"][0]["adopted_output_field_count"] == 5
+    assert lineage["bundles"][0]["discarded_output_fields"] == []
     assert lineage["bundles"][1]["missing"] is True
 
 
@@ -883,6 +899,9 @@ def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tm
                     "applied_count": 1,
                     "primary_applied_count": 1,
                     "models": ["grok41_thinking"],
+                    "adopted_output_field_count": 5,
+                    "discarded_output_field_count": 0,
+                    "field_replay_ready_bundle_count": 1,
                     "usage_bundle_count": 1,
                     "costed_bundle_count": 1,
                     "uncosted_bundle_count": 0,
@@ -896,7 +915,7 @@ def test_report_llm_lineage_summary_estimates_cost_when_pricing_is_configured(tm
         store_module._load_llm_model_pricing.cache_clear()
 
     assert summary["estimated_cost_usd"] == 0.01
-    assert summary["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking | tokens=5000 | usage=1 | cost_usd=0.010000]"
+    assert summary["summary_line"] == "applied [applied=1/1 | primary=1 | models=grok41_thinking | tokens=5000 | adopted_fields=5 | field_replay_ready=1 | usage=1 | cost_usd=0.010000]"
 
 
 def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_lineage() -> None:

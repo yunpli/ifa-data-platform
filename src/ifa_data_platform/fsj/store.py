@@ -2264,6 +2264,15 @@ class FSJStore:
             detail_parts.append(f"models={','.join(models)}")
         if total_tokens:
             detail_parts.append(f"tokens={total_tokens}")
+        adopted_output_field_count = int(summary.get("adopted_output_field_count") or 0)
+        discarded_output_field_count = int(summary.get("discarded_output_field_count") or 0)
+        field_replay_ready_bundle_count = int(summary.get("field_replay_ready_bundle_count") or 0)
+        if adopted_output_field_count:
+            detail_parts.append(f"adopted_fields={adopted_output_field_count}")
+        if discarded_output_field_count:
+            detail_parts.append(f"discarded_fields={discarded_output_field_count}")
+        if field_replay_ready_bundle_count:
+            detail_parts.append(f"field_replay_ready={field_replay_ready_bundle_count}")
         if usage_bundle_count:
             detail_parts.append(f"usage={usage_bundle_count}")
         if estimated_cost_usd is not None:
@@ -2288,6 +2297,9 @@ class FSJStore:
             "operator_tags": operator_tags,
             "slots": slots,
             "models": models,
+            "adopted_output_field_count": adopted_output_field_count,
+            "discarded_output_field_count": discarded_output_field_count,
+            "field_replay_ready_bundle_count": field_replay_ready_bundle_count,
             "usage_bundle_count": usage_bundle_count,
             "costed_bundle_count": costed_bundle_count,
             "priced_bundle_count": budget_posture.get("priced_bundle_count"),
@@ -2337,6 +2349,13 @@ class FSJStore:
                     "attempt_failure_count": len(attempt_failures),
                     "attempt_failures": attempt_failures,
                     "usage": dict(llm_assist.get("usage") or {}) if isinstance(llm_assist.get("usage"), dict) else None,
+                    "allowed_output_fields": list(llm_assist.get("allowed_output_fields") or []),
+                    "adopted_output_fields": list(llm_assist.get("adopted_output_fields") or []),
+                    "discarded_output_fields": list(llm_assist.get("discarded_output_fields") or []),
+                    "adopted_output_field_count": int(llm_assist.get("adopted_output_field_count") or len(llm_assist.get("adopted_output_fields") or [])),
+                    "discarded_output_field_count": int(llm_assist.get("discarded_output_field_count") or len(llm_assist.get("discarded_output_fields") or [])),
+                    "field_replay_ready": bool(llm_assist.get("field_replay_ready")),
+                    "discard_reason": llm_assist.get("discard_reason"),
                     "role_policy": role_policy,
                     "role_policy_boundary_mode": role_policy.get("boundary_mode"),
                     "role_policy_version": role_policy.get("policy_version"),
@@ -2442,6 +2461,9 @@ class FSJStore:
             "deterministic_owner_fields": deterministic_owner_fields,
             "forbidden_decisions": forbidden_decisions,
             "override_precedence": override_precedence,
+            "adopted_output_field_count": sum(int(item.get("adopted_output_field_count") or 0) for item in bundle_entries if not item.get("missing")),
+            "discarded_output_field_count": sum(int(item.get("discarded_output_field_count") or 0) for item in bundle_entries if not item.get("missing")),
+            "field_replay_ready_bundle_count": len([item for item in bundle_entries if item.get("field_replay_ready") is True]),
             "usage_bundle_count": usage_bundle_count,
             "uncosted_bundle_count": max(usage_bundle_count - costed_bundle_count, 0),
             "costed_bundle_count": costed_bundle_count,

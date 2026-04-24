@@ -137,7 +137,17 @@ def test_build_fsj_early_prompt_and_parser_contract() -> None:
     )
     assert result.model_alias == "grok41_thinking"
     assert result.invalidators == ["a", "b"]
-    assert result.audit_payload(input_digest="abc")["prompt_version"] == "fsj_early_main_v1"
+    audit = result.audit_payload(input_digest="abc")
+    assert audit["prompt_version"] == "fsj_early_main_v1"
+    assert audit["adopted_output_fields"] == [
+        "bundle.summary",
+        "signal.statement",
+        "judgment.statement",
+        "judgment.invalidators",
+        "judgment.attributes.llm_reasoning_trace",
+    ]
+    assert audit["discarded_output_fields"] == []
+    assert audit["field_replay_ready"] is True
 
 
 def test_early_assembler_applies_llm_text_without_changing_deterministic_shape() -> None:
@@ -224,6 +234,10 @@ def test_early_assistant_tags_timeout_deterministic_degrade() -> None:
     assert audit["failure_classification"] == "timeout"
     assert audit["policy"]["operator_tag"] == "llm_timeout"
     assert audit["policy"]["outcome"] == "deterministic_degrade"
+    assert audit["adopted_output_fields"] == []
+    assert audit["discarded_output_field_count"] == 5
+    assert audit["discard_reason"] == "timeout"
+    assert audit["field_replay_ready"] is False
 
 
 def test_early_assistant_surfaces_boundary_violation_classification() -> None:
