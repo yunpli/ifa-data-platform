@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
 from ifa_data_platform.fsj.store import FSJStore
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError as LiveIsolationError
 
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "fsj_operator_board.py"
@@ -15,6 +18,14 @@ assert _spec is not None and _spec.loader is not None
 _spec.loader.exec_module(_module)
 _build_board_payload = _module.build_board_payload
 _print_text = _module._print_text
+
+
+LIVE_DB_URL = "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp"
+
+
+def _clear_caches() -> None:
+    make_engine.cache_clear()
+    get_settings.cache_clear()
 
 
 class _DummyStore:
@@ -931,3 +942,19 @@ def test_store_build_operator_board_surface_projects_better_ready_candidate_mism
     assert payload["db_candidate_history_summary"][0]["verdict"] == "mismatch"
     assert payload["db_candidate_history_summary"][0]["reason_code"] == "selection_state_diverged_from_best_ready_candidate"
     assert payload["db_candidate_history_summary"][0]["best_candidate_artifact_id"] == "artifact-ready-better"
+
+
+@pytest.mark.parametrize("database_url,expected_error", [(None, "DATABASE_URL must be set explicitly"), (LIVE_DB_URL, "canonical/live DB")])
+def test_build_board_payload_blocks_default_store_live_db_paths_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+    database_url: str | None,
+    expected_error: str,
+) -> None:
+    if database_url is None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+    else:
+        monkeypatch.setenv("DATABASE_URL", database_url)
+    _clear_caches()
+
+    with pytest.raises(LiveIsolationError, match=expected_error):
+        _build_board_payload(business_date="2099-04-22", history_limit=1)

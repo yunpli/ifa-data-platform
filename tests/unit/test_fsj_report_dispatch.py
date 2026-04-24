@@ -214,20 +214,32 @@ def _clear_caches() -> None:
     get_settings.cache_clear()
 
 
-def test_list_db_delivery_candidates_requires_explicit_non_live_db_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("entrypoint", ["list_db_delivery_candidates", "load_active_published_candidate"])
+def test_default_store_helper_entrypoints_require_explicit_non_live_db_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+    entrypoint: str,
+) -> None:
     monkeypatch.delenv("DATABASE_URL", raising=False)
     _clear_caches()
 
+    helper = MainReportDeliveryDispatchHelper()
+
     with pytest.raises(LiveIsolationError, match="DATABASE_URL must be set explicitly"):
-        MainReportDeliveryDispatchHelper().list_db_delivery_candidates(business_date="2099-04-22")
+        getattr(helper, entrypoint)(business_date="2099-04-22")
 
 
-def test_list_db_delivery_candidates_rejects_canonical_live_db_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("entrypoint", ["list_db_delivery_candidates", "load_active_published_candidate"])
+def test_default_store_helper_entrypoints_reject_canonical_live_db_under_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+    entrypoint: str,
+) -> None:
     monkeypatch.setenv("DATABASE_URL", LIVE_DB_URL)
     _clear_caches()
 
+    helper = MainReportDeliveryDispatchHelper()
+
     with pytest.raises(LiveIsolationError, match="canonical/live DB"):
-        MainReportDeliveryDispatchHelper().list_db_delivery_candidates(business_date="2099-04-22")
+        getattr(helper, entrypoint)(business_date="2099-04-22")
 
 
 def test_list_db_delivery_candidates_allows_explicit_test_db_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
