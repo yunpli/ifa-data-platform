@@ -360,6 +360,92 @@ def test_main_cli_json_contract_uses_latest_active_surface(monkeypatch, capsys) 
     assert payload["dispatch_failure"]["dispatch_posture"] == "ready_to_dispatch"
 
 
+def test_main_cli_json_contract_preserves_history_row_lifecycle_and_dispatch_fields(monkeypatch, capsys) -> None:
+    class _DummyStore:
+        def get_latest_active_report_operator_review_surface(self, **kwargs: object) -> dict:
+            assert kwargs["agent_domain"] == "main"
+            assert kwargs["artifact_family"] == "main_final_report"
+            return {
+                "artifact": {
+                    "artifact_id": "artifact-active",
+                    "report_run_id": "run-active",
+                    "business_date": "2099-04-23",
+                    "status": "active",
+                },
+                "package_state": {"slot_evaluation": {"strongest_slot": "late"}},
+                "review_summary": {"go_no_go_decision": "GO"},
+            }
+
+    monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
+    monkeypatch.setattr(
+        _module,
+        "build_dispatch_failure_payload",
+        lambda **kwargs: {
+            "business_date": kwargs["business_date"],
+            "resolution": kwargs["resolution"],
+            "active_surface": {
+                "canonical_lifecycle": {"state": "send_ready", "reason": "ready_for_delivery_send"},
+                "review_summary": {"canonical_lifecycle_state": "send_ready", "canonical_lifecycle_reason": "ready_for_delivery_send"},
+                "package_paths": {},
+            },
+            "history": [],
+            "history_rows": [
+                {
+                    "artifact_id": "artifact-attempted",
+                    "status": "active",
+                    "workflow_state": "ready_to_send",
+                    "recommended_action": "send",
+                    "canonical_lifecycle_state": "send_ready",
+                    "canonical_lifecycle_reason": "dispatch_attempted_pending_receipt",
+                    "dispatch_state": "dispatch_attempted",
+                    "dispatch_attempted": True,
+                    "dispatch_succeeded": False,
+                    "dispatch_failed": False,
+                    "dispatch_receipt_state": "dispatch_attempted",
+                    "dispatch_receipt_attempted_at": "2099-04-23T10:00:00Z",
+                    "dispatch_receipt_succeeded_at": None,
+                    "dispatch_receipt_failed_at": None,
+                    "dispatch_receipt_channel": "telegram_document",
+                    "dispatch_receipt_error": None,
+                    "selected_is_current": True,
+                },
+                {
+                    "artifact_id": "artifact-failed",
+                    "status": "superseded",
+                    "workflow_state": "ready_to_send",
+                    "recommended_action": "send",
+                    "canonical_lifecycle_state": "failed",
+                    "canonical_lifecycle_reason": "dispatch_receipt_failed",
+                    "dispatch_state": "dispatch_failed",
+                    "dispatch_attempted": False,
+                    "dispatch_succeeded": False,
+                    "dispatch_failed": True,
+                    "dispatch_receipt_state": "dispatch_failed",
+                    "dispatch_receipt_attempted_at": "2099-04-23T10:05:00Z",
+                    "dispatch_receipt_succeeded_at": None,
+                    "dispatch_receipt_failed_at": "2099-04-23T10:05:02Z",
+                    "dispatch_receipt_channel": "telegram_document",
+                    "dispatch_receipt_error": "429 rate limit",
+                    "selected_is_current": False,
+                },
+            ],
+            "dispatch_failure": {"dispatch_posture": "hold", "channel_delivery_truth": "unknown_not_modeled"},
+        },
+    )
+    monkeypatch.setattr("sys.argv", ["fsj_send_dispatch_failure_status.py", "--latest", "--format", "json"])
+
+    _module.main()
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+
+    assert payload["history_rows"][0]["canonical_lifecycle_state"] == "send_ready"
+    assert payload["history_rows"][0]["dispatch_state"] == "dispatch_attempted"
+    assert payload["history_rows"][0]["dispatch_receipt_channel"] == "telegram_document"
+    assert payload["history_rows"][1]["canonical_lifecycle_state"] == "failed"
+    assert payload["history_rows"][1]["canonical_lifecycle_reason"] == "dispatch_receipt_failed"
+    assert payload["history_rows"][1]["dispatch_receipt_error"] == "429 rate limit"
+
+
 def test_main_cli_rejects_unknown_slot(monkeypatch) -> None:
     monkeypatch.setattr("sys.argv", ["fsj_send_dispatch_failure_status.py", "--latest", "--slot", "close"])
     with pytest.raises(SystemExit):
