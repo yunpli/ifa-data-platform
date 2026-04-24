@@ -76,6 +76,11 @@ class _ParityStore:
                 "ready_for_delivery": True,
                 "slot_evaluation": {"strongest_slot": slot},
             },
+            "artifact_lineage": {
+                "artifact": {"artifact_id": artifact_id},
+                "bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 0, "slots": [slot], "section_keys": ["mainline"]},
+                "what_user_received": {"dispatch_state": "dispatch_succeeded", "channel": "telegram_document", "provider_message_id": f"msg-{artifact_id}"},
+            },
             "workflow_handoff": {
                 "artifact": {"artifact_id": artifact_id},
                 "selected_handoff": {"selected_artifact_id": selected_artifact_id},
@@ -149,6 +154,9 @@ class _ParityStore:
     def list_report_operator_review_surfaces(self, **_: object) -> list[dict]:
         return []
 
+    def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
+        return dict(surface.get("artifact_lineage") or {})
+
 
 def _active_schema(payload: dict) -> dict:
     active = payload["active_surface"]
@@ -160,6 +168,7 @@ def _active_schema(payload: dict) -> dict:
         "package_version_keys": sorted(active["package_versions"].keys()),
         "package_state_keys": sorted(active["package_state"].keys()),
         "review_summary_keys": sorted(active["review_summary"].keys()),
+        "artifact_lineage_keys": sorted(active["artifact_lineage"].keys()),
         "llm_lineage_summary_keys": sorted(active["llm_lineage_summary"].keys()),
         "llm_lineage_keys": sorted(active["llm_lineage"].keys()),
         "llm_summary_keys": sorted(active["llm_lineage"]["summary"].keys()),

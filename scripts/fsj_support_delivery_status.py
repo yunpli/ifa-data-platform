@@ -18,9 +18,15 @@ def _safe_dict(value: Any) -> dict[str, Any]:
 
 
 def _surface_summary(surface: dict[str, Any], *, store: FSJStore | None = None) -> dict[str, Any]:
-    if surface.get("review_summary"):
-        return surface
-    return (store or FSJStore()).report_operator_review_surface_from_surface(surface)
+    if surface.get("review_summary") and store is None:
+        return dict(surface or {})
+    resolver = store or FSJStore()
+    summary = surface if surface.get("review_summary") else resolver.report_operator_review_surface_from_surface(surface)
+    summary = dict(summary or {})
+    projector = getattr(resolver, "report_artifact_lineage_from_surface", None)
+    if summary and not summary.get("artifact_lineage") and callable(projector):
+        summary["artifact_lineage"] = projector(summary)
+    return summary
 
 
 def resolve_latest_support_business_date(*, agent_domain: str, slot: str | None = None, store: FSJStore | None = None) -> dict[str, Any] | None:
@@ -80,6 +86,9 @@ def _artifact_row(surface: dict[str, Any] | None) -> dict[str, Any]:
     state = _safe_dict(summary.get("state"))
     lifecycle = _safe_dict(summary.get("canonical_lifecycle"))
     review_summary = _safe_dict(summary.get("review_summary"))
+    artifact_lineage = _safe_dict(summary.get("artifact_lineage"))
+    bundle_summary = _safe_dict(artifact_lineage.get("bundle_lineage_summary"))
+    received = _safe_dict(artifact_lineage.get("what_user_received"))
     return {
         "artifact_id": artifact.get("artifact_id"),
         "report_run_id": artifact.get("report_run_id"),
@@ -96,6 +105,10 @@ def _artifact_row(surface: dict[str, Any] | None) -> dict[str, Any]:
         "qa_score": review_summary.get("qa_score", state.get("qa_score")),
         "blocker_count": review_summary.get("blocker_count", state.get("blocker_count")),
         "warning_count": review_summary.get("warning_count", state.get("warning_count")),
+        "bundle_count": bundle_summary.get("bundle_count"),
+        "missing_bundle_count": bundle_summary.get("missing_bundle_count"),
+        "dispatch_state": received.get("dispatch_state"),
+        "provider_message_id": received.get("provider_message_id"),
     }
 
 
@@ -110,6 +123,9 @@ def _print_text(payload: dict[str, Any]) -> None:
     llm_lineage_summary = _safe_dict(active.get("llm_lineage_summary"))
     llm_role_policy = _safe_dict(active.get("llm_role_policy"))
     canonical_lifecycle = _safe_dict(active.get("canonical_lifecycle"))
+    artifact_lineage = _safe_dict(active.get("artifact_lineage"))
+    bundle_summary = _safe_dict(artifact_lineage.get("bundle_lineage_summary"))
+    received = _safe_dict(artifact_lineage.get("what_user_received"))
     history_rows = [_artifact_row(item) for item in (payload.get("history") or [])]
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
@@ -150,6 +166,15 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"workflow_manifest_path={pointers.get('workflow_manifest_path')}")
     print(f"package_index_path={pointers.get('package_index_path')}")
     print(f"delivery_zip_path={pointers.get('delivery_zip_path')}")
+    print(f"lineage_bundle_count={bundle_summary.get('bundle_count')}")
+    print(f"lineage_missing_bundle_count={bundle_summary.get('missing_bundle_count')}")
+    print(f"lineage_bundle_slots={','.join(bundle_summary.get('slots') or [])}")
+    print(f"lineage_bundle_section_keys={','.join(bundle_summary.get('section_keys') or [])}")
+    print(f"lineage_dispatch_state={received.get('dispatch_state')}")
+    print(f"lineage_dispatch_channel={received.get('channel')}")
+    print(f"lineage_provider_message_id={received.get('provider_message_id')}")
+    print(f"lineage_sent_at={received.get('sent_at')}")
+    print(f"lineage_dispatch_error={received.get('error')}")
     print(f"llm_bundle_count={llm_summary.get('bundle_count')}")
     print(f"llm_applied_count={llm_summary.get('applied_count')}")
     print(f"llm_degraded_count={llm_summary.get('degraded_count')}")
@@ -179,6 +204,10 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"history_{index}_canonical_lifecycle_state={row.get('canonical_lifecycle_state')}")
         print(f"history_{index}_canonical_lifecycle_reason={row.get('canonical_lifecycle_reason')}")
         print(f"history_{index}_selected_is_current={row.get('selected_is_current')}")
+        print(f"history_{index}_bundle_count={row.get('bundle_count')}")
+        print(f"history_{index}_missing_bundle_count={row.get('missing_bundle_count')}")
+        print(f"history_{index}_dispatch_state={row.get('dispatch_state')}")
+        print(f"history_{index}_provider_message_id={row.get('provider_message_id')}")
 
 
 def main() -> None:

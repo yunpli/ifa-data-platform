@@ -29,6 +29,13 @@ def _surface_summary(surface: dict[str, Any] | None, *, store: FSJStore | None =
     return (store or FSJStore()).report_workflow_handoff_from_surface(surface)
 
 
+def _artifact_lineage_summary(surface: dict[str, Any] | None, *, store: FSJStore | None = None) -> dict[str, Any] | None:
+    if not surface:
+        return None
+    resolver = store or FSJStore()
+    return resolver.report_artifact_lineage_from_surface(surface)
+
+
 def _resolve_main_latest(*, slot: str | None = None, store: FSJStore | None = None) -> dict[str, Any] | None:
     if slot is not None and slot not in _VALID_SLOT_KEYS:
         raise ValueError(f"unsupported slot: {slot}")
@@ -83,6 +90,34 @@ def _resolve_support_latest(*, agent_domain: str, slot: str | None = None, store
 def build_board_payload(*, business_date: str | None = None, history_limit: int = 5, store: FSJStore | None = None) -> dict[str, Any]:
     store = store or FSJStore()
     payload = store.build_operator_board_surface(business_date=business_date, history_limit=history_limit)
+    main_artifact_lineage = _artifact_lineage_summary(payload.get("main"), store=store)
+    support_artifact_lineage = {
+        domain: _artifact_lineage_summary(surface, store=store)
+        for domain, surface in _safe_dict(payload.get("support")).items()
+    }
+    history_artifact_lineage = [
+        _artifact_lineage_summary(surface, store=store)
+        for surface in (payload.get("history") or [])
+    ]
+    lineage_subjects = [main_artifact_lineage] + list(support_artifact_lineage.values()) + history_artifact_lineage
+    bundle_count = sum(_safe_dict(_safe_dict(item).get("bundle_lineage_summary")).get("bundle_count") or 0 for item in lineage_subjects)
+    missing_bundle_count = sum(_safe_dict(_safe_dict(item).get("bundle_lineage_summary")).get("missing_bundle_count") or 0 for item in lineage_subjects)
+    dispatch_states = [
+        _safe_dict(_safe_dict(item).get("what_user_received")).get("dispatch_state")
+        for item in lineage_subjects
+        if item
+    ]
+    payload["artifact_lineage_summary"] = {
+        "main": main_artifact_lineage,
+        "support": support_artifact_lineage,
+        "history": history_artifact_lineage,
+        "aggregate": {
+            "bundle_count": bundle_count,
+            "missing_bundle_count": missing_bundle_count,
+            "dispatch_succeeded_count": sum(1 for state in dispatch_states if state == "dispatch_succeeded"),
+            "dispatch_failed_count": sum(1 for state in dispatch_states if state == "dispatch_failed"),
+        },
+    }
     drift_payloads = {
         "main": build_drift_payload(scope="main", days=7, store=store),
     }
@@ -102,6 +137,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     resolution = _safe_dict(payload.get("resolution"))
     lineage = _safe_dict(payload.get("llm_lineage_summary"))
     lineage_aggregate = _safe_dict(lineage.get("aggregate"))
+    artifact_lineage = _safe_dict(payload.get("artifact_lineage_summary"))
+    artifact_lineage_aggregate = _safe_dict(artifact_lineage.get("aggregate"))
     role_policy = _safe_dict(payload.get("llm_role_policy_review"))
     role_policy_aggregate = _safe_dict(role_policy.get("aggregate"))
     board_readiness = _safe_dict(payload.get("board_readiness_summary"))
@@ -118,6 +155,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"resolution_mode={resolution.get('mode') or '-'}")
     main = _safe_dict(payload.get("main"))
     main_lineage = _safe_dict(lineage.get("main") or (main.get("llm_lineage_summary") if main else None))
+    main_artifact_lineage = _safe_dict(artifact_lineage.get("main") or (main.get("artifact_lineage") if main else None))
     if main:
         print(f"main_artifact_id={_safe_dict(main.get('artifact')).get('artifact_id')}")
         print(f"main_recommended_action={_safe_dict(main.get('state')).get('recommended_action')}")
@@ -129,6 +167,10 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_dispatch_receipt_state={_safe_dict(main.get('dispatch_receipt')).get('dispatch_state') or _safe_dict(main.get('dispatch_receipt')).get('status')}")
         print(f"main_dispatch_receipt_channel={_safe_dict(main.get('dispatch_receipt')).get('channel')}")
         print(f"main_dispatch_receipt_error={_safe_dict(main.get('dispatch_receipt')).get('error')}")
+        print(f"main_lineage_bundle_count={_safe_dict(main_artifact_lineage.get('bundle_lineage_summary')).get('bundle_count')}")
+        print(f"main_lineage_missing_bundle_count={_safe_dict(main_artifact_lineage.get('bundle_lineage_summary')).get('missing_bundle_count')}")
+        print(f"main_lineage_dispatch_state={_safe_dict(main_artifact_lineage.get('what_user_received')).get('dispatch_state')}")
+        print(f"main_lineage_provider_message_id={_safe_dict(main_artifact_lineage.get('what_user_received')).get('provider_message_id')}")
         print(f"main_llm_lineage_status={main_lineage.get('status')}")
         print(f"main_llm_lineage_summary={main_lineage.get('summary_line')}")
         print(f"main_llm_models={','.join(main_lineage.get('models') or [])}")
@@ -162,12 +204,17 @@ def _print_text(payload: dict[str, Any]) -> None:
             continue
         state = _safe_dict(item.get("state"))
         item_lineage = _safe_dict(support_lineage.get(domain) or item.get("llm_lineage_summary"))
+        item_artifact_lineage = _safe_dict(_safe_dict(artifact_lineage.get('support')).get(domain) or item.get('artifact_lineage'))
         print(f"support_{domain}_artifact_id={_safe_dict(item.get('artifact')).get('artifact_id')}")
         print(f"support_{domain}_recommended_action={state.get('recommended_action')}")
         print(f"support_{domain}_workflow_state={state.get('workflow_state')}")
         print(f"support_{domain}_package_state={state.get('package_state')}")
         print(f"support_{domain}_canonical_lifecycle_state={_safe_dict(item.get('canonical_lifecycle')).get('state')}")
         print(f"support_{domain}_canonical_lifecycle_reason={_safe_dict(item.get('canonical_lifecycle')).get('reason')}")
+        print(f"support_{domain}_lineage_bundle_count={_safe_dict(item_artifact_lineage.get('bundle_lineage_summary')).get('bundle_count')}")
+        print(f"support_{domain}_lineage_missing_bundle_count={_safe_dict(item_artifact_lineage.get('bundle_lineage_summary')).get('missing_bundle_count')}")
+        print(f"support_{domain}_lineage_dispatch_state={_safe_dict(item_artifact_lineage.get('what_user_received')).get('dispatch_state')}")
+        print(f"support_{domain}_lineage_provider_message_id={_safe_dict(item_artifact_lineage.get('what_user_received')).get('provider_message_id')}")
         print(f"support_{domain}_llm_lineage_status={item_lineage.get('status')}")
         print(f"support_{domain}_llm_lineage_summary={item_lineage.get('summary_line')}")
         print(f"support_{domain}_llm_models={','.join(item_lineage.get('models') or [])}")
@@ -191,6 +238,10 @@ def _print_text(payload: dict[str, Any]) -> None:
             f"support_{domain}_qa_axes_attention="
             + ",".join(_safe_dict(_safe_dict(qa_axes_summary.get('support')).get(domain)).get('axes_with_attention') or [])
         )
+    print(f"fleet_artifact_lineage_bundle_count={artifact_lineage_aggregate.get('bundle_count')}")
+    print(f"fleet_artifact_lineage_missing_bundle_count={artifact_lineage_aggregate.get('missing_bundle_count')}")
+    print(f"fleet_artifact_lineage_dispatches_sent={artifact_lineage_aggregate.get('dispatch_succeeded_count')}")
+    print(f"fleet_artifact_lineage_dispatches_failed={artifact_lineage_aggregate.get('dispatch_failed_count')}")
     print(f"fleet_llm_lineage_status={lineage_aggregate.get('overall_status')}")
     print(f"fleet_llm_attention_subjects={','.join(lineage_aggregate.get('attention_subjects') or [])}")
     print(f"fleet_llm_reported_subject_count={lineage_aggregate.get('reported_subject_count')}")

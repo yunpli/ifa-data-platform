@@ -148,6 +148,10 @@ def test_artifact_row_projects_canonical_lifecycle_fields() -> None:
         "qa_score": 94,
         "blocker_count": 0,
         "warning_count": 2,
+        "bundle_count": None,
+        "missing_bundle_count": None,
+        "dispatch_state": None,
+        "provider_message_id": None,
     }
 
 
@@ -195,6 +199,10 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "package_index_path": "/tmp/pkg/package_index.json",
                 "delivery_zip_path": "/tmp/pkg.zip",
             },
+            "artifact_lineage": {
+                "bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 1, "slots": ["early", "late"], "section_keys": ["pre_open_main", "post_close_main"]},
+                "what_user_received": {"dispatch_state": "dispatch_succeeded", "channel": "telegram_document", "provider_message_id": "tg-42", "sent_at": "2099-04-22T10:00:03Z", "error": None},
+            },
             "llm_lineage_summary": {
                 "status": "degraded",
                 "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late | models=gemini31_pro_jmr,grok41_thinking | tokens=579 | usage=2 | unpriced=2]",
@@ -223,6 +231,7 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "selected_handoff": {"selected_is_current": False},
                 "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
                 "review_summary": {"qa_score": 94, "blocker_count": 0, "warning_count": 2},
+                "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 2, "missing_bundle_count": 1}, "what_user_received": {"dispatch_state": "dispatch_succeeded", "provider_message_id": "tg-42"}},
             },
             {
                 "artifact": {"artifact_id": "artifact-old", "status": "superseded"},
@@ -230,6 +239,7 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "selected_handoff": {"selected_is_current": True},
                 "canonical_lifecycle": {"state": "superseded", "reason": "artifact_status_superseded"},
                 "review_summary": {"qa_score": 92, "blocker_count": 0, "warning_count": 0},
+                "artifact_lineage": {"bundle_lineage_summary": {"bundle_count": 1, "missing_bundle_count": 0}, "what_user_received": {"dispatch_state": "dispatch_failed", "provider_message_id": "tg-41"}},
             },
         ],
     }
@@ -253,6 +263,15 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "selection_reason=best_ready_candidate strongest_slot=late qa_score=94" in output
     assert "dispatch_selected_artifact_id=artifact-selected" in output
     assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
+    assert "lineage_bundle_count=2" in output
+    assert "lineage_missing_bundle_count=1" in output
+    assert "lineage_bundle_slots=early,late" in output
+    assert "lineage_bundle_section_keys=pre_open_main,post_close_main" in output
+    assert "lineage_dispatch_state=dispatch_succeeded" in output
+    assert "lineage_dispatch_channel=telegram_document" in output
+    assert "lineage_provider_message_id=tg-42" in output
+    assert "lineage_sent_at=2099-04-22T10:00:03Z" in output
+    assert "lineage_dispatch_error=None" in output
     assert "llm_lineage_status=degraded" in output
     assert "llm_models=gemini31_pro_jmr,grok41_thinking" in output
     assert "llm_total_tokens=579" in output
@@ -268,9 +287,17 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "history_1_artifact_id=artifact-active" in output
     assert "history_1_canonical_lifecycle_state=review_ready" in output
     assert "history_1_canonical_lifecycle_reason=manual_review_required" in output
+    assert "history_1_bundle_count=2" in output
+    assert "history_1_missing_bundle_count=1" in output
+    assert "history_1_dispatch_state=dispatch_succeeded" in output
+    assert "history_1_provider_message_id=tg-42" in output
     assert "history_2_artifact_id=artifact-old" in output
     assert "history_2_canonical_lifecycle_state=superseded" in output
     assert "history_2_canonical_lifecycle_reason=artifact_status_superseded" in output
+    assert "history_2_bundle_count=1" in output
+    assert "history_2_missing_bundle_count=0" in output
+    assert "history_2_dispatch_state=dispatch_failed" in output
+    assert "history_2_provider_message_id=tg-41" in output
 
 
 def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
@@ -287,6 +314,9 @@ def test_build_status_payload_includes_resolution_metadata(monkeypatch) -> None:
 
         def list_report_operator_review_surfaces(self, **_: object) -> list[dict]:
             return []
+
+        def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
+            return {"artifact": surface.get("artifact")}
 
     monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
 
@@ -378,6 +408,9 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
 
         def list_report_operator_review_surfaces(self, **_: object) -> list[dict]:
             return []
+
+        def report_artifact_lineage_from_surface(self, surface: dict) -> dict:
+            return {"artifact": surface.get("artifact")}
 
     monkeypatch.setattr(_module, "FSJStore", lambda: _DummyStore())
     monkeypatch.setattr("sys.argv", ["fsj_main_delivery_status.py", "--business-date", "2099-04-22", "--format", "json"])
