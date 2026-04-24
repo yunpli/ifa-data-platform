@@ -90,6 +90,7 @@ class _BoardStore(_DummyStore):
             "status": lineage_status,
             "summary_line": f"{lineage_status} [applied=1/1]",
         }
+        slot_boundary_mode = "same_day_close" if artifact_id == "main-artifact" else "candidate_only"
         return {
             "artifact": handoff["artifact"],
             "selected_handoff": handoff["selected_handoff"],
@@ -99,6 +100,14 @@ class _BoardStore(_DummyStore):
             "package_state": {"package_state": handoff["state"].get("package_state")},
             "workflow_handoff": handoff,
             "llm_lineage_summary": lineage_summary,
+            "llm_role_policy": {
+                "policy_versions": ["fsj_llm_role_policy_v1"],
+                "boundary_modes": [slot_boundary_mode],
+                "deterministic_owner_fields": ["judgment.action"],
+                "forbidden_decisions": ["declare_close_final_confirmation"],
+                "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                "slot_boundary_modes": {"late": slot_boundary_mode},
+            },
             "candidate_comparison": {},
             "operator_go_no_go": {"decision": "GO"},
             "review_manifest": {},
@@ -167,6 +176,21 @@ class _BoardStore(_DummyStore):
                     "attention_subjects": ["support:commodities"],
                 },
             },
+            "llm_role_policy_review": {
+                "main": main_review["llm_role_policy"] if main_review else None,
+                "support": {domain: (review["llm_role_policy"] if review else None) for domain, review in support_reviews.items()},
+                "history": [review["llm_role_policy"] for review in history_reviews],
+                "aggregate": {
+                    "reported_subject_count": 5,
+                    "policy_versions": ["fsj_llm_role_policy_v1"],
+                    "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                    "attention_subjects": ["main", "support:ai_tech", "support:commodities", "support:macro", "history:1"],
+                    "slot_boundary_modes_by_subject": {
+                        "main": {"late": "same_day_close"},
+                        "support:commodities": {"late": "candidate_only"},
+                    },
+                },
+            },
             "board_readiness_summary": {
                 "main": {"subject": "main", "posture": "ready_to_send", "send_ready": True, "review_required": False, "blocked": False, "lineage_attention": False, "needs_attention": False},
                 "support": {
@@ -223,6 +247,9 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["db_candidate_history_summary"][0]["best_candidate_artifact_id"] == "main-artifact"
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
     assert payload["llm_lineage_summary"]["aggregate"]["attention_subjects"] == ["support:commodities"]
+    assert payload["llm_role_policy_review"]["aggregate"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
+    assert payload["llm_role_policy_review"]["aggregate"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
+    assert payload["llm_role_policy_review"]["aggregate"]["slot_boundary_modes_by_subject"]["main"] == {"late": "same_day_close"}
     assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
     assert payload["board_readiness_summary"]["aggregate"]["review_required_subjects"] == ["support:commodities"]
 
@@ -240,10 +267,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     payload = {
         "business_date": "2099-04-22",
         "resolution": {"mode": "explicit_business_date", "business_date": "2099-04-22"},
-        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]"}},
+        "main": {"artifact": {"artifact_id": "main-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]"}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}}},
         "support": {
-            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]"}},
-            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]"}},
+            "ai_tech": {"artifact": {"artifact_id": "ai-tech-artifact"}, "state": {"recommended_action": "send", "workflow_state": "ready_to_send", "package_state": "ready"}, "llm_lineage_summary": {"status": "applied", "summary_line": "applied [applied=1/1]"}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}}},
+            "commodities": {"artifact": {"artifact_id": "commodities-artifact"}, "state": {"recommended_action": "send_review", "workflow_state": "review_required", "package_state": "ready"}, "llm_lineage_summary": {"status": "degraded", "summary_line": "degraded [applied=1/1]"}, "llm_role_policy": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}}},
             "macro": None,
         },
         "history": [{}, {}],
@@ -280,6 +307,19 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             },
             "aggregate": {"overall_status": "degraded", "attention_subjects": ["support:commodities"], "reported_subject_count": 3},
         },
+        "llm_role_policy_review": {
+            "main": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "same_day_close"}},
+            "support": {
+                "ai_tech": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"early": "candidate_only"}},
+                "commodities": {"override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"], "slot_boundary_modes": {"late": "candidate_only"}},
+                "macro": None,
+            },
+            "aggregate": {
+                "policy_versions": ["fsj_llm_role_policy_v1"],
+                "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                "attention_subjects": ["main", "support:ai_tech", "support:commodities"],
+            },
+        },
         "board_readiness_summary": {
             "aggregate": {
                 "overall_posture": "review_required",
@@ -299,11 +339,17 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_artifact_id=main-artifact" in output
     assert "main_recommended_action=send" in output
     assert "main_llm_lineage_status=applied" in output
+    assert "main_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
+    assert "main_llm_slot_boundary_modes=late:same_day_close" in output
     assert "support_ai_tech_artifact_id=ai-tech-artifact" in output
     assert "support_commodities_recommended_action=send_review" in output
     assert "support_commodities_llm_lineage_status=degraded" in output
+    assert "support_commodities_llm_slot_boundary_modes=late:candidate_only" in output
     assert "fleet_llm_lineage_status=degraded" in output
     assert "fleet_llm_attention_subjects=support:commodities" in output
+    assert "fleet_llm_policy_versions=fsj_llm_role_policy_v1" in output
+    assert "fleet_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
+    assert "fleet_llm_attention_policy_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_posture=review_required" in output
     assert "db_candidate_fleet_verdict=review_held" in output
     assert "db_candidate_fleet_reason=review_held_selected_candidate_differs_from_current" in output
@@ -335,7 +381,7 @@ class _ActualBoardStore(FSJStore):
         domain = kwargs["agent_domain"]
         if domain == "main":
             return {
-                "artifact": {"artifact_id": "artifact-current", "report_run_id": "run-current", "business_date": kwargs["business_date"], "status": "active"},
+                "artifact": {"artifact_id": "artifact-current", "report_run_id": "run-current", "business_date": kwargs["business_date"], "status": "active", "metadata_json": {"bundle_ids": ["bundle-late"]}},
                 "delivery_package": {
                     "package_state": "ready",
                     "ready_for_delivery": False,
@@ -367,13 +413,40 @@ class _ActualBoardStore(FSJStore):
                 },
             }
         return {
-            "artifact": {"artifact_id": f"{domain}-artifact", "report_run_id": f"{domain}-run", "business_date": kwargs["business_date"], "status": "active"},
+            "artifact": {"artifact_id": f"{domain}-artifact", "report_run_id": f"{domain}-run", "business_date": kwargs["business_date"], "status": "active", "metadata_json": {"bundle_ids": [f"bundle-{domain}"]}},
             "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 95, "blocker_count": 0, "warning_count": 0}, "workflow": {"recommended_action": "send", "dispatch_recommended_action": "send", "workflow_state": "ready_to_send"}, "artifacts": {}, "slot": "early"},
             "workflow_linkage": {},
         }
 
     def list_report_delivery_surfaces(self, **kwargs: object) -> list[dict]:
         return [self.get_active_report_delivery_surface(**kwargs)]
+
+    def get_bundle_graph(self, bundle_id: str) -> dict | None:
+        boundary_mode = {
+            "bundle-late": "same_day_close",
+            "bundle-ai_tech": "candidate_only",
+            "bundle-commodities": "candidate_only",
+            "bundle-macro": "candidate_only",
+        }.get(bundle_id)
+        if boundary_mode is None:
+            return None
+        return {
+            "bundle": {
+                "bundle_id": bundle_id,
+                "slot": "late" if bundle_id == "bundle-late" else "early",
+                "section_key": bundle_id,
+                "summary": bundle_id,
+                "payload_json": {
+                    "llm_role_policy": {
+                        "policy_version": "fsj_llm_role_policy_v1",
+                        "boundary_mode": boundary_mode,
+                        "deterministic_owner_fields": ["judgment.action"],
+                        "forbidden_decisions": ["declare_close_final_confirmation"],
+                        "override_precedence": ["deterministic_input_contract", "validated_llm_text_fields_only"],
+                    }
+                },
+            }
+        }
 
 
 def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -> None:
@@ -383,6 +456,8 @@ def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -
     assert payload["main"]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["main"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["llm_lineage_summary"]["aggregate"]["overall_status"] == "degraded"
+    assert payload["llm_role_policy_review"]["aggregate"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
+    assert payload["llm_role_policy_review"]["aggregate"]["override_precedence"] == ["deterministic_input_contract", "validated_llm_text_fields_only"]
     assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
     assert payload["support"]["macro"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["history"][0]["artifact"]["artifact_id"] == "main-artifact"

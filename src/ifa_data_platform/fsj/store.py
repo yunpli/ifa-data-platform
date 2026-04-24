@@ -1232,6 +1232,100 @@ class FSJStore:
                 "attention_subjects": attention_subjects,
             }
 
+        def _role_policy_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
+            if not review_surface:
+                return None
+            llm_role_policy = dict(review_surface.get("llm_role_policy") or {})
+            review_summary = dict(review_surface.get("review_summary") or {})
+            slot_boundary_modes = {
+                str(slot): str(mode)
+                for slot, mode in dict(llm_role_policy.get("slot_boundary_modes") or {}).items()
+                if str(slot).strip() and str(mode).strip()
+            }
+            policy_versions = [str(item) for item in (llm_role_policy.get("policy_versions") or []) if str(item).strip()]
+            override_precedence = [str(item) for item in (llm_role_policy.get("override_precedence") or []) if str(item).strip()]
+            deterministic_owner_fields = [
+                str(item) for item in (llm_role_policy.get("deterministic_owner_fields") or []) if str(item).strip()
+            ]
+            forbidden_decisions = [str(item) for item in (llm_role_policy.get("forbidden_decisions") or []) if str(item).strip()]
+            return {
+                "subject": subject,
+                "policy_versions": policy_versions,
+                "boundary_modes": [str(item) for item in (llm_role_policy.get("boundary_modes") or []) if str(item).strip()],
+                "slot_boundary_modes": slot_boundary_modes,
+                "override_precedence": override_precedence,
+                "deterministic_owner_fields": deterministic_owner_fields,
+                "forbidden_decisions": forbidden_decisions,
+                "forbidden_decision_count": len(forbidden_decisions),
+                "llm_lineage_status": review_summary.get("llm_lineage_status"),
+                "llm_lineage_summary": review_summary.get("llm_lineage_summary"),
+            }
+
+        def _aggregate_role_policy_review(subjects: list[dict[str, Any]]) -> dict[str, Any]:
+            present_subjects = [item for item in subjects if item]
+            policy_versions = sorted(
+                {
+                    version
+                    for item in present_subjects
+                    for version in (item.get("policy_versions") or [])
+                    if str(version).strip()
+                }
+            )
+            boundary_modes = sorted(
+                {
+                    mode
+                    for item in present_subjects
+                    for mode in (item.get("boundary_modes") or [])
+                    if str(mode).strip()
+                }
+            )
+            deterministic_owner_fields = sorted(
+                {
+                    field
+                    for item in present_subjects
+                    for field in (item.get("deterministic_owner_fields") or [])
+                    if str(field).strip()
+                }
+            )
+            forbidden_decisions = sorted(
+                {
+                    field
+                    for item in present_subjects
+                    for field in (item.get("forbidden_decisions") or [])
+                    if str(field).strip()
+                }
+            )
+            override_precedence = next(
+                (
+                    list(item.get("override_precedence") or [])
+                    for item in present_subjects
+                    if list(item.get("override_precedence") or [])
+                ),
+                [],
+            )
+            slot_boundary_modes_by_subject = {
+                str(item.get("subject")): dict(item.get("slot_boundary_modes") or {})
+                for item in present_subjects
+                if dict(item.get("slot_boundary_modes") or {})
+            }
+            attention_subjects = [
+                str(item.get("subject"))
+                for item in present_subjects
+                if dict(item.get("slot_boundary_modes") or {}) or list(item.get("override_precedence") or [])
+            ]
+            return {
+                "subject_count": len(subjects),
+                "reported_subject_count": len(present_subjects),
+                "policy_versions": policy_versions,
+                "boundary_modes": boundary_modes,
+                "deterministic_owner_fields": deterministic_owner_fields,
+                "forbidden_decisions": forbidden_decisions,
+                "forbidden_decision_count": len(forbidden_decisions),
+                "override_precedence": override_precedence,
+                "slot_boundary_modes_by_subject": slot_boundary_modes_by_subject,
+                "attention_subjects": attention_subjects,
+            }
+
         def _readiness_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
             if not review_surface:
                 return None
@@ -1564,6 +1658,15 @@ class FSJStore:
         main_lineage = _lineage_summary(main_review)
         support_lineage = {domain: _lineage_summary(review) for domain, review in support_reviews.items()}
         history_lineage = [_lineage_summary(review) for review in history_reviews]
+        main_role_policy = _role_policy_subject(main_review, subject="main")
+        support_role_policy = {
+            domain: _role_policy_subject(review, subject=f"support:{domain}")
+            for domain, review in support_reviews.items()
+        }
+        history_role_policy = [
+            _role_policy_subject(review, subject=f"history:{index}")
+            for index, review in enumerate(history_reviews, start=1)
+        ]
         lineage_subjects = [
             item
             for item in [
@@ -1608,6 +1711,22 @@ class FSJStore:
                 "support": support_lineage,
                 "history": history_lineage,
                 "aggregate": _aggregate_lineage_status(lineage_subjects),
+            },
+            "llm_role_policy_review": {
+                "main": main_role_policy,
+                "support": support_role_policy,
+                "history": history_role_policy,
+                "aggregate": _aggregate_role_policy_review(
+                    [
+                        item
+                        for item in [
+                            main_role_policy,
+                            *support_role_policy.values(),
+                            *history_role_policy,
+                        ]
+                        if item
+                    ]
+                ),
             },
             "board_readiness_summary": {
                 "main": readiness_main,

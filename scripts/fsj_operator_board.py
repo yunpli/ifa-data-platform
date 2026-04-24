@@ -83,6 +83,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     resolution = _safe_dict(payload.get("resolution"))
     lineage = _safe_dict(payload.get("llm_lineage_summary"))
     lineage_aggregate = _safe_dict(lineage.get("aggregate"))
+    role_policy = _safe_dict(payload.get("llm_role_policy_review"))
+    role_policy_aggregate = _safe_dict(role_policy.get("aggregate"))
     board_readiness = _safe_dict(payload.get("board_readiness_summary"))
     board_aggregate = _safe_dict(board_readiness.get("aggregate"))
     db_candidate_fleet = _safe_dict(payload.get("db_candidate_fleet_summary"))
@@ -102,6 +104,12 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_package_state={_safe_dict(main.get('state')).get('package_state')}")
         print(f"main_llm_lineage_status={main_lineage.get('status')}")
         print(f"main_llm_lineage_summary={main_lineage.get('summary_line')}")
+        main_role_policy = _safe_dict(main.get('llm_role_policy') or _safe_dict(role_policy.get('main')))
+        print(f"main_llm_override_precedence={'>'.join(main_role_policy.get('override_precedence') or [])}")
+        print(
+            "main_llm_slot_boundary_modes="
+            + ",".join(f"{slot}:{mode}" for slot, mode in sorted((_safe_dict(main_role_policy.get('slot_boundary_modes'))).items()))
+        )
     else:
         print("main_artifact=NONE")
     support_lineage = _safe_dict(lineage.get("support"))
@@ -118,9 +126,18 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"support_{domain}_package_state={state.get('package_state')}")
         print(f"support_{domain}_llm_lineage_status={item_lineage.get('status')}")
         print(f"support_{domain}_llm_lineage_summary={item_lineage.get('summary_line')}")
+        item_role_policy = _safe_dict(item.get('llm_role_policy') or _safe_dict(_safe_dict(role_policy.get('support')).get(domain)))
+        print(f"support_{domain}_llm_override_precedence={'>'.join(item_role_policy.get('override_precedence') or [])}")
+        print(
+            f"support_{domain}_llm_slot_boundary_modes="
+            + ",".join(f"{slot}:{mode}" for slot, mode in sorted((_safe_dict(item_role_policy.get('slot_boundary_modes'))).items()))
+        )
     print(f"fleet_llm_lineage_status={lineage_aggregate.get('overall_status')}")
     print(f"fleet_llm_attention_subjects={','.join(lineage_aggregate.get('attention_subjects') or [])}")
     print(f"fleet_llm_reported_subject_count={lineage_aggregate.get('reported_subject_count')}")
+    print(f"fleet_llm_policy_versions={','.join(role_policy_aggregate.get('policy_versions') or [])}")
+    print(f"fleet_llm_override_precedence={'>'.join(role_policy_aggregate.get('override_precedence') or [])}")
+    print(f"fleet_llm_attention_policy_subjects={','.join(role_policy_aggregate.get('attention_subjects') or [])}")
     print(f"fleet_board_posture={board_aggregate.get('overall_posture')}")
     print(f"db_candidate_fleet_verdict={db_candidate_fleet.get('verdict')}")
     print(f"db_candidate_fleet_reason={db_candidate_fleet.get('reason_code')}")
