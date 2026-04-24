@@ -2955,6 +2955,7 @@ class FSJStore:
             *,
             subject: str,
             history_index: int | None = None,
+            rerun_compare_summary: dict[str, Any] | None = None,
         ) -> dict[str, Any] | None:
             normalized = dict(readiness or {})
             if not normalized:
@@ -3010,12 +3011,16 @@ class FSJStore:
                 missing_bundle_count=missing_bundle_count,
             )
             transition_integrity = dict(normalized.get("transition_integrity") or {})
+            rerun_compare = dict(rerun_compare_summary or {})
+            rerun_outcome = str(rerun_compare.get("rerun_outcome") or "").strip() or None
             summary_parts = [
                 f"{subject}",
                 f"status={semantic_status or '-'}",
                 f"canonical={canonical_state or '-'}",
                 f"action={next_action or '-'}",
             ]
+            if rerun_outcome:
+                summary_parts.append(f"rerun_outcome={rerun_outcome}")
             if failure_taxonomy.get("class") not in {None, "", "none"}:
                 summary_parts.append(f"failure_taxonomy={failure_taxonomy.get('class')}")
             if blocking_reason:
@@ -3053,6 +3058,10 @@ class FSJStore:
                 "governance_action_required": bool(normalized.get("governance_action_required")),
                 "needs_attention": bool(normalized.get("needs_attention")),
                 "lineage_sla_summary": " | ".join(lineage_sla_summary_parts),
+                "rerun_compare_outcome": rerun_compare.get("compare_outcome"),
+                "rerun_outcome": rerun_outcome,
+                "rerun_outcome_summary": rerun_compare.get("rerun_outcome_summary"),
+                "rerun_operator_action": rerun_compare.get("operator_action"),
                 "failure_taxonomy": failure_taxonomy,
                 "failure_taxonomy_class": failure_taxonomy.get("class"),
                 "failure_taxonomy_reason": failure_taxonomy.get("reason"),
@@ -3066,11 +3075,13 @@ class FSJStore:
             dispatch_state_counts: dict[str, int] = {}
             strongest_slot_counts: dict[str, int] = {}
             failure_taxonomy_counts: dict[str, int] = {}
+            rerun_outcome_counts: dict[str, int] = {}
             blocked_subjects: list[str] = []
             next_action_subjects: list[str] = []
             selected_mismatch_subjects: list[str] = []
             missing_bundle_subjects: list[str] = []
             failure_taxonomy_subjects: dict[str, list[str]] = {}
+            rerun_outcome_subjects: dict[str, list[str]] = {}
             for row in present_rows:
                 semantic = str(row.get("status_semantic") or "").strip()
                 if semantic:
@@ -3081,6 +3092,10 @@ class FSJStore:
                 strongest_slot = str(row.get("strongest_slot") or "").strip()
                 if strongest_slot:
                     strongest_slot_counts[strongest_slot] = strongest_slot_counts.get(strongest_slot, 0) + 1
+                rerun_outcome = str(row.get("rerun_outcome") or "").strip()
+                if rerun_outcome:
+                    rerun_outcome_counts[rerun_outcome] = rerun_outcome_counts.get(rerun_outcome, 0) + 1
+                    rerun_outcome_subjects.setdefault(rerun_outcome, []).append(str(row.get("subject") or ""))
                 failure_taxonomy_class = str(row.get("failure_taxonomy_class") or "").strip()
                 if failure_taxonomy_class and failure_taxonomy_class != "none":
                     failure_taxonomy_counts[failure_taxonomy_class] = failure_taxonomy_counts.get(failure_taxonomy_class, 0) + 1
@@ -3099,7 +3114,9 @@ class FSJStore:
                 "dispatch_state_counts": dispatch_state_counts,
                 "strongest_slot_counts": strongest_slot_counts,
                 "failure_taxonomy_counts": failure_taxonomy_counts,
+                "rerun_outcome_counts": rerun_outcome_counts,
                 "failure_taxonomy_subjects": failure_taxonomy_subjects,
+                "rerun_outcome_subjects": rerun_outcome_subjects,
                 "subjects_with_blocking_reason": blocked_subjects,
                 "subjects_with_next_action": next_action_subjects,
                 "selected_mismatch_subjects": selected_mismatch_subjects,
@@ -3315,7 +3332,23 @@ class FSJStore:
             domain: _board_source_subject(review, subject=f"support:{domain}")
             for domain, review in support_reviews.items()
         }
-        board_rows_main = _operator_board_row(readiness_main, main_review, main_artifact_lineage, subject="main")
+        db_candidate_summaries = [helper.summarize_candidate(candidate) for candidate in db_candidate_rows]
+        db_candidate_fleet_summary = _summarize_db_candidate_alignment(
+            main_review,
+            db_candidate_summaries,
+            subject="main",
+        )
+        db_candidate_history_summary = _summarize_db_candidate_history(
+            history_reviews,
+            db_candidate_summaries,
+        )
+        board_rows_main = _operator_board_row(
+            readiness_main,
+            main_review,
+            main_artifact_lineage,
+            subject="main",
+            rerun_compare_summary=db_candidate_fleet_summary,
+        )
         board_rows_support = {
             domain: _operator_board_row(readiness, support_reviews.get(domain), support_artifact_lineage.get(domain), subject=f"support:{domain}")
             for domain, readiness in readiness_support.items()
@@ -3327,6 +3360,7 @@ class FSJStore:
                 history_artifact_lineage[index - 1] if index - 1 < len(history_artifact_lineage) else None,
                 subject=f"history:{index}",
                 history_index=index,
+                rerun_compare_summary=db_candidate_history_summary[index - 1] if index - 1 < len(db_candidate_history_summary) else None,
             )
             for index, review in enumerate(history_reviews, start=1)
         ]
@@ -3344,16 +3378,9 @@ class FSJStore:
             "history_packages": [self.report_package_surface_from_surface(s) for s in history],
             "history_reviews": history_reviews,
             "history_workflow": [self.report_workflow_handoff_from_surface(s) for s in history],
-            "db_candidates": [helper.summarize_candidate(c) for c in db_candidate_rows],
-            "db_candidate_fleet_summary": _summarize_db_candidate_alignment(
-                main_review,
-                [helper.summarize_candidate(candidate) for candidate in db_candidate_rows],
-                subject="main",
-            ),
-            "db_candidate_history_summary": _summarize_db_candidate_history(
-                history_reviews,
-                [helper.summarize_candidate(candidate) for candidate in db_candidate_rows],
-            ),
+            "db_candidates": db_candidate_summaries,
+            "db_candidate_fleet_summary": db_candidate_fleet_summary,
+            "db_candidate_history_summary": db_candidate_history_summary,
             "llm_lineage_summary": {
                 "main": main_lineage,
                 "support": support_lineage,
@@ -3385,7 +3412,7 @@ class FSJStore:
                 "main": board_rows_main,
                 "support": board_rows_support,
                 "history": board_rows_history,
-                "aggregate": _aggregate_operator_rows([item for item in [board_rows_main, *board_rows_support.values()] if item]),
+                "aggregate": _aggregate_operator_rows([item for item in [board_rows_main, *board_rows_support.values(), *board_rows_history] if item]),
             },
             "board_state_source_summary": {
                 "main": board_source_main,

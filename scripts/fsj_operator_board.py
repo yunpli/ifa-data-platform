@@ -206,6 +206,10 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"main_board_bundle_count={main_board_row.get('bundle_count')}")
         print(f"main_board_missing_bundle_count={main_board_row.get('missing_bundle_count')}")
         print(f"main_board_lineage_sla_summary={main_board_row.get('lineage_sla_summary')}")
+        print(f"main_board_rerun_compare_outcome={main_board_row.get('rerun_compare_outcome')}")
+        print(f"main_board_rerun_outcome={main_board_row.get('rerun_outcome')}")
+        print(f"main_board_rerun_outcome_summary={main_board_row.get('rerun_outcome_summary')}")
+        print(f"main_board_rerun_operator_action={main_board_row.get('rerun_operator_action')}")
         print(f"main_board_failure_taxonomy_class={main_board_row.get('failure_taxonomy_class')}")
         print(f"main_board_failure_taxonomy_reason={main_board_row.get('failure_taxonomy_reason')}")
         print(f"main_board_failure_taxonomy_summary={main_board_row.get('failure_taxonomy_summary')}")
@@ -422,6 +426,14 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"fleet_board_blocking_reason_subjects={','.join(board_rows_aggregate.get('subjects_with_blocking_reason') or [])}")
     print(f"fleet_board_selected_mismatch_subjects={','.join(board_rows_aggregate.get('selected_mismatch_subjects') or [])}")
     print(f"fleet_board_missing_bundle_subjects={','.join(board_rows_aggregate.get('subjects_with_missing_bundles') or [])}")
+    print(
+        "fleet_board_rerun_outcome_counts="
+        + ",".join(
+            f"{state}:{count}" for state, count in sorted(_safe_dict(board_rows_aggregate.get('rerun_outcome_counts')).items())
+        )
+    )
+    for rerun_outcome, subjects in sorted(_safe_dict(board_rows_aggregate.get('rerun_outcome_subjects')).items()):
+        print(f"fleet_board_rerun_outcome_subjects_{rerun_outcome}={','.join(subjects or [])}")
     for taxonomy_class, subjects in sorted(_safe_dict(board_rows_aggregate.get('failure_taxonomy_subjects')).items()):
         print(f"fleet_board_failure_taxonomy_subjects_{taxonomy_class}={','.join(subjects or [])}")
     print(
@@ -471,6 +483,10 @@ def _print_text(payload: dict[str, Any]) -> None:
         print(f"board_history_1_bundle_count={first_board_history.get('bundle_count')}")
         print(f"board_history_1_missing_bundle_count={first_board_history.get('missing_bundle_count')}")
         print(f"board_history_1_lineage_sla_summary={first_board_history.get('lineage_sla_summary')}")
+        print(f"board_history_1_rerun_compare_outcome={first_board_history.get('rerun_compare_outcome')}")
+        print(f"board_history_1_rerun_outcome={first_board_history.get('rerun_outcome')}")
+        print(f"board_history_1_rerun_outcome_summary={first_board_history.get('rerun_outcome_summary')}")
+        print(f"board_history_1_rerun_operator_action={first_board_history.get('rerun_operator_action')}")
         print(f"board_history_1_failure_taxonomy_class={first_board_history.get('failure_taxonomy_class')}")
         print(f"board_history_1_failure_taxonomy_reason={first_board_history.get('failure_taxonomy_reason')}")
         print(f"board_history_1_failure_taxonomy_summary={first_board_history.get('failure_taxonomy_summary')}")

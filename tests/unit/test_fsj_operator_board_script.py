@@ -460,10 +460,10 @@ def test_build_board_payload_includes_drift_summary_lines(monkeypatch) -> None:
     payload = _build_board_payload(business_date="2099-04-22", history_limit=2)
 
     assert payload["drift_summary_lines"] == {
-        "main": "7d drift main: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
-        "support:ai_tech": "7d drift support:ai_tech: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
-        "support:commodities": "7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1",
-        "support:macro": "7d drift support:macro: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1",
+        "main": "7d drift main: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 | recent hold_streak=1",
+        "support:ai_tech": "7d drift support:ai_tech: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 | recent hold_streak=1",
+        "support:commodities": "7d drift support:commodities: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 1/1 | recent hold_streak=1; qa_attn_streak=1",
+        "support:macro": "7d drift support:macro: hold 1/1 | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 | recent hold_streak=1",
     }
     assert payload["fleet_drift_digest"] == {
         "window_days": 7,
@@ -620,16 +620,16 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             },
         },
         "board_rows": {
-            "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy_class": "none", "failure_taxonomy_reason": None, "failure_taxonomy_summary": "none | no failure taxonomy attention currently projected", "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
+            "main": {"subject": "main", "artifact_id": "main-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "main-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "rerun_compare_outcome": "rerun_candidate_held_for_review", "rerun_outcome": "hold", "rerun_outcome_summary": "hold | current=main-artifact | selected=main-artifact-v2 | best=main-artifact-v2 | action=review_selected_candidate_before_supersede", "rerun_operator_action": "review_selected_candidate_before_supersede", "failure_taxonomy_class": "none", "failure_taxonomy_reason": None, "failure_taxonomy_summary": "none | no failure taxonomy attention currently projected", "summary_line": "main | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel | rerun_outcome=hold"},
             "support": {
                 "ai_tech": {"subject": "support:ai_tech", "artifact_id": "ai-tech-artifact", "status_semantic": "ready", "canonical_lifecycle_state": "send_ready", "next_action": "send_selected_package_to_primary_channel", "blocking_reason": None, "selected_artifact_id": "ai-tech-artifact", "selected_is_current": True, "strongest_slot": "early", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_succeeded", "bundle_count": 1, "missing_bundle_count": 0, "lineage_sla_summary": "selected=ai-tech-artifact | slot=early | bundles=1 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00", "summary_line": "support:ai_tech | status=ready | canonical=send_ready | action=send_selected_package_to_primary_channel"},
                 "commodities": {"subject": "support:commodities", "artifact_id": "commodities-artifact", "status_semantic": "review", "canonical_lifecycle_state": "review_ready", "next_action": "review_current_package_then_send_if_accepted", "blocking_reason": "bundle_missing", "selected_artifact_id": "commodities-artifact", "selected_is_current": True, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 1, "missing_bundle_count": 1, "lineage_sla_summary": "selected=commodities-artifact | slot=late | bundles=1 | missing=1 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy_class": "hold_review", "failure_taxonomy_reason": "bundle_missing", "failure_taxonomy_summary": "hold_review | operator intervention or review remains required", "summary_line": "support:commodities | status=review | canonical=review_ready | action=review_current_package_then_send_if_accepted | blocker=bundle_missing"},
                 "macro": None,
             },
             "history": [
-                {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "held", "canonical_lifecycle_state": "failed", "next_action": None, "blocking_reason": "dispatch_receipt_failed", "selected_artifact_id": "main-artifact-v2", "selected_is_current": False, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact-v2 | slot=late | bundles=2 | missing=0 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "failure_taxonomy_class": "hold_review", "failure_taxonomy_reason": "dispatch_receipt_failed", "failure_taxonomy_summary": "hold_review | operator intervention or review remains required", "summary_line": "history:1 | status=held | canonical=failed | action=- | failure_taxonomy=hold_review | blocker=dispatch_receipt_failed"}
+                {"subject": "history:1", "history_index": 1, "artifact_id": "main-artifact", "status_semantic": "held", "canonical_lifecycle_state": "failed", "next_action": None, "blocking_reason": "dispatch_receipt_failed", "selected_artifact_id": "main-artifact-v2", "selected_is_current": False, "strongest_slot": "late", "generated_at_utc": "2099-04-22T10:00:00+00:00", "dispatch_state": "dispatch_failed", "bundle_count": 2, "missing_bundle_count": 0, "lineage_sla_summary": "selected=main-artifact-v2 | slot=late | bundles=2 | missing=0 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00", "rerun_compare_outcome": "supersede_candidate_available", "rerun_outcome": "supersede", "rerun_outcome_summary": "supersede | current=main-artifact | selected=main-artifact-v2 | best=main-artifact-v2 | action=review_and_promote_selected_candidate", "rerun_operator_action": "review_and_promote_selected_candidate", "failure_taxonomy_class": "hold_review", "failure_taxonomy_reason": "dispatch_receipt_failed", "failure_taxonomy_summary": "hold_review | operator intervention or review remains required", "summary_line": "history:1 | status=held | canonical=failed | action=- | rerun_outcome=supersede | failure_taxonomy=hold_review | blocker=dispatch_receipt_failed"}
             ],
-            "aggregate": {"reported_subject_count": 3, "status_semantic_counts": {"ready": 2, "review": 1}, "dispatch_state_counts": {"dispatch_failed": 1, "dispatch_succeeded": 2}, "strongest_slot_counts": {"early": 1, "late": 2}, "failure_taxonomy_counts": {"hold_review": 2}, "failure_taxonomy_subjects": {"hold_review": ["support:commodities", "history:1"]}, "subjects_with_blocking_reason": ["support:commodities"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities"], "selected_mismatch_subjects": ["history:1"], "subjects_with_missing_bundles": ["support:commodities"]},
+            "aggregate": {"reported_subject_count": 4, "status_semantic_counts": {"held": 1, "ready": 2, "review": 1}, "dispatch_state_counts": {"dispatch_failed": 2, "dispatch_succeeded": 2}, "strongest_slot_counts": {"early": 1, "late": 3}, "failure_taxonomy_counts": {"hold_review": 2}, "rerun_outcome_counts": {"hold": 1, "supersede": 1}, "failure_taxonomy_subjects": {"hold_review": ["support:commodities", "history:1"]}, "rerun_outcome_subjects": {"hold": ["main"], "supersede": ["history:1"]}, "subjects_with_blocking_reason": ["support:commodities", "history:1"], "subjects_with_next_action": ["main", "support:ai_tech", "support:commodities"], "selected_mismatch_subjects": ["history:1"], "subjects_with_missing_bundles": ["support:commodities"]},
         },
         "board_state_source_summary": {
             "main": {"subject": "main", "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff", "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step", "blocking_reason_source_of_truth": None, "summary_line": "state=send_ready via ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff | next_action via ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"},
@@ -725,6 +725,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "main_board_bundle_count=2" in output
     assert "main_board_missing_bundle_count=0" in output
     assert "main_board_lineage_sla_summary=selected=main-artifact | slot=late | bundles=2 | missing=0 | dispatch=dispatch_succeeded | generated=2099-04-22T10:00:00+00:00" in output
+    assert "main_board_rerun_compare_outcome=rerun_candidate_held_for_review" in output
+    assert "main_board_rerun_outcome=hold" in output
+    assert "main_board_rerun_outcome_summary=hold | current=main-artifact | selected=main-artifact-v2 | best=main-artifact-v2 | action=review_selected_candidate_before_supersede" in output
+    assert "main_board_rerun_operator_action=review_selected_candidate_before_supersede" in output
     assert "main_board_failure_taxonomy_class=none" in output
     assert "main_board_failure_taxonomy_reason=None" in output
     assert "main_board_failure_taxonomy_summary=none | no failure taxonomy attention currently projected" in output
@@ -810,15 +814,18 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_source_health_blocked_subjects=" in output
     assert "fleet_source_health_degraded_subjects=support:commodities" in output
     assert "fleet_canonical_lifecycle_state_counts=review_ready:1,send_ready:2" in output
-    assert "fleet_board_status_counts=ready:2,review:1" in output
-    assert "fleet_board_dispatch_state_counts=dispatch_failed:1,dispatch_succeeded:2" in output
-    assert "fleet_board_strongest_slot_counts=early:1,late:2" in output
+    assert "fleet_board_status_counts=held:1,ready:2,review:1" in output
+    assert "fleet_board_dispatch_state_counts=dispatch_failed:2,dispatch_succeeded:2" in output
+    assert "fleet_board_strongest_slot_counts=early:1,late:3" in output
     assert "fleet_board_failure_taxonomy_counts=hold_review:2" in output
     assert "fleet_board_failure_taxonomy_subjects_hold_review=support:commodities,history:1" in output
     assert "fleet_board_next_action_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_blocking_reason_subjects=support:commodities" in output
     assert "fleet_board_selected_mismatch_subjects=history:1" in output
     assert "fleet_board_missing_bundle_subjects=support:commodities" in output
+    assert "fleet_board_rerun_outcome_counts=hold:1,supersede:1" in output
+    assert "fleet_board_rerun_outcome_subjects_hold=main" in output
+    assert "fleet_board_rerun_outcome_subjects_supersede=history:1" in output
     assert "fleet_board_state_source_counts=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff:3" in output
     assert "fleet_board_blocking_reason_source_subjects=support:commodities" in output
     assert "fleet_drift_digest_line=7d fleet drift: main hold 1/1 (1 scope) | fallback 0/1 | mismatch 0/1 | qa_attn 0/1 || support hold 3/3 (3 scope) | fallback 0/3 | mismatch 0/3 | qa_attn 1/3" in output
@@ -863,10 +870,14 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "board_history_1_bundle_count=2" in output
     assert "board_history_1_missing_bundle_count=0" in output
     assert "board_history_1_lineage_sla_summary=selected=main-artifact-v2 | slot=late | bundles=2 | missing=0 | dispatch=dispatch_failed | generated=2099-04-22T10:00:00+00:00" in output
+    assert "board_history_1_rerun_compare_outcome=supersede_candidate_available" in output
+    assert "board_history_1_rerun_outcome=supersede" in output
+    assert "board_history_1_rerun_outcome_summary=supersede | current=main-artifact | selected=main-artifact-v2 | best=main-artifact-v2 | action=review_and_promote_selected_candidate" in output
+    assert "board_history_1_rerun_operator_action=review_and_promote_selected_candidate" in output
     assert "board_history_1_failure_taxonomy_class=hold_review" in output
     assert "board_history_1_failure_taxonomy_reason=dispatch_receipt_failed" in output
     assert "board_history_1_failure_taxonomy_summary=hold_review | operator intervention or review remains required" in output
-    assert "board_history_1_summary=history:1 | status=held | canonical=failed | action=- | failure_taxonomy=hold_review | blocker=dispatch_receipt_failed" in output
+    assert "board_history_1_summary=history:1 | status=held | canonical=failed | action=- | rerun_outcome=supersede | failure_taxonomy=hold_review | blocker=dispatch_receipt_failed" in output
     assert "db_candidate_history_count=1" in output
     assert "db_candidate_history_1_subject=history:1" in output
     assert "db_candidate_history_1_reason=better_ready_candidate_selected_current_outdated" in output
@@ -1031,7 +1042,11 @@ def test_store_build_operator_board_surface_projects_review_held_db_candidate_su
     assert payload["db_candidate_history_summary"][0]["dispatch_state"] == "dispatch_failed"
     assert payload["board_rows"]["main"]["status_semantic"] == "held"
     assert payload["board_rows"]["main"]["blocking_reason"] == "dispatch_receipt_without_sendable_workflow"
+    assert payload["board_rows"]["main"]["rerun_outcome"] == "hold"
+    assert payload["board_rows"]["main"]["rerun_compare_outcome"] == "rerun_candidate_held_for_review"
     assert payload["board_rows"]["history"][0]["status_semantic"] == "held"
+    assert payload["board_rows"]["history"][0]["rerun_outcome"] == "hold"
+    assert payload["board_rows"]["aggregate"]["rerun_outcome_counts"] == {"hold": 2}
     assert payload["db_candidate_history_summary"][0]["dispatch_receipt_channel"] == "telegram_document"
     assert payload["db_candidate_history_summary"][0]["dispatch_receipt_error"] == "429 rate limit"
 
@@ -1088,6 +1103,9 @@ def test_store_build_operator_board_surface_projects_better_ready_candidate_mism
     assert payload["db_candidate_history_summary"][0]["verdict"] == "mismatch"
     assert payload["db_candidate_history_summary"][0]["reason_code"] == "selection_state_diverged_from_best_ready_candidate"
     assert payload["db_candidate_history_summary"][0]["best_candidate_artifact_id"] == "artifact-ready-better"
+    assert payload["board_rows"]["main"]["rerun_outcome"] == "replace"
+    assert payload["board_rows"]["history"][0]["rerun_outcome"] == "replace"
+    assert payload["board_rows"]["aggregate"]["rerun_outcome_counts"] == {"replace": 2}
 
 
 @pytest.mark.parametrize("database_url,expected_error", [(None, "DATABASE_URL must be set explicitly"), (LIVE_DB_URL, "canonical/live DB")])
