@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.store import FSJStore
 
 _VALID_SLOT_KEYS = {"early", "mid", "late"}
@@ -56,6 +57,7 @@ def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: st
 
 def build_status_payload(*, business_date: str, history_limit: int = 5, resolution: dict[str, Any] | None = None) -> dict[str, Any]:
     store = FSJStore()
+    helper = MainReportDeliveryDispatchHelper()
     active_surface = store.get_active_report_operator_review_surface(
         business_date=business_date,
         agent_domain="main",
@@ -68,11 +70,21 @@ def build_status_payload(*, business_date: str, history_limit: int = 5, resoluti
         statuses=["active", "superseded"],
         limit=history_limit,
     )
+    db_candidates = helper.list_db_delivery_candidates(
+        business_date=business_date,
+        store=store,
+        limit=history_limit,
+    )
+    active_summary = _surface_summary(active_surface) if active_surface else None
+    history_summaries = [_surface_summary(surface) for surface in history_surfaces]
     return {
         "business_date": business_date,
         "resolution": dict(resolution or {"mode": "explicit_business_date", "business_date": business_date}),
-        "active_surface": _surface_summary(active_surface) if active_surface else None,
-        "history": [_surface_summary(surface) for surface in history_surfaces],
+        "active_surface": active_summary,
+        "history": history_summaries,
+        "db_candidates": db_candidates,
+        "db_candidate_alignment_summary": store.summarize_db_candidate_alignment(active_summary, db_candidates, subject="main") if active_summary else None,
+        "db_candidate_history_summary": store.summarize_db_candidate_history(history_summaries, db_candidates),
     }
 
 
@@ -123,6 +135,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     bundle_summary = _safe_dict(artifact_lineage.get("bundle_lineage_summary"))
     received = _safe_dict(artifact_lineage.get("what_user_received"))
     history_rows = [_artifact_row(item) for item in (payload.get("history") or [])]
+    db_candidate_alignment = _safe_dict(payload.get("db_candidate_alignment_summary"))
+    db_candidate_history = [_safe_dict(item) for item in (payload.get("db_candidate_history_summary") or []) if isinstance(item, dict)]
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
     print(f"resolution_mode={resolution.get('mode')}")
@@ -190,6 +204,26 @@ def _print_text(payload: dict[str, Any]) -> None:
     slot_boundary_modes = llm_role_policy.get('slot_boundary_modes') or {}
     slot_boundary_mode_line = ','.join(f"{slot}:{slot_boundary_modes[slot]}" for slot in sorted(slot_boundary_modes))
     print(f"llm_slot_boundary_modes={slot_boundary_mode_line}")
+    print(f"db_candidate_verdict={db_candidate_alignment.get('verdict')}")
+    print(f"db_candidate_reason={db_candidate_alignment.get('reason_code')}")
+    print(f"db_candidate_summary={db_candidate_alignment.get('summary_line')}")
+    print(f"db_candidate_current_artifact_id={db_candidate_alignment.get('current_artifact_id')}")
+    print(f"db_candidate_selected_artifact_id={db_candidate_alignment.get('selected_artifact_id')}")
+    print(f"db_candidate_best_artifact_id={db_candidate_alignment.get('best_candidate_artifact_id')}")
+    print(f"db_candidate_candidate_count={db_candidate_alignment.get('candidate_count')}")
+    print(f"db_candidate_ready_candidate_count={db_candidate_alignment.get('ready_candidate_count')}")
+    print(f"db_candidate_selected_matches_best={db_candidate_alignment.get('selected_matches_best')}")
+    print(f"db_candidate_current_matches_best={db_candidate_alignment.get('current_matches_best')}")
+    print(f"db_candidate_history_count={len(db_candidate_history)}")
+    if db_candidate_history:
+        first_db_history = db_candidate_history[0]
+        print(f"db_candidate_history_1_subject={first_db_history.get('subject')}")
+        print(f"db_candidate_history_1_verdict={first_db_history.get('verdict')}")
+        print(f"db_candidate_history_1_reason={first_db_history.get('reason_code')}")
+        print(f"db_candidate_history_1_summary={first_db_history.get('summary_line')}")
+        print(f"db_candidate_history_1_current_artifact_id={first_db_history.get('current_artifact_id')}")
+        print(f"db_candidate_history_1_selected_artifact_id={first_db_history.get('selected_artifact_id')}")
+        print(f"db_candidate_history_1_best_artifact_id={first_db_history.get('best_candidate_artifact_id')}")
     print(f"history_count={len(history_rows)}")
     for index, row in enumerate(history_rows, start=1):
         print(f"history_{index}_artifact_id={row.get('artifact_id')}")
