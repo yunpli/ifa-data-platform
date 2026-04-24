@@ -321,8 +321,9 @@ Pieces exist, but the product/control-plane form does not yet exist.
 - map current module-local states into canonical states
 - enforce transitions and invalid-state detection
 
-**Thin slice already landed**
+**Thin slices already landed**
 - `P2-1a`: explicit canonical lifecycle vocabulary projection now exists in `FSJStore` and is reused by operator review/readiness/board surfaces to normalize lifecycle → operator-visible semantic status/bucket mapping without introducing transition enforcement yet
+- `P2-1c` first slice: explicit invalid dispatch-transition detection now exists in `FSJStore` for persisted `dispatch_attempted` / `dispatch_failed` / `dispatch_succeeded` receipts that appear on non-sendable workflow truth (`recommended_action!=send` or `ready_for_delivery=false`); these now project as operator-visible transition-integrity attention and force canonical lifecycle `failed` with a stable reason code instead of silently looking like normal forward progress
 
 **Parallelizable:** no, foundational
 

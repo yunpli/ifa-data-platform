@@ -176,6 +176,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"workflow_state={state.get('workflow_state')}")
     print(f"canonical_lifecycle_state={canonical_lifecycle.get('state')}")
     print(f"canonical_lifecycle_reason={canonical_lifecycle.get('reason')}")
+    print(f"transition_integrity_valid={_safe_dict(active.get('transition_integrity')).get('valid')}")
+    print(f"transition_integrity_reason={_safe_dict(active.get('transition_integrity')).get('reason_code')}")
     print(f"go_no_go_decision={_safe_dict(active.get('review_summary')).get('go_no_go_decision')}")
     print(f"operator_decision_rationale={_safe_dict(active.get('review_summary')).get('operator_decision_rationale')}")
     print(f"operator_action_required={_safe_dict(active.get('review_summary')).get('operator_action_required')}")

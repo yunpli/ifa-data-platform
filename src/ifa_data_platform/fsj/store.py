@@ -1196,6 +1196,7 @@ class FSJStore:
             dispatch_receipt=dispatch_receipt,
         )
         canonical_state_vocabulary = self.project_report_state_vocabulary(canonical_lifecycle=canonical_lifecycle)
+        transition_integrity = dict(canonical_lifecycle.get("transition_integrity") or {})
 
         return {
             "artifact": dict(workflow_handoff.get("artifact") or artifact),
@@ -1232,6 +1233,7 @@ class FSJStore:
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
             "canonical_lifecycle": canonical_lifecycle,
+            "transition_integrity": transition_integrity,
             "canonical_state_vocabulary": canonical_state_vocabulary,
             "board_state_source": board_state_source,
             "review_summary": {
@@ -1240,6 +1242,10 @@ class FSJStore:
                 "dispatch_state": dispatch_state,
                 "canonical_lifecycle_state": canonical_lifecycle.get("state"),
                 "canonical_lifecycle_reason": canonical_lifecycle.get("reason"),
+                "transition_integrity_valid": transition_integrity.get("valid"),
+                "transition_integrity_invalid_transition": transition_integrity.get("invalid_transition"),
+                "transition_integrity_reason_code": transition_integrity.get("reason_code"),
+                "transition_integrity_summary": transition_integrity.get("summary_line"),
                 "dispatch_attempted": dispatch_state == "dispatch_attempted",
                 "dispatch_succeeded": dispatch_state == "dispatch_succeeded",
                 "dispatch_failed": dispatch_state == "dispatch_failed",
@@ -1819,6 +1825,44 @@ class FSJStore:
             )
         return history_summaries
 
+    def project_report_transition_integrity(
+        self,
+        *,
+        recommended_action: str | None,
+        ready_for_delivery: bool | None,
+        dispatch_state: str | None,
+    ) -> dict[str, Any]:
+        normalized_recommended_action = str(recommended_action or "").strip()
+        normalized_dispatch_state = str(dispatch_state or "").strip()
+        sendable = normalized_recommended_action == "send" and bool(ready_for_delivery)
+
+        if normalized_dispatch_state not in {"dispatch_attempted", "dispatch_succeeded", "dispatch_failed"}:
+            return {
+                "valid": True,
+                "invalid_transition": False,
+                "reason_code": None,
+                "summary_line": "valid | no dispatch transition projected",
+            }
+
+        if sendable:
+            return {
+                "valid": True,
+                "invalid_transition": False,
+                "reason_code": None,
+                "summary_line": f"valid | dispatch transition {normalized_dispatch_state} remains aligned with send-ready workflow",
+            }
+
+        reason_code = "dispatch_receipt_without_sendable_workflow"
+        return {
+            "valid": False,
+            "invalid_transition": True,
+            "reason_code": reason_code,
+            "summary_line": (
+                f"invalid | {reason_code} | dispatch_state={normalized_dispatch_state or '-'}"
+                f" | recommended_action={normalized_recommended_action or '-'} | ready_for_delivery={bool(ready_for_delivery)}"
+            ),
+        }
+
     def project_report_lifecycle_state(
         self,
         *,
@@ -1837,6 +1881,11 @@ class FSJStore:
         normalized_recommended_action = str(recommended_action or "").strip()
         normalized_dispatch_state = str(dispatch_state or "").strip()
         normalized_status = str(normalized_artifact.get("status") or "").strip()
+        transition_integrity = self.project_report_transition_integrity(
+            recommended_action=normalized_recommended_action,
+            ready_for_delivery=ready_for_delivery,
+            dispatch_state=normalized_dispatch_state,
+        )
 
         reasons: list[str] = []
         if normalized_status == "superseded":
@@ -1847,9 +1896,13 @@ class FSJStore:
                 "reason_chain": reasons,
                 "workflow_state": normalized_workflow_state or None,
                 "dispatch_state": normalized_dispatch_state or None,
+                "transition_integrity": transition_integrity,
             }
 
-        if normalized_dispatch_state == "dispatch_succeeded":
+        if bool(transition_integrity.get("invalid_transition")):
+            reasons.append(str(transition_integrity.get("reason_code") or "invalid_dispatch_transition"))
+            state = "failed"
+        elif normalized_dispatch_state == "dispatch_succeeded":
             reasons.append("dispatch_receipt_succeeded")
             state = "sent"
         elif normalized_dispatch_state == "dispatch_failed":
@@ -1899,6 +1952,7 @@ class FSJStore:
             "reason_chain": reasons,
             "workflow_state": normalized_workflow_state or None,
             "dispatch_state": normalized_dispatch_state or None,
+            "transition_integrity": transition_integrity,
         }
 
     def project_report_state_vocabulary(
@@ -2394,6 +2448,7 @@ class FSJStore:
             review_summary = dict(review_surface.get("review_summary") or {})
             llm_lineage_summary = dict(review_surface.get("llm_lineage_summary") or {})
             canonical_lifecycle = dict(review_surface.get("canonical_lifecycle") or {})
+            transition_integrity = dict(review_surface.get("transition_integrity") or canonical_lifecycle.get("transition_integrity") or {})
             state_vocabulary = self.project_report_state_vocabulary(canonical_lifecycle=canonical_lifecycle)
             source_health = dict(review_summary.get("source_health") or {})
             recommended_action = str(state.get("recommended_action") or review_summary.get("recommended_action") or "hold")
@@ -2432,6 +2487,11 @@ class FSJStore:
                 "qa_score": review_summary.get("qa_score"),
                 "blocker_count": review_summary.get("blocker_count"),
                 "warning_count": review_summary.get("warning_count"),
+                "transition_integrity": transition_integrity,
+                "transition_integrity_valid": transition_integrity.get("valid"),
+                "transition_integrity_invalid_transition": transition_integrity.get("invalid_transition"),
+                "transition_integrity_reason_code": transition_integrity.get("reason_code"),
+                "transition_integrity_summary": transition_integrity.get("summary_line"),
                 "llm_lineage_status": llm_status,
                 "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
                 "source_health": source_health,
@@ -2686,7 +2746,8 @@ class FSJStore:
                 }
 
             if (
-                governance_action_required
+                bool(normalized.get("transition_integrity_invalid_transition"))
+                or governance_action_required
                 or recommended_action in {"send_review", "hold"}
                 or posture in {"review_required", "blocked"}
                 or canonical_state in {"review_ready", "held", "failed"}
@@ -2696,7 +2757,7 @@ class FSJStore:
             ):
                 return {
                     "class": "hold_review",
-                    "reason": blocking_reason or canonical_state or "manual_review_required",
+                    "reason": str(normalized.get("transition_integrity_reason_code") or blocking_reason or canonical_state or "manual_review_required"),
                     "summary_line": "hold_review | operator intervention or review remains required",
                     "operator_visible": True,
                 }
@@ -2769,6 +2830,7 @@ class FSJStore:
                 selected_is_current=selected_is_current,
                 missing_bundle_count=missing_bundle_count,
             )
+            transition_integrity = dict(normalized.get("transition_integrity") or {})
             summary_parts = [
                 f"{subject}",
                 f"status={semantic_status or '-'}",
@@ -2788,6 +2850,11 @@ class FSJStore:
                 "operator_bucket": state_vocabulary.get("operator_bucket"),
                 "canonical_lifecycle_state": canonical_state,
                 "canonical_lifecycle_reason": normalized.get("canonical_lifecycle_reason"),
+                "transition_integrity": transition_integrity,
+                "transition_integrity_valid": transition_integrity.get("valid"),
+                "transition_integrity_invalid_transition": transition_integrity.get("invalid_transition"),
+                "transition_integrity_reason_code": transition_integrity.get("reason_code"),
+                "transition_integrity_summary": transition_integrity.get("summary_line"),
                 "posture": normalized.get("posture"),
                 "recommended_action": normalized.get("recommended_action"),
                 "next_action": next_action,

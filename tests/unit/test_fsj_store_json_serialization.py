@@ -507,6 +507,22 @@ def test_project_report_state_vocabulary_exposes_explicit_canonical_mapping() ->
     }
 
 
+def test_project_report_transition_integrity_flags_dispatch_without_sendable_workflow() -> None:
+    store = _ProjectionOnlyStore()
+
+    assert store.project_report_transition_integrity(
+        recommended_action="hold",
+        ready_for_delivery=True,
+        dispatch_state="dispatch_succeeded",
+    ) == {
+        "valid": False,
+        "invalid_transition": True,
+        "reason_code": "dispatch_receipt_without_sendable_workflow",
+        "summary_line": "invalid | dispatch_receipt_without_sendable_workflow | dispatch_state=dispatch_succeeded | recommended_action=hold | ready_for_delivery=True",
+    }
+
+
+
 def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and_send_ready() -> None:
     store = _ProjectionOnlyStore()
 
@@ -585,6 +601,48 @@ def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and
     assert failed_summary["canonical_lifecycle"]["state"] == "failed"
     assert failed_summary["dispatch_receipt"]["error"] == "429 rate limit"
     assert failed_summary["review_summary"]["dispatch_failed"] is True
+
+
+
+def test_report_operator_review_surface_projects_invalid_dispatch_transition_as_failed_attention() -> None:
+    store = _ProjectionOnlyStore()
+
+    invalid_summary = store.report_operator_review_surface_from_surface(
+        {
+            "artifact": {"artifact_id": "artifact-invalid-dispatch"},
+            "delivery_package": {
+                "package_state": "ready",
+                "ready_for_delivery": True,
+                "quality_gate": {"score": 98, "blocker_count": 0, "warning_count": 0},
+                "workflow": {"recommended_action": "hold", "workflow_state": "hold"},
+            },
+            "workflow_linkage": {
+                "review_surface": {
+                    "dispatch_receipt": {
+                        "dispatch_state": "dispatch_succeeded",
+                        "attempted_at": "2099-04-22T10:00:00Z",
+                        "succeeded_at": "2099-04-22T10:00:03Z",
+                        "channel": "telegram_document",
+                        "provider_message_id": "42",
+                    },
+                    "send_manifest": {"next_step": "hold_and_fix_quality_gate_before_send"},
+                    "review_manifest": {"next_step": "hold_and_fix_quality_gate_before_send"},
+                }
+            },
+        }
+    )
+
+    assert invalid_summary["dispatch_state"] == "dispatch_succeeded"
+    assert invalid_summary["canonical_lifecycle"]["state"] == "failed"
+    assert invalid_summary["canonical_lifecycle"]["reason"] == "dispatch_receipt_without_sendable_workflow"
+    assert invalid_summary["transition_integrity"] == {
+        "valid": False,
+        "invalid_transition": True,
+        "reason_code": "dispatch_receipt_without_sendable_workflow",
+        "summary_line": "invalid | dispatch_receipt_without_sendable_workflow | dispatch_state=dispatch_succeeded | recommended_action=hold | ready_for_delivery=True",
+    }
+    assert invalid_summary["review_summary"]["transition_integrity_invalid_transition"] is True
+    assert invalid_summary["review_summary"]["transition_integrity_reason_code"] == "dispatch_receipt_without_sendable_workflow"
 
 
 class _PersistDispatchReceiptConn:
