@@ -192,6 +192,7 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
                 "warning_count": 2,
             },
             "canonical_lifecycle": {"state": "review_ready", "reason": "manual_review_required"},
+            "local_to_canonical_state_mapping": {"summary_line": "artifact_status=active | workflow_state=review_required | package_state=ready | recommended_action=send_review | ready_for_delivery=True | review_required=True | dispatch_state=dispatch_attempted | selected_is_current=False => canonical=review_ready (review/operator_gate)"},
             "package_paths": {
                 "delivery_manifest_path": "/tmp/pkg/delivery_manifest.json",
                 "send_manifest_path": "/tmp/pkg/send_manifest.json",
@@ -304,6 +305,7 @@ def test_print_text_emits_single_support_operator_read_surface(capsys) -> None:
     assert "dispatch_recommended_action=send" in output
     assert "canonical_lifecycle_state=review_ready" in output
     assert "canonical_lifecycle_reason=manual_review_required" in output
+    assert "local_to_canonical_state_mapping_summary=artifact_status=active | workflow_state=review_required | package_state=ready | recommended_action=send_review | ready_for_delivery=True | review_required=True | dispatch_state=dispatch_attempted | selected_is_current=False => canonical=review_ready (review/operator_gate)" in output
     assert "go_no_go_decision=REVIEW" in output
     assert "operator_decision_rationale=manual review is required before sending" in output
     assert "operator_action_required=True" in output

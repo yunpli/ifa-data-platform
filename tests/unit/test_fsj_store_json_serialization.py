@@ -330,6 +330,18 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["review_summary"]["llm_deterministic_owner_fields"] == []
     assert summary["review_summary"]["llm_override_precedence"] == []
     assert summary["review_summary"]["llm_slot_boundary_modes"] == {}
+    assert summary["local_to_canonical_state_mapping"]["local_state"] == {
+        "artifact_status": "active",
+        "workflow_state": "review_required",
+        "package_state": "ready",
+        "recommended_action": "send_review",
+        "ready_for_delivery": False,
+        "review_required": True,
+        "dispatch_state": None,
+        "selected_is_current": False,
+    }
+    assert summary["local_to_canonical_state_mapping"]["canonical_lifecycle"] == summary["canonical_lifecycle"]
+    assert summary["review_summary"]["local_to_canonical_state_mapping_summary"] == summary["local_to_canonical_state_mapping"]["summary_line"]
     assert summary["board_state_source"]["canonical_state"] == "review_ready"
     assert summary["board_state_source"]["state_source_of_truth"] == "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
     assert summary["board_state_source"]["blocking_reason_source_of_truth"] is None
@@ -413,6 +425,40 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
                     "candidate_comparison": {"candidate_count": 2, "selected_artifact_id": "artifact-current"},
                     "send_manifest": {"next_step": "send_selected_package_to_primary_channel"},
                     "review_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "governance": {
+                        "decision": "GO",
+                        "rationale": "quality gate and artifact integrity both pass",
+                        "next_step": "send_selected_package_to_primary_channel",
+                        "action_required": False,
+                    },
+                    "promotion_authority": {
+                        "status": "approved_to_send",
+                        "approved": True,
+                        "required_action": "send_selected_package_to_primary_channel",
+                        "rationale": "quality gate and artifact integrity both pass",
+                        "summary_line": "approved_to_send | decision=GO | selected_is_current=True | required_action=send_selected_package_to_primary_channel | rationale=quality gate and artifact integrity both pass",
+                        "source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+                    },
+                    "review_summary": {
+                        "go_no_go_decision": "GO",
+                        "operator_decision_rationale": "quality gate and artifact integrity both pass",
+                        "operator_next_step": "send_selected_package_to_primary_channel",
+                        "operator_action_required": False,
+                        "promotion_authority_status": "approved_to_send",
+                        "promotion_authority_approved": True,
+                        "promotion_authority_required_action": "send_selected_package_to_primary_channel",
+                        "promotion_authority_rationale": "quality gate and artifact integrity both pass",
+                        "promotion_authority_summary": "approved_to_send | decision=GO | selected_is_current=True | required_action=send_selected_package_to_primary_channel | rationale=quality gate and artifact integrity both pass",
+                        "promotion_authority_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+                    },
+                    "board_state_source": {
+                        "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+                        "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step",
+                    },
+                    "canonical_state_vocabulary": {
+                        "status_semantic": "ready",
+                        "operator_bucket": "dispatch_gate",
+                    },
                     "dispatch_receipt": {
                         "dispatch_state": "dispatch_succeeded",
                         "channel": "telegram_document",
@@ -429,6 +475,18 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
     assert summary["selection"]["selected_is_current"] is True
     assert summary["package"]["manifests"]["send_manifest"]["path"] == "/tmp/current-pkg/send_manifest.json"
     assert summary["review"]["operator_go_no_go"]["decision"] == "GO"
+    assert summary["governance"]["decision"] == "GO"
+    assert summary["governance"]["next_step"] == "send_selected_package_to_primary_channel"
+    assert summary["governance"]["action_required"] is False
+    assert summary["promotion_authority"]["status"] == "approved_to_send"
+    assert summary["promotion_authority"]["source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    assert summary["review_summary"]["go_no_go_decision"] == "GO"
+    assert summary["review_summary"]["promotion_authority_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    assert summary["board_state_source"]["state_source_of_truth"].startswith(
+        "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    )
+    assert summary["canonical_state_vocabulary"]["status_semantic"] == "sent"
+    assert summary["canonical_state_vocabulary"]["operator_bucket"] == "terminal"
     assert summary["dispatch"]["dispatch_state"] == "dispatch_succeeded"
     assert summary["what_user_received"]["provider_message_id"] == "42"
     assert summary["what_user_received"]["channel"] == "telegram_document"
@@ -459,6 +517,49 @@ def test_project_report_state_vocabulary_exposes_explicit_canonical_mapping() ->
         "terminal": True,
         "summary_line": "canonical=failed | status=held | bucket=terminal_attention",
     }
+
+
+def test_project_local_report_state_mapping_exposes_reusable_local_to_canonical_surface() -> None:
+    store = _ProjectionOnlyStore()
+
+    mapping = store.project_local_report_state_mapping(
+        artifact={"artifact_id": "artifact-review", "status": "active"},
+        workflow_state="review_required",
+        package_state="ready",
+        recommended_action="send_review",
+        ready_for_delivery=True,
+        review_required=True,
+        dispatch_state="dispatch_failed",
+        selected_is_current=True,
+    )
+
+    assert mapping["local_state"] == {
+        "artifact_status": "active",
+        "workflow_state": "review_required",
+        "package_state": "ready",
+        "recommended_action": "send_review",
+        "ready_for_delivery": True,
+        "review_required": True,
+        "dispatch_state": "dispatch_failed",
+        "selected_is_current": True,
+    }
+    assert mapping["canonical_lifecycle"] == {
+        "state": "failed",
+        "reason": "dispatch_receipt_failed",
+        "reason_chain": ["dispatch_receipt_failed"],
+        "workflow_state": "review_required",
+        "dispatch_state": "dispatch_failed",
+    }
+    assert mapping["canonical_state_vocabulary"] == {
+        "canonical_state": "failed",
+        "canonical_reason": "dispatch_receipt_failed",
+        "status_semantic": "held",
+        "operator_bucket": "terminal_attention",
+        "terminal": True,
+        "summary_line": "canonical=failed | status=held | bucket=terminal_attention",
+    }
+    assert "workflow_state=review_required" in mapping["summary_line"]
+    assert "canonical=failed (held/terminal_attention)" in mapping["summary_line"]
 
 
 def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and_send_ready() -> None:
