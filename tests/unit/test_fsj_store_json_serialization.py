@@ -283,6 +283,11 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
         "rationale": None,
         "source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
         "summary_line": "blocked | decision=NO_GO | selected_is_current=False | required_action=switch_to_selected_package_and_do_not_send_current | rationale=-",
+        "approver_kind": "system",
+        "approver_id": None,
+        "approver_label": None,
+        "decided_at": None,
+        "approver_summary": "kind=system | id=- | label=- | decided_at=-",
     }
     assert summary["governance"] == {
         "decision": "NO_GO",

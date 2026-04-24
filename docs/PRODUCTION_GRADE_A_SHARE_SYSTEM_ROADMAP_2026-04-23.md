@@ -319,27 +319,33 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ## Task Queue
 
 ### P2-1. Unified report-production state machine
-**Status:** In progress — `P2-1a` canonical state vocabulary first slice landed  
+**Status:** Materially closed for current roadmap scope — canonical lifecycle vocabulary + projector landed in `FSJStore`, bounded invalid dispatch-transition detection is enforced on the canonical read path, operator-facing reuse is present across MAIN/support delivery-status plus operator-board surfaces, and exact closeout proof is captured in `docs/FSJ_P2_1_STATE_MACHINE_CLOSEOUT_2026-04-24.md`  
 **Target:** define and enforce one canonical report production lifecycle
 
-**Tasks**
-- define allowed states:
-  - planned
-  - collecting
-  - producing
-  - qa_pending
-  - review_ready
-  - send_ready
-  - sent
-  - held
-  - failed
-  - superseded
-- map current module-local states into canonical states
-- enforce transitions and invalid-state detection
+**Delivered in current scope**
+- [x] define one explicit canonical lifecycle vocabulary covering planned / collecting / producing / qa_pending / review_ready / send_ready / sent / held / failed / superseded
+- [x] map persisted artifact/workflow/package/dispatch truth into canonical lifecycle projection via `FSJStore.project_report_lifecycle_state(...)`
+- [x] expose canonical semantic status/operator bucket via `FSJStore.project_report_state_vocabulary(...)`
+- [x] enforce bounded invalid-state detection for dispatch receipts that appear on non-sendable workflow truth
+- [x] reuse canonical lifecycle + transition-integrity truth on MAIN/support delivery-status and operator-board read surfaces
 
-**Thin slices already landed**
-- `P2-1a`: explicit canonical lifecycle vocabulary projection now exists in `FSJStore` and is reused by operator review/readiness/board surfaces to normalize lifecycle → operator-visible semantic status/bucket mapping without introducing transition enforcement yet
-- `P2-1c` first slice: explicit invalid dispatch-transition detection now exists in `FSJStore` for persisted `dispatch_attempted` / `dispatch_failed` / `dispatch_succeeded` receipts that appear on non-sendable workflow truth (`recommended_action!=send` or `ready_for_delivery=false`); these now project as operator-visible transition-integrity attention and force canonical lifecycle `failed` with a stable reason code instead of silently looking like normal forward progress
+**Evidence anchors**
+- `docs/FSJ_P2_1_STATE_MACHINE_CLOSEOUT_2026-04-24.md`
+- `src/ifa_data_platform/fsj/store.py`
+- `scripts/fsj_main_delivery_status.py`
+- `scripts/fsj_support_delivery_status.py`
+- `scripts/fsj_operator_board.py`
+- `tests/unit/test_fsj_store_json_serialization.py`
+- `tests/unit/test_fsj_main_delivery_status_script.py`
+- `tests/unit/test_fsj_support_delivery_status_script.py`
+- `tests/unit/test_fsj_operator_board_script.py`
+- `tests/unit/test_fsj_send_dispatch_failure_status_script.py`
+- `tests/unit/test_fsj_support_dispatch_failure_status_script.py`
+
+**Deferred non-blocking expansions**
+- [ ] broader write-time transition enforcement across every future mutation path
+- [ ] generalized workflow-engine/productization work beyond the current canonical read/projection seam
+- [ ] richer promote/retry/override command surfaces outside the current roadmap-close scope
 
 **Parallelizable:** no, foundational
 
