@@ -3,13 +3,20 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from typing import Any, Callable
+import subprocess
 
 import sqlalchemy as sa
 from sqlalchemy import text
 
 from ifa_data_platform.fsj import FSJStore
-from ifa_data_platform.fsj.early_main_producer import EarlyMainFSJProducer, EarlyMainProducerInput
+from ifa_data_platform.fsj.early_main_producer import EarlyMainFSJAssembler, EarlyMainFSJProducer, EarlyMainProducerInput
 from ifa_data_platform.fsj.late_main_producer import LateMainFSJProducer, LateMainProducerInput
+from ifa_data_platform.fsj.llm_assist import (
+    FSJEarlyLLMAssistant,
+    FSJEarlyLLMRequest,
+    FSJEarlyLLMResult,
+    ResilientEarlyLLMClient,
+)
 from ifa_data_platform.fsj.mid_main_producer import MidMainFSJProducer, MidMainProducerInput
 
 DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
@@ -37,6 +44,49 @@ class FakeMidMainInputReader:
         return self.payload
 
 
+class PrimaryTimeoutEarlyLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_early_main_v1"
+
+    def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        raise subprocess.TimeoutExpired(cmd=["ifa_llm_cli.py"], timeout=120)
+
+
+class FallbackSuccessEarlyLLMClient:
+    model_alias = "gemini31_pro_jmr"
+    prompt_version = "fsj_early_main_v1"
+
+    def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        return FSJEarlyLLMResult(
+            summary="A股盘前主线预案：机器人链条在竞价、事件流与 focus seed 之间形成优先候选，primary 超时后由 fallback 模型完成候选表达补强，但仍待开盘验证。",
+            candidate_signal_statement="盘前竞价、事件流与 focus seed 已共同支持机器人链条进入主线候选，当前由 fallback 模型在 primary 超时后完成表达补强，但这仍只是待开盘验证的 candidate state。",
+            judgment_statement="将机器人链条列为开盘首要验证候选：本次由 fallback 模型在 primary 超时后完成补强；若竞价承接、事件延续与 focus 对齐不能继续兑现，立即降回观察项，不把盘前候选写成已确认主线。",
+            invalidators=[
+                "09:27后竞价承接快速回落且高频覆盖未继续刷新",
+                "事件流与候选龙头无法在 focus 池中形成一致验证",
+                "若把隔夜文本催化直接写成 same-day 开盘确认，则当前判断无效",
+            ],
+            reasoning_trace=[
+                "preopen auction packet present",
+                "event and leader packet present",
+                "primary timeout then fallback success",
+            ],
+            provider="eval-stub",
+            model_alias=self.model_alias,
+            model_id="gemini-3.1-pro",
+            prompt_version=self.prompt_version,
+            usage={"total_tokens": 341},
+            raw_response={"stub": True, "fallback": True},
+        )
+
+
+class AllFailEarlyLLMClient(PrimaryTimeoutEarlyLLMClient):
+    model_alias = "gemini31_pro_jmr"
+
+    def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
+        raise RuntimeError("business repo llm cli failed: synthetic provider failure")
+
+
 class FakeLateMainInputReader:
     def __init__(self, payload: LateMainProducerInput) -> None:
         self.payload = payload
@@ -59,6 +109,12 @@ class SlotGoldenCase:
     expected_contract_mode: str | None
     required_evidence_roles: set[tuple[str, str]]
     minimum_counts: dict[str, int]
+    expected_llm_outcome: str | None = None
+    expected_llm_applied: bool | None = None
+    expected_llm_model_alias: str | None = None
+    expected_operator_tag: str | None = None
+    expected_attempted_model_chain: list[str] | None = None
+    required_attempt_failure_classifications: set[str] | None = None
 
 
 def engine() -> sa.Engine:
@@ -112,6 +168,24 @@ def assert_main_slot_golden_case(case: SlotGoldenCase) -> None:
         evidence_roles = {(row["evidence_role"], row["ref_system"]) for row in persisted["evidence_links"]}
         assert case.required_evidence_roles.issubset(evidence_roles)
 
+        llm_audit = persisted["bundle"]["payload_json"].get("llm_assist", {})
+        llm_policy = llm_audit.get("policy") or {}
+        if case.expected_llm_outcome is not None:
+            assert llm_policy.get("outcome") == case.expected_llm_outcome
+        if case.expected_llm_applied is not None:
+            assert llm_audit.get("applied") is case.expected_llm_applied
+        if case.expected_llm_model_alias is not None:
+            assert llm_audit.get("model_alias") == case.expected_llm_model_alias
+        if case.expected_operator_tag is not None:
+            assert llm_policy.get("operator_tag") == case.expected_operator_tag
+        if case.expected_attempted_model_chain is not None:
+            assert llm_policy.get("attempted_model_chain") == case.expected_attempted_model_chain
+        if case.required_attempt_failure_classifications is not None:
+            observed_classifications = {
+                row.get("classification") for row in (llm_audit.get("attempt_failures") or llm_policy.get("prior_failures") or [])
+            }
+            assert case.required_attempt_failure_classifications.issubset(observed_classifications)
+
         counts = persisted_bundle_counts(bundle_id)
         for key, minimum in case.minimum_counts.items():
             assert counts[key] >= minimum
@@ -148,6 +222,84 @@ def _build_early_case(store: FSJStore) -> EarlyMainFSJProducer:
         report_run_id=None,
     )
     return EarlyMainFSJProducer(reader=FakeEarlyMainInputReader(sample), store=store)
+
+
+def _build_early_llm_fallback_case(store: FSJStore) -> EarlyMainFSJProducer:
+    sample = EarlyMainProducerInput(
+        business_date="2099-04-22",
+        slot="early",
+        section_key="pre_open_main",
+        section_type="thesis",
+        bundle_topic_key=f"mainline_candidate_fallback:{uuid.uuid4()}",
+        summary_topic="A股盘前主线预案",
+        trading_day_open=True,
+        trading_day_label="open",
+        focus_symbols=["300024.SZ", "002031.SZ", "601127.SH"],
+        focus_list_types=["focus", "key_focus"],
+        auction_count=18,
+        auction_snapshot_time="2099-04-22T09:27:00+08:00",
+        event_count=6,
+        event_latest_time="2099-04-22T09:25:00+08:00",
+        event_titles=["机器人链条隔夜催化", "算力链订单更新"],
+        leader_count=4,
+        leader_symbols=["300024.SZ", "002031.SZ"],
+        signal_scope_count=1,
+        latest_signal_state="candidate_confirming",
+        text_catalyst_count=3,
+        text_catalyst_titles=["机器人政策催化", "AI 应用发布", "龙头预告更新"],
+        previous_archive_summary="昨日机器人主线维持高位扩散",
+        replay_id=f"replay:{uuid.uuid4()}",
+        slot_run_id=f"slot-run:{uuid.uuid4()}",
+        report_run_id=None,
+    )
+    return EarlyMainFSJProducer(
+        reader=FakeEarlyMainInputReader(sample),
+        store=store,
+        assembler=EarlyMainFSJAssembler(
+            llm_assistant=FSJEarlyLLMAssistant(
+                ResilientEarlyLLMClient(clients=[PrimaryTimeoutEarlyLLMClient(), FallbackSuccessEarlyLLMClient()])
+            )
+        ),
+    )
+
+
+def _build_early_llm_deterministic_degrade_case(store: FSJStore) -> EarlyMainFSJProducer:
+    sample = EarlyMainProducerInput(
+        business_date="2099-04-22",
+        slot="early",
+        section_key="pre_open_main",
+        section_type="thesis",
+        bundle_topic_key=f"mainline_candidate_degrade:{uuid.uuid4()}",
+        summary_topic="A股盘前主线预案",
+        trading_day_open=True,
+        trading_day_label="open",
+        focus_symbols=["300024.SZ", "002031.SZ", "601127.SH"],
+        focus_list_types=["focus", "key_focus"],
+        auction_count=18,
+        auction_snapshot_time="2099-04-22T09:27:00+08:00",
+        event_count=6,
+        event_latest_time="2099-04-22T09:25:00+08:00",
+        event_titles=["机器人链条隔夜催化", "算力链订单更新"],
+        leader_count=4,
+        leader_symbols=["300024.SZ", "002031.SZ"],
+        signal_scope_count=1,
+        latest_signal_state="candidate_confirming",
+        text_catalyst_count=3,
+        text_catalyst_titles=["机器人政策催化", "AI 应用发布", "龙头预告更新"],
+        previous_archive_summary="昨日机器人主线维持高位扩散",
+        replay_id=f"replay:{uuid.uuid4()}",
+        slot_run_id=f"slot-run:{uuid.uuid4()}",
+        report_run_id=None,
+    )
+    return EarlyMainFSJProducer(
+        reader=FakeEarlyMainInputReader(sample),
+        store=store,
+        assembler=EarlyMainFSJAssembler(
+            llm_assistant=FSJEarlyLLMAssistant(
+                ResilientEarlyLLMClient(clients=[PrimaryTimeoutEarlyLLMClient(), AllFailEarlyLLMClient()])
+            )
+        ),
+    )
 
 
 def _build_mid_case(store: FSJStore) -> MidMainFSJProducer:
@@ -255,6 +407,49 @@ MAIN_SLOT_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = (
             ("source_observed", "business_seed"),
         },
         minimum_counts={"object_cnt": 4, "edge_cnt": 2, "evidence_cnt": 4, "observed_cnt": 3},
+    ),
+    SlotGoldenCase(
+        name="early_llm_fallback_applied",
+        slot="early",
+        section_key="pre_open_main",
+        producer_factory=_build_early_llm_fallback_case,
+        expected_judgment_action="validate",
+        expected_object_type="thesis",
+        expected_contract_mode="candidate_with_open_validation",
+        required_evidence_roles={
+            ("slot_replay", "runtime"),
+            ("source_observed", "highfreq"),
+            ("source_observed", "business_seed"),
+            ("historical_reference", "archive_v2"),
+        },
+        minimum_counts={"object_cnt": 5, "edge_cnt": 3, "evidence_cnt": 5, "observed_cnt": 4},
+        expected_llm_outcome="fallback_applied",
+        expected_llm_applied=True,
+        expected_llm_model_alias="gemini31_pro_jmr",
+        expected_attempted_model_chain=["grok41_thinking", "gemini31_pro_jmr"],
+        required_attempt_failure_classifications={"timeout"},
+    ),
+    SlotGoldenCase(
+        name="early_llm_deterministic_degrade",
+        slot="early",
+        section_key="pre_open_main",
+        producer_factory=_build_early_llm_deterministic_degrade_case,
+        expected_judgment_action="validate",
+        expected_object_type="thesis",
+        expected_contract_mode="candidate_with_open_validation",
+        required_evidence_roles={
+            ("slot_replay", "runtime"),
+            ("source_observed", "highfreq"),
+            ("source_observed", "business_seed"),
+            ("historical_reference", "archive_v2"),
+        },
+        minimum_counts={"object_cnt": 5, "edge_cnt": 3, "evidence_cnt": 5, "observed_cnt": 4},
+        expected_llm_outcome="deterministic_degrade",
+        expected_llm_applied=False,
+        expected_llm_model_alias="grok41_thinking",
+        expected_operator_tag="llm_provider_failure",
+        expected_attempted_model_chain=["grok41_thinking", "gemini31_pro_jmr"],
+        required_attempt_failure_classifications={"timeout", "provider_failure"},
     ),
     SlotGoldenCase(
         name="mid_intraday_adjustment",
