@@ -31,6 +31,18 @@ CANONICAL_REPORT_LIFECYCLE_STATES = {
     "failed",
     "superseded",
 }
+CANONICAL_REPORT_STATE_VOCABULARY = {
+    "planned": {"status_semantic": "planned", "operator_bucket": "pre_runtime", "terminal": False},
+    "collecting": {"status_semantic": "running", "operator_bucket": "inflight", "terminal": False},
+    "producing": {"status_semantic": "running", "operator_bucket": "inflight", "terminal": False},
+    "qa_pending": {"status_semantic": "running", "operator_bucket": "inflight", "terminal": False},
+    "review_ready": {"status_semantic": "review", "operator_bucket": "operator_gate", "terminal": False},
+    "send_ready": {"status_semantic": "ready", "operator_bucket": "dispatch_gate", "terminal": False},
+    "sent": {"status_semantic": "sent", "operator_bucket": "terminal", "terminal": True},
+    "held": {"status_semantic": "held", "operator_bucket": "terminal_attention", "terminal": True},
+    "failed": {"status_semantic": "held", "operator_bucket": "terminal_attention", "terminal": True},
+    "superseded": {"status_semantic": "held", "operator_bucket": "terminal_versioned", "terminal": True},
+}
 BUSINESS_REPO_MODELS_CONFIG = Path("/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml")
 
 @lru_cache(maxsize=1)
@@ -1143,6 +1155,15 @@ class FSJStore:
             state=state,
             dispatch_receipt=dispatch_receipt,
         )
+        promotion_authority = self._report_promotion_authority_summary(
+            artifact=artifact,
+            state=state,
+            operator_go_no_go=operator_go_no_go,
+            review_manifest=review_manifest,
+            send_manifest=send_manifest,
+            selected_handoff=dict(workflow_handoff.get("selected_handoff") or {}),
+            computed_decision=computed_decision,
+        )
         governance_summary = {
             "decision": computed_decision,
             "rationale": operator_go_no_go.get("rationale"),
@@ -1174,6 +1195,7 @@ class FSJStore:
             canonical_lifecycle=canonical_lifecycle,
             dispatch_receipt=dispatch_receipt,
         )
+        canonical_state_vocabulary = self.project_report_state_vocabulary(canonical_lifecycle=canonical_lifecycle)
 
         return {
             "artifact": dict(workflow_handoff.get("artifact") or artifact),
@@ -1203,12 +1225,14 @@ class FSJStore:
                 "artifact_integrity_ok": operator_go_no_go.get("artifact_integrity_ok"),
                 "missing_artifacts": list(operator_go_no_go.get("missing_artifacts") or []),
             },
+            "promotion_authority": promotion_authority,
             "review_manifest": review_manifest,
             "send_manifest": send_manifest,
             "governance": governance_summary,
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
             "canonical_lifecycle": canonical_lifecycle,
+            "canonical_state_vocabulary": canonical_state_vocabulary,
             "board_state_source": board_state_source,
             "review_summary": {
                 "recommended_action": state.get("recommended_action"),
@@ -1232,6 +1256,12 @@ class FSJStore:
                 "operator_decision_rationale": operator_go_no_go.get("rationale"),
                 "operator_next_step": governance_summary.get("next_step"),
                 "operator_action_required": governance_summary.get("action_required"),
+                "promotion_authority_status": promotion_authority.get("status"),
+                "promotion_authority_approved": promotion_authority.get("approved"),
+                "promotion_authority_required_action": promotion_authority.get("required_action"),
+                "promotion_authority_rationale": promotion_authority.get("rationale"),
+                "promotion_authority_summary": promotion_authority.get("summary_line"),
+                "promotion_authority_source_of_truth": promotion_authority.get("source_of_truth"),
                 "board_state_source": board_state_source,
                 "review_blocking_item_count": governance_summary.get("review_blocking_item_count"),
                 "review_warning_item_count": governance_summary.get("review_warning_item_count"),
@@ -1323,6 +1353,65 @@ class FSJStore:
                 f"state={lifecycle_state or '-'} via {' + '.join(state_truth_inputs)}"
                 + (f" | next_action via {' + '.join(next_action_source)}" if next_action_source else "")
                 + (f" | blockers via {' + '.join(blocking_reason_source)}" if blocking_reason_source else "")
+            ),
+        }
+
+    def _report_promotion_authority_summary(
+        self,
+        *,
+        artifact: dict[str, Any] | None,
+        state: dict[str, Any] | None,
+        operator_go_no_go: dict[str, Any] | None,
+        review_manifest: dict[str, Any] | None,
+        send_manifest: dict[str, Any] | None,
+        selected_handoff: dict[str, Any] | None,
+        computed_decision: str,
+    ) -> dict[str, Any]:
+        normalized_artifact = dict(artifact or {})
+        normalized_state = dict(state or {})
+        normalized_go_no_go = dict(operator_go_no_go or {})
+        normalized_review_manifest = dict(review_manifest or {})
+        normalized_send_manifest = dict(send_manifest or {})
+        normalized_selected_handoff = dict(selected_handoff or {})
+
+        selected_is_current = normalized_selected_handoff.get("selected_is_current")
+        next_step = normalized_review_manifest.get("next_step") or normalized_send_manifest.get("next_step") or normalized_state.get("next_step")
+        rationale = normalized_go_no_go.get("rationale")
+        source_of_truth = " + ".join([
+            "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go",
+            "ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow",
+            "ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+        ])
+
+        if computed_decision == "GO" and bool(normalized_state.get("send_ready")) and selected_is_current is not False:
+            status = "approved_to_send"
+            approved = True
+            required_action = next_step or "send_selected_package_to_primary_channel"
+        elif computed_decision == "REVIEW":
+            status = "review_required"
+            approved = False
+            required_action = next_step or "review_current_package_then_send_if_accepted"
+        else:
+            status = "blocked"
+            approved = False
+            required_action = next_step or "do_not_send_current_package"
+
+        return {
+            "scope": "review_ready_to_send_ready",
+            "status": status,
+            "approved": approved,
+            "authority_kind": "system_policy_projection",
+            "decision": computed_decision,
+            "approver_ref": "operator_go_no_go",
+            "artifact_id": normalized_artifact.get("artifact_id"),
+            "selected_artifact_id": normalized_selected_handoff.get("selected_artifact_id") or normalized_artifact.get("artifact_id"),
+            "selected_is_current": selected_is_current,
+            "required_action": required_action,
+            "rationale": rationale,
+            "source_of_truth": source_of_truth,
+            "summary_line": (
+                f"{status} | decision={computed_decision} | selected_is_current={selected_is_current}"
+                f" | required_action={required_action or '-'} | rationale={rationale or '-'}"
             ),
         }
 
@@ -1788,6 +1877,37 @@ class FSJStore:
             "dispatch_state": normalized_dispatch_state or None,
         }
 
+    def project_report_state_vocabulary(
+        self,
+        *,
+        canonical_lifecycle: dict[str, Any] | None = None,
+        canonical_state: str | None = None,
+    ) -> dict[str, Any]:
+        normalized = dict(canonical_lifecycle or {})
+        resolved_state = str(canonical_state or normalized.get("state") or "").strip()
+        if not resolved_state:
+            return {
+                "canonical_state": None,
+                "canonical_reason": str(normalized.get("reason") or "").strip() or None,
+                "status_semantic": None,
+                "operator_bucket": None,
+                "terminal": False,
+                "summary_line": "canonical=- | status=- | bucket=-",
+            }
+        if resolved_state not in CANONICAL_REPORT_STATE_VOCABULARY:
+            raise ValueError(f"invalid canonical report state vocabulary lookup: {resolved_state}")
+        projection = dict(CANONICAL_REPORT_STATE_VOCABULARY[resolved_state])
+        status_semantic = projection.get("status_semantic")
+        operator_bucket = projection.get("operator_bucket")
+        return {
+            "canonical_state": resolved_state,
+            "canonical_reason": str(normalized.get("reason") or "").strip() or None,
+            "status_semantic": status_semantic,
+            "operator_bucket": operator_bucket,
+            "terminal": bool(projection.get("terminal")),
+            "summary_line": f"canonical={resolved_state} | status={status_semantic or '-'} | bucket={operator_bucket or '-'}",
+        }
+
     def report_llm_lineage_summary(self, llm_lineage: dict[str, Any] | None) -> dict[str, Any]:
         normalized_lineage = dict(llm_lineage or {})
         summary = dict(normalized_lineage.get("summary") or {})
@@ -2250,6 +2370,7 @@ class FSJStore:
             review_summary = dict(review_surface.get("review_summary") or {})
             llm_lineage_summary = dict(review_surface.get("llm_lineage_summary") or {})
             canonical_lifecycle = dict(review_surface.get("canonical_lifecycle") or {})
+            state_vocabulary = self.project_report_state_vocabulary(canonical_lifecycle=canonical_lifecycle)
             source_health = dict(review_summary.get("source_health") or {})
             recommended_action = str(state.get("recommended_action") or review_summary.get("recommended_action") or "hold")
             send_ready = bool(state.get("send_ready"))
@@ -2273,6 +2394,9 @@ class FSJStore:
                 "package_state": state.get("package_state"),
                 "canonical_lifecycle_state": canonical_lifecycle.get("state"),
                 "canonical_lifecycle_reason": canonical_lifecycle.get("reason"),
+                "canonical_state_vocabulary": state_vocabulary,
+                "status_semantic": state_vocabulary.get("status_semantic"),
+                "operator_bucket": state_vocabulary.get("operator_bucket"),
                 "go_no_go_decision": review_summary.get("go_no_go_decision"),
                 "operator_decision_rationale": review_summary.get("operator_decision_rationale"),
                 "operator_next_step": review_summary.get("operator_next_step"),
@@ -2464,22 +2588,7 @@ class FSJStore:
             }
 
         def _operator_status_semantic(*, canonical_state: str | None) -> str | None:
-            normalized = str(canonical_state or "").strip()
-            if not normalized:
-                return None
-            if normalized == "planned":
-                return "planned"
-            if normalized in {"collecting", "producing", "qa_pending"}:
-                return "running"
-            if normalized == "review_ready":
-                return "review"
-            if normalized == "send_ready":
-                return "ready"
-            if normalized == "sent":
-                return "sent"
-            if normalized in {"held", "failed", "superseded"}:
-                return "held"
-            return normalized
+            return self.project_report_state_vocabulary(canonical_state=canonical_state).get("status_semantic")
 
         def _operator_blocking_reason(readiness: dict[str, Any] | None) -> str | None:
             normalized = dict(readiness or {})
@@ -2589,7 +2698,14 @@ class FSJStore:
             normalized_review_surface = dict(review_surface or {})
             normalized_artifact_lineage = dict(artifact_lineage or {})
             canonical_state = str(normalized.get("canonical_lifecycle_state") or "").strip() or None
-            semantic_status = _operator_status_semantic(canonical_state=canonical_state)
+            state_vocabulary = self.project_report_state_vocabulary(
+                canonical_state=canonical_state,
+                canonical_lifecycle={
+                    "state": canonical_state,
+                    "reason": normalized.get("canonical_lifecycle_reason"),
+                },
+            )
+            semantic_status = state_vocabulary.get("status_semantic")
             next_action = str(normalized.get("operator_next_step") or "").strip() or None
             blocking_reason = _operator_blocking_reason(normalized)
             artifact_id = str(normalized.get("artifact_id") or "").strip() or None
@@ -2644,6 +2760,8 @@ class FSJStore:
                 "history_index": history_index,
                 "artifact_id": artifact_id,
                 "status_semantic": semantic_status,
+                "canonical_state_vocabulary": state_vocabulary,
+                "operator_bucket": state_vocabulary.get("operator_bucket"),
                 "canonical_lifecycle_state": canonical_state,
                 "canonical_lifecycle_reason": normalized.get("canonical_lifecycle_reason"),
                 "posture": normalized.get("posture"),

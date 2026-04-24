@@ -269,6 +269,21 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["candidate_comparison"]["ready_candidate_count"] == 1
     assert summary["operator_go_no_go"]["decision"] == "NO_GO"
     assert summary["review_manifest"]["next_step"] == "switch_to_selected_package_and_do_not_send_current"
+    assert summary["promotion_authority"] == {
+        "scope": "review_ready_to_send_ready",
+        "status": "blocked",
+        "approved": False,
+        "authority_kind": "system_policy_projection",
+        "decision": "NO_GO",
+        "approver_ref": "operator_go_no_go",
+        "artifact_id": "artifact-current",
+        "selected_artifact_id": "artifact-selected",
+        "selected_is_current": False,
+        "required_action": "switch_to_selected_package_and_do_not_send_current",
+        "rationale": None,
+        "source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+        "summary_line": "blocked | decision=NO_GO | selected_is_current=False | required_action=switch_to_selected_package_and_do_not_send_current | rationale=-",
+    }
     assert summary["governance"] == {
         "decision": "NO_GO",
         "rationale": None,
@@ -282,6 +297,11 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     }
     assert summary["review_summary"]["go_no_go_decision"] == "NO_GO"
     assert summary["review_summary"]["operator_next_step"] == "switch_to_selected_package_and_do_not_send_current"
+    assert summary["review_summary"]["promotion_authority_status"] == "blocked"
+    assert summary["review_summary"]["promotion_authority_approved"] is False
+    assert summary["review_summary"]["promotion_authority_required_action"] == "switch_to_selected_package_and_do_not_send_current"
+    assert summary["review_summary"]["promotion_authority_summary"] == "blocked | decision=NO_GO | selected_is_current=False | required_action=switch_to_selected_package_and_do_not_send_current | rationale=-"
+    assert summary["review_summary"]["promotion_authority_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
     assert summary["review_summary"]["governance_blocking_reasons"] == []
     assert summary["dispatch_state"] is None
     assert summary["review_summary"]["selected_is_current"] is False
@@ -315,6 +335,14 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["board_state_source"]["blocking_reason_source_of_truth"] is None
     assert summary["board_state_source"]["next_action_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step"
     assert summary["review_summary"]["board_state_source"]["canonical_reason"] == "manual_review_required"
+    assert summary["canonical_state_vocabulary"] == {
+        "canonical_state": "review_ready",
+        "canonical_reason": "manual_review_required",
+        "status_semantic": "review",
+        "operator_bucket": "operator_gate",
+        "terminal": False,
+        "summary_line": "canonical=review_ready | status=review | bucket=operator_gate",
+    }
 
 
 def test_report_artifact_lineage_projection_unifies_package_review_send_and_bundle_surfaces() -> None:
@@ -408,6 +436,29 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
     assert summary["bundle_lineage_summary"]["missing_bundle_count"] == 1
     assert summary["bundle_lineage"][0]["section_key"] == "post_close_main"
     assert summary["bundle_lineage"][1]["missing"] is True
+
+
+def test_project_report_state_vocabulary_exposes_explicit_canonical_mapping() -> None:
+    store = _ProjectionOnlyStore()
+
+    assert store.project_report_state_vocabulary(canonical_state="send_ready") == {
+        "canonical_state": "send_ready",
+        "canonical_reason": None,
+        "status_semantic": "ready",
+        "operator_bucket": "dispatch_gate",
+        "terminal": False,
+        "summary_line": "canonical=send_ready | status=ready | bucket=dispatch_gate",
+    }
+    assert store.project_report_state_vocabulary(
+        canonical_lifecycle={"state": "failed", "reason": "dispatch_receipt_failed"}
+    ) == {
+        "canonical_state": "failed",
+        "canonical_reason": "dispatch_receipt_failed",
+        "status_semantic": "held",
+        "operator_bucket": "terminal_attention",
+        "terminal": True,
+        "summary_line": "canonical=failed | status=held | bucket=terminal_attention",
+    }
 
 
 def test_report_operator_review_surface_projects_dispatch_state_from_receipt_and_send_ready() -> None:

@@ -303,7 +303,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 ## Task Queue
 
 ### P2-1. Unified report-production state machine
-**Status:** Not started  
+**Status:** In progress — `P2-1a` canonical state vocabulary first slice landed  
 **Target:** define and enforce one canonical report production lifecycle
 
 **Tasks**
@@ -320,6 +320,9 @@ Pieces exist, but the product/control-plane form does not yet exist.
   - superseded
 - map current module-local states into canonical states
 - enforce transitions and invalid-state detection
+
+**Thin slice already landed**
+- `P2-1a`: explicit canonical lifecycle vocabulary projection now exists in `FSJStore` and is reused by operator review/readiness/board surfaces to normalize lifecycle → operator-visible semantic status/bucket mapping without introducing transition enforcement yet
 
 **Parallelizable:** no, foundational
 
@@ -382,6 +385,7 @@ Pieces exist, but the product/control-plane form does not yet exist.
 
 **Thin slices already landed**
 - `P2-5a`: canonical operator board now projects a first bounded failure taxonomy from existing persisted truth, classifying a meaningful subset into `auto_retry` / `auto_degrade` / `hold_review` using dispatch receipts, send-readiness, lineage/source-health degrade posture, candidate-selection mismatch, and bundle/governance blockers; taxonomy is queryable per row and aggregated fleet-wide for operator triage
+- `P2-5b`: canonical operator/review/status surfaces now project a first explicit promotion-authority seam from existing persisted truth. `promotion_authority` exposes whether the current package is actually approved to move from review-ready toward send-ready, the bounded authority source (`operator_go_no_go` + workflow + selected_handoff), the required operator action, and a compact provenance summary without introducing a new governance framework
 
 **Parallelizable:** no, policy-heavy
 
