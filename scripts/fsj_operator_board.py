@@ -6,7 +6,6 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.store import FSJStore
 
 _VALID_SLOT_KEYS = {"early", "mid", "late"}
@@ -77,28 +76,7 @@ def _resolve_support_latest(*, agent_domain: str, slot: str | None = None, store
 
 def build_board_payload(*, business_date: str | None = None, history_limit: int = 5, store: FSJStore | None = None) -> dict[str, Any]:
     store = store or FSJStore()
-    helper = MainReportDeliveryDispatchHelper()
-    if business_date is None:
-        main_latest = _resolve_main_latest(store=store)
-        business_date = str((main_latest or {}).get("business_date") or "") or None
-        resolution = {"mode": "latest_active_lookup", "business_date": business_date, "status": "resolved" if business_date else "not_found"}
-    else:
-        resolution = {"mode": "explicit_business_date", "business_date": business_date}
-    main_active = store.get_active_report_delivery_surface(business_date=business_date, agent_domain="main", artifact_family="main_final_report") if business_date else None
-    support_surfaces: dict[str, dict[str, Any] | None] = {
-        domain: store.get_active_report_delivery_surface(business_date=business_date, agent_domain=domain, artifact_family="support_domain_report") if business_date else None
-        for domain in sorted(_VALID_DOMAINS)
-    }
-    history = store.list_report_delivery_surfaces(business_date=business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit) if business_date else []
-    db_candidates = helper.list_db_delivery_candidates(business_date=business_date, store=store, limit=history_limit) if business_date else []
-    return {
-        "business_date": business_date,
-        "resolution": resolution,
-        "main": _surface_summary(main_active, store=store),
-        "support": {domain: _surface_summary(surface, store=store) for domain, surface in support_surfaces.items()},
-        "history": [_surface_summary(surface, store=store) for surface in history],
-        "db_candidates": [helper.summarize_candidate(candidate) for candidate in db_candidates],
-    }
+    return store.build_operator_board_surface(business_date=business_date, history_limit=history_limit)
 
 
 def _print_text(payload: dict[str, Any]) -> None:

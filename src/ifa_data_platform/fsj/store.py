@@ -808,6 +808,39 @@ class FSJStore:
             workflow_linkage=dict(workflow_linkage or {}) or None,
         )
 
+
+    def build_operator_board_surface(
+        self,
+        *,
+        business_date: str | None = None,
+        history_limit: int = 5,
+    ) -> dict[str, Any]:
+        from datetime import datetime, timedelta, timezone
+
+        from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
+
+        beijing = timezone(timedelta(hours=8))
+        helper = MainReportDeliveryDispatchHelper()
+        resolved_business_date = business_date
+        if resolved_business_date is None:
+            latest_main = self.get_latest_active_report_delivery_surface(
+                agent_domain="main",
+                artifact_family="main_final_report",
+                max_business_date=datetime.now(beijing).date(),
+            )
+            latest_artifact = dict((latest_main or {}).get("artifact") or {})
+            resolved_business_date = str(latest_artifact.get("business_date") or "") or None
+            resolution = {"mode": "latest_active_lookup", "business_date": resolved_business_date, "status": "resolved" if resolved_business_date else "not_found"}
+        else:
+            resolution = {"mode": "explicit_business_date", "business_date": resolved_business_date}
+        if not resolved_business_date:
+            return {"business_date": None, "resolution": resolution, "main": None, "support": {d: None for d in ("ai_tech", "commodities", "macro")}, "history": [], "db_candidates": []}
+        main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
+        support = {d: self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain=d, artifact_family="support_domain_report") for d in ("ai_tech", "commodities", "macro")}
+        history = self.list_report_delivery_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
+        db_candidates = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
+        return {"business_date": resolved_business_date, "resolution": resolution, "main": self.report_workflow_handoff_from_surface(main_active) if main_active else None, "support": {d: self.report_workflow_handoff_from_surface(s) if s else None for d, s in support.items()}, "history": [self.report_workflow_handoff_from_surface(s) for s in history], "db_candidates": [helper.summarize_candidate(c) for c in db_candidates]}
+
     def _report_workflow_handoff_from_artifact(
         self,
         artifact: dict[str, Any],

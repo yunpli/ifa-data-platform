@@ -62,6 +62,26 @@ class _DummyStore:
         }
 
 
+
+
+class _BoardStore(_DummyStore):
+    def build_operator_board_surface(self, *, business_date: str | None = None, history_limit: int = 5) -> dict:
+        business_date = business_date or "2099-04-22"
+        resolution_mode = "latest_active_lookup" if business_date == "2099-04-22" else "explicit_business_date"
+        main = self.get_active_report_delivery_surface(business_date=business_date, agent_domain="main", artifact_family="main_final_report")
+        support = {
+            domain: self.get_active_report_delivery_surface(business_date=business_date, agent_domain=domain, artifact_family="support_domain_report")
+            for domain in ("ai_tech", "commodities", "macro")
+        }
+        history = self.list_report_delivery_surfaces(business_date=business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
+        return {
+            "business_date": business_date,
+            "resolution": {"mode": resolution_mode, "business_date": business_date},
+            "main": self.report_workflow_handoff_from_surface(main) if main else None,
+            "support": {domain: self.report_workflow_handoff_from_surface(surface) if surface else None for domain, surface in support.items()},
+            "history": [self.report_workflow_handoff_from_surface(surface) for surface in history],
+            "db_candidates": [{"artifact_id": "main-artifact", "recommended_action": "send", "selection_reason": "best_ready_candidate strongest_slot=late qa_score=100"}],
+        }
 class _DummyHelper:
     def list_db_delivery_candidates(self, **_: object) -> list[dict]:
         return [{"artifact": {"artifact_id": "main-artifact"}, "delivery_manifest": {"artifact_id": "main-artifact", "package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 100, "blocker_count": 0, "warning_count": 0}, "slot_evaluation": {"strongest_slot": "late"}}, "report_evaluation": {"summary": {"slot_scores": {"early": 100, "mid": 100, "late": 100}}}, "source": "db_active_delivery_surface"}]
@@ -71,10 +91,8 @@ class _DummyHelper:
 
 
 def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> None:
-    store = _DummyStore()
+    store = _BoardStore()
     monkeypatch.setattr(_module, "FSJStore", lambda: store)
-    monkeypatch.setattr(_module, "MainReportDeliveryDispatchHelper", lambda: _DummyHelper())
-
     payload = _build_board_payload(business_date="2099-04-22", history_limit=2)
 
     assert payload["business_date"] == "2099-04-22"
@@ -87,10 +105,8 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
 
 
 def test_build_board_payload_can_resolve_latest_business_date(monkeypatch) -> None:
-    store = _DummyStore()
+    store = _BoardStore()
     monkeypatch.setattr(_module, "FSJStore", lambda: store)
-    monkeypatch.setattr(_module, "MainReportDeliveryDispatchHelper", lambda: _DummyHelper())
-
     payload = _build_board_payload(business_date=None, history_limit=1)
 
     assert payload["resolution"]["mode"] == "latest_active_lookup"
@@ -122,3 +138,13 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "support_commodities_recommended_action=send_review" in output
     assert "support_macro=NONE" in output
     assert "candidate_count=2" in output
+
+
+
+def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -> None:
+    store = _BoardStore()
+    monkeypatch.setattr(_module, "FSJStore", lambda: store)
+    payload = store.build_operator_board_surface(business_date="2099-04-22", history_limit=1)
+    assert payload["main"]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
+    assert payload["history"][0]["artifact"]["artifact_id"] == "main-artifact"
