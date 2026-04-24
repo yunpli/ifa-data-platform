@@ -325,7 +325,52 @@ class MainReportMorningDeliveryOrchestrator:
         resolver = getattr(store, "report_llm_lineage_summary", None)
         if callable(resolver):
             return dict(resolver(llm_lineage) or {})
-        return {}
+        summary = dict(llm_lineage.get("summary") or {})
+        bundle_count = int(summary.get("bundle_count") or 0)
+        applied_count = int(summary.get("applied_count") or 0)
+        degraded_count = int(summary.get("degraded_count") or 0)
+        missing_bundle_count = int(summary.get("missing_bundle_count") or 0)
+        primary_count = int(summary.get("primary_applied_count") or 0)
+        fallback_count = int(summary.get("fallback_applied_count") or 0)
+        deterministic_degrade_count = int(summary.get("deterministic_degrade_count") or 0)
+        operator_tags = sorted({str(item) for item in (summary.get("operator_tags") or []) if str(item).strip()})
+        slots = [str(item) for item in (summary.get("slots") or []) if str(item).strip()]
+        if missing_bundle_count > 0:
+            status = "incomplete"
+        elif degraded_count > 0:
+            status = "degraded"
+        elif applied_count > 0:
+            status = "applied"
+        else:
+            status = "not_applied"
+        detail_parts = [f"applied={applied_count}/{bundle_count}"]
+        if primary_count:
+            detail_parts.append(f"primary={primary_count}")
+        if fallback_count:
+            detail_parts.append(f"fallback={fallback_count}")
+        if degraded_count:
+            detail_parts.append(f"degraded={degraded_count}")
+        if deterministic_degrade_count:
+            detail_parts.append(f"deterministic={deterministic_degrade_count}")
+        if missing_bundle_count:
+            detail_parts.append(f"missing={missing_bundle_count}")
+        if operator_tags:
+            detail_parts.append(f"tags={','.join(operator_tags)}")
+        if slots:
+            detail_parts.append(f"slots={','.join(slots)}")
+        return {
+            "status": status,
+            "bundle_count": bundle_count,
+            "applied_count": applied_count,
+            "primary_applied_count": primary_count,
+            "fallback_applied_count": fallback_count,
+            "degraded_count": degraded_count,
+            "deterministic_degrade_count": deterministic_degrade_count,
+            "missing_bundle_count": missing_bundle_count,
+            "operator_tags": operator_tags,
+            "slots": slots,
+            "summary_line": f"{status} [{' | '.join(detail_parts)}]",
+        }
 
     def _build_send_manifest(
         self,
@@ -490,7 +535,11 @@ class MainReportMorningDeliveryOrchestrator:
         llm_lineage_summary: dict[str, Any],
     ) -> dict[str, Any]:
         delivery_manifest = dict(published.get("delivery_manifest") or {})
-        current_candidate = self.dispatch_helper.candidate_from_published(published).as_dict()
+        current_candidate = self.dispatch_helper.summarize_candidate(published)
+        if not current_candidate.get("llm_lineage_summary"):
+            current_candidate["llm_lineage_summary"] = llm_lineage_summary or None
+        if not current_candidate.get("llm_role_policy"):
+            current_candidate["llm_role_policy"] = self._build_llm_role_policy_review(llm_lineage)
         alternatives = list(dispatch_decision.get("alternatives") or [])
         package_artifacts = {
             "delivery_package_dir": published.get("delivery_package_dir"),
@@ -567,6 +616,13 @@ class MainReportMorningDeliveryOrchestrator:
             f"{name}:{'ready' if dict(payload).get('ready') else 'blocked'}:{dict(payload).get('score')}"
             for name, payload in qa_axes.items()
         ]
+        current_candidate_qa = dict(current.get("qa_axes_summary") or {})
+        selected_candidate_qa = dict(selected.get("qa_axes_summary") or {})
+        current_candidate_lineage = dict(current.get("llm_lineage_summary") or {})
+        selected_candidate_lineage = dict(selected.get("llm_lineage_summary") or {})
+        current_candidate_policy = dict(current.get("llm_role_policy") or {})
+        selected_candidate_policy = dict(selected.get("llm_role_policy") or {})
+        aggregate_lineage_summary = dict(bundle.get("llm_lineage_summary") or {})
         lines = [
             f"# MAIN Operator Review｜{bundle.get('business_date')}",
             "",
@@ -597,11 +653,29 @@ class MainReportMorningDeliveryOrchestrator:
             f"- support_summary_count: `{support_summary.get('support_summary_count')}`",
             f"- support_report_link_count: `{support_summary.get('report_link_count')}`",
             "",
+            "## Candidate QA Posture",
+            f"- current.qa_posture: `{current_candidate_qa.get('overall_posture') or '-'}`",
+            f"- current.qa_axes_attention: `{', '.join(current_candidate_qa.get('axes_with_attention') or []) or '-'}`",
+            f"- current.qa_axes_not_ready: `{', '.join(current_candidate_qa.get('not_ready_axes') or []) or '-'}`",
+            f"- current.llm_lineage_status: `{current_candidate_lineage.get('status') or '-'}`",
+            f"- current.llm_lineage_summary: `{current_candidate_lineage.get('summary_line') or '-'}`",
+            f"- current.policy_versions: `{', '.join(current_candidate_policy.get('policy_versions') or []) or '-'}`",
+            f"- selected.qa_posture: `{selected_candidate_qa.get('overall_posture') or '-'}`",
+            f"- selected.qa_axes_attention: `{', '.join(selected_candidate_qa.get('axes_with_attention') or []) or '-'}`",
+            f"- selected.qa_axes_not_ready: `{', '.join(selected_candidate_qa.get('not_ready_axes') or []) or '-'}`",
+            f"- selected.llm_lineage_status: `{selected_candidate_lineage.get('status') or '-'}`",
+            f"- selected.llm_lineage_summary: `{selected_candidate_lineage.get('summary_line') or '-'}`",
+            f"- selected.policy_versions: `{', '.join(selected_candidate_policy.get('policy_versions') or []) or '-'}`",
+            "",
             "## LLM Role Policy",
             f"- policy_versions: `{', '.join(llm_role_policy_review.get('policy_versions') or []) or '-'}`",
             f"- deterministic_owner_fields: `{', '.join(llm_role_policy_review.get('deterministic_owner_fields') or []) or '-'}`",
             f"- forbidden_decisions: `{', '.join(llm_role_policy_review.get('forbidden_decisions') or []) or '-'}`",
             f"- override_precedence: `{' > '.join(llm_role_policy_review.get('override_precedence') or []) or '-'}`",
+            "",
+            "## LLM Bundle Lineage",
+            f"- aggregate_status: `{aggregate_lineage_summary.get('status') or '-'}`",
+            f"- aggregate_summary: `{aggregate_lineage_summary.get('summary_line') or '-'}`",
             "",
             "## Immediate Next Step",
             f"- send_manifest.next_step: `{send_manifest.get('next_step')}`",

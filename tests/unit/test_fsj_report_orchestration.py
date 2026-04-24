@@ -256,6 +256,8 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert Path(result["candidate_comparison_path"]).exists()
     assert "## Candidate Comparison" in operator_review_readme
     assert workflow["support_summary_aggregate"]["domains"] == ["macro"]
+    assert operator_review_bundle["current_candidate"]["qa_axes_summary"]["overall_posture"] == "attention"
+    assert operator_review_bundle["current_candidate"]["llm_lineage_summary"]["status"] == "degraded"
     assert operator_review_bundle["llm_role_policy_review"] == {
         "policy_versions": [],
         "slot_boundary_modes": {},
@@ -263,9 +265,15 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
         "forbidden_decisions": [],
         "override_precedence": [],
     }
+    assert "## Candidate QA Posture" in operator_review_readme
+    assert "current.qa_posture: `attention`" in operator_review_readme
+    assert "current.llm_lineage_status: `degraded`" in operator_review_readme
+    assert "selected.qa_posture: `attention`" in operator_review_readme
     assert "## LLM Role Policy" in operator_review_readme
     assert "deterministic_owner_fields:" in operator_review_readme
     assert "override_precedence:" in operator_review_readme
+    assert "## LLM Bundle Lineage" in operator_review_readme
+    assert "aggregate_status: `degraded`" in operator_review_readme
     assert "## Review Checklist" in operator_review_readme
     assert "## Operator Go / No-Go" in operator_review_readme
     assert "## Artifact Integrity" in operator_review_readme
@@ -362,4 +370,5 @@ def test_main_report_morning_delivery_workflow_marks_superseded_when_better_read
     assert "## Alternative Candidates" in operator_review_readme
     assert "## Current vs Selected Delta" in operator_review_readme
     assert "artifact-better-ready" in operator_review_readme
+    assert "selected.qa_posture: `not_available`" in operator_review_readme
     assert any(item["item"] == "confirm_selected_candidate" and item["status"] == "warn" for item in review_manifest["checklist"])

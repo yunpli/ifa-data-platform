@@ -415,17 +415,27 @@ class MainReportDeliveryDispatchHelper:
 
     def _llm_lineage_summary(self, published: dict[str, Any]) -> dict[str, Any] | None:
         review_surface = dict(published.get("review_surface") or {})
-        summary = dict(review_surface.get("llm_lineage_summary") or {})
+        summary = dict(review_surface.get("llm_lineage_summary") or published.get("llm_lineage_summary") or {})
         return summary or None
 
     def _llm_role_policy(self, published: dict[str, Any]) -> dict[str, Any]:
         review_surface = dict(published.get("review_surface") or {})
-        llm_role_policy = dict(review_surface.get("llm_role_policy") or {})
+        llm_role_policy = dict(
+            review_surface.get("llm_role_policy")
+            or published.get("llm_role_policy")
+            or dict((published.get("llm_lineage") or {}).get("role_policy") or {})
+        )
         slot_boundary_modes = {
             str(slot): str(mode)
             for slot, mode in dict(llm_role_policy.get("slot_boundary_modes") or {}).items()
             if str(slot).strip() and str(mode).strip()
         }
+        if not slot_boundary_modes:
+            slot_boundary_modes = {
+                str(item.get("slot")): str(item.get("role_policy_boundary_mode"))
+                for item in (published.get("llm_lineage") or {}).get("bundles", [])
+                if str(item.get("slot") or "").strip() and str(item.get("role_policy_boundary_mode") or "").strip()
+            }
         return {
             **llm_role_policy,
             "slot_boundary_modes": slot_boundary_modes,
