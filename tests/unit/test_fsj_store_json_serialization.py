@@ -54,6 +54,7 @@ def test_report_workflow_handoff_projection_preserves_operator_readiness_fields(
                 "score": 93,
                 "blocker_count": 0,
                 "warning_count": 1,
+                "qa_axes": {"structural": {"ready": True, "score": 92, "blocker_count": 0, "warning_count": 1, "issue_codes": ["html_too_small"]}},
                 "late_contract_mode": "full_close_package",
             },
             "workflow": {
@@ -84,6 +85,7 @@ def test_report_workflow_handoff_projection_preserves_operator_readiness_fields(
     assert summary["selected_handoff"]["selected_is_current"] is False
     assert summary["selected_handoff"]["selected_artifact_id"] == "artifact-selected"
     assert summary["state"]["dispatch_recommended_action"] == "send"
+    assert summary["state"]["qa_axes"]["structural"]["score"] == 92
     assert summary["state"]["next_step"] == "operator_review_selected_candidate"
     assert summary["state"]["selection_reason"] == "best_ready_candidate strongest_slot=late qa_score=93"
     assert summary["state"]["dispatch_selected_artifact_id"] == "artifact-selected"

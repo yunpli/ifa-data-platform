@@ -272,6 +272,7 @@ def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(t
     assert "## Support Summary Aggregate" in operator_review_readme
     assert "recommended_action=send" in operator_summary
     assert "source_health overall=degraded" in operator_summary
+    assert "qa_axes structural:ready:" in operator_summary
     assert "selected_package_dir=" in operator_summary
     assert "package_index=" in operator_summary
     assert store.persisted_workflow_linkages

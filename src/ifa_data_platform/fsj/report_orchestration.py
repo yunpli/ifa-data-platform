@@ -448,6 +448,11 @@ class MainReportMorningDeliveryOrchestrator:
         selected = dict(dispatch_decision.get("selected") or {})
         support_summary = dict(delivery_manifest.get("support_summary_aggregate") or {})
         source_health = dict(quality_gate.get("source_health") or {})
+        qa_axes = dict(quality_gate.get("qa_axes") or {})
+        axis_bits = [
+            f"{name}:{'ready' if dict(payload).get('ready') else 'blocked'}:{dict(payload).get('score')}"
+            for name, payload in qa_axes.items()
+        ]
         lines = [
             f"MAIN morning delivery workflow｜{delivery_manifest.get('business_date')}",
             f"recommended_action={effective_action}｜dispatch_action={dispatch_decision.get('recommended_action')}｜selected_is_current={selected_is_current}",
@@ -457,6 +462,7 @@ class MainReportMorningDeliveryOrchestrator:
             f"selection_reason={dispatch_decision.get('selection_reason')}",
             f"quality_gate score={quality_gate.get('score')} blockers={quality_gate.get('blocker_count')} warnings={quality_gate.get('warning_count')} late_contract_mode={quality_gate.get('late_contract_mode')}",
             f"source_health overall={source_health.get('overall_status') or 'healthy'} blocking_slots={source_health.get('blocking_slot_count', 0)} degraded_slots={source_health.get('degraded_slot_count', 0)}",
+            f"qa_axes {'｜'.join(axis_bits) or '-'}",
             f"support_summary domains={','.join(support_summary.get('domains') or []) or '-'} bundles={len(support_summary.get('bundle_ids') or [])} strongest_slot={support_summary.get('strongest_slot') or '-'}",
             f"selected_package_dir={selected_handoff.get('delivery_package_dir')}",
             f"selected_delivery_manifest={selected_handoff.get('delivery_manifest_path')}",
@@ -556,6 +562,11 @@ class MainReportMorningDeliveryOrchestrator:
         llm_role_policy_review = dict(bundle.get("llm_role_policy_review") or {})
 
         source_health = dict(quality_gate.get("source_health") or {})
+        qa_axes = dict(quality_gate.get("qa_axes") or {})
+        axis_bits = [
+            f"{name}:{'ready' if dict(payload).get('ready') else 'blocked'}:{dict(payload).get('score')}"
+            for name, payload in qa_axes.items()
+        ]
         lines = [
             f"# MAIN Operator Review｜{bundle.get('business_date')}",
             "",
@@ -572,6 +583,7 @@ class MainReportMorningDeliveryOrchestrator:
             f"- blockers: `{quality_gate.get('blocker_count')}`",
             f"- warnings: `{quality_gate.get('warning_count')}`",
             f"- late_contract_mode: `{quality_gate.get('late_contract_mode') or '-'}`",
+            f"- qa_axes: `{', '.join(axis_bits) or '-'}`",
             f"- source_health: `{source_health.get('overall_status') or 'healthy'}`",
             f"- blocking_slot_count: `{source_health.get('blocking_slot_count', 0)}`",
             f"- degraded_slot_count: `{source_health.get('degraded_slot_count', 0)}`",

@@ -1787,6 +1787,7 @@ class FSJStore:
                 "qa_score": quality_gate.get("score"),
                 "blocker_count": quality_gate.get("blocker_count"),
                 "warning_count": quality_gate.get("warning_count"),
+                "qa_axes": dict(quality_gate.get("qa_axes") or {}),
                 "late_contract_mode": quality_gate.get("late_contract_mode"),
             },
             "manifest_pointers": {

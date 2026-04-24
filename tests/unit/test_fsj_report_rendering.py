@@ -266,6 +266,8 @@ def test_main_report_qa_evaluator_emits_delivery_ready_verdict_for_contract_comp
     assert evaluation["summary"]["source_health"]["overall_status"] == "degraded"
     assert evaluation["summary"]["blocker_count"] == 0
     assert evaluation["summary"]["warning_count"] >= 1
+    assert evaluation["summary"]["qa_axes"]["structural"]["ready"] is True
+    assert evaluation["summary"]["qa_axes"]["policy"]["warning_count"] >= 1
     assert any(issue["code"] == "slot_missing" and issue.get("slot") == "mid" for issue in evaluation["issues"])
 
 
@@ -313,6 +315,7 @@ def test_main_report_qa_evaluator_blocks_historical_only_late_report() -> None:
 
     assert evaluation["ready_for_delivery"] is False
     assert evaluation["summary"]["late_contract_mode"] == "historical_only"
+    assert evaluation["summary"]["qa_axes"]["policy"]["ready"] is False
     assert any(issue["code"] == "late_historical_only" for issue in evaluation["issues"])
 
 
@@ -416,6 +419,7 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["artifact_type"] == "fsj_main_report_delivery_package"
     assert delivery_manifest["package_state"] == "ready"
     assert delivery_manifest["quality_gate"]["late_contract_mode"] == "full_close_package"
+    assert delivery_manifest["quality_gate"]["qa_axes"]["policy"]["warning_count"] >= 1
     assert delivery_manifest["quality_gate"]["source_health"]["overall_status"] == "degraded"
     assert delivery_manifest["lineage"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}

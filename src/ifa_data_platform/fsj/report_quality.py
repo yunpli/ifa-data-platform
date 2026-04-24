@@ -91,6 +91,7 @@ class MainReportQAEvaluator:
             issues=issues,
         )
         score = max(0, 100 - blockers * 25 - warnings * 8)
+        qa_axes = self._build_qa_axes(issues)
 
         return {
             "artifact_type": "fsj_main_report_qa",
@@ -113,9 +114,54 @@ class MainReportQAEvaluator:
                 "html_bytes": len(html.encode("utf-8")),
                 "blocker_count": blockers,
                 "warning_count": warnings,
+                "qa_axes": qa_axes,
             },
             "issues": [issue.as_dict() for issue in issues],
         }
+
+    def _build_qa_axes(self, issues: Sequence[QualityIssue]) -> dict[str, Any]:
+        axis_codes = {
+            "structural": {
+                "market_not_a_share",
+                "agent_not_main",
+                "render_format_invalid",
+                "missing_doctype",
+                "html_shell_incomplete",
+                "html_too_small",
+                "html_placeholder_leak",
+                "slot_missing",
+                "section_not_ready",
+                "bundle_id_missing",
+                "summary_missing",
+                "section_empty_body",
+                "report_link_missing",
+                "support_domain_unknown",
+                "support_summary_missing",
+                "late_not_ready",
+                "late_close_signal_missing",
+            },
+            "lineage": {"lineage_ids_missing"},
+            "policy": {
+                "late_contract_mode_invalid",
+                "late_provisional_close",
+                "late_historical_only",
+                "source_health_blocked",
+                "source_health_degraded",
+            },
+        }
+        axes: dict[str, Any] = {}
+        for axis, codes in axis_codes.items():
+            axis_issues = [issue for issue in issues if issue.code in codes]
+            blocker_count = sum(1 for issue in axis_issues if issue.severity == "error")
+            warning_count = sum(1 for issue in axis_issues if issue.severity == "warning")
+            axes[axis] = {
+                "ready": blocker_count == 0,
+                "score": max(0, 100 - blocker_count * 25 - warning_count * 8),
+                "blocker_count": blocker_count,
+                "warning_count": warning_count,
+                "issue_codes": [issue.code for issue in axis_issues],
+            }
+        return axes
 
     def _check_top_level(self, assembled: dict[str, Any], rendered: dict[str, Any], html: str, issues: list[QualityIssue]) -> None:
         if assembled.get("market") != "a_share":
@@ -281,6 +327,7 @@ class SupportReportQAEvaluator:
         warnings = sum(1 for issue in issues if issue.severity == "warning")
         ready_for_delivery = blockers == 0 and str(assembled.get("status") or "") == "ready"
         score = max(0, 100 - blockers * 25 - warnings * 8)
+        qa_axes = self._build_qa_axes(issues)
 
         return {
             "artifact_type": "fsj_support_report_qa",
@@ -302,9 +349,44 @@ class SupportReportQAEvaluator:
                 "html_bytes": len(html.encode("utf-8")),
                 "blocker_count": blockers,
                 "warning_count": warnings,
+                "qa_axes": qa_axes,
             },
             "issues": [issue.as_dict() for issue in issues],
         }
+
+    def _build_qa_axes(self, issues: Sequence[QualityIssue]) -> dict[str, Any]:
+        axis_codes = {
+            "structural": {
+                "market_not_a_share",
+                "support_domain_invalid",
+                "support_slot_invalid",
+                "render_format_invalid",
+                "missing_doctype",
+                "html_shell_incomplete",
+                "html_too_small",
+                "html_placeholder_leak",
+                "support_section_not_ready",
+                "bundle_id_missing",
+                "summary_missing",
+                "section_empty_body",
+                "report_link_missing",
+            },
+            "lineage": {"lineage_ids_missing"},
+            "policy": {"support_source_health_degraded"},
+        }
+        axes: dict[str, Any] = {}
+        for axis, codes in axis_codes.items():
+            axis_issues = [issue for issue in issues if issue.code in codes]
+            blocker_count = sum(1 for issue in axis_issues if issue.severity == "error")
+            warning_count = sum(1 for issue in axis_issues if issue.severity == "warning")
+            axes[axis] = {
+                "ready": blocker_count == 0,
+                "score": max(0, 100 - blocker_count * 25 - warning_count * 8),
+                "blocker_count": blocker_count,
+                "warning_count": warning_count,
+                "issue_codes": [issue.code for issue in axis_issues],
+            }
+        return axes
 
     def _check_top_level(self, assembled: dict[str, Any], rendered: dict[str, Any], html: str, issues: list[QualityIssue]) -> None:
         if assembled.get("market") != "a_share":
