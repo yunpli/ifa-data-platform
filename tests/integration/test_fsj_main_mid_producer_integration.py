@@ -2,13 +2,24 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
 
 from ifa_data_platform.fsj import FSJStore
 from ifa_data_platform.fsj.mid_main_producer import MidMainFSJProducer, MidMainProducerInput
 
-DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
+DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp'
+
+
+@pytest.fixture(autouse=True)
+def _explicit_test_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", DB_URL)
+    make_engine.cache_clear()
+    get_settings.cache_clear()
 
 
 class FakeMidMainInputReader:
@@ -74,7 +85,7 @@ def test_mid_main_producer_persists_first_slice_bundle_graph() -> None:
         slot_run_id=f'slot-run:{uuid.uuid4()}',
         report_run_id=None,
     )
-    producer = MidMainFSJProducer(reader=FakeMidMainInputReader(sample), store=FSJStore())
+    producer = MidMainFSJProducer(reader=FakeMidMainInputReader(sample), store=FSJStore(database_url=DB_URL))
     payload = producer.produce(business_date='2099-04-22')
     bundle_id = payload['bundle']['bundle_id']
     try:

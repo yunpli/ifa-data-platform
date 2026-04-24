@@ -9,8 +9,12 @@ from ifa_data_platform.config.settings import get_settings
 @lru_cache(maxsize=1)
 def make_engine() -> Engine:
     settings = get_settings()
+    return make_engine_for_url(settings.database_url)
+
+
+def make_engine_for_url(database_url: str) -> Engine:
     return create_engine(
-        settings.database_url,
+        database_url,
         future=True,
         pool_pre_ping=True,
         pool_size=5,

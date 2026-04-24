@@ -4,15 +4,26 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
 
 from ifa_data_platform.fsj import FSJStore
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_orchestration import MainReportMorningDeliveryOrchestrator
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 
-DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
+DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp'
+
+
+@pytest.fixture(autouse=True)
+def _explicit_test_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", DB_URL)
+    make_engine.cache_clear()
+    get_settings.cache_clear()
 
 
 def engine():
@@ -152,7 +163,7 @@ def _cleanup(bundle_ids: list[str]) -> None:
 
 
 def test_fsj_phase1_schema_round_trip_and_active_lookup() -> None:
-    store = FSJStore()
+    store = FSJStore(database_url=DB_URL)
     store.ensure_schema()
     bundle_id = f'fsj:test:{uuid.uuid4()}'
     try:
@@ -186,7 +197,7 @@ def test_fsj_phase1_schema_round_trip_and_active_lookup() -> None:
 
 
 def test_fsj_phase1_upsert_is_idempotent_and_preserves_natural_keys() -> None:
-    store = FSJStore()
+    store = FSJStore(database_url=DB_URL)
     store.ensure_schema()
     bundle_id = f'fsj:test:{uuid.uuid4()}'
     try:
@@ -228,7 +239,7 @@ def test_fsj_phase1_upsert_is_idempotent_and_preserves_natural_keys() -> None:
 
 
 def test_fsj_phase1_status_chain_supports_superseded_and_active_versions() -> None:
-    store = FSJStore()
+    store = FSJStore(database_url=DB_URL)
     store.ensure_schema()
     old_bundle_id = f'fsj:test:{uuid.uuid4()}:old'
     new_bundle_id = f'fsj:test:{uuid.uuid4()}:new'
@@ -307,7 +318,7 @@ class _StubAssemblyService:
 
 
 def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active(tmp_path) -> None:
-    store = FSJStore()
+    store = FSJStore(database_url=DB_URL)
     store.ensure_schema()
     bundle_id = f'fsj:test:{uuid.uuid4()}:bundle'
     first: dict | None = None
@@ -368,7 +379,7 @@ def test_main_report_artifact_publish_persists_links_and_supersedes_prior_active
 
 
 def test_latest_active_main_report_delivery_surface_resolves_by_business_date_and_slot(tmp_path) -> None:
-    store = FSJStore()
+    store = FSJStore(database_url=DB_URL)
     store.ensure_schema()
     older_date = '2099-07-17'
     latest_date = '2099-07-18'
@@ -444,7 +455,7 @@ def test_latest_active_main_report_delivery_surface_resolves_by_business_date_an
 
 
 def test_main_report_delivery_surface_is_queryable_from_active_and_recent_superseded_artifacts(tmp_path) -> None:
-    store = FSJStore()
+    store = FSJStore(database_url=DB_URL)
     store.ensure_schema()
     business_date = '2099-07-18'
     bundle_id = f'fsj:test:{uuid.uuid4()}:bundle'

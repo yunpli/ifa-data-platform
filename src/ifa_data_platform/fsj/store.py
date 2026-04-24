@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
-from ifa_data_platform.db.engine import make_engine
+from ifa_data_platform.db.engine import make_engine, make_engine_for_url
+from ifa_data_platform.fsj.test_live_isolation import require_explicit_non_live_database_url
 
 VALID_BUNDLE_STATUS = {"active", "superseded", "withdrawn"}
 VALID_REPORT_ARTIFACT_STATUS = {"active", "superseded", "withdrawn"}
@@ -17,6 +19,7 @@ VALID_FSJ_KINDS = {"fact", "signal", "judgment"}
 VALID_EDGE_TYPES = {"fact_to_signal", "signal_to_judgment", "judgment_to_judgment"}
 
 SCHEMA_DDL = [
+    "CREATE SCHEMA IF NOT EXISTS ifa2",
     """
     CREATE TABLE IF NOT EXISTS ifa2.ifa_fsj_bundles (
         id uuid PRIMARY KEY,
@@ -196,8 +199,16 @@ SCHEMA_DDL = [
 
 
 class FSJStore:
-    def __init__(self) -> None:
-        self.engine = make_engine()
+    def __init__(self, *, database_url: str | None = None, engine: Engine | None = None) -> None:
+        if engine is not None:
+            self.engine = engine
+            return
+
+        resolved_database_url = require_explicit_non_live_database_url(
+            flow_name=self.__class__.__name__,
+            database_url=database_url,
+        )
+        self.engine = make_engine() if database_url is None else make_engine_for_url(resolved_database_url)
 
     @staticmethod
     def _json_default(value: Any) -> Any:

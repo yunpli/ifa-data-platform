@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from ifa_data_platform.config.settings import get_settings
+from ifa_data_platform.db.engine import make_engine
 
 from ifa_data_platform.fsj import FSJStore
 from ifa_data_platform.fsj.ai_tech_support_producer import (
@@ -13,7 +17,14 @@ from ifa_data_platform.fsj.ai_tech_support_producer import (
 )
 from ifa_data_platform.fsj.support_common import SupportSnapshot, SupportTextItem
 
-DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp'
+DB_URL = 'postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp'
+
+
+@pytest.fixture(autouse=True)
+def _explicit_test_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", DB_URL)
+    make_engine.cache_clear()
+    get_settings.cache_clear()
 
 
 class FakeAITechSupportInputReader:
@@ -93,8 +104,8 @@ def test_ai_tech_support_producers_persist_bundle_graphs() -> None:
     late_payload = _sample_payload("late")
     reader = FakeAITechSupportInputReader(early_payload, late_payload)
 
-    early_producer = EarlyAITechSupportProducer(reader=reader, store=FSJStore())
-    late_producer = LateAITechSupportProducer(reader=reader, store=FSJStore())
+    early_producer = EarlyAITechSupportProducer(reader=reader, store=FSJStore(database_url=DB_URL))
+    late_producer = LateAITechSupportProducer(reader=reader, store=FSJStore(database_url=DB_URL))
 
     early_graph = early_producer.produce(business_date="2099-04-22")
     late_graph = late_producer.produce(business_date="2099-04-22")
