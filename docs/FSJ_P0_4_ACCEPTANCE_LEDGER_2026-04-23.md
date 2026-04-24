@@ -135,13 +135,14 @@ Pass rule:
 Operator must use the pass/fail ledger in the next section as the authoritative verdict table for this package revision.
 
 ### Step 8 — Final acceptance rule for this skeleton
-Current package revision may be called only:
+Historical label for this ledger revision was:
 - **"P0-4 acceptance ledger skeleton present and evidence-backed"**
 
-Current package revision may **not** be called:
-- full `P0-4 done`
-- full SLA closure
-- full all-slot green acceptance
+Current authoritative labeling is now governed by:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
+- `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`
+
+So this historical ledger may no longer be used to claim that `P0-4` remains open or that all-slot acceptance is still unfinished.
 
 ---
 
@@ -153,12 +154,12 @@ Current package revision may **not** be called:
 | Late support standalone seam is evidenced honestly, including recovery to 3/3 ready | `P1-1`, supports `P0-3` | initial late summary + convergence late summary + three late support HTML artifacts | **PASS** | Evidence preserves initial macro-missing state and later 3/3-ready convergence |
 | Early MAIN acceptance evidence exists under publish + QA + eval packaging | `P0-1`, supports `P0-4` | `artifacts/fsj_p0_4_early_main_acceptance_20260423_subA_20260423T140217Z/early_main_bundle.json` + `publish.json` + HTML/manifest/QA/eval + delivery package artifacts | **PASS** | Early MAIN bundle exists, packaged publish artifacts exist, QA/eval artifacts exist, and slot evaluation shows strongest slot `early` with complete `early`/`mid`/`late` section presence in the packaged report |
 | Late MAIN canonical operator seam persists canonical bundle and produces publish surface | `P0-3`, supports `P0-4` | `artifacts/fsj_main_late_liveproof_20260423_subA/operator_summary.txt` + `main_late_publish_summary.json` + publish artifacts | **PASS** | Persisted bundle exists, publish artifacts exist, delivery package surface exists |
-| Late MAIN is dispatch-ready under SLA acceptance bar | `P0-3`, `P0-4`, `P0-5` | `main_late_publish_summary.json` delivery package block + early MAIN acceptance package delivery block | **FAIL** | available MAIN acceptance packages still show blocked/hold delivery posture rather than green dispatch-ready acceptance |
-| MAIN/support concise-summary convergence is evidenced | `P1-2`, supports `P0-4` | `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/main_publish.json` + late MAIN summary | **PASS (narrow)** | Six support summaries are lineage-traceable across early/late support evidence |
-| One repeatable operator acceptance recipe exists for the SLA proof package | `P0-4` | this document | **PASS (skeleton only)** | This runbook defines one recipe, but not yet a full green all-slot procedure |
-| One authoritative pass/fail acceptance ledger exists for currently evidenced seams | `P0-4` | this document | **PASS (skeleton only)** | This table is the single acceptance verdict layer above the proof package |
-| Full-slot SLA proof (`early` + `mid` + `late`) under one acceptance standard | `P0-4` | early MAIN acceptance package + support evidence + late MAIN liveproof package | **PARTIAL PASS / NOT FINAL** | a three-slot packaged report now exists, but final closure is still blocked by non-green delivery posture and unfinished final acceptance packaging/ledger closure |
-| Full `P0-4` closure | `P0-4` | depends on green final acceptance packaging and closed ledger items | **FAIL** | remaining blocker is no longer early MAIN readiness; it is late delivery-green / final acceptance packaging closure |
+| Late MAIN is dispatch-ready under SLA acceptance bar | `P0-3`, `P0-4`, `P0-5` | superseded by final green package cited in `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` | **PASS (superseded historical fail)** | earlier blocked/hold candidates were overtaken by the authoritative green package with `ready_for_delivery=true` |
+| MAIN/support concise-summary convergence is evidenced | `P1-2`, supports `P0-4` | `artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/main_publish.json` + final green package surfaces | **PASS** | Six support summaries remain lineage-traceable across early/late support evidence and the final green MAIN package |
+| One repeatable operator acceptance recipe exists for the SLA proof package | `P0-4` | this document + `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` | **PASS** | This ledger remains the historical scoring/runbook layer, while the final authoritative verdict is carried by the final closeout doc |
+| One authoritative pass/fail acceptance ledger exists for currently evidenced seams | `P0-4` | `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` | **PASS** | The final authoritative pass/fail verdict now lives in the final closeout package, not in this historical pre-green ledger |
+| Full-slot SLA proof (`early` + `mid` + `late`) under one acceptance standard | `P0-4` | final green MAIN package + support evidence + `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md` | **PASS** | all-slot acceptance is materially closed for the current roadmap scope on the authoritative 2026-04-23 evidence slice |
+| Full `P0-4` closure | `P0-4` | `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` | **PASS** | the remaining acceptance blocker was cleared by the final green package and the final authoritative closeout |
 
 ---
 
@@ -208,24 +209,30 @@ Current package revision may **not** be called:
 
 ---
 
-## Explicit missing requirements before full P0-4 can be called done
+## Historical gaps recorded before final closeout
+
+The list below was the honest pre-green gap list for this ledger revision. It is retained only as historical context.
+
+Items 1 and 4 are now materially closed by:
+- `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`
+- `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`
+
+Items 2, 3, and 5 are broader hardening/improvement opportunities and must not be treated as blockers to the authoritative `P0` closeout for the current roadmap scope.
 
 1. **Green MAIN delivery state for final acceptance**
-   - final acceptance package must produce a delivery-ready, non-held MAIN result under the intended SLA bar
-   - current evidenced MAIN packages still show `package_state=blocked`, `ready_for_delivery=false`, `recommended_action=hold`
+   - now closed by the final green acceptance package with `ready_for_delivery=true`
 
 2. **One rerunnable acceptance command set**
-   - recipe still references a fixed evidence package rather than a fully codified rerun command list that regenerates the same acceptance package on demand
+   - useful hardening/ergonomics follow-up, not a blocker to the accepted 2026-04-23 closeout slice
 
 3. **Per-slot timing / SLA measurement table**
-   - current proof package cites artifact outcomes, not a complete per-slot timing ledger against explicit deadlines
+   - useful future strengthening, not a blocker to the accepted evidence-first operator closeout already documented
 
 4. **Final acceptance verdict artifact across roadmap items**
-   - future package should include one operator-facing final acceptance summary covering `P0-1`, `P0-2`, `P0-3`, `P1-1`, `P1-2`, `P0-4`, `P0-5`
-   - current ledger covers only the evidenced subset above
+   - now closed by the final authoritative closeout docs covering `P0-1`, `P0-2`, `P0-3`, `P0-4`, and `P0-5` for current scope
 
 5. **Optional but stronger bounded-summary validation**
-   - desirable follow-up: direct automated assertion that MAIN summary convergence never inlines full support report bodies beyond the allowed concise summary boundary
+   - remains a non-blocking strengthening item only
 
 ---
 

@@ -203,8 +203,9 @@ For the 2026-04-23 evidenced package, the final closeout now allows:
 - `P0-4 acceptance closed`
 - `all-slot acceptance complete`
 - `dispatch-ready proven` **for the cited final package only**
+- `P0-1 / P0-2 / P0-3 materially closed for current roadmap scope`
 
-Do not extend that claim beyond the exact artifact root cited in `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md`.
+Do not extend that claim beyond the exact artifact root cited in `docs/FSJ_P0_4_FINAL_CLOSEOUT_2026-04-23.md` and the normalization captured in `docs/FSJ_P0_1_P0_2_P0_3_CLOSEOUT_2026-04-24.md`.
 
 ---
 
@@ -223,18 +224,15 @@ This recipe covers only these currently evidenced classes:
 
 ## What still requires new evidence
 
-1. **Green dispatch-ready MAIN outcome**
-   - current proven state is still blocked/hold
-   - a future package must prove non-blocked send-readiness
+No additional evidence is required to uphold the authoritative 2026-04-23 `P0` acceptance closeout.
 
-2. **Final all-doc acceptance packaging closure**
-   - the remaining work is to collapse the now-broader evidence set into one final accepted operator package / ledger closure without truth gaps
+The items below are retained only as broader strengthening opportunities and must not be interpreted as blockers to the accepted closeout:
 
-3. **Per-slot timing / deadline proof**
+1. **Per-slot timing / deadline proof**
    - this recipe proves command surfaces and artifact outcomes, not slot-timing measurements against SLA deadlines
 
-4. **Final P0-4 acceptance artifact**
-   - this recipe is a thin reproduce-on-demand layer, not the final closure document
+2. **Further rerun ergonomics / automation**
+   - this recipe is intentionally thin and reproduce-on-demand; richer operator automation remains optional follow-on work
 
 ---
 
@@ -250,7 +248,7 @@ During packaging, the following were verified live:
   - late live proof `ready=2`, `blocked=1`,
   - late convergence `ready=3`, `blocked=0`,
   - late MAIN `persist_status=persisted`, `publish_status=ready`,
-- current MAIN delivery packages still show blocked/hold rather than delivery-ready green.
+- the final authoritative closeout later upgraded the acceptance verdict to a delivery-ready green package for the cited 2026-04-23 artifact root.
 
 This recipe document itself does **not** fabricate new evidence; it standardizes how an operator can rerun the already-proven seams on demand.
 
