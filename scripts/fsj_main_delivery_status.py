@@ -6,7 +6,6 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.store import FSJStore
 
 _VALID_SLOT_KEYS = {"early", "mid", "late"}
@@ -18,7 +17,9 @@ def _safe_dict(value: Any) -> dict[str, Any]:
 
 
 def _surface_summary(surface: dict[str, Any], *, store: FSJStore | None = None) -> dict[str, Any]:
-    return (store or FSJStore()).report_workflow_handoff_from_surface(surface)
+    if surface.get("review_summary"):
+        return surface
+    return (store or FSJStore()).report_operator_review_surface_from_surface(surface)
 
 
 def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: str | None = None) -> dict[str, Any] | None:
@@ -26,7 +27,7 @@ def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: st
         raise ValueError(f"unsupported slot: {slot}")
 
     store = store or FSJStore()
-    surface = store.get_latest_active_report_delivery_surface(
+    surface = store.get_latest_active_report_operator_review_surface(
         agent_domain="main",
         artifact_family="main_final_report",
         strongest_slot=slot,
@@ -35,8 +36,8 @@ def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: st
     if not surface:
         return None
     artifact = _safe_dict(surface.get("artifact"))
-    delivery_package = _safe_dict(surface.get("delivery_package"))
-    slot_evaluation = _safe_dict(delivery_package.get("slot_evaluation"))
+    package_state = _safe_dict(surface.get("package_state"))
+    slot_evaluation = _safe_dict(package_state.get("slot_evaluation"))
     return {
         "business_date": artifact.get("business_date"),
         "artifact_id": artifact.get("artifact_id"),
@@ -49,22 +50,16 @@ def resolve_latest_main_business_date(*, store: FSJStore | None = None, slot: st
 
 def build_status_payload(*, business_date: str, history_limit: int = 5, resolution: dict[str, Any] | None = None) -> dict[str, Any]:
     store = FSJStore()
-    helper = MainReportDeliveryDispatchHelper()
-    active_surface = store.get_active_report_delivery_surface(
+    active_surface = store.get_active_report_operator_review_surface(
         business_date=business_date,
         agent_domain="main",
         artifact_family="main_final_report",
     )
-    history_surfaces = store.list_report_delivery_surfaces(
+    history_surfaces = store.list_report_operator_review_surfaces(
         business_date=business_date,
         agent_domain="main",
         artifact_family="main_final_report",
         statuses=["active", "superseded"],
-        limit=history_limit,
-    )
-    db_candidates = helper.list_db_delivery_candidates(
-        business_date=business_date,
-        store=store,
         limit=history_limit,
     )
     return {
@@ -72,7 +67,6 @@ def build_status_payload(*, business_date: str, history_limit: int = 5, resoluti
         "resolution": dict(resolution or {"mode": "explicit_business_date", "business_date": business_date}),
         "active_surface": _surface_summary(active_surface) if active_surface else None,
         "history": [_surface_summary(surface) for surface in history_surfaces],
-        "db_candidates": [helper.summarize_candidate(candidate) for candidate in db_candidates],
     }
 
 
@@ -81,7 +75,7 @@ def _print_text(payload: dict[str, Any]) -> None:
     artifact = _safe_dict(active.get("artifact"))
     selected = _safe_dict(active.get("selected_handoff"))
     state = _safe_dict(active.get("state"))
-    pointers = _safe_dict(active.get("manifest_pointers"))
+    pointers = _safe_dict(active.get("package_paths") or active.get("manifest_pointers"))
     resolution = _safe_dict(payload.get("resolution"))
     print(f"business_date={payload.get('business_date')}")
     print(f"resolution_mode={resolution.get('mode')}")
