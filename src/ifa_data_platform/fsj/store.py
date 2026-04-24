@@ -1365,6 +1365,108 @@ class FSJStore:
                 "posture": posture,
             }
 
+        def _qa_axis_subject(review_surface: dict[str, Any] | None, *, subject: str) -> dict[str, Any] | None:
+            if not review_surface:
+                return None
+            state = dict(review_surface.get("state") or {})
+            qa_axes = {
+                str(axis): dict(payload or {})
+                for axis, payload in dict(state.get("qa_axes") or {}).items()
+                if str(axis).strip()
+            }
+            axes_with_attention = sorted(
+                axis
+                for axis, payload in qa_axes.items()
+                if (payload.get("blocker_count") or 0) > 0 or (payload.get("warning_count") or 0) > 0
+            )
+            not_ready_axes = sorted(axis for axis, payload in qa_axes.items() if payload.get("ready") is False)
+            return {
+                "subject": subject,
+                "qa_axes": qa_axes,
+                "axes_with_attention": axes_with_attention,
+                "not_ready_axes": not_ready_axes,
+                "qa_axis_count": len(qa_axes),
+                "qa_axis_ready_count": len([axis for axis, payload in qa_axes.items() if payload.get("ready") is True]),
+                "qa_axis_attention_count": len(axes_with_attention),
+            }
+
+        def _aggregate_qa_axes(subjects: list[dict[str, Any]]) -> dict[str, Any]:
+            present_subjects = [item for item in subjects if item]
+            axis_totals: dict[str, dict[str, Any]] = {}
+            subjects_with_attention: list[str] = []
+            subject_axes_with_attention: dict[str, list[str]] = {}
+            not_ready_subjects: list[str] = []
+            subject_not_ready_axes: dict[str, list[str]] = {}
+            for item in present_subjects:
+                subject = str(item.get("subject") or "")
+                qa_axes = {
+                    str(axis): dict(payload or {})
+                    for axis, payload in dict(item.get("qa_axes") or {}).items()
+                    if str(axis).strip()
+                }
+                axes_with_attention = [str(axis) for axis in (item.get("axes_with_attention") or []) if str(axis).strip()]
+                not_ready_axes = [str(axis) for axis in (item.get("not_ready_axes") or []) if str(axis).strip()]
+                if axes_with_attention:
+                    subjects_with_attention.append(subject)
+                    subject_axes_with_attention[subject] = axes_with_attention
+                if not_ready_axes:
+                    not_ready_subjects.append(subject)
+                    subject_not_ready_axes[subject] = not_ready_axes
+                for axis, payload in qa_axes.items():
+                    total = axis_totals.setdefault(
+                        axis,
+                        {
+                            "subject_count": 0,
+                            "ready_subject_count": 0,
+                            "attention_subject_count": 0,
+                            "blocker_count": 0,
+                            "warning_count": 0,
+                            "issue_codes": set(),
+                        },
+                    )
+                    total["subject_count"] += 1
+                    if payload.get("ready") is True:
+                        total["ready_subject_count"] += 1
+                    if (payload.get("blocker_count") or 0) > 0 or (payload.get("warning_count") or 0) > 0:
+                        total["attention_subject_count"] += 1
+                    total["blocker_count"] += int(payload.get("blocker_count") or 0)
+                    total["warning_count"] += int(payload.get("warning_count") or 0)
+                    total["issue_codes"].update(
+                        str(code) for code in (payload.get("issue_codes") or []) if str(code).strip()
+                    )
+
+            normalized_axis_totals = {
+                axis: {
+                    "subject_count": payload["subject_count"],
+                    "ready_subject_count": payload["ready_subject_count"],
+                    "attention_subject_count": payload["attention_subject_count"],
+                    "blocker_count": payload["blocker_count"],
+                    "warning_count": payload["warning_count"],
+                    "ready": payload["attention_subject_count"] == 0 and payload["subject_count"] > 0,
+                    "issue_codes": sorted(payload["issue_codes"]),
+                }
+                for axis, payload in axis_totals.items()
+            }
+            overall_posture = "not_available"
+            if present_subjects:
+                if not_ready_subjects:
+                    overall_posture = "blocked"
+                elif subjects_with_attention:
+                    overall_posture = "attention"
+                else:
+                    overall_posture = "ready"
+            return {
+                "overall_posture": overall_posture,
+                "subject_count": len(subjects),
+                "reported_subject_count": len(present_subjects),
+                "qa_axis_subject_count": len([item for item in present_subjects if dict(item.get("qa_axes") or {})]),
+                "subjects_with_attention": subjects_with_attention,
+                "subject_axes_with_attention": subject_axes_with_attention,
+                "not_ready_subjects": not_ready_subjects,
+                "subject_not_ready_axes": subject_not_ready_axes,
+                "axes": normalized_axis_totals,
+            }
+
         def _aggregate_readiness(subjects: list[dict[str, Any]]) -> dict[str, Any]:
             present_subjects = [item for item in subjects if item]
             ready_subjects = [item["subject"] for item in present_subjects if item.get("send_ready")]
@@ -1681,7 +1783,13 @@ class FSJStore:
             domain: _readiness_subject(review, subject=f"support:{domain}")
             for domain, review in support_reviews.items()
         }
+        qa_axes_main = _qa_axis_subject(main_review, subject="main")
+        qa_axes_support = {
+            domain: _qa_axis_subject(review, subject=f"support:{domain}")
+            for domain, review in support_reviews.items()
+        }
         readiness_subjects = [item for item in [readiness_main, *readiness_support.values()] if item]
+        qa_axis_subjects = [item for item in [qa_axes_main, *qa_axes_support.values()] if item]
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
@@ -1732,6 +1840,11 @@ class FSJStore:
                 "main": readiness_main,
                 "support": readiness_support,
                 "aggregate": _aggregate_readiness(readiness_subjects),
+            },
+            "qa_axes_summary": {
+                "main": qa_axes_main,
+                "support": qa_axes_support,
+                "aggregate": _aggregate_qa_axes(qa_axis_subjects),
             },
         }
 

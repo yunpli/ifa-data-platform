@@ -87,6 +87,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     role_policy_aggregate = _safe_dict(role_policy.get("aggregate"))
     board_readiness = _safe_dict(payload.get("board_readiness_summary"))
     board_aggregate = _safe_dict(board_readiness.get("aggregate"))
+    qa_axes_summary = _safe_dict(payload.get("qa_axes_summary"))
+    qa_axes_aggregate = _safe_dict(qa_axes_summary.get("aggregate"))
     db_candidate_fleet = _safe_dict(payload.get("db_candidate_fleet_summary"))
     db_candidate_history = [
         _safe_dict(item)
@@ -110,6 +112,18 @@ def _print_text(payload: dict[str, Any]) -> None:
             "main_llm_slot_boundary_modes="
             + ",".join(f"{slot}:{mode}" for slot, mode in sorted((_safe_dict(main_role_policy.get('slot_boundary_modes'))).items()))
         )
+        main_qa_axes = _safe_dict(_safe_dict(qa_axes_summary.get('main')).get('qa_axes'))
+        print(
+            "main_qa_axes="
+            + ",".join(
+                f"{axis}:{'ready' if _safe_dict(axis_payload).get('ready') else 'attention'}:b{_safe_dict(axis_payload).get('blocker_count', 0)}:w{_safe_dict(axis_payload).get('warning_count', 0)}"
+                for axis, axis_payload in sorted(main_qa_axes.items())
+            )
+        )
+        print(
+            "main_qa_axes_attention="
+            + ",".join(_safe_dict(qa_axes_summary.get('main')).get('axes_with_attention') or [])
+        )
     else:
         print("main_artifact=NONE")
     support_lineage = _safe_dict(lineage.get("support"))
@@ -132,6 +146,18 @@ def _print_text(payload: dict[str, Any]) -> None:
             f"support_{domain}_llm_slot_boundary_modes="
             + ",".join(f"{slot}:{mode}" for slot, mode in sorted((_safe_dict(item_role_policy.get('slot_boundary_modes'))).items()))
         )
+        item_qa_axes = _safe_dict(_safe_dict(_safe_dict(qa_axes_summary.get('support')).get(domain)).get('qa_axes'))
+        print(
+            f"support_{domain}_qa_axes="
+            + ",".join(
+                f"{axis}:{'ready' if _safe_dict(axis_payload).get('ready') else 'attention'}:b{_safe_dict(axis_payload).get('blocker_count', 0)}:w{_safe_dict(axis_payload).get('warning_count', 0)}"
+                for axis, axis_payload in sorted(item_qa_axes.items())
+            )
+        )
+        print(
+            f"support_{domain}_qa_axes_attention="
+            + ",".join(_safe_dict(_safe_dict(qa_axes_summary.get('support')).get(domain)).get('axes_with_attention') or [])
+        )
     print(f"fleet_llm_lineage_status={lineage_aggregate.get('overall_status')}")
     print(f"fleet_llm_attention_subjects={','.join(lineage_aggregate.get('attention_subjects') or [])}")
     print(f"fleet_llm_reported_subject_count={lineage_aggregate.get('reported_subject_count')}")
@@ -139,6 +165,10 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"fleet_llm_override_precedence={'>'.join(role_policy_aggregate.get('override_precedence') or [])}")
     print(f"fleet_llm_attention_policy_subjects={','.join(role_policy_aggregate.get('attention_subjects') or [])}")
     print(f"fleet_board_posture={board_aggregate.get('overall_posture')}")
+    print(f"fleet_qa_axes_posture={qa_axes_aggregate.get('overall_posture')}")
+    print(f"fleet_qa_axes_attention_subjects={','.join(qa_axes_aggregate.get('subjects_with_attention') or [])}")
+    print(f"fleet_qa_axes_not_ready_subjects={','.join(qa_axes_aggregate.get('not_ready_subjects') or [])}")
+    print(f"fleet_qa_axes_axes={','.join(sorted((_safe_dict(qa_axes_aggregate.get('axes'))).keys()))}")
     print(f"db_candidate_fleet_verdict={db_candidate_fleet.get('verdict')}")
     print(f"db_candidate_fleet_reason={db_candidate_fleet.get('reason_code')}")
     print(f"db_candidate_fleet_summary={db_candidate_fleet.get('summary_line')}")

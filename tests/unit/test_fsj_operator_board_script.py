@@ -38,12 +38,13 @@ class _DummyStore:
         if domain == "main":
             return {
                 "artifact": {"artifact_id": "main-artifact", "report_run_id": "main-run", "business_date": kwargs["business_date"], "status": "active"},
-                "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 100, "blocker_count": 0, "warning_count": 0}, "workflow": {"recommended_action": "send", "dispatch_recommended_action": "send", "workflow_state": "ready_to_send"}, "artifacts": {}},
+                "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 100, "blocker_count": 0, "warning_count": 0, "qa_axes": {"structural": {"ready": True, "score": 100, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "lineage": {"ready": True, "score": 100, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "policy": {"ready": True, "score": 100, "blocker_count": 0, "warning_count": 0, "issue_codes": []}}}, "workflow": {"recommended_action": "send", "dispatch_recommended_action": "send", "workflow_state": "ready_to_send"}, "artifacts": {}},
                 "workflow_linkage": {},
             }
+        quality_gate = {"score": 95, "blocker_count": 0, "warning_count": 0, "qa_axes": {"structural": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "lineage": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "policy": {"ready": domain != "commodities", "score": 87 if domain == "commodities" else 95, "blocker_count": 0, "warning_count": 1 if domain == "commodities" else 0, "issue_codes": ["support_source_health_degraded"] if domain == "commodities" else []}}}
         return {
             "artifact": {"artifact_id": f"{domain}-artifact", "report_run_id": f"{domain}-run", "business_date": kwargs["business_date"], "status": "active"},
-            "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": {"score": 95, "blocker_count": 0, "warning_count": 0}, "workflow": {"recommended_action": "send", "dispatch_recommended_action": "send", "workflow_state": "ready_to_send"}, "artifacts": {}, "slot": "early"},
+            "delivery_package": {"package_state": "ready", "ready_for_delivery": True, "quality_gate": quality_gate, "workflow": {"recommended_action": "send", "dispatch_recommended_action": "send", "workflow_state": "ready_to_send"}, "artifacts": {}, "slot": "early"},
             "workflow_linkage": {},
         }
 
@@ -58,7 +59,7 @@ class _DummyStore:
         return {
             "artifact": {"artifact_id": artifact.get("artifact_id"), "report_run_id": artifact.get("report_run_id"), "business_date": artifact.get("business_date"), "status": artifact.get("status")},
             "selected_handoff": {"selected_artifact_id": artifact.get("artifact_id"), "selected_is_current": True},
-            "state": {"recommended_action": workflow.get("recommended_action"), "dispatch_recommended_action": workflow.get("dispatch_recommended_action"), "workflow_state": workflow.get("workflow_state"), "package_state": delivery_package.get("package_state"), "qa_score": quality_gate.get("score"), "blocker_count": quality_gate.get("blocker_count"), "warning_count": quality_gate.get("warning_count")},
+            "state": {"recommended_action": workflow.get("recommended_action"), "dispatch_recommended_action": workflow.get("dispatch_recommended_action"), "workflow_state": workflow.get("workflow_state"), "package_state": delivery_package.get("package_state"), "qa_score": quality_gate.get("score"), "blocker_count": quality_gate.get("blocker_count"), "warning_count": quality_gate.get("warning_count"), "qa_axes": dict(quality_gate.get("qa_axes") or {})},
             "manifest_pointers": {},
             "version_pointers": {},
         }
@@ -206,6 +207,15 @@ class _BoardStore(_DummyStore):
                     "attention_subjects": ["support:commodities"],
                 },
             },
+            "qa_axes_summary": {
+                "main": {"subject": "main", "qa_axes": {"structural": {"ready": True, "score": 100, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "lineage": {"ready": True, "score": 100, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "policy": {"ready": True, "score": 100, "blocker_count": 0, "warning_count": 0, "issue_codes": []}}, "axes_with_attention": [], "not_ready_axes": []},
+                "support": {
+                    "ai_tech": {"subject": "support:ai_tech", "qa_axes": {"structural": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "lineage": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "policy": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}}, "axes_with_attention": [], "not_ready_axes": []},
+                    "commodities": {"subject": "support:commodities", "qa_axes": {"structural": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "lineage": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "policy": {"ready": False, "score": 87, "blocker_count": 0, "warning_count": 1, "issue_codes": ["support_source_health_degraded"]}}, "axes_with_attention": ["policy"], "not_ready_axes": ["policy"]},
+                    "macro": {"subject": "support:macro", "qa_axes": {"structural": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "lineage": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}, "policy": {"ready": True, "score": 95, "blocker_count": 0, "warning_count": 0, "issue_codes": []}}, "axes_with_attention": [], "not_ready_axes": []},
+                },
+                "aggregate": {"overall_posture": "blocked", "subjects_with_attention": ["support:commodities"], "not_ready_subjects": ["support:commodities"], "axes": {"structural": {"ready": True}, "lineage": {"ready": True}, "policy": {"ready": False}}},
+            },
         }
 class _DummyHelper:
     def list_db_delivery_candidates(self, **_: object) -> list[dict]:
@@ -252,6 +262,10 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
     assert payload["llm_role_policy_review"]["aggregate"]["slot_boundary_modes_by_subject"]["main"] == {"late": "same_day_close"}
     assert payload["board_readiness_summary"]["aggregate"]["overall_posture"] == "review_required"
     assert payload["board_readiness_summary"]["aggregate"]["review_required_subjects"] == ["support:commodities"]
+    assert payload["qa_axes_summary"]["support"]["commodities"]["axes_with_attention"] == ["policy"]
+    assert payload["qa_axes_summary"]["aggregate"]["overall_posture"] == "blocked"
+    assert payload["qa_axes_summary"]["aggregate"]["subjects_with_attention"] == ["support:commodities"]
+    assert payload["qa_axes_summary"]["aggregate"]["not_ready_subjects"] == ["support:commodities"]
 
 
 def test_build_board_payload_can_resolve_latest_business_date(monkeypatch) -> None:
@@ -329,6 +343,15 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
                 "attention_subjects": ["support:commodities"],
             },
         },
+        "qa_axes_summary": {
+            "main": {"subject": "main", "qa_axes": {"structural": {"ready": True, "blocker_count": 0, "warning_count": 0}, "lineage": {"ready": True, "blocker_count": 0, "warning_count": 0}, "policy": {"ready": True, "blocker_count": 0, "warning_count": 0}}, "axes_with_attention": [], "not_ready_axes": []},
+            "support": {
+                "ai_tech": {"subject": "support:ai_tech", "qa_axes": {"structural": {"ready": True, "blocker_count": 0, "warning_count": 0}, "lineage": {"ready": True, "blocker_count": 0, "warning_count": 0}, "policy": {"ready": True, "blocker_count": 0, "warning_count": 0}}, "axes_with_attention": [], "not_ready_axes": []},
+                "commodities": {"subject": "support:commodities", "qa_axes": {"structural": {"ready": True, "blocker_count": 0, "warning_count": 0}, "lineage": {"ready": True, "blocker_count": 0, "warning_count": 0}, "policy": {"ready": False, "blocker_count": 0, "warning_count": 1}}, "axes_with_attention": ["policy"], "not_ready_axes": ["policy"]},
+                "macro": None,
+            },
+            "aggregate": {"overall_posture": "blocked", "subjects_with_attention": ["support:commodities"], "not_ready_subjects": ["support:commodities"], "axes": {"structural": {"ready": True}, "lineage": {"ready": True}, "policy": {"ready": False}}},
+        },
     }
 
     _print_text(payload)
@@ -351,6 +374,13 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_llm_override_precedence=deterministic_input_contract>validated_llm_text_fields_only" in output
     assert "fleet_llm_attention_policy_subjects=main,support:ai_tech,support:commodities" in output
     assert "fleet_board_posture=review_required" in output
+    assert "main_qa_axes=lineage:ready:b0:w0,policy:ready:b0:w0,structural:ready:b0:w0" in output
+    assert "support_commodities_qa_axes=lineage:ready:b0:w0,policy:attention:b0:w1,structural:ready:b0:w0" in output
+    assert "support_commodities_qa_axes_attention=policy" in output
+    assert "fleet_qa_axes_posture=blocked" in output
+    assert "fleet_qa_axes_attention_subjects=support:commodities" in output
+    assert "fleet_qa_axes_not_ready_subjects=support:commodities" in output
+    assert "fleet_qa_axes_axes=lineage,policy,structural" in output
     assert "db_candidate_fleet_verdict=review_held" in output
     assert "db_candidate_fleet_reason=review_held_selected_candidate_differs_from_current" in output
     assert "db_candidate_selected_artifact_id=main-artifact-v2" in output
