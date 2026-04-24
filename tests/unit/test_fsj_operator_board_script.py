@@ -79,6 +79,24 @@ class _DummyStore:
 
 
 class _BoardStore(_DummyStore):
+    def report_operator_review_surface_from_surface(self, surface: dict) -> dict:
+        package_surface = self.report_package_surface_from_surface(surface)
+        handoff = self.report_workflow_handoff_from_surface(surface)
+        return {
+            "artifact": handoff["artifact"],
+            "selected_handoff": handoff["selected_handoff"],
+            "state": handoff["state"],
+            "package_paths": package_surface["package_paths"],
+            "package_versions": package_surface["package_versions"],
+            "package_state": {"package_state": handoff["state"].get("package_state")},
+            "workflow_handoff": handoff,
+            "candidate_comparison": {},
+            "operator_go_no_go": {"decision": "GO"},
+            "review_manifest": {},
+            "send_manifest": {},
+            "review_summary": {"go_no_go_decision": "GO"},
+        }
+
     def build_operator_board_surface(self, *, business_date: str | None = None, history_limit: int = 5) -> dict:
         business_date = business_date or "2099-04-22"
         resolution_mode = "latest_active_lookup" if business_date == "2099-04-22" else "explicit_business_date"
@@ -91,14 +109,17 @@ class _BoardStore(_DummyStore):
         return {
             "business_date": business_date,
             "resolution": {"mode": resolution_mode, "business_date": business_date},
-            "main": self.report_workflow_handoff_from_surface(main) if main else None,
+            "main": self.report_operator_review_surface_from_surface(main) if main else None,
             "main_package": self.report_package_surface_from_surface(main) if main else None,
-            "main_review": {"artifact": {"artifact_id": "main-artifact"}, "review_summary": {"go_no_go_decision": "GO"}},
-            "support": {domain: self.report_workflow_handoff_from_surface(surface) if surface else None for domain, surface in support.items()},
+            "main_review": self.report_operator_review_surface_from_surface(main) if main else None,
+            "main_workflow": self.report_workflow_handoff_from_surface(main) if main else None,
+            "support": {domain: self.report_operator_review_surface_from_surface(surface) if surface else None for domain, surface in support.items()},
             "support_packages": {domain: self.report_package_surface_from_surface(surface) if surface else None for domain, surface in support.items()},
-            "history": [self.report_workflow_handoff_from_surface(surface) for surface in history],
+            "support_workflow": {domain: self.report_workflow_handoff_from_surface(surface) if surface else None for domain, surface in support.items()},
+            "history": [self.report_operator_review_surface_from_surface(surface) for surface in history],
             "history_packages": [self.report_package_surface_from_surface(surface) for surface in history],
-            "history_reviews": [{"artifact": {"artifact_id": "main-artifact"}, "review_summary": {"go_no_go_decision": "GO"}}],
+            "history_reviews": [self.report_operator_review_surface_from_surface(surface) for surface in history],
+            "history_workflow": [self.report_workflow_handoff_from_surface(surface) for surface in history],
             "db_candidates": [{"artifact_id": "main-artifact", "recommended_action": "send", "selection_reason": "best_ready_candidate strongest_slot=late qa_score=100"}],
         }
 class _DummyHelper:
@@ -116,15 +137,21 @@ def test_build_board_payload_composes_main_and_support_views(monkeypatch) -> Non
 
     assert payload["business_date"] == "2099-04-22"
     assert payload["main"]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["main"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["main_package"]["package_paths"]["delivery_package_dir"] is None
     assert payload["main_review"]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["main_workflow"]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
+    assert payload["support"]["macro"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["support_packages"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
+    assert payload["support_workflow"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
     assert payload["support"]["commodities"]["artifact"]["artifact_id"] == "commodities-artifact"
     assert payload["support"]["ai_tech"]["artifact"]["artifact_id"] == "ai_tech-artifact"
     assert payload["history"][0]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["history"][0]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["history_packages"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["history_reviews"][0]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["history_workflow"][0]["artifact"]["artifact_id"] == "main-artifact"
     assert payload["db_candidates"][0]["artifact_id"] == "main-artifact"
 
 
@@ -170,5 +197,7 @@ def test_store_build_operator_board_surface_uses_canonical_facade(monkeypatch) -
     monkeypatch.setattr(_module, "FSJStore", lambda: store)
     payload = store.build_operator_board_surface(business_date="2099-04-22", history_limit=1)
     assert payload["main"]["artifact"]["artifact_id"] == "main-artifact"
+    assert payload["main"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["support"]["macro"]["artifact"]["artifact_id"] == "macro-artifact"
+    assert payload["support"]["macro"]["review_summary"]["go_no_go_decision"] == "GO"
     assert payload["history"][0]["artifact"]["artifact_id"] == "main-artifact"

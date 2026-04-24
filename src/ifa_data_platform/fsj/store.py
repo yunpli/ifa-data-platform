@@ -1026,25 +1026,52 @@ class FSJStore:
             resolution = {"mode": "latest_active_lookup", "business_date": resolved_business_date, "status": "resolved" if resolved_business_date else "not_found"}
         else:
             resolution = {"mode": "explicit_business_date", "business_date": resolved_business_date}
+        empty_domains = {d: None for d in ("ai_tech", "commodities", "macro")}
         if not resolved_business_date:
-            return {"business_date": None, "resolution": resolution, "main": None, "main_package": None, "main_review": None, "support": {d: None for d in ("ai_tech", "commodities", "macro")}, "support_packages": {d: None for d in ("ai_tech", "commodities", "macro")}, "history": [], "history_packages": [], "history_reviews": [], "db_candidates": []}
+            return {
+                "business_date": None,
+                "resolution": resolution,
+                "main": None,
+                "main_package": None,
+                "main_review": None,
+                "main_workflow": None,
+                "support": empty_domains,
+                "support_packages": dict(empty_domains),
+                "support_workflow": dict(empty_domains),
+                "history": [],
+                "history_packages": [],
+                "history_reviews": [],
+                "history_workflow": [],
+                "db_candidates": [],
+            }
         main_active = self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
         main_review = self.get_active_report_operator_review_surface(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report")
-        support = {d: self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain=d, artifact_family="support_domain_report") for d in ("ai_tech", "commodities", "macro")}
+        support_active = {d: self.get_active_report_delivery_surface(business_date=resolved_business_date, agent_domain=d, artifact_family="support_domain_report") for d in ("ai_tech", "commodities", "macro")}
+        support_reviews = {
+            d: self.get_active_report_operator_review_surface(
+                business_date=resolved_business_date,
+                agent_domain=d,
+                artifact_family="support_domain_report",
+            )
+            for d in ("ai_tech", "commodities", "macro")
+        }
         history = self.list_report_delivery_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         history_reviews = self.list_report_operator_review_surfaces(business_date=resolved_business_date, agent_domain="main", artifact_family="main_final_report", statuses=["active", "superseded"], limit=history_limit)
         db_candidates = helper.list_db_delivery_candidates(business_date=resolved_business_date, store=self, limit=history_limit)
         return {
             "business_date": resolved_business_date,
             "resolution": resolution,
-            "main": self.report_workflow_handoff_from_surface(main_active) if main_active else None,
+            "main": main_review,
             "main_package": self.report_package_surface_from_surface(main_active) if main_active else None,
             "main_review": main_review,
-            "support": {d: self.report_workflow_handoff_from_surface(s) if s else None for d, s in support.items()},
-            "support_packages": {d: self.report_package_surface_from_surface(s) if s else None for d, s in support.items()},
-            "history": [self.report_workflow_handoff_from_surface(s) for s in history],
+            "main_workflow": self.report_workflow_handoff_from_surface(main_active) if main_active else None,
+            "support": support_reviews,
+            "support_packages": {d: self.report_package_surface_from_surface(s) if s else None for d, s in support_active.items()},
+            "support_workflow": {d: self.report_workflow_handoff_from_surface(s) if s else None for d, s in support_active.items()},
+            "history": history_reviews,
             "history_packages": [self.report_package_surface_from_surface(s) for s in history],
             "history_reviews": history_reviews,
+            "history_workflow": [self.report_workflow_handoff_from_surface(s) for s in history],
             "db_candidates": [helper.summarize_candidate(c) for c in db_candidates],
         }
 
