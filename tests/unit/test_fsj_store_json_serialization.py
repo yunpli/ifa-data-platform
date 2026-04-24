@@ -272,10 +272,14 @@ def test_report_operator_review_surface_projection_prefers_db_backed_review_payl
     assert summary["llm_lineage"]["summary"]["degraded_count"] == 1
     assert summary["llm_lineage"]["summary"]["fallback_applied_count"] == 1
     assert summary["llm_lineage"]["summary"]["operator_tags"] == ["llm_timeout"]
+    assert summary["llm_lineage_summary"]["status"] == "degraded"
+    assert summary["llm_lineage_summary"]["summary_line"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late]"
     assert summary["review_summary"]["llm_bundle_count"] == 2
     assert summary["review_summary"]["llm_applied_count"] == 1
     assert summary["review_summary"]["llm_degraded_count"] == 1
     assert summary["review_summary"]["llm_fallback_count"] == 1
+    assert summary["review_summary"]["llm_lineage_status"] == "degraded"
+    assert summary["review_summary"]["llm_lineage_summary"] == "degraded [applied=1/2 | fallback=1 | degraded=1 | deterministic=1 | tags=llm_timeout | slots=early,late]"
 
 
 def test_report_llm_lineage_from_artifact_projects_bundle_level_attempts() -> None:
@@ -342,7 +346,11 @@ def test_report_operator_review_surface_prefers_exported_workflow_linkage_llm_li
 
     assert summary["llm_lineage"]["artifact_id"] == "artifact-exported"
     assert summary["llm_lineage"]["summary"]["bundle_count"] == 1
+    assert summary["llm_lineage_summary"]["status"] == "applied"
+    assert summary["llm_lineage_summary"]["summary_line"] == "applied [applied=1/1 | primary=1]"
     assert summary["review_summary"]["llm_applied_count"] == 1
+    assert summary["review_summary"]["llm_lineage_status"] == "applied"
+    assert summary["review_summary"]["llm_lineage_summary"] == "applied [applied=1/1 | primary=1]"
 
 
 def test_report_operator_review_query_helpers_project_from_delivery_surfaces() -> None:

@@ -104,6 +104,19 @@ class _ParityStore:
                     }
                 ],
             },
+            "llm_lineage_summary": {
+                "status": "applied",
+                "bundle_count": 1,
+                "applied_count": 1,
+                "primary_applied_count": 1,
+                "fallback_applied_count": 0,
+                "degraded_count": 0,
+                "deterministic_degrade_count": 0,
+                "missing_bundle_count": 0,
+                "operator_tags": [],
+                "slots": [slot],
+                "summary_line": f"applied [applied=1/1 | primary=1 | slots={slot}]",
+            },
             "candidate_comparison": {
                 "selected_artifact_id": selected_artifact_id,
                 "current_artifact_id": artifact_id,
@@ -147,6 +160,7 @@ def _active_schema(payload: dict) -> dict:
         "package_version_keys": sorted(active["package_versions"].keys()),
         "package_state_keys": sorted(active["package_state"].keys()),
         "review_summary_keys": sorted(active["review_summary"].keys()),
+        "llm_lineage_summary_keys": sorted(active["llm_lineage_summary"].keys()),
         "llm_lineage_keys": sorted(active["llm_lineage"].keys()),
         "llm_summary_keys": sorted(active["llm_lineage"]["summary"].keys()),
     }
@@ -174,3 +188,5 @@ def test_main_and_support_status_cli_json_contracts_are_symmetric(monkeypatch, c
     assert support_payload["active_surface"]["package_paths"]["operator_review_bundle_path"].endswith("operator_review_bundle.json")
     assert main_payload["active_surface"]["llm_lineage"]["summary"]["applied_count"] == 1
     assert support_payload["active_surface"]["llm_lineage"]["summary"]["applied_count"] == 1
+    assert main_payload["active_surface"]["llm_lineage_summary"]["status"] == "applied"
+    assert support_payload["active_surface"]["llm_lineage_summary"]["status"] == "applied"

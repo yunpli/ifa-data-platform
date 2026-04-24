@@ -155,6 +155,10 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
                 "package_index_path": "/tmp/pkg/package_index.json",
                 "delivery_zip_path": "/tmp/pkg.zip",
             },
+            "llm_lineage_summary": {
+                "status": "degraded",
+                "summary_line": "degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late]",
+            },
             "review_summary": {
                 "go_no_go_decision": "REVIEW",
             },
@@ -179,6 +183,8 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "selection_reason=best_ready_candidate strongest_slot=late qa_score=94" in output
     assert "dispatch_selected_artifact_id=artifact-selected" in output
     assert "send_manifest_path=/tmp/pkg/send_manifest.json" in output
+    assert "llm_lineage_status=degraded" in output
+    assert "llm_lineage_summary=degraded [applied=1/2 | fallback=1 | degraded=1 | tags=llm_timeout | slots=early,late]" in output
     assert "history_count=2" in output
 
 
@@ -274,6 +280,10 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
                 "package_state": {
                     "slot_evaluation": {"strongest_slot": "late"},
                 },
+                "llm_lineage_summary": {
+                    "status": "applied",
+                    "summary_line": "applied [applied=1/1 | primary=1]",
+                },
                 "review_summary": {
                     "go_no_go_decision": "REVIEW",
                     "selected_artifact_id": "artifact-selected",
@@ -293,6 +303,8 @@ def test_main_cli_json_contract_uses_operator_review_payload(monkeypatch, capsys
     assert '"artifact_id": "artifact-active"' in output
     assert '"operator_review_bundle_path": "/tmp/pkg/operator_review_bundle.json"' in output
     assert '"go_no_go_decision": "REVIEW"' in output
+    assert '"llm_lineage_summary": {' in output
+    assert '"summary_line": "applied [applied=1/1 | primary=1]"' in output
 
 
 def test_resolve_latest_main_business_date_rejects_unknown_slot() -> None:

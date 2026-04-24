@@ -938,6 +938,7 @@ class FSJStore:
             or workflow_linkage.get("llm_lineage")
             or self.report_llm_lineage_from_artifact(artifact)
         )
+        llm_lineage_summary = self.report_llm_lineage_summary(llm_lineage)
 
         review_payload = dict(
             dict(normalized_surface.get("review_surface") or {})
@@ -981,6 +982,7 @@ class FSJStore:
             "package_state": package_state,
             "workflow_handoff": workflow_handoff,
             "llm_lineage": llm_lineage,
+            "llm_lineage_summary": llm_lineage_summary,
             "candidate_comparison": {
                 **candidate_comparison,
                 "selected": selected,
@@ -1014,7 +1016,61 @@ class FSJStore:
                 "llm_degraded_count": llm_lineage.get("summary", {}).get("degraded_count"),
                 "llm_primary_count": llm_lineage.get("summary", {}).get("primary_applied_count"),
                 "llm_fallback_count": llm_lineage.get("summary", {}).get("fallback_applied_count"),
+                "llm_lineage_summary": llm_lineage_summary.get("summary_line"),
+                "llm_lineage_status": llm_lineage_summary.get("status"),
             },
+        }
+
+    def report_llm_lineage_summary(self, llm_lineage: dict[str, Any] | None) -> dict[str, Any]:
+        normalized_lineage = dict(llm_lineage or {})
+        summary = dict(normalized_lineage.get("summary") or {})
+        bundle_count = int(summary.get("bundle_count") or 0)
+        applied_count = int(summary.get("applied_count") or 0)
+        degraded_count = int(summary.get("degraded_count") or 0)
+        missing_bundle_count = int(summary.get("missing_bundle_count") or 0)
+        primary_count = int(summary.get("primary_applied_count") or 0)
+        fallback_count = int(summary.get("fallback_applied_count") or 0)
+        deterministic_degrade_count = int(summary.get("deterministic_degrade_count") or 0)
+        operator_tags = sorted({str(item) for item in (summary.get("operator_tags") or []) if str(item).strip()})
+        slots = [str(item) for item in (summary.get("slots") or []) if str(item).strip()]
+
+        if missing_bundle_count > 0:
+            status = "incomplete"
+        elif degraded_count > 0:
+            status = "degraded"
+        elif applied_count > 0:
+            status = "applied"
+        else:
+            status = "not_applied"
+
+        detail_parts = [f"applied={applied_count}/{bundle_count}"]
+        if primary_count:
+            detail_parts.append(f"primary={primary_count}")
+        if fallback_count:
+            detail_parts.append(f"fallback={fallback_count}")
+        if degraded_count:
+            detail_parts.append(f"degraded={degraded_count}")
+        if deterministic_degrade_count:
+            detail_parts.append(f"deterministic={deterministic_degrade_count}")
+        if missing_bundle_count:
+            detail_parts.append(f"missing={missing_bundle_count}")
+        if operator_tags:
+            detail_parts.append(f"tags={','.join(operator_tags)}")
+        if slots:
+            detail_parts.append(f"slots={','.join(slots)}")
+
+        return {
+            "status": status,
+            "bundle_count": bundle_count,
+            "applied_count": applied_count,
+            "primary_applied_count": primary_count,
+            "fallback_applied_count": fallback_count,
+            "degraded_count": degraded_count,
+            "deterministic_degrade_count": deterministic_degrade_count,
+            "missing_bundle_count": missing_bundle_count,
+            "operator_tags": operator_tags,
+            "slots": slots,
+            "summary_line": f"{status} [{' | '.join(detail_parts)}]",
         }
 
     def report_llm_lineage_from_artifact(self, artifact: dict[str, Any] | None) -> dict[str, Any]:
