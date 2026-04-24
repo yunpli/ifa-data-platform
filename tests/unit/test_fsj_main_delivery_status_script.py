@@ -206,6 +206,8 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
             "selected_artifact_id": "artifact-selected",
             "best_candidate_artifact_id": "artifact-selected",
             "compare_outcome": "supersede_candidate_available",
+            "rerun_outcome": "supersede",
+            "rerun_outcome_summary": "supersede | current=artifact-active | selected=artifact-selected | best=artifact-selected | action=review_and_promote_selected_candidate",
             "operator_action": "review_and_promote_selected_candidate",
             "operator_summary": "main rerun/replay compare found a better candidate: current=artifact-active selected=artifact-selected best=artifact-selected; operator should review and promote the selected candidate if evidence is accepted.",
             "rerun_candidate_present": True,
@@ -408,6 +410,8 @@ def test_print_text_emits_single_operator_read_surface(capsys) -> None:
     assert "db_candidate_candidate_count=2" in output
     assert "db_candidate_ready_candidate_count=1" in output
     assert "rerun_compare_outcome=supersede_candidate_available" in output
+    assert "rerun_compare_rerun_outcome=supersede" in output
+    assert "rerun_compare_rerun_outcome_summary=supersede | current=artifact-active | selected=artifact-selected | best=artifact-selected | action=review_and_promote_selected_candidate" in output
     assert "rerun_compare_operator_action=review_and_promote_selected_candidate" in output
     assert "rerun_compare_candidate_present=True" in output
     assert "rerun_compare_candidate_differs_from_current=True" in output

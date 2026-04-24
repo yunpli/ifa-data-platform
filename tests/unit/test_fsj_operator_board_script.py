@@ -544,6 +544,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
             "subject": "main",
             "verdict": "review_held",
             "reason_code": "review_held_selected_candidate_differs_from_current",
+            "compare_outcome": "rerun_candidate_held_for_review",
+            "rerun_outcome": "hold",
+            "rerun_outcome_summary": "hold | current=main-artifact | selected=main-artifact-v2 | best=main-artifact-v2 | action=review_selected_candidate_before_supersede",
+            "operator_action": "review_selected_candidate_before_supersede",
             "summary_line": "Current MAIN artifact main-artifact is not the selected DB candidate; operator selection is held on main-artifact-v2 for review.",
             "current_artifact_id": "main-artifact",
             "selected_artifact_id": "main-artifact-v2",
@@ -841,6 +845,10 @@ def test_print_text_emits_operator_board_summary(capsys) -> None:
     assert "fleet_qa_axes_axes=lineage,policy,structural" in output
     assert "db_candidate_fleet_verdict=review_held" in output
     assert "db_candidate_fleet_reason=review_held_selected_candidate_differs_from_current" in output
+    assert "db_candidate_fleet_compare_outcome=rerun_candidate_held_for_review" in output
+    assert "db_candidate_fleet_rerun_outcome=hold" in output
+    assert "db_candidate_fleet_rerun_outcome_summary=hold | current=main-artifact | selected=main-artifact-v2 | best=main-artifact-v2 | action=review_selected_candidate_before_supersede" in output
+    assert "db_candidate_fleet_operator_action=review_selected_candidate_before_supersede" in output
     assert "db_candidate_selected_artifact_id=main-artifact-v2" in output
     assert "db_candidate_current_matches_best=False" in output
     assert "board_history_1_subject=history:1" in output
@@ -1068,6 +1076,9 @@ def test_store_build_operator_board_surface_projects_better_ready_candidate_mism
     assert summary["current_matches_best"] is False
     assert summary["best_candidate_recommended_action"] == "send"
     assert summary["best_candidate_selection_reason"] == "best_ready_candidate strongest_slot=late qa_score=96"
+    assert summary["compare_outcome"] == "supersede_candidate_available"
+    assert summary["rerun_outcome"] == "replace"
+    assert summary["rerun_outcome_summary"] == "replace | current=artifact-current | selected=artifact-selected | best=artifact-ready-better | action=review_and_promote_selected_candidate"
     assert summary["summary_line"] == (
         "Current MAIN artifact artifact-current and selected artifact artifact-selected "
         "both trail better ready DB candidate artifact-ready-better."

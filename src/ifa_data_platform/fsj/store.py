@@ -1916,6 +1916,7 @@ class FSJStore:
 
         if verdict == "aligned":
             compare_outcome = "no_rerun_gap"
+            rerun_outcome = "keep"
             operator_action = "keep_current_active_artifact"
             operator_summary = (
                 f"{subject} rerun/replay compare is aligned; current active artifact "
@@ -1929,8 +1930,13 @@ class FSJStore:
                 f"selected={selected_artifact_id or '-'} best={best_candidate_artifact_id or '-'}; "
                 "operator should review and promote the selected candidate if evidence is accepted."
             )
+            if alignment.get("selected_matches_best") and not alignment.get("current_matches_selected"):
+                rerun_outcome = "supersede"
+            else:
+                rerun_outcome = "replace"
         elif verdict == "review_held":
             compare_outcome = "rerun_candidate_held_for_review"
+            rerun_outcome = "hold"
             operator_action = "review_selected_candidate_before_supersede"
             operator_summary = (
                 f"{subject} rerun/replay compare is holding on selected candidate {selected_artifact_id or '-'}; "
@@ -1938,6 +1944,7 @@ class FSJStore:
             )
         elif verdict == "hold":
             compare_outcome = "candidate_on_hold"
+            rerun_outcome = "hold"
             operator_action = "hold_current_until_selected_candidate_clears"
             operator_summary = (
                 f"{subject} rerun/replay compare is on hold: current={current_artifact_id or '-'} "
@@ -1946,6 +1953,7 @@ class FSJStore:
             )
         elif verdict == "current_only":
             compare_outcome = "no_candidate_set"
+            rerun_outcome = "keep"
             operator_action = "inspect_candidate_generation"
             operator_summary = (
                 f"{subject} rerun/replay compare has no alternate DB candidate; current artifact "
@@ -1953,12 +1961,21 @@ class FSJStore:
             )
         else:
             compare_outcome = "not_available"
+            rerun_outcome = "unknown"
             operator_action = "resolve_compare_inputs"
             operator_summary = f"{subject} rerun/replay compare is not available yet; resolve current artifact and candidate inputs first."
+
+        rerun_outcome_summary = (
+            f"{rerun_outcome} | current={current_artifact_id or '-'} | "
+            f"selected={selected_artifact_id or '-'} | best={best_candidate_artifact_id or '-'} | "
+            f"action={operator_action}"
+        )
 
         return {
             **alignment,
             "compare_outcome": compare_outcome,
+            "rerun_outcome": rerun_outcome,
+            "rerun_outcome_summary": rerun_outcome_summary,
             "operator_action": operator_action,
             "operator_summary": operator_summary,
             "rerun_candidate_present": bool(best_candidate_artifact_id),
@@ -3123,7 +3140,7 @@ class FSJStore:
             *,
             subject: str,
         ) -> dict[str, Any]:
-            return self.summarize_db_candidate_alignment(review_surface, db_candidate_rows, subject=subject)
+            return self.summarize_rerun_compare_surface(review_surface, db_candidate_rows, subject=subject)
 
         def _summarize_db_candidate_history(
             history_review_surfaces: list[dict[str, Any]],

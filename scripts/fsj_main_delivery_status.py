@@ -245,6 +245,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     print(f"db_candidate_selected_matches_best={db_candidate_alignment.get('selected_matches_best')}")
     print(f"db_candidate_current_matches_best={db_candidate_alignment.get('current_matches_best')}")
     print(f"rerun_compare_outcome={rerun_compare.get('compare_outcome')}")
+    print(f"rerun_compare_rerun_outcome={rerun_compare.get('rerun_outcome')}")
+    print(f"rerun_compare_rerun_outcome_summary={rerun_compare.get('rerun_outcome_summary')}")
     print(f"rerun_compare_operator_action={rerun_compare.get('operator_action')}")
     print(f"rerun_compare_candidate_present={rerun_compare.get('rerun_candidate_present')}")
     print(f"rerun_compare_candidate_differs_from_current={rerun_compare.get('rerun_candidate_differs_from_current')}")
