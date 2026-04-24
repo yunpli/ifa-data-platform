@@ -90,13 +90,8 @@ def test_main_persists_before_publish_and_writes_batch_summary(
                 },
                 "package_state": {
                     "package_state": "ready",
-                },
-            },
-            "delivery_surface": {
-                "delivery_package": {
-                    "package_state": "ready",
                     "lineage": {"bundle_id": f"bundle-db-{kwargs['agent_domain']}"},
-                }
+                },
             },
             "workflow_handoff": {
                 "artifact": {"artifact_id": f"artifact-{kwargs['agent_domain']}"},
@@ -144,7 +139,8 @@ def test_main_persists_before_publish_and_writes_batch_summary(
     assert summary["persist"]["persisted_count"] == 2
     assert summary["results"][0]["workflow_handoff"]["state"]["workflow_state"] == "ready_to_send"
     assert summary["results"][0]["package_surface"]["package_state"]["package_state"] == "ready"
-    assert summary["results"][0]["bundle_id"] == "bundle-macro"
+    assert summary["results"][0]["package_surface"]["package_state"]["lineage"]["bundle_id"] == "bundle-db-macro"
+    assert summary["results"][0]["bundle_id"] == "bundle-db-macro"
     assert summary["results"][0]["delivery_manifest_path"] == "/tmp/db/macro/delivery_manifest.json"
     operator_summary = (tmp_path / "operator_summary.txt").read_text(encoding="utf-8")
     assert "FSJ support batch publish｜2026-04-23｜early" in operator_summary

@@ -1047,6 +1047,7 @@ class FSJStore:
             "workflow_manifest_version": version_pointers.get("workflow_manifest_version") or artifacts.get("workflow_manifest"),
             "package_index_version": version_pointers.get("package_index_version") or artifacts.get("package_index"),
         }
+        delivery_lineage = dict(delivery_package.get("lineage") or {})
         return {
             "artifact": dict(workflow_handoff.get("artifact") or {}),
             "selected_handoff": selected_handoff,
@@ -1060,6 +1061,7 @@ class FSJStore:
                 "slot_evaluation": dict(delivery_package.get("slot_evaluation") or {}),
                 "dispatch_advice": dict(delivery_package.get("dispatch_advice") or {}),
                 "support_summary_aggregate": dict(delivery_package.get("support_summary_aggregate") or {}),
+                "lineage": delivery_lineage,
             },
             "package_artifacts": artifacts,
             "workflow_handoff": workflow_handoff,

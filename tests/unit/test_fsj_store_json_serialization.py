@@ -111,6 +111,7 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
             "slot_evaluation": {"strongest_slot": "late"},
             "dispatch_advice": {"recommended_action": "send_review"},
             "support_summary_aggregate": {"domain_count": 3},
+            "lineage": {"bundle_id": "bundle-selected"},
             "artifacts": {
                 "delivery_manifest": "delivery_manifest.json",
                 "send_manifest": "send_manifest.json",
@@ -154,6 +155,7 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
     assert summary["package_versions"]["artifact_version"] == "v1"
     assert summary["package_versions"]["review_manifest_version"] == "review_manifest.json"
     assert summary["package_state"]["support_summary_aggregate"]["domain_count"] == 3
+    assert summary["package_state"]["lineage"]["bundle_id"] == "bundle-selected"
     assert summary["workflow_handoff"]["state"]["workflow_state"] == "selected_candidate_mismatch"
 
 

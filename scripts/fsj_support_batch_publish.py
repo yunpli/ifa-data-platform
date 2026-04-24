@@ -164,9 +164,9 @@ def main() -> None:
         manifest_pointers = dict(workflow_handoff.get("manifest_pointers") or {})
         state = dict(workflow_handoff.get("state") or {})
         item["bundle_id"] = (
-            ((parsed.get("delivery_manifest") or {}).get("lineage") or {}).get("bundle_id")
+            dict(package_state.get("lineage") or {}).get("bundle_id")
             or ((parsed.get("bundle") or {}).get("bundle_id") if isinstance(parsed.get("bundle"), dict) else None)
-            or dict(dict(item.get("delivery_surface") or {}).get("delivery_package") or {}).get("lineage", {}).get("bundle_id")
+            or ((parsed.get("delivery_manifest") or {}).get("lineage") or {}).get("bundle_id")
         )
         item["package_state"] = state.get("package_state") or package_state.get("package_state") or (parsed.get("delivery_manifest") or {}).get("package_state")
         item["delivery_manifest_path"] = manifest_pointers.get("delivery_manifest_path") or dict(package_surface.get("package_paths") or {}).get("delivery_manifest_path") or parsed.get("delivery_manifest_path")
