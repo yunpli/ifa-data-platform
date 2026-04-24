@@ -15,9 +15,13 @@ from ifa_data_platform.fsj.llm_assist import (
     FSJEarlyLLMAssistant,
     FSJEarlyLLMRequest,
     FSJEarlyLLMResult,
+    FSJMidLLMAssistant,
+    FSJMidLLMRequest,
+    FSJMidLLMResult,
     ResilientEarlyLLMClient,
+    ResilientMidLLMClient,
 )
-from ifa_data_platform.fsj.mid_main_producer import MidMainFSJProducer, MidMainProducerInput
+from ifa_data_platform.fsj.mid_main_producer import MidMainFSJAssembler, MidMainFSJProducer, MidMainProducerInput
 
 DB_URL = "postgresql+psycopg2://neoclaw@/ifa_test?host=/tmp"
 
@@ -85,6 +89,43 @@ class AllFailEarlyLLMClient(PrimaryTimeoutEarlyLLMClient):
 
     def synthesize(self, request: FSJEarlyLLMRequest) -> FSJEarlyLLMResult:
         raise RuntimeError("business repo llm cli failed: synthetic provider failure")
+
+
+class PrimaryTimeoutMidLLMClient:
+    model_alias = "grok41_thinking"
+    prompt_version = "fsj_mid_main_v1"
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        raise subprocess.TimeoutExpired(cmd=["ifa_llm_cli.py"], timeout=120)
+
+
+class FallbackSuccessMidLLMClient:
+    model_alias = "gemini31_pro_jmr"
+    prompt_version = "fsj_mid_main_v1"
+
+    def synthesize(self, request: FSJMidLLMRequest) -> FSJMidLLMResult:
+        return FSJMidLLMResult(
+            summary="A股盘中主线更新：机器人链条在盘中 working 结构、leader/event 与盘前锚点之间保持一致，primary 超时后由 fallback 模型完成 mid-slot 补强，但午后仍需继续验证。",
+            validation_signal_statement="盘中 working 结构、leader/event 与 validation_state=confirmed 已支持机器人链条继续作为 intraday adjust 输入；本次由 fallback 模型在 primary 超时后完成表达补强，但当前仍只是盘中验证。",
+            afternoon_signal_statement="午后继续验证点：跟踪机器人链条是否继续向 breadth/heat 扩散，并观察 validation_state 是否维持 confirmed 或转弱。",
+            judgment_statement="将机器人链条作为盘中主线修正输入：允许做 intraday thesis/adjust；本次由 fallback 模型在 primary 超时后完成补强，但必须保留午后继续验证与失效边界，不把盘中 working 证据写成收盘结论。",
+            invalidators=[
+                "盘中 structure high layer 未继续刷新或关键表再次断档",
+                "leader/breadth/heat 之间无法形成一致强化",
+                "盘前预案锚点与盘中 working 证据出现明显背离",
+            ],
+            reasoning_trace=[
+                "intraday structure packet present",
+                "leader event packet present",
+                "primary timeout then fallback success",
+            ],
+            provider="eval-stub",
+            model_alias=self.model_alias,
+            model_id="gemini-3.1-pro",
+            prompt_version=self.prompt_version,
+            usage={"total_tokens": 355},
+            raw_response={"stub": True, "fallback": True},
+        )
 
 
 class FakeLateMainInputReader:
@@ -302,13 +343,13 @@ def _build_early_llm_deterministic_degrade_case(store: FSJStore) -> EarlyMainFSJ
     )
 
 
-def _build_mid_case(store: FSJStore) -> MidMainFSJProducer:
-    sample = MidMainProducerInput(
+def _sample_mid_input(*, bundle_topic_prefix: str = "mainline_mid_update") -> MidMainProducerInput:
+    return MidMainProducerInput(
         business_date="2099-04-22",
         slot="mid",
         section_key="midday_main",
         section_type="thesis",
-        bundle_topic_key=f"mainline_mid_update:{uuid.uuid4()}",
+        bundle_topic_key=f"{bundle_topic_prefix}:{uuid.uuid4()}",
         summary_topic="A股盘中主线更新",
         stock_1m_count=128,
         stock_1m_latest_time="2099-04-22T11:18:00+08:00",
@@ -340,7 +381,24 @@ def _build_mid_case(store: FSJStore) -> MidMainFSJProducer:
         slot_run_id=f"slot-run:{uuid.uuid4()}",
         report_run_id=None,
     )
+
+
+def _build_mid_case(store: FSJStore) -> MidMainFSJProducer:
+    sample = _sample_mid_input()
     return MidMainFSJProducer(reader=FakeMidMainInputReader(sample), store=store)
+
+
+def _build_mid_llm_fallback_case(store: FSJStore) -> MidMainFSJProducer:
+    sample = _sample_mid_input(bundle_topic_prefix="mainline_mid_update_fallback")
+    return MidMainFSJProducer(
+        reader=FakeMidMainInputReader(sample),
+        store=store,
+        assembler=MidMainFSJAssembler(
+            llm_assistant=FSJMidLLMAssistant(
+                ResilientMidLLMClient(clients=[PrimaryTimeoutMidLLMClient(), FallbackSuccessMidLLMClient()])
+            )
+        ),
+    )
 
 
 def _build_late_case(store: FSJStore) -> LateMainFSJProducer:
@@ -466,6 +524,27 @@ MAIN_SLOT_GOLDEN_CASES: tuple[SlotGoldenCase, ...] = (
             ("historical_reference", "archive_v2"),
         },
         minimum_counts={"object_cnt": 6, "edge_cnt": 4, "evidence_cnt": 8, "observed_cnt": 6},
+    ),
+    SlotGoldenCase(
+        name="mid_llm_fallback_applied",
+        slot="mid",
+        section_key="midday_main",
+        producer_factory=_build_mid_llm_fallback_case,
+        expected_judgment_action="adjust",
+        expected_object_type="thesis",
+        expected_contract_mode="intraday_structure",
+        required_evidence_roles={
+            ("slot_replay", "runtime"),
+            ("source_observed", "highfreq"),
+            ("prior_slot_reference", "fsj"),
+            ("historical_reference", "archive_v2"),
+        },
+        minimum_counts={"object_cnt": 6, "edge_cnt": 4, "evidence_cnt": 8, "observed_cnt": 6},
+        expected_llm_outcome="fallback_applied",
+        expected_llm_applied=True,
+        expected_llm_model_alias="gemini31_pro_jmr",
+        expected_attempted_model_chain=["grok41_thinking", "gemini31_pro_jmr"],
+        required_attempt_failure_classifications={"timeout"},
     ),
     SlotGoldenCase(
         name="late_provisional_close_monitor",
