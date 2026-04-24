@@ -7,13 +7,47 @@ from typing import Any, Sequence
 import json
 
 from .report_dispatch import MainReportDeliveryDispatchHelper
-from .report_rendering import MainReportArtifactPublishingService
+from .report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
 
 
 @dataclass(frozen=True)
 class MainReportWorkflowCandidate:
     published: dict[str, Any]
     source: str
+
+
+def build_main_report_morning_delivery_orchestrator(
+    *,
+    assembly_service: Any,
+    store: Any,
+    artifact_root: str | Path | None,
+    renderer: Any | None = None,
+    qa_evaluator: Any | None = None,
+    evaluation_harness: Any | None = None,
+    dispatch_helper: MainReportDeliveryDispatchHelper | None = None,
+) -> "MainReportMorningDeliveryOrchestrator":
+    """Build the canonical MAIN morning delivery stack.
+
+    This is the narrow reusable assembly seam above rendering/publishing services.
+    Under pytest, publisher construction still fails fast unless an explicit non-live
+    artifact_root is supplied.
+    """
+
+    rendering_service = MainReportRenderingService(
+        assembly_service=assembly_service,
+        renderer=renderer,
+    )
+    publisher = MainReportArtifactPublishingService(
+        rendering_service=rendering_service,
+        store=store,
+        qa_evaluator=qa_evaluator,
+        evaluation_harness=evaluation_harness,
+        artifact_root=artifact_root,
+    )
+    return MainReportMorningDeliveryOrchestrator(
+        publisher=publisher,
+        dispatch_helper=dispatch_helper,
+    )
 
 
 class MainReportMorningDeliveryOrchestrator:

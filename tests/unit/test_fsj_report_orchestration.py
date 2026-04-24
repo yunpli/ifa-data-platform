@@ -6,8 +6,12 @@ from pathlib import Path
 import json
 import pytest
 
-from ifa_data_platform.fsj.report_orchestration import MainReportMorningDeliveryOrchestrator
+from ifa_data_platform.fsj.report_orchestration import (
+    MainReportMorningDeliveryOrchestrator,
+    build_main_report_morning_delivery_orchestrator,
+)
 from ifa_data_platform.fsj.report_rendering import MainReportArtifactPublishingService, MainReportRenderingService
+from ifa_data_platform.fsj.test_live_isolation import TestLiveIsolationError as LiveIsolationError
 
 
 @pytest.fixture(autouse=True)
@@ -142,10 +146,22 @@ class _StubStore:
 
 def _build_orchestrator(artifact_root: Path) -> tuple[MainReportMorningDeliveryOrchestrator, _StubStore]:
     stub = _StubAssemblyService(_assembled_sections())
-    rendering_service = MainReportRenderingService(assembly_service=stub)
     store = _StubStore()
-    publisher = MainReportArtifactPublishingService(rendering_service=rendering_service, store=store, artifact_root=artifact_root)
-    return MainReportMorningDeliveryOrchestrator(publisher=publisher), store
+    orchestrator = build_main_report_morning_delivery_orchestrator(
+        assembly_service=stub,
+        store=store,
+        artifact_root=artifact_root,
+    )
+    return orchestrator, store
+
+
+def test_main_report_orchestration_factory_requires_explicit_non_live_artifact_root_under_pytest() -> None:
+    with pytest.raises(LiveIsolationError, match="artifact_root must be set explicitly"):
+        build_main_report_morning_delivery_orchestrator(
+            assembly_service=_StubAssemblyService(_assembled_sections()),
+            store=_StubStore(),
+            artifact_root=None,
+        )
 
 
 def test_main_report_morning_delivery_workflow_emits_send_and_review_manifests(tmp_path: Path) -> None:
