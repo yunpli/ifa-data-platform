@@ -1486,6 +1486,11 @@ class FSJStore:
             "send_manifest_path": package_paths.get("send_manifest_path"),
             "error": dispatch_receipt.get("error"),
         }
+        governance = dict(review_surface.get("governance") or {})
+        promotion_authority = dict(review_surface.get("promotion_authority") or {})
+        review_summary = dict(review_surface.get("review_summary") or {})
+        board_state_source = dict(review_surface.get("board_state_source") or {})
+        canonical_state_vocabulary = dict(review_surface.get("canonical_state_vocabulary") or {})
 
         return {
             "artifact": {
@@ -1530,6 +1535,25 @@ class FSJStore:
                 "review_manifest": dict(review_surface.get("review_manifest") or {}),
                 "send_manifest": dict(review_surface.get("send_manifest") or {}),
             },
+            "governance": governance,
+            "promotion_authority": promotion_authority,
+            "review_summary": {
+                "go_no_go_decision": review_summary.get("go_no_go_decision"),
+                "operator_decision_rationale": review_summary.get("operator_decision_rationale"),
+                "operator_next_step": review_summary.get("operator_next_step"),
+                "operator_action_required": review_summary.get("operator_action_required"),
+                "promotion_authority_status": review_summary.get("promotion_authority_status"),
+                "promotion_authority_approved": review_summary.get("promotion_authority_approved"),
+                "promotion_authority_required_action": review_summary.get("promotion_authority_required_action"),
+                "promotion_authority_rationale": review_summary.get("promotion_authority_rationale"),
+                "promotion_authority_summary": review_summary.get("promotion_authority_summary"),
+                "promotion_authority_source_of_truth": review_summary.get("promotion_authority_source_of_truth"),
+                "board_state_source": board_state_source,
+                "canonical_lifecycle_state": review_summary.get("canonical_lifecycle_state"),
+                "canonical_lifecycle_reason": review_summary.get("canonical_lifecycle_reason"),
+            },
+            "board_state_source": board_state_source,
+            "canonical_state_vocabulary": canonical_state_vocabulary,
             "dispatch": dispatch_receipt,
             "what_user_received": what_user_received,
             "bundle_lineage": bundle_lineage,

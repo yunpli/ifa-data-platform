@@ -413,6 +413,40 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
                     "candidate_comparison": {"candidate_count": 2, "selected_artifact_id": "artifact-current"},
                     "send_manifest": {"next_step": "send_selected_package_to_primary_channel"},
                     "review_manifest": {"next_step": "send_selected_package_to_primary_channel"},
+                    "governance": {
+                        "decision": "GO",
+                        "rationale": "quality gate and artifact integrity both pass",
+                        "next_step": "send_selected_package_to_primary_channel",
+                        "action_required": False,
+                    },
+                    "promotion_authority": {
+                        "status": "approved_to_send",
+                        "approved": True,
+                        "required_action": "send_selected_package_to_primary_channel",
+                        "rationale": "quality gate and artifact integrity both pass",
+                        "summary_line": "approved_to_send | decision=GO | selected_is_current=True | required_action=send_selected_package_to_primary_channel | rationale=quality gate and artifact integrity both pass",
+                        "source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+                    },
+                    "review_summary": {
+                        "go_no_go_decision": "GO",
+                        "operator_decision_rationale": "quality gate and artifact integrity both pass",
+                        "operator_next_step": "send_selected_package_to_primary_channel",
+                        "operator_action_required": False,
+                        "promotion_authority_status": "approved_to_send",
+                        "promotion_authority_approved": True,
+                        "promotion_authority_required_action": "send_selected_package_to_primary_channel",
+                        "promotion_authority_rationale": "quality gate and artifact integrity both pass",
+                        "promotion_authority_summary": "approved_to_send | decision=GO | selected_is_current=True | required_action=send_selected_package_to_primary_channel | rationale=quality gate and artifact integrity both pass",
+                        "promotion_authority_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+                    },
+                    "board_state_source": {
+                        "state_source_of_truth": "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff",
+                        "next_action_source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.review_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.review_surface.send_manifest.next_step + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow.next_step",
+                    },
+                    "canonical_state_vocabulary": {
+                        "status_semantic": "ready",
+                        "operator_bucket": "dispatch_gate",
+                    },
                     "dispatch_receipt": {
                         "dispatch_state": "dispatch_succeeded",
                         "channel": "telegram_document",
@@ -429,6 +463,18 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
     assert summary["selection"]["selected_is_current"] is True
     assert summary["package"]["manifests"]["send_manifest"]["path"] == "/tmp/current-pkg/send_manifest.json"
     assert summary["review"]["operator_go_no_go"]["decision"] == "GO"
+    assert summary["governance"]["decision"] == "GO"
+    assert summary["governance"]["next_step"] == "send_selected_package_to_primary_channel"
+    assert summary["governance"]["action_required"] is False
+    assert summary["promotion_authority"]["status"] == "approved_to_send"
+    assert summary["promotion_authority"]["source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    assert summary["review_summary"]["go_no_go_decision"] == "GO"
+    assert summary["review_summary"]["promotion_authority_source_of_truth"] == "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    assert summary["board_state_source"]["state_source_of_truth"].startswith(
+        "ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff"
+    )
+    assert summary["canonical_state_vocabulary"]["status_semantic"] == "sent"
+    assert summary["canonical_state_vocabulary"]["operator_bucket"] == "terminal"
     assert summary["dispatch"]["dispatch_state"] == "dispatch_succeeded"
     assert summary["what_user_received"]["provider_message_id"] == "42"
     assert summary["what_user_received"]["channel"] == "telegram_document"
