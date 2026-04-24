@@ -1,0 +1,182 @@
+{
+  "fixture": {
+    "business_date": "2099-04-22",
+    "slot": "early",
+    "section_key": "pre_open_main",
+    "section_type": "thesis",
+    "bundle_topic_key": "mainline_candidate:2099-04-22",
+    "summary_topic": "A股盘前主线预案",
+    "trading_day_open": true,
+    "trading_day_label": "open",
+    "focus_symbols": [
+      "300024.SZ",
+      "002031.SZ",
+      "601127.SH"
+    ],
+    "focus_list_types": [
+      "focus",
+      "key_focus"
+    ],
+    "auction_count": 18,
+    "auction_snapshot_time": "2099-04-22T09:27:00+08:00",
+    "event_count": 6,
+    "event_latest_time": "2099-04-22T09:25:00+08:00",
+    "event_titles": [
+      "机器人链条隔夜催化",
+      "算力链订单更新"
+    ],
+    "leader_count": 4,
+    "leader_symbols": [
+      "300024.SZ",
+      "002031.SZ"
+    ],
+    "signal_scope_count": 1,
+    "latest_signal_state": "candidate_confirming",
+    "text_catalyst_count": 3,
+    "text_catalyst_titles": [
+      "机器人政策催化",
+      "AI 应用发布",
+      "龙头预告更新"
+    ],
+    "previous_archive_summary": "昨日机器人主线维持高位扩散",
+    "replay_id": "replay-early-2099-04-22",
+    "slot_run_id": "slot-run-early-2099-04-22",
+    "report_run_id": null
+  },
+  "fallback_success": {
+    "bundle_summary": "A股盘前主线预案：机器人链条在竞价、事件流与 focus seed 之间形成优先候选，primary 超时后由 fallback 模型完成候选表达补强，但仍待开盘验证。",
+    "candidate_signal_statement": "盘前竞价、事件流与 focus seed 已共同支持机器人链条进入主线候选，当前由 fallback 模型在 primary 超时后完成表达补强，但这仍只是待开盘验证的 candidate state。",
+    "judgment_statement": "将机器人链条列为开盘首要验证候选：本次由 fallback 模型在 primary 超时后完成补强；若竞价承接、事件延续与 focus 对齐不能继续兑现，立即降回观察项，不把盘前候选写成已确认主线。",
+    "judgment_attributes": {
+      "required_open_validation": true,
+      "contract_mode": "candidate_with_open_validation",
+      "deferred": [
+        "support-agent merge not yet implemented",
+        "section-level multi-judgment expansion deferred",
+        "no late/final evidence implied in early slot"
+      ],
+      "llm_assist_applied": true,
+      "llm_reasoning_trace": [
+        "preopen auction packet present",
+        "event and leader packet present",
+        "primary timeout then fallback success"
+      ]
+    },
+    "llm_assist": {
+      "applied": true,
+      "provider": "eval-stub",
+      "model_alias": "gemini31_pro_jmr",
+      "model_id": "gemini-3.1-pro",
+      "prompt_version": "fsj_early_main_v1",
+      "input_digest": "76416666eb8e76d398fcf4819b540a8859fb1a3e",
+      "usage": {
+        "total_tokens": 341
+      },
+      "reasoning_trace": [
+        "preopen auction packet present",
+        "event and leader packet present",
+        "primary timeout then fallback success"
+      ],
+      "policy": {
+        "primary_model_alias": "grok41_thinking",
+        "fallback_model_aliases": [
+          "gemini31_pro_jmr"
+        ],
+        "attempted_model_chain": [
+          "grok41_thinking",
+          "gemini31_pro_jmr"
+        ],
+        "outcome": "fallback_applied",
+        "prior_failures": [
+          {
+            "model_alias": "grok41_thinking",
+            "classification": "timeout",
+            "detail": "Command '['ifa_llm_cli.py']' timed out after 120 seconds"
+          }
+        ]
+      }
+    },
+    "policy": {
+      "primary_model_alias": "grok41_thinking",
+      "fallback_model_aliases": [
+        "gemini31_pro_jmr"
+      ],
+      "attempted_model_chain": [
+        "grok41_thinking",
+        "gemini31_pro_jmr"
+      ],
+      "outcome": "fallback_applied",
+      "prior_failures": [
+        {
+          "model_alias": "grok41_thinking",
+          "classification": "timeout",
+          "detail": "Command '['ifa_llm_cli.py']' timed out after 120 seconds"
+        }
+      ]
+    }
+  },
+  "deterministic_degrade": {
+    "bundle_summary": "A股盘前主线预案：已基于盘前 high+reference 形成待开盘验证的主线候选。",
+    "candidate_signal_statement": "盘前 high layer 与 reference seed 已足以形成待开盘验证的主线候选，但仍不应视为已确认。",
+    "judgment_statement": "将当前候选主线作为开盘首要验证对象；若竞价强度和事件延续性无法继续兑现，则立即降回观察项。",
+    "judgment_attributes": {
+      "required_open_validation": true,
+      "contract_mode": "candidate_with_open_validation",
+      "deferred": [
+        "support-agent merge not yet implemented",
+        "section-level multi-judgment expansion deferred",
+        "no late/final evidence implied in early slot"
+      ],
+      "llm_assist_applied": false,
+      "llm_reasoning_trace": []
+    },
+    "llm_assist": {
+      "applied": false,
+      "model_alias": "grok41_thinking",
+      "prompt_version": "fsj_early_main_v1",
+      "input_digest": "76416666eb8e76d398fcf4819b540a8859fb1a3e",
+      "error": "{\"failures\": [{\"model_alias\": \"grok41_thinking\", \"classification\": \"timeout\", \"detail\": \"Command '['ifa_llm_cli.py']' timed out after 120 seconds\"}, {\"model_alias\": \"gemini31_pro_jmr\", \"classification\": \"provider_failure\", \"detail\": \"business repo llm cli failed: synthetic provider failure\"}]}",
+      "failure_classification": "provider_failure",
+      "policy": {
+        "primary_model_alias": "grok41_thinking",
+        "fallback_model_aliases": [
+          "gemini31_pro_jmr"
+        ],
+        "attempted_model_chain": [
+          "grok41_thinking",
+          "gemini31_pro_jmr"
+        ],
+        "outcome": "deterministic_degrade",
+        "operator_tag": "llm_provider_failure"
+      },
+      "attempt_failures": [
+        {
+          "model_alias": "grok41_thinking",
+          "classification": "timeout",
+          "detail": "Command '['ifa_llm_cli.py']' timed out after 120 seconds"
+        },
+        {
+          "model_alias": "gemini31_pro_jmr",
+          "classification": "provider_failure",
+          "detail": "business repo llm cli failed: synthetic provider failure"
+        }
+      ]
+    },
+    "policy": {
+      "primary_model_alias": "grok41_thinking",
+      "fallback_model_aliases": [
+        "gemini31_pro_jmr"
+      ],
+      "attempted_model_chain": [
+        "grok41_thinking",
+        "gemini31_pro_jmr"
+      ],
+      "outcome": "deterministic_degrade",
+      "operator_tag": "llm_provider_failure"
+    }
+  },
+  "verification": {
+    "policy_envelope_visible_beyond_unit_scope": true,
+    "verified_at_early_assembler_eval_seam": "scripts/prove_fsj_early_llm_fallback.py"
+  }
+}
