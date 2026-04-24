@@ -406,16 +406,17 @@ QA exists, but full quality governance does not.
 ---
 
 ### P3-2. Historical drift monitoring
-**Status:** Not started  
+**Status:** In progress — thin production slice landed (`scripts/fsj_drift_monitor.py`)  
 **Target:** detect quality and behavior drift over time
 
 **Tasks**
-- slot-level quality trend dashboards
-- support-summary missing rate
-- artifact hold rate
-- rerun frequency
-- generation latency trend
-- LLM assist success/fallback rate
+- [x] operator-visible historical trend summary over canonical operator-review surfaces (ready/review/hold, QA posture, lineage degraded/fallback/missing, selected-current mismatch)
+- [ ] slot-level quality trend dashboards
+- [ ] support-summary missing rate
+- [ ] artifact hold rate
+- [ ] rerun frequency
+- [ ] generation latency trend
+- [ ] LLM assist success/fallback rate
 
 **Parallelizable:** yes
 

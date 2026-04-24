@@ -763,6 +763,51 @@ class FSJStore:
             ).mappings().all()
         return [self._report_delivery_surface_from_artifact(self._mapping_to_dict(row)) for row in rows]
 
+    def list_report_business_dates(
+        self,
+        *,
+        agent_domain: str,
+        artifact_family: str,
+        statuses: list[str] | tuple[str, ...] | None = None,
+        limit: int = 10,
+        max_business_date: str | date | None = None,
+    ) -> list[str]:
+        self.ensure_schema()
+        normalized_statuses = [str(status) for status in (statuses or ["active"])]
+        valid_statuses = [status for status in normalized_statuses if status in VALID_REPORT_ARTIFACT_STATUS]
+        if not valid_statuses or limit <= 0:
+            return []
+
+        params: dict[str, Any] = {
+            "agent_domain": agent_domain,
+            "artifact_family": artifact_family,
+            "statuses": valid_statuses,
+            "limit": int(limit),
+        }
+        max_business_date_sql = ""
+        if max_business_date is not None:
+            params["max_business_date"] = max_business_date.isoformat() if isinstance(max_business_date, date) else str(max_business_date)
+            max_business_date_sql = "AND business_date <= :max_business_date"
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    f"""
+                    SELECT business_date
+                      FROM ifa2.ifa_fsj_report_artifacts
+                     WHERE agent_domain=:agent_domain
+                       AND artifact_family=:artifact_family
+                       AND status = ANY(CAST(:statuses AS text[]))
+                       {max_business_date_sql}
+                     GROUP BY business_date
+                     ORDER BY business_date DESC
+                     LIMIT :limit
+                    """
+                ),
+                params,
+            ).scalars().all()
+        return [str(value) for value in rows if value is not None]
+
     def get_active_report_operator_review_surface(
         self,
         *,
