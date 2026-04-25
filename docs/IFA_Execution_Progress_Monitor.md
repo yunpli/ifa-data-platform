@@ -859,8 +859,8 @@
   - `docs/POST_V2_FSJ_REPORT_ARCH_001_FSJ_TO_REPORT_CONSUMPTION_AUDIT_2026-04-25.md`
   - `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.html`
   - `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.manifest.json`
-- commit hash：pending
-- push 状态：pending
+- commit hash：`cfe4a74`
+- push 状态：pushed to `origin/a-lane-p4-3-llm-field-lineage`
 - 交付结论：POST-V2-FSJ-REPORT-ARCH-001 closed as audit-first. Recommended next step is not more HTML polish; it is a middle-layer section contract that turns FSJ + support FSJ into formal market briefing sections and keeps coverage telemetry internal.
 
 ## 7. Blockers
