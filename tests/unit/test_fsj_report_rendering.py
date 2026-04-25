@@ -330,7 +330,15 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     )
 
     assert rendered["title"] == "A股市场简报｜2099-04-22"
+    assert "iFA A股市场日报｜2099-04-22" in rendered["content"]
+    assert "Created by Lindenwood Management LLC" in rendered["content"]
+    assert "核心判断：" in rendered["content"]
+    assert "风险与下一步" in rendered["content"]
+    assert "风险提示" in rendered["content"]
+    assert "明日观察 / 下一步" in rendered["content"]
+    assert "免责声明" in rendered["content"]
     assert "今日 Key Focus / Focus" in rendered["content"]
+    assert "早报 / 中报 / 晚报分时段解读" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
     assert "盘中观察" not in rendered["content"]  # assembled fixture only has early/late sections
     assert "收盘复盘" in rendered["content"]
@@ -343,6 +351,12 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert rendered["metadata"]["presentation_schema_version"] == "v1"
     customer_presentation = rendered["metadata"]["customer_presentation"]
     assert customer_presentation["schema_type"] == "fsj_customer_main_presentation"
+    assert customer_presentation["brand"] == "iFA"
+    assert customer_presentation["created_by"] == "Created by Lindenwood Management LLC"
+    assert customer_presentation["top_judgment"]
+    assert customer_presentation["risk_block"]
+    assert customer_presentation["next_steps"]
+    assert customer_presentation["disclaimer"]
     assert customer_presentation["focus_module"]["focus_symbol_count"] == 3
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"

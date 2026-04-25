@@ -271,12 +271,27 @@ class MainReportHTMLRenderer:
                     "support_themes": support_items,
                 }
             )
+        focus_payload = focus_module or self._build_focus_module(assembled=assembled, sections=sections)
+        top_judgment = self._customer_top_judgment(customer_sections)
+        risk_block = self._customer_risk_block(customer_sections)
+        next_steps = self._customer_next_steps(customer_sections, focus_payload)
+        disclaimer = (
+            "本报告仅供参考，不构成任何收益承诺或个股、行业、基金的确定性买卖建议。"
+            "市场有风险，投资需结合自身目标、期限与风险承受能力独立判断。"
+        )
         return {
             "schema_type": "fsj_customer_main_presentation",
             "schema_version": CUSTOMER_PRESENTATION_SCHEMA_VERSION,
+            "brand": "iFA",
+            "report_title": "iFA A股市场日报",
+            "created_by": "Created by Lindenwood Management LLC",
             "business_date": assembled.get("business_date"),
             "market": assembled.get("market") or "a_share",
-            "focus_module": focus_module or self._build_focus_module(assembled=assembled, sections=sections),
+            "top_judgment": top_judgment,
+            "risk_block": risk_block,
+            "next_steps": next_steps,
+            "disclaimer": disclaimer,
+            "focus_module": focus_payload,
             "chart_pack": chart_manifest,
             "summary_cards": [
                 {
@@ -374,6 +389,45 @@ class MainReportHTMLRenderer:
         statements = [str(item.get("statement") or "").strip() for item in items if str(item.get("statement") or "").strip()]
         return statements[:limit]
 
+    def _customer_top_judgment(self, customer_sections: Sequence[dict[str, Any]]) -> str:
+        first_section = next(iter(customer_sections), {})
+        headline = str(first_section.get("summary") or "").strip()
+        highlights = [str(item).strip() for item in (first_section.get("highlights") or []) if str(item).strip()]
+        if headline and highlights:
+            return f"{headline} 当前优先按“{highlights[0]}”来验证主线强度与执行节奏。"
+        if headline:
+            return headline
+        if highlights:
+            return highlights[0]
+        return "当前报告以主线确认、风险约束和次日观察三条线并行展开。"
+
+    def _customer_risk_block(self, customer_sections: Sequence[dict[str, Any]]) -> list[str]:
+        risks: list[str] = []
+        for section in customer_sections:
+            for item in list(section.get("signals") or []) + list(section.get("facts") or []):
+                text = str(item).strip()
+                if text and text not in risks:
+                    risks.append(text)
+                if len(risks) >= 3:
+                    return risks
+        if not risks:
+            risks.append("若量价确认、板块扩散或风险偏好数据未跟上，主线判断需要快速降级为观察而非追价。")
+        return risks[:3]
+
+    def _customer_next_steps(self, customer_sections: Sequence[dict[str, Any]], focus_module: dict[str, Any]) -> list[str]:
+        next_steps: list[str] = []
+        for section in customer_sections:
+            slot_label = str(section.get("slot_label") or section.get("slot") or "后续")
+            section_signals = [str(item).strip() for item in (section.get("signals") or []) if str(item).strip()]
+            if section_signals:
+                next_steps.append(f"{slot_label}：重点跟踪 {section_signals[0]}")
+        key_focus = [str(item).strip() for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
+        if key_focus:
+            next_steps.append(f"明日观察：继续跟踪 Key Focus 标的 {', '.join(key_focus[:3])} 的强弱分化与验证节奏。")
+        if not next_steps:
+            next_steps.append("明日观察：继续围绕主线确认、风险约束与重点标的强弱分化来更新判断。")
+        return next_steps[:3]
+
     def _render_customer_html(
         self,
         *,
@@ -388,6 +442,9 @@ class MainReportHTMLRenderer:
         focus_module_html = self._render_customer_focus_module(presentation.get("focus_module") or {})
         chart_pack_html = self._render_customer_chart_pack(presentation.get("chart_pack") or {})
         section_html = "".join(self._render_customer_section(section) for section in presentation["sections"])
+        risk_block_html = self._render_customer_bucket("风险提示", presentation.get("risk_block") or [], fallback="暂无明确风险提示")
+        next_steps_html = self._render_customer_bucket("明日观察 / 下一步", presentation.get("next_steps") or [], fallback="暂无下一步观察")
+        disclaimer_html = self._render_customer_bucket("免责声明", [str(presentation.get("disclaimer") or "")], fallback="暂无免责声明")
         return f"""<!DOCTYPE html>
 <html lang=\"zh-CN\">
 <head>
@@ -398,14 +455,17 @@ class MainReportHTMLRenderer:
     body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #f7f8fc; color: #0f172a; }}
     .page {{ max-width: 960px; margin: 0 auto; padding: 28px 20px 44px; }}
     .hero {{ background: linear-gradient(135deg, #1d4ed8, #4338ca); color: #fff; border-radius: 20px; padding: 28px 28px 24px; }}
-    .hero h1 {{ margin: 0 0 10px; font-size: 32px; }}
+    .eyebrow {{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.85; }}
+    .hero h1 {{ margin: 8px 0 10px; font-size: 32px; }}
     .hero .meta {{ font-size: 14px; line-height: 1.6; opacity: 0.92; }}
+    .hero .judgment {{ margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.14); font-size: 16px; line-height: 1.65; }}
     .card {{ background: #fff; border-radius: 18px; padding: 22px 22px; margin-top: 18px; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07); }}
     .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }}
     .summary-box {{ border: 1px solid #dbe3f1; border-radius: 14px; padding: 14px 16px; background: #f8fbff; }}
     .summary-slot {{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }}
     .summary-headline {{ margin-top: 8px; font-size: 15px; line-height: 1.6; font-weight: 600; }}
     .support-line {{ margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.6; }}
+    .product-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }}
     .section {{ border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 18px; }}
     .section:first-child {{ border-top: none; padding-top: 0; margin-top: 0; }}
     h2 {{ margin: 0 0 14px; font-size: 22px; }}
@@ -421,8 +481,10 @@ class MainReportHTMLRenderer:
 <body>
   <div class=\"page\">
     <section class=\"hero\">
-      <h1>{escape(title)}</h1>
-      <div class=\"meta\">业务日期：{escape(str(assembled.get('business_date') or '-'))} · 市场：A股<br/>这是面向客户的简版展示层，仅展示结论、跟踪重点与补充视角，不展示内部运行对象。</div>
+      <div class=\"eyebrow\">{escape(str(presentation.get('brand') or 'iFA'))}</div>
+      <h1>{escape(str(presentation.get('report_title') or title))}｜{escape(str(assembled.get('business_date') or '-'))}</h1>
+      <div class=\"meta\">{escape(str(presentation.get('created_by') or ''))}<br/>业务日期：{escape(str(assembled.get('business_date') or '-'))} · 市场：A股 · 版本定位：早报 / 中报 / 晚报客户主报告<br/>这是面向客户的简版展示层，仅展示结论、跟踪重点与补充视角，不展示内部运行对象。</div>
+      <div class=\"judgment\"><strong>核心判断：</strong>{escape(str(presentation.get('top_judgment') or '暂无核心判断'))}</div>
     </section>
     <section class=\"card\">
       <h2>今日节奏</h2>
@@ -430,13 +492,24 @@ class MainReportHTMLRenderer:
       <div class=\"footnote\">生成时间：{escape(generated_at.isoformat())} · 展示层 schema：{escape(CUSTOMER_PRESENTATION_SCHEMA_VERSION)}</div>
     </section>
     <section class=\"card\">
+      <h2>风险与下一步</h2>
+      <div class=\"product-grid\">
+        <div>{risk_block_html}</div>
+        <div>{next_steps_html}</div>
+      </div>
+    </section>
+    <section class=\"card\">
       <h2>今日 Key Focus / Focus</h2>
       {focus_module_html}
     </section>
     {chart_pack_html}
     <section class=\"card\">
-      <h2>分时段解读</h2>
+      <h2>早报 / 中报 / 晚报分时段解读</h2>
       {section_html}
+    </section>
+    <section class=\"card\">
+      <h2>免责声明</h2>
+      {disclaimer_html}
     </section>
   </div>
 </body>
@@ -448,7 +521,7 @@ class MainReportHTMLRenderer:
         if card.get("support_themes"):
             support_text = " · ".join(f"{item['domain']}：{item['summary']}" for item in card.get("support_themes") or [])
             support_line = f"<div class=\"support-line\"><strong>补充视角：</strong>{escape(support_text)}</div>"
-        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div>{support_line}</div>"
+        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div><div class=\"support-line\"><strong>产品定位：</strong>{escape(str(card.get('slot_label') or '-'))}客户主报告摘要</div>{support_line}</div>"
 
     def _render_customer_focus_module(self, focus_module: dict[str, Any]) -> str:
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
@@ -485,6 +558,12 @@ class MainReportHTMLRenderer:
                 [f"{item.get('domain')}：{item.get('summary')}" for item in support_items if item.get('summary')],
                 fallback="暂无补充视角",
             )
+        next_step_title = {
+            "early": "开盘后验证点",
+            "mid": "午后观察点",
+            "late": "次日跟踪点",
+        }.get(str(section.get("slot") or ""), "后续观察点")
+        next_step_items = (section.get('signals') or [])[:2] or (section.get('highlights') or [])[:2]
         return f"""
         <div class=\"section\">
           <h3>{escape(str(section.get('title') or '-'))}</h3>
@@ -492,6 +571,7 @@ class MainReportHTMLRenderer:
           {self._render_customer_bucket('重点结论', section.get('highlights') or [], fallback='暂无重点结论')}
           {self._render_customer_bucket('跟踪信号', section.get('signals') or [], fallback='暂无跟踪信号')}
           {self._render_customer_bucket('已知事实', section.get('facts') or [], fallback='暂无已知事实')}
+          {self._render_customer_bucket(next_step_title, next_step_items, fallback='暂无后续观察点')}
           {support_html}
         </div>
         """
