@@ -21,8 +21,8 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P6-DB-NAMING-001` 并进入 pushed；Lane B 已切换到 `POST-P6-SYMBOL-EVIDENCE-001`
-- **Acceptance Lane 状态**：当前 idle；待 Lane B 完成后启动 `ACCEPT-P7-001`
+- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P6-DB-NAMING-001` 并进入 pushed；Lane B 已完成 `POST-P6-SYMBOL-EVIDENCE-001` 并进入 pushed
+- **Acceptance Lane 状态**：当前 idle；可启动 `ACCEPT-P7-001`
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`a9f0876`
 
@@ -55,7 +55,7 @@
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
 | Lane A | `agent:developer:subagent:e110b6e9-9f28-4cd2-96a2-64f88befddb2` | POST-P6-DB-NAMING-001 | Fix DB-backed Symbol Name Join Contract | pushed | 2026-04-25 01:29 PDT | 2026-04-25 01:38 PDT | none | lane complete; ts_code-first + bare-code fallback shipped, validated names now surface in fresh customer sample |
-| Lane B | `pending dispatch` | POST-P6-SYMBOL-EVIDENCE-001 | Minimal Per-Symbol Evidence Aggregation for Watchlist Rationale | assigned | 2026-04-25 01:29 PDT | 2026-04-25 01:29 PDT | none | add bounded per-symbol evidence depth so watchlist rationale is differentiated and honest instead of identical canned copy |
+| Lane B | `agent:developer:subagent:b555ee62-b933-43ca-9716-70f10fefde6b` | POST-P6-SYMBOL-EVIDENCE-001 | Minimal Per-Symbol Evidence Aggregation for Watchlist Rationale | pushed | 2026-04-25 01:29 PDT | 2026-04-25 02:02 PDT | none | bounded per-symbol evidence depth shipped through producer→renderer seam; fresh 2026-04-23 customer sample now shows non-identical rationale across key/focus items with honest market/text/focus-list-only differences |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -68,10 +68,10 @@
 - Current Acceptance Task: `none`
 - Status: `idle`
 - Started At: `-`
-- Last Update: `2026-04-25 01:38 PDT`
-- Findings: `Lane A closed the DB naming contract gap: early_main producer now prefers stock_basic_{current,history}.ts_code = focus_symbol, falls back to normalized bare-code joins, retains focus_list_items.name precedence, and a fresh 2026-04-23 customer sample now shows 平安银行 / 万科Ａ / *ST国华 / 深振业Ａ / 全新好 instead of placeholder watchlist labels`
-- Blocker: `waiting for POST-P6-SYMBOL-EVIDENCE-001`
-- Next Action: `launch ACCEPT-P7-001 after Lane B completes`
+- Last Update: `2026-04-25 02:02 PDT`
+- Findings: `Lane A closed the DB naming contract gap; Lane B added bounded per-symbol evidence aggregation (market/text/focus-list-only/data-thin) so watchlist rationale no longer collapses into identical canned copy. Fresh 2026-04-23 customer sample now shows differentiated rationale across 平安银行 / 万科Ａ / *ST国华 / 深振业Ａ / 全新好 and related focus items without inventing stock-specific conviction.`
+- Blocker: `none`
+- Next Action: `launch ACCEPT-P7-001 to validate end-to-end post-P6 customer sample quality`
 
 ---
 
@@ -112,6 +112,7 @@
 | POST-P6-SLOT-SPECIFIC-CUSTOMER-001 | none | Slot-Specific Customer Surface Quality for Early / Mid / Late | post-P6 | P1 | pushed | Lane A | `agent:developer:subagent:e3374d21-c253-47a1-8d36-cf2cc012751e` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p6_slot_probe/main_mid_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T074939Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; serial customer sample generation attempts on `scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot {mid,late,early} --mode dry-run --output-profile customer ...` | `branch head (see git log)` | renderer seam tightened for stronger slot differentiation in top judgment / risk / next-step blocks; fresh mid customer sample generated; early sample attempt exposed pre-existing focus-list SQL issue and parallel mid/late probe exposed artifact registration deadlock, both left as residual infra blockers outside this bounded renderer task |
 | POST-P6-DB-BACKED-FOCUS-001 | none | DB-backed focus / key-focus correctness and wiring closure | post-P6 | P1 | completed | Lane B | `agent:developer:subagent:14992d03-9937-4cca-8afc-e976057c0726` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/chart_pack.py`; `tests/unit/test_fsj_main_early_producer.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_early_llm_assist.py`; `tests/integration/fsj_main_slot_golden_cases.py`; `tests/integration/test_fsj_main_early_producer_integration.py`; `scripts/eval_fsj_early_llm_slice.py`; `scripts/prove_fsj_early_llm_fallback.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p6_db_backed_focus_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T075756Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_main_early_producer.py tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_early_llm_assist.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p6_db_backed_focus_001 --report-run-id-prefix post-p6-db-backed-focus-main-early` | `branch head (see git log)` | focus metadata now carries DB-backed per-symbol name/list-type/priority through payload; renderer classifies key-focus vs focus per symbol instead of section-wide heuristic; chart pack prioritizes key-focus symbols first; fresh early dry-run artifact succeeds after fixing the Postgres DISTINCT/ORDER BY seam |
 | POST-P6-DB-TRUTH-001 | none | DB Table Truth and Report Data Contract Audit | post-P6 | P1 | pushed | Lane B | `agent:developer:subagent:97b3919f-8ed9-4f30-8513-37e8a527f443` | `docs/POST_P6_DB_TRUTH_001_DB_TABLE_TRUTH_AND_REPORT_DATA_CONTRACT_AUDIT_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | read-only SQL via unified venv against repo `.env`; code audit over `src/ifa_data_platform/fsj/early_main_producer.py`, `src/ifa_data_platform/fsj/report_rendering.py`, `src/ifa_data_platform/fsj/chart_pack.py`, `scripts/fsj_report_cli.py` | `branch head (see git log)` | bounded DB truth audit completed: primary RCA is suffixed focus symbol vs bare `stock_basic_history.symbol` mismatch in producer fallback; rationale sameness is due to renderer fallback on thin per-symbol evidence; chart partiality is real upstream data sparsity (`equity_daily_bar_history` sparse, `ifa_archive_equity_60m` empty, intraday price working tables mostly empty) |
+| POST-P6-SYMBOL-EVIDENCE-001 | none | Minimal Per-Symbol Evidence Aggregation for Watchlist Rationale | post-P6 | P1 | pushed | Lane B | `agent:developer:subagent:b555ee62-b933-43ca-9716-70f10fefde6b` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_main_early_producer.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_main_early_producer.py tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p6_symbol_evidence_001 --report-run-id-prefix post-p6-symbol-evidence-main-early` | `3c8b3ee` | producer now carries bounded per-symbol evidence already available locally (name/list_type/priority/key_focus + daily-bar/return/volume/amount presence + text/event counts + sector/theme when locally available); renderer classifies `market_and_text` / `market_only` / `text_only` / `focus_list_only` / `data_thin` and emits differentiated, non-fabricated watchlist rationale |
 
 ### 4.1 Status 枚举
 

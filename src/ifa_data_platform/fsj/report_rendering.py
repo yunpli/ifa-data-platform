@@ -331,12 +331,16 @@ class MainReportHTMLRenderer:
         focus_list_types: list[str] = []
         focus_name_map: dict[str, str] = {}
         focus_item_list_type_map: dict[str, list[str]] = {}
+        focus_item_metadata_map: dict[str, dict[str, Any]] = {}
+        focus_item_order: list[str] = []
         reasons: list[str] = []
         source_sections: list[str] = []
         judgment_refs: list[str] = []
+        symbol_context_map: dict[str, dict[str, Any]] = {}
         seen_focus: set[str] = set()
         seen_key_focus: set[str] = set()
         seen_focus_only: set[str] = set()
+        seen_item_order: set[str] = set()
         seen_list_types: set[str] = set()
         seen_reasons: set[str] = set()
         for section in sections:
@@ -353,6 +357,16 @@ class MainReportHTMLRenderer:
                 for list_type in list_types:
                     if list_type not in merged:
                         merged.append(list_type)
+            self._merge_focus_item_metadata_map(focus_item_metadata_map, scope)
+            for focus_item in (scope.get("items") or scope.get("focus_items") or []):
+                if not isinstance(focus_item, dict):
+                    continue
+                symbol = str(focus_item.get("symbol") or focus_item.get("code") or "").strip()
+                if not symbol:
+                    continue
+                if symbol not in seen_item_order:
+                    seen_item_order.add(symbol)
+                    focus_item_order.append(symbol)
             section_list_types = {str(item or "").strip() for item in (scope.get("focus_list_types") or []) if str(item or "").strip()}
             for symbol in scope.get("focus_symbols") or []:
                 symbol = str(symbol or "").strip()
@@ -387,20 +401,34 @@ class MainReportHTMLRenderer:
                 judgment_key = str(judgment.get("object_key") or "").strip()
                 if judgment_key:
                     judgment_refs.append(judgment_key)
-        if not key_focus_symbols:
+            self._merge_focus_symbol_context(symbol_context_map, section)
+        ordered_focus_symbols = focus_item_order + [symbol for symbol in focus_symbols if symbol not in set(focus_item_order)]
+        prioritized_item_symbols = [
+            symbol for symbol in focus_item_order
+            if any("key_focus" in list_type for list_type in (focus_item_list_type_map.get(symbol) or []))
+        ]
+        if prioritized_item_symbols:
+            key_focus_symbols = prioritized_item_symbols[: min(5, len(prioritized_item_symbols))]
+        elif not key_focus_symbols:
             prioritized_symbols = [
-                symbol for symbol in focus_symbols
+                symbol for symbol in ordered_focus_symbols
                 if any("key_focus" in list_type for list_type in (focus_item_list_type_map.get(symbol) or []))
             ]
-            key_focus_symbols = (prioritized_symbols or focus_symbols)[: min(5, len(focus_symbols))]
-        if not focus_only_symbols:
-            focus_only_symbols = [symbol for symbol in focus_symbols if symbol not in set(key_focus_symbols)]
+            key_focus_symbols = (prioritized_symbols or ordered_focus_symbols)[: min(5, len(ordered_focus_symbols))]
+        focus_only_symbols = [symbol for symbol in ordered_focus_symbols if symbol not in set(key_focus_symbols)]
         key_focus_items = [
             self._build_focus_watch_item(
                 symbol=symbol,
                 tier="key_focus",
                 display_name=focus_name_map.get(symbol),
                 primary_reason=reasons[0] if reasons else "",
+                list_types=focus_item_list_type_map.get(symbol) or [],
+                symbol_context=self._compose_focus_symbol_context(
+                    symbol=symbol,
+                    symbol_context=symbol_context_map.get(symbol) or {},
+                    item_metadata=focus_item_metadata_map.get(symbol) or {},
+                    list_types=focus_item_list_type_map.get(symbol) or [],
+                ),
                 ordinal=index,
             )
             for index, symbol in enumerate(key_focus_symbols[:5], start=1)
@@ -411,6 +439,13 @@ class MainReportHTMLRenderer:
                 tier="focus_watch",
                 display_name=focus_name_map.get(symbol),
                 primary_reason=reasons[0] if reasons else "",
+                list_types=focus_item_list_type_map.get(symbol) or [],
+                symbol_context=self._compose_focus_symbol_context(
+                    symbol=symbol,
+                    symbol_context=symbol_context_map.get(symbol) or {},
+                    item_metadata=focus_item_metadata_map.get(symbol) or {},
+                    list_types=focus_item_list_type_map.get(symbol) or [],
+                ),
                 ordinal=index,
             )
             for index, symbol in enumerate(focus_only_symbols[:7], start=1)
@@ -483,24 +518,104 @@ class MainReportHTMLRenderer:
                 result[symbol_text] = list_types
         return result
 
-    def _build_focus_watch_item(self, *, symbol: str, tier: str, display_name: str | None, primary_reason: str, ordinal: int | None = None) -> dict[str, str]:
+    def _merge_focus_item_metadata_map(self, focus_item_metadata_map: dict[str, dict[str, Any]], scope: dict[str, Any]) -> None:
+        for item in (scope.get("items") or scope.get("focus_items") or []):
+            if not isinstance(item, dict):
+                continue
+            symbol_text = str(item.get("symbol") or item.get("code") or "").strip()
+            if not symbol_text:
+                continue
+            target = focus_item_metadata_map.setdefault(symbol_text, {})
+            for field in ("name", "company_name", "list_type", "priority", "sector_or_theme", "key_focus"):
+                if target.get(field) is None and item.get(field) is not None:
+                    target[field] = item.get(field)
+            for nested in ("market_evidence", "text_event_evidence"):
+                nested_target = dict(target.get(nested) or {})
+                nested_source = dict(item.get(nested) or {})
+                for key, value in nested_source.items():
+                    if nested_target.get(key) is None and value is not None:
+                        nested_target[key] = value
+                if nested_target:
+                    target[nested] = nested_target
+
+    def _compose_focus_symbol_context(self, *, symbol: str, symbol_context: dict[str, Any], item_metadata: dict[str, Any], list_types: Sequence[str]) -> dict[str, Any]:
+        ctx = dict(symbol_context or {})
+        item_metadata = dict(item_metadata or {})
+        market_evidence = dict(item_metadata.get("market_evidence") or {})
+        text_event_evidence = dict(item_metadata.get("text_event_evidence") or {})
+        ctx["symbol"] = symbol
+        ctx["list_type"] = item_metadata.get("list_type") or (list_types[0] if list_types else None)
+        ctx["priority"] = item_metadata.get("priority")
+        ctx["key_focus"] = bool(item_metadata.get("key_focus") or any("key_focus" in str(item) for item in list_types))
+        ctx["company_name"] = item_metadata.get("company_name") or item_metadata.get("name")
+        ctx["sector_or_theme"] = item_metadata.get("sector_or_theme")
+        ctx["market_evidence"] = market_evidence
+        ctx["text_event_evidence"] = text_event_evidence
+        market_signal_count = 0
+        if market_evidence.get("has_daily_bar"):
+            market_signal_count += 1
+        if market_evidence.get("recent_return_pct") is not None:
+            market_signal_count += 1
+        if market_evidence.get("latest_volume") is not None or market_evidence.get("latest_amount") is not None:
+            market_signal_count += 1
+        text_signal_count = sum(
+            int(text_event_evidence.get(field) or 0)
+            for field in ("announcement_count", "research_count", "investor_qa_count", "dragon_tiger_count", "limit_up_count", "event_count")
+        )
+        ctx["has_market_evidence"] = market_signal_count > 0
+        ctx["has_text_evidence"] = text_signal_count > 0
+        ctx["evidence_depth"] = self._classify_focus_evidence_depth(
+            has_market_evidence=ctx["has_market_evidence"],
+            has_text_evidence=ctx["has_text_evidence"],
+            has_sector_theme=bool(ctx.get("sector_or_theme")),
+            has_named_display=bool(ctx.get("company_name")),
+        )
+        ctx["evidence_score"] = max(
+            int(ctx.get("evidence_score") or 0),
+            min(4, market_signal_count + (1 if text_signal_count > 0 else 0) + (1 if ctx.get("sector_or_theme") else 0)),
+        )
+        return ctx
+
+    def _classify_focus_evidence_depth(self, *, has_market_evidence: bool, has_text_evidence: bool, has_sector_theme: bool, has_named_display: bool) -> str:
+        if has_market_evidence and has_text_evidence:
+            return "market_and_text"
+        if has_market_evidence:
+            return "market_only"
+        if has_text_evidence:
+            return "text_only"
+        if has_sector_theme or has_named_display:
+            return "focus_list_only"
+        return "data_thin"
+
+    def _build_focus_watch_item(self, *, symbol: str, tier: str, display_name: str | None, primary_reason: str, list_types: Sequence[str] | None = None, symbol_context: dict[str, Any] | None = None, ordinal: int | None = None) -> dict[str, str]:
         clean_symbol = str(symbol or "").strip()
-        display = self._format_focus_display_name(clean_symbol, display_name, tier=tier, ordinal=ordinal)
+        clean_display_name = str(display_name or "").strip() or None
+        display = self._format_focus_display_name(clean_symbol, clean_display_name, tier=tier, ordinal=ordinal)
         rationale_seed = self._sanitize_customer_text(primary_reason)
+        symbol_context = dict(symbol_context or {})
+        evidence_score = int(symbol_context.get("evidence_score") or 0)
+        evidence_depth = str(symbol_context.get("evidence_depth") or "data_thin")
+        has_named_display = bool(clean_display_name)
         if tier == "key_focus":
-            rationale = self._polish_focus_reason(
-                rationale_seed,
-                fallback="列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            fallback = self._fallback_key_focus_rationale(
+                evidence_score=evidence_score,
+                evidence_depth=evidence_depth,
+                has_named_display=has_named_display,
+                symbol_context=symbol_context,
             )
-            validation_point = "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。"
-            invalidation = "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+            rationale = self._polish_focus_reason(rationale_seed, fallback=fallback)
+            validation_point = self._focus_validation_point(tier=tier, evidence_score=evidence_score)
+            invalidation = self._focus_invalidation_point(tier=tier, evidence_score=evidence_score)
         else:
-            rationale = self._polish_focus_reason(
-                rationale_seed,
-                fallback="列入补充观察名单，用于跟踪主线外溢、板块轮动与分歧后的回流质量。",
+            fallback = self._fallback_focus_watch_rationale(
+                evidence_score=evidence_score,
+                evidence_depth=evidence_depth,
+                has_named_display=has_named_display,
+                symbol_context=symbol_context,
             )
-            validation_point = "盘中重点看是否出现跟随扩散、回流承接，或更清晰的板块联动信号。"
-            invalidation = "若全天仍缺少联动、承接偏弱，或只有零散异动，则维持补充观察，不急于上调优先级。"
+            rationale = self._polish_focus_reason(rationale_seed, fallback=fallback)
+            validation_point = self._focus_validation_point(tier=tier, evidence_score=evidence_score)
+            invalidation = self._focus_invalidation_point(tier=tier, evidence_score=evidence_score)
         return {
             "symbol": clean_symbol,
             "code": clean_symbol,
@@ -509,6 +624,9 @@ class MainReportHTMLRenderer:
             "observation_rationale": rationale,
             "today_validation_point": validation_point,
             "risk_invalidation": invalidation,
+            "list_types": [str(item).strip() for item in (list_types or []) if str(item).strip()],
+            "evidence_score": evidence_score,
+            "evidence_depth": evidence_depth,
         }
 
     def _professional_empty_focus_item(self) -> dict[str, str]:
@@ -529,12 +647,20 @@ class MainReportHTMLRenderer:
         if not clean_symbol:
             return "未命名观察对象"
         ordinal_suffix = self._focus_ordinal_label(ordinal)
+        if tier == "key_focus" and ordinal_suffix:
+            return f"核心观察标的{ordinal_suffix}"
+        if tier == "focus_watch" and ordinal_suffix:
+            return f"补充观察标的{ordinal_suffix}"
+        if tier == "key_focus" and clean_symbol.endswith((".SH", ".SZ", ".BJ")):
+            return f"A股核心观察对象 {clean_symbol}"
+        if tier == "focus_watch" and clean_symbol.endswith((".SH", ".SZ", ".BJ")):
+            return f"A股补充观察对象 {clean_symbol}"
         if tier == "key_focus":
-            return f"核心观察标的{ordinal_suffix}" if ordinal_suffix else "核心观察标的"
+            return f"核心观察对象{ordinal_suffix}" if ordinal_suffix else "核心观察对象"
         if tier == "focus_watch":
-            return f"补充观察标的{ordinal_suffix}" if ordinal_suffix else "补充观察标的"
+            return f"补充观察对象{ordinal_suffix}" if ordinal_suffix else "补充观察对象"
         if clean_symbol.endswith((".SH", ".SZ", ".BJ")):
-            return f"观察标的{ordinal_suffix}" if ordinal_suffix else "观察标的"
+            return f"观察对象 {clean_symbol}"
         return f"观察对象{ordinal_suffix}" if ordinal_suffix else "观察对象"
 
     def _build_focus_short_label(self, *, display_name: str, symbol: str) -> str:
@@ -569,6 +695,94 @@ class MainReportHTMLRenderer:
         if "focus/key-focus" in lower_reason or "观察池覆盖" in clean_reason or "噪音过滤" in clean_reason:
             return fallback
         return clean_reason
+
+    def _merge_focus_symbol_context(self, symbol_context_map: dict[str, dict[str, Any]], section: dict[str, Any]) -> None:
+        containers = [
+            (section.get("facts") or [], "fact_hits"),
+            (section.get("signals") or [], "signal_hits"),
+            (section.get("judgments") or [], "judgment_hits"),
+        ]
+        for objects, field in containers:
+            for obj in objects:
+                if not isinstance(obj, dict):
+                    continue
+                text_parts = [
+                    str(obj.get("object_key") or ""),
+                    str(obj.get("statement") or ""),
+                    json.dumps(obj.get("attributes_json") or {}, ensure_ascii=False),
+                ]
+                haystack = " ".join(text_parts)
+                for symbol in self._extract_symbols_from_text(haystack):
+                    ctx = symbol_context_map.setdefault(symbol, {"fact_hits": 0, "signal_hits": 0, "judgment_hits": 0})
+                    ctx[field] = int(ctx.get(field) or 0) + 1
+        for symbol, ctx in symbol_context_map.items():
+            ctx["evidence_score"] = min(3, sum(int(ctx.get(field) or 0) for field in ("fact_hits", "signal_hits", "judgment_hits")))
+
+    def _extract_symbols_from_text(self, text: str) -> list[str]:
+        return list(dict.fromkeys(re.findall(r"\b\d{6}\.(?:SZ|SH|BJ)\b", str(text or "").upper())))
+
+    def _fallback_key_focus_rationale(self, *, evidence_score: int, evidence_depth: str, has_named_display: bool, symbol_context: dict[str, Any]) -> str:
+        company = str(symbol_context.get("company_name") or "").strip()
+        sector_or_theme = str(symbol_context.get("sector_or_theme") or "").strip()
+        text_event_evidence = dict(symbol_context.get("text_event_evidence") or {})
+        if evidence_depth == "market_and_text":
+            return f"列入核心观察名单，当前已具备本地市场侧样本与文本/事件侧线索，{company or '该标的'}更适合继续核验强度、承接与主线带动性，而不是直接上升为确定性判断。"
+        if evidence_depth == "market_only":
+            return "列入核心观察名单，当前已有日线样本或量价记录可供观察，但文本/事件补证仍有限，先围绕盘面延续性做重点跟踪。"
+        if evidence_depth == "text_only":
+            text_count = sum(int(text_event_evidence.get(field) or 0) for field in ("announcement_count", "research_count", "investor_qa_count", "dragon_tiger_count", "limit_up_count", "event_count"))
+            return f"列入核心观察名单，当前主要依据本地文本/事件线索（合计 {text_count} 条）进入重点观察，盘面验证仍待后续补齐，不宜提前强化结论。"
+        if evidence_depth == "focus_list_only" and sector_or_theme:
+            return f"列入核心观察名单，目前更多体现为名单内优先跟踪对象；本地可见行业/主题线索指向 {sector_or_theme}，但个股级市场证据仍偏薄，应先做基础验证。"
+        if evidence_score >= 1:
+            return "列入核心观察名单，当前已有初步线索，但证据仍偏早、偏单点，先按重点验证对象跟踪，不宜提前上调为确定性结论。"
+        if has_named_display:
+            return "列入核心观察名单，但当前可用证据仍偏薄，先按基础观察对象管理，并等待后续市场或事件材料补齐。"
+        return "当前仅能确认其位于核心观察名单，本轮个股级证据仍有限，先按基础观察对象管理，不对其做超出证据的强化表述。"
+
+    def _fallback_focus_watch_rationale(self, *, evidence_score: int, evidence_depth: str, has_named_display: bool, symbol_context: dict[str, Any]) -> str:
+        sector_or_theme = str(symbol_context.get("sector_or_theme") or "").strip()
+        text_event_evidence = dict(symbol_context.get("text_event_evidence") or {})
+        if evidence_depth == "market_and_text":
+            return "列入补充观察名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。"
+        if evidence_depth == "market_only":
+            return "列入补充观察名单，当前已有基础盘面样本可供跟踪，但缺少更完整的文本/事件确认，先维持观察级别。"
+        if evidence_depth == "text_only":
+            text_count = sum(int(text_event_evidence.get(field) or 0) for field in ("announcement_count", "research_count", "investor_qa_count", "dragon_tiger_count", "limit_up_count", "event_count"))
+            return f"列入补充观察名单，当前主要依赖本地文本/事件线索（合计 {text_count} 条）进入观察范围；在盘面证据补出前，仍按基础观察项处理。"
+        if evidence_depth == "focus_list_only" and sector_or_theme:
+            return f"列入补充观察名单，目前更多承担扩散路径跟踪角色；本地仅有 {sector_or_theme} 方向的基础标签，尚不足以支持更高优先级。"
+        if evidence_score >= 1:
+            return "列入补充观察名单，已有初步异动或联动痕迹，但证据还不足以支持优先级上调，先保持观察。"
+        if has_named_display:
+            return "列入补充观察名单，当前更接近名单内基础观察项；若后续没有新增市场或事件证据，则继续保持观察而非强化表述。"
+        return "当前仅能确认其在补充观察池内，个股级证据不足，因此按基础观察对象处理，而不是给出过强判断。"
+
+    def _focus_validation_point(self, *, tier: str, evidence_score: int) -> str:
+        if tier == "key_focus":
+            if evidence_score >= 2:
+                return "盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认。"
+            if evidence_score == 1:
+                return "盘中重点看早段线索能否获得后续成交、承接或板块联动补证，避免单点异动被误读。"
+            return "盘中重点看是否补出更明确的成交、承接或联动证据；若没有新增确认，维持基础观察口径。"
+        if evidence_score >= 2:
+            return "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。"
+        if evidence_score == 1:
+            return "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。"
+        return "盘中重点看是否出现新增扩散线索、回流承接或更清晰的板块联动，再决定是否提高关注级别。"
+
+    def _focus_invalidation_point(self, *, tier: str, evidence_score: int) -> str:
+        if tier == "key_focus":
+            if evidence_score >= 2:
+                return "若后续跟踪中量价配合转弱、承接不足或板块共振没有延续，应及时降回观察级别。"
+            if evidence_score == 1:
+                return "若后续没有补出更完整的量价或联动证据，说明当前仍停留在早期线索阶段，应维持观察而非强化结论。"
+            return "若全天仍缺少新增个股证据，只保留名单观察属性，不把名单暴露误当作确定性信号。"
+        if evidence_score >= 2:
+            return "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。"
+        if evidence_score == 1:
+            return "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。"
+        return "若全天没有新增确认依据，则维持补充观察，不为凑名单而机械强化表述。"
 
     def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
         polished = [str(item).strip() for item in reasons if str(item).strip()]
@@ -1394,6 +1608,7 @@ class MainReportArtifactPublishingService:
         report_run_id: str | None = None,
         generated_at: datetime | None = None,
         output_profile: str = "internal",
+        requested_customer_slot: str | None = None,
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
         output_path = enforce_artifact_publish_root_contract(
@@ -1412,6 +1627,8 @@ class MainReportArtifactPublishingService:
             business_date=business_date,
             include_empty=include_empty,
         )
+        if output_profile == "customer" and requested_customer_slot:
+            assembled = {**assembled, "requested_customer_slot": requested_customer_slot}
         chart_manifest = self.chart_pack_builder.build_main_chart_pack(
             business_date=business_date,
             assembled=assembled,
@@ -1536,6 +1753,7 @@ class MainReportArtifactPublishingService:
         report_run_id: str | None = None,
         generated_at: datetime | None = None,
         output_profile: str = "internal",
+        requested_customer_slot: str | None = None,
     ) -> dict[str, Any]:
         published = self.publish_main_report_html(
             business_date=business_date,
@@ -1544,6 +1762,7 @@ class MainReportArtifactPublishingService:
             report_run_id=report_run_id,
             generated_at=generated_at,
             output_profile=output_profile,
+            requested_customer_slot=requested_customer_slot,
         )
         generated_at = generated_at or datetime.now(timezone.utc)
         html_path = Path(published["html_path"])

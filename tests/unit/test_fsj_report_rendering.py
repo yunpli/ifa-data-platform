@@ -135,7 +135,7 @@ def _assembled_sections() -> dict:
                     },
                 ],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "items": [{"symbol": "300024.SZ", "name": "机器人龙头A", "list_types": ["key_focus"], "priority": 1}, {"symbol": "002031.SZ", "name": "机器人链补涨B", "list_types": ["focus"], "priority": 2}, {"symbol": "601138.SH", "name": "工业自动化核心C", "list_types": ["focus"], "priority": 3}], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
+                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "items": [{"symbol": "300024.SZ", "name": "机器人龙头A", "company_name": "机器人龙头A", "list_types": ["key_focus"], "list_type": "key_focus", "priority": 1, "key_focus": True, "sector_or_theme": "机器人", "market_evidence": {"has_daily_bar": True, "recent_return_pct": 3.8, "latest_volume": 1800000, "latest_amount": 92000000}, "text_event_evidence": {"announcement_count": 1, "research_count": 1, "investor_qa_count": 0, "dragon_tiger_count": 0, "limit_up_count": 1, "event_count": 2}}, {"symbol": "002031.SZ", "name": "机器人链补涨B", "company_name": "机器人链补涨B", "list_types": ["focus"], "list_type": "focus", "priority": 2, "sector_or_theme": "机器人", "market_evidence": {"has_daily_bar": True, "recent_return_pct": 1.2}, "text_event_evidence": {"announcement_count": 0, "research_count": 0, "investor_qa_count": 1, "dragon_tiger_count": 0, "limit_up_count": 0, "event_count": 0}}, {"symbol": "601138.SH", "name": "工业自动化核心C", "company_name": "工业自动化核心C", "list_types": ["focus"], "list_type": "focus", "priority": 3, "sector_or_theme": "工业自动化", "market_evidence": {"has_daily_bar": False}, "text_event_evidence": {"announcement_count": 0, "research_count": 1, "investor_qa_count": 0, "dragon_tiger_count": 0, "limit_up_count": 0, "event_count": 0}}], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [
@@ -342,9 +342,9 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert "Tier 1 / Key Focus" in rendered["content"]
     assert "Tier 2 / Focus Watchlist" in rendered["content"]
     assert "机器人龙头A（300024.SZ）" in rendered["content"]
-    assert "纳入原因：列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳" in rendered["content"]
-    assert "盘中观察要点：盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认" in rendered["content"]
-    assert "需要下调关注的情形：若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述" in rendered["content"]
+    assert "纳入原因：列入核心观察名单，当前已具备本地市场侧样本与文本/事件侧线索，机器人龙头A更适合继续核验强度、承接与主线带动性，而不是直接上升为确定性判断" in rendered["content"]
+    assert "盘中观察要点：盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认" in rendered["content"]
+    assert "需要下调关注的情形：若后续跟踪中量价配合转弱、承接不足或板块共振没有延续，应及时降回观察级别" in rendered["content"]
     assert "早报 / 中报 / 晚报分时段解读" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
     assert "<h3>盘中观察</h3>" not in rendered["content"]  # assembled fixture only has early/late sections
@@ -369,6 +369,9 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "机器人链补涨B"
     assert customer_presentation["focus_module"]["focus_watch_items"][1]["display_name"] == "工业自动化核心C"
     assert customer_presentation["focus_module"]["watchlist_tiers"][1]["label"] == "Tier 2 / Focus Watchlist"
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["evidence_depth"] == "market_and_text"
+    assert customer_presentation["focus_module"]["focus_watch_items"][0]["evidence_depth"] == "market_and_text"
+    assert customer_presentation["focus_module"]["focus_watch_items"][1]["evidence_depth"] == "text_only"
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"
 
@@ -425,6 +428,63 @@ def test_main_report_renderer_keeps_missing_name_watchlist_rows_readable_without
     assert customer_presentation["focus_module"]["key_focus_items"][0]["short_label"] == "核心观察标的一（000001.SZ）"
 
 
+def test_main_report_renderer_differentiates_watchlist_rationale_by_symbol_evidence_depth() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["lineage"]["bundle"]["payload_json"]["focus_scope"] = {
+        "focus_symbols": ["000001.SZ", "000002.SZ", "000003.SZ"],
+        "focus_list_types": ["key_focus", "focus"],
+        "items": [
+            {
+                "symbol": "000001.SZ",
+                "name": "样本一",
+                "list_types": ["key_focus"],
+                "priority": 1,
+                "sector_or_theme": "银行",
+                "market_evidence": {"has_daily_bar": True, "recent_return_pct": 2.6, "latest_volume": 1000000},
+                "text_event_evidence": {"announcement_count": 1, "research_count": 1, "investor_qa_count": 0, "dragon_tiger_count": 0, "limit_up_count": 0, "event_count": 1},
+            },
+            {
+                "symbol": "000002.SZ",
+                "name": "样本二",
+                "list_types": ["focus"],
+                "priority": 2,
+                "sector_or_theme": "地产",
+                "market_evidence": {"has_daily_bar": True, "recent_return_pct": 0.8},
+                "text_event_evidence": {"announcement_count": 0, "research_count": 0, "investor_qa_count": 0, "dragon_tiger_count": 0, "limit_up_count": 0, "event_count": 0},
+            },
+            {
+                "symbol": "000003.SZ",
+                "name": "样本三",
+                "list_types": ["focus"],
+                "priority": 3,
+                "text_event_evidence": {"announcement_count": 0, "research_count": 1, "investor_qa_count": 1, "dragon_tiger_count": 0, "limit_up_count": 0, "event_count": 0},
+            },
+        ],
+        "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+    }
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-focus-evidence-1",
+        artifact_uri="file:///tmp/customer-focus-evidence.html",
+        generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    focus_module = rendered["metadata"]["customer_presentation"]["focus_module"]
+    item1 = focus_module["key_focus_items"][0]
+    item2 = focus_module["focus_watch_items"][0]
+    item3 = focus_module["focus_watch_items"][1]
+
+    assert item1["evidence_depth"] == "market_and_text"
+    assert item2["evidence_depth"] == "market_only"
+    assert item3["evidence_depth"] == "text_only"
+    assert item1["observation_rationale"] != item2["observation_rationale"]
+    assert item2["observation_rationale"] != item3["observation_rationale"]
+    assert "本地市场侧样本与文本/事件侧线索" in item1["observation_rationale"]
+    assert "已有基础盘面样本可供跟踪" in item2["observation_rationale"]
+    assert "主要依赖本地文本/事件线索" in item3["observation_rationale"]
+
+
 def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible() -> None:
     rendered = MainReportHTMLRenderer().render(
         _assembled_sections(),
@@ -439,7 +499,7 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert rendered["metadata"]["presentation_schema_version"] is None
     assert "Key Focus / Focus 模块" in rendered["content"]
     assert "机器人龙头A（300024.SZ）" in rendered["content"]
-    assert "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认" in rendered["content"]
+    assert "盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认。" in rendered["content"]
     assert "bundle-early" in rendered["content"]
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
@@ -591,6 +651,135 @@ def test_customer_profile_uses_mid_only_top_judgment_without_pretending_close_fi
     assert "当前不宜提前替收盘结论定调" in rendered["content"]
     assert "午后优先核对盘中修复能否扩展到板块层与核心标的层" in rendered["content"]
     assert "盘中最容易出现的问题，是把阶段性修复或局部异动误读为全天定论" in rendered["content"]
+
+
+def test_customer_profile_filters_full_sections_for_early_slot_requests() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"].insert(
+        1,
+        {
+            "slot": "mid",
+            "section_key": "intraday_main",
+            "section_render_key": "main.midday",
+            "title": "盘中结构更新",
+            "order_index": 20,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": "bundle-mid",
+                "status": "active",
+                "producer_version": "phase1-main-mid-v1",
+                "slot_run_id": "slot-run-mid",
+                "replay_id": "replay-mid",
+            },
+            "summary": "盘中阶段正在验证早盘主线是否扩散。",
+            "judgments": [{"statement": "盘中判断：主线仍需确认。"}],
+            "signals": [{"statement": "午后观察扩散与承接。"}],
+            "facts": [{"statement": "盘中事实：结构修复仍待确认。"}],
+            "support_summaries": [],
+            "lineage": {"bundle": {"payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ"]}}}},
+        },
+    )
+    assembled["requested_customer_slot"] = "early"
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-slot-early-1",
+        artifact_uri="file:///tmp/customer-slot-early.html",
+        generated_at=datetime(2099, 4, 22, 8, 7, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "<h3>开盘前关注</h3>" in rendered["content"]
+    assert "<h3>盘中观察</h3>" not in rendered["content"]
+    assert "<h3>收盘复盘</h3>" not in rendered["content"]
+    assert rendered["metadata"]["customer_presentation"]["requested_slot"] == "early"
+    assert [item["slot"] for item in rendered["metadata"]["customer_presentation"]["sections"]] == ["early"]
+
+
+def test_customer_profile_filters_full_sections_for_mid_slot_requests_but_keeps_early_review_context() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"].insert(
+        1,
+        {
+            "slot": "mid",
+            "section_key": "intraday_main",
+            "section_render_key": "main.midday",
+            "title": "盘中结构更新",
+            "order_index": 20,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": "bundle-mid",
+                "status": "active",
+                "producer_version": "phase1-main-mid-v1",
+                "slot_run_id": "slot-run-mid",
+                "replay_id": "replay-mid",
+            },
+            "summary": "盘中阶段正在验证早盘主线是否扩散。",
+            "judgments": [{"statement": "盘中判断：主线仍需确认。"}],
+            "signals": [{"statement": "午后观察扩散与承接。"}],
+            "facts": [{"statement": "盘中事实：结构修复仍待确认。"}],
+            "support_summaries": [],
+            "lineage": {"bundle": {"payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ"]}}}},
+        },
+    )
+    assembled["requested_customer_slot"] = "mid"
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-slot-mid-1",
+        artifact_uri="file:///tmp/customer-slot-mid.html",
+        generated_at=datetime(2099, 4, 22, 8, 7, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "<h3>开盘前关注</h3>" not in rendered["content"]
+    assert "<h3>盘中观察</h3>" in rendered["content"]
+    assert "<h3>收盘复盘</h3>" not in rendered["content"]
+    assert [item["slot"] for item in rendered["metadata"]["customer_presentation"]["sections"]] == ["mid"]
+    assert [item["slot"] for item in rendered["metadata"]["customer_presentation"]["summary_cards"]] == ["early", "mid"]
+
+
+def test_customer_profile_filters_full_sections_for_late_slot_requests_and_keeps_day_mapping_context() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"].insert(
+        1,
+        {
+            "slot": "mid",
+            "section_key": "intraday_main",
+            "section_render_key": "main.midday",
+            "title": "盘中结构更新",
+            "order_index": 20,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": "bundle-mid",
+                "status": "active",
+                "producer_version": "phase1-main-mid-v1",
+                "slot_run_id": "slot-run-mid",
+                "replay_id": "replay-mid",
+            },
+            "summary": "盘中阶段正在验证早盘主线是否扩散。",
+            "judgments": [{"statement": "盘中判断：主线仍需确认。"}],
+            "signals": [{"statement": "午后观察扩散与承接。"}],
+            "facts": [{"statement": "盘中事实：结构修复仍待确认。"}],
+            "support_summaries": [],
+            "lineage": {"bundle": {"payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ"]}}}},
+        },
+    )
+    assembled["requested_customer_slot"] = "late"
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-slot-late-1",
+        artifact_uri="file:///tmp/customer-slot-late.html",
+        generated_at=datetime(2099, 4, 22, 8, 7, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "<h3>开盘前关注</h3>" not in rendered["content"]
+    assert "<h3>盘中观察</h3>" not in rendered["content"]
+    assert "<h3>收盘复盘</h3>" in rendered["content"]
+    assert [item["slot"] for item in rendered["metadata"]["customer_presentation"]["sections"]] == ["late"]
+    assert [item["slot"] for item in rendered["metadata"]["customer_presentation"]["summary_cards"]] == ["early", "mid", "late"]
 
 
 def test_customer_profile_rewrites_raw_telemetry_and_text_fragments_into_advisory_prose() -> None:
