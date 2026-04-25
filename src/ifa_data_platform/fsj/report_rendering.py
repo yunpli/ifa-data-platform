@@ -330,6 +330,7 @@ class MainReportHTMLRenderer:
         focus_only_symbols: list[str] = []
         focus_list_types: list[str] = []
         focus_name_map: dict[str, str] = {}
+        focus_item_list_type_map: dict[str, list[str]] = {}
         reasons: list[str] = []
         source_sections: list[str] = []
         judgment_refs: list[str] = []
@@ -346,18 +347,29 @@ class MainReportHTMLRenderer:
             payload = dict((lineage.get("bundle") or {}).get("payload_json") or {})
             scope = dict(payload.get("focus_scope") or {})
             focus_name_map.update(self._extract_focus_name_map(scope))
+            item_type_map = self._extract_focus_item_type_map(scope)
+            for symbol, list_types in item_type_map.items():
+                merged = focus_item_list_type_map.setdefault(symbol, [])
+                for list_type in list_types:
+                    if list_type not in merged:
+                        merged.append(list_type)
             section_list_types = {str(item or "").strip() for item in (scope.get("focus_list_types") or []) if str(item or "").strip()}
             for symbol in scope.get("focus_symbols") or []:
                 symbol = str(symbol or "").strip()
-                if symbol and symbol not in seen_focus:
+                if not symbol:
+                    continue
+                if symbol not in seen_focus:
                     seen_focus.add(symbol)
                     focus_symbols.append(symbol)
-                if symbol and "key_focus" in section_list_types and symbol not in seen_key_focus:
-                    seen_key_focus.add(symbol)
-                    key_focus_symbols.append(symbol)
-                elif symbol and "focus" in section_list_types and symbol not in seen_focus_only:
-                    seen_focus_only.add(symbol)
-                    focus_only_symbols.append(symbol)
+                symbol_list_types = focus_item_list_type_map.get(symbol) or list(section_list_types)
+                if any("key_focus" in list_type for list_type in symbol_list_types):
+                    if symbol not in seen_key_focus:
+                        seen_key_focus.add(symbol)
+                        key_focus_symbols.append(symbol)
+                elif any(list_type.endswith("focus") for list_type in symbol_list_types):
+                    if symbol not in seen_focus_only:
+                        seen_focus_only.add(symbol)
+                        focus_only_symbols.append(symbol)
             for list_type in scope.get("focus_list_types") or []:
                 list_type = str(list_type or "").strip()
                 if list_type and list_type not in seen_list_types:
@@ -376,7 +388,13 @@ class MainReportHTMLRenderer:
                 if judgment_key:
                     judgment_refs.append(judgment_key)
         if not key_focus_symbols:
-            key_focus_symbols = focus_symbols[: min(5, len(focus_symbols))]
+            prioritized_symbols = [
+                symbol for symbol in focus_symbols
+                if any("key_focus" in list_type for list_type in (focus_item_list_type_map.get(symbol) or []))
+            ]
+            key_focus_symbols = (prioritized_symbols or focus_symbols)[: min(5, len(focus_symbols))]
+        if not focus_only_symbols:
+            focus_only_symbols = [symbol for symbol in focus_symbols if symbol not in set(key_focus_symbols)]
         key_focus_items = [
             self._build_focus_watch_item(
                 symbol=symbol,
@@ -446,6 +464,23 @@ class MainReportHTMLRenderer:
             name_text = str(item.get("name") or item.get("display_name") or item.get("company_name") or item.get("label") or "").strip()
             if symbol_text and name_text:
                 result[symbol_text] = name_text
+        return result
+
+    def _extract_focus_item_type_map(self, scope: dict[str, Any]) -> dict[str, list[str]]:
+        result: dict[str, list[str]] = {}
+        for item in (scope.get("items") or scope.get("focus_items") or []):
+            if not isinstance(item, dict):
+                continue
+            symbol_text = str(item.get("symbol") or item.get("code") or "").strip()
+            if not symbol_text:
+                continue
+            list_types: list[str] = []
+            for list_type in (item.get("list_types") or item.get("focus_list_types") or []):
+                clean = str(list_type or "").strip()
+                if clean and clean not in list_types:
+                    list_types.append(clean)
+            if list_types:
+                result[symbol_text] = list_types
         return result
 
     def _build_focus_watch_item(self, *, symbol: str, tier: str, display_name: str | None, primary_reason: str, ordinal: int | None = None) -> dict[str, str]:

@@ -87,6 +87,11 @@ def _sample_input(*, has_high: bool = True, has_low: bool = True) -> EarlyMainPr
         trading_day_label="open",
         focus_symbols=["300024.SZ", "002031.SZ", "601127.SH"],
         focus_list_types=["focus", "key_focus"],
+        focus_items=[
+            {"symbol": "300024.SZ", "name": "机器人龙头A", "list_types": ["key_focus"], "priority": 1},
+            {"symbol": "002031.SZ", "name": "机器人链补涨B", "list_types": ["focus"], "priority": 2},
+            {"symbol": "601127.SH", "name": "汽车链核心C", "list_types": ["focus"], "priority": 3},
+        ],
         auction_count=18 if has_high else 0,
         auction_snapshot_time="2099-04-22T09:27:00+08:00" if has_high else None,
         event_count=6 if has_high else 0,

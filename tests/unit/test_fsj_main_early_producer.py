@@ -17,6 +17,11 @@ def _sample_input(*, has_high: bool = True, has_low: bool = True) -> EarlyMainPr
         trading_day_label="open",
         focus_symbols=["300024.SZ", "002031.SZ", "601127.SH"],
         focus_list_types=["focus", "key_focus"],
+        focus_items=[
+            {"symbol": "300024.SZ", "name": "机器人龙头A", "list_types": ["key_focus"], "priority": 1},
+            {"symbol": "002031.SZ", "name": "机器人链补涨B", "list_types": ["focus"], "priority": 2},
+            {"symbol": "601127.SH", "name": "汽车链核心C", "list_types": ["focus"], "priority": 3},
+        ],
         auction_count=18 if has_high else 0,
         auction_snapshot_time="2099-04-22T09:27:00+08:00" if has_high else None,
         event_count=6 if has_high else 0,
@@ -85,6 +90,17 @@ def test_assembler_degrades_to_watch_item_when_high_layer_missing() -> None:
     assert market_fact["attributes_json"]["is_finalized_equivalent"] is False
     assert market_fact["attributes_json"]["degrade_reason"] == "missing_preopen_high_layer"
     assert payload["bundle"]["payload_json"]["degrade"]["candidate_only"] is True
+
+
+def test_assembler_threads_db_backed_focus_item_metadata_into_payload_scope() -> None:
+    assembler = EarlyMainFSJAssembler()
+    payload = assembler.build_bundle_graph(_sample_input(has_high=True, has_low=True))
+
+    focus_scope = payload["bundle"]["payload_json"]["focus_scope"]
+    assert focus_scope["name_map"]["300024.SZ"] == "机器人龙头A"
+    assert focus_scope["items"][0]["symbol"] == "300024.SZ"
+    assert focus_scope["items"][0]["list_types"] == ["key_focus"]
+    assert any(item["symbol"] == "002031.SZ" and item["list_types"] == ["focus"] for item in focus_scope["items"])
 
 
 def test_assembler_backfills_runtime_lineage_ids_when_reader_inputs_are_missing() -> None:

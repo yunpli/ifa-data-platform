@@ -48,6 +48,11 @@ def sample_input() -> EarlyMainProducerInput:
         trading_day_label="open",
         focus_symbols=["300024.SZ", "002031.SZ", "601127.SH"],
         focus_list_types=["focus", "key_focus"],
+        focus_items=[
+            {"symbol": "300024.SZ", "name": "机器人龙头A", "list_types": ["key_focus"], "priority": 1},
+            {"symbol": "002031.SZ", "name": "机器人链补涨B", "list_types": ["focus"], "priority": 2},
+            {"symbol": "601127.SH", "name": "汽车链核心C", "list_types": ["focus"], "priority": 3},
+        ],
         auction_count=18,
         auction_snapshot_time="2099-04-22T09:27:00+08:00",
         event_count=6,

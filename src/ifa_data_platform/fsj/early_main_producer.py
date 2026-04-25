@@ -46,6 +46,7 @@ class EarlyMainProducerInput:
     trading_day_label: str
     focus_symbols: list[str]
     focus_list_types: list[str]
+    focus_items: list[dict[str, Any]]
     auction_count: int
     auction_snapshot_time: str | None
     event_count: int
@@ -109,7 +110,10 @@ class SqlEarlyMainInputReader:
             focus_rows = conn.execute(
                 text(
                     """
-                    select distinct fi.symbol as symbol, fl.list_type
+                    select fi.symbol as symbol,
+                           coalesce(nullif(trim(fi.name), ''), fi.symbol) as name,
+                           fl.list_type,
+                           fi.priority
                     from ifa2.focus_lists fl
                     join ifa2.focus_list_items fi on fi.list_id = fl.id
                     where fl.owner_type='default' and fl.owner_id='default'
@@ -117,12 +121,42 @@ class SqlEarlyMainInputReader:
                       and coalesce(fi.asset_category, 'stock') = 'stock'
                       and fi.is_active = true
                       and fi.symbol is not null
-                    order by fi.symbol
+                    order by fi.symbol,
+                             case when fl.list_type like '%key_focus' then 0 else 1 end,
+                             fi.priority nulls last,
+                             fl.list_type
                     """
                 )
             ).mappings().all()
             focus_symbols = sorted({row["symbol"] for row in focus_rows})
             focus_list_types = sorted({row["list_type"] for row in focus_rows})
+            focus_item_map: dict[str, dict[str, Any]] = {}
+            for row in focus_rows:
+                symbol = str(row.get("symbol") or "").strip()
+                if not symbol:
+                    continue
+                item = focus_item_map.setdefault(
+                    symbol,
+                    {
+                        "symbol": symbol,
+                        "name": str(row.get("name") or "").strip() or symbol,
+                        "list_types": [],
+                        "priority": row.get("priority"),
+                    },
+                )
+                list_type = str(row.get("list_type") or "").strip()
+                if list_type and list_type not in item["list_types"]:
+                    item["list_types"].append(list_type)
+                if item.get("priority") is None and row.get("priority") is not None:
+                    item["priority"] = row.get("priority")
+            focus_items = sorted(
+                focus_item_map.values(),
+                key=lambda item: (
+                    0 if any("key_focus" in str(list_type) for list_type in (item.get("list_types") or [])) else 1,
+                    item.get("priority") if item.get("priority") is not None else 999999,
+                    str(item.get("symbol") or ""),
+                ),
+            )
 
             auction_row = conn.execute(
                 text(
@@ -235,6 +269,7 @@ class SqlEarlyMainInputReader:
             ),
             focus_symbols=focus_symbols[:30],
             focus_list_types=focus_list_types,
+            focus_items=focus_items[:30],
             auction_count=int(auction_row["cnt"] or 0),
             auction_snapshot_time=auction_row["snapshot_time"],
             event_count=len(event_rows),
@@ -667,6 +702,8 @@ class EarlyMainFSJAssembler:
                 "focus_symbols": data.focus_symbols[:20],
                 "focus_symbol_count": len(data.focus_symbols),
                 "focus_list_types": data.focus_list_types,
+                "items": data.focus_items[:20],
+                "name_map": {item["symbol"]: item["name"] for item in data.focus_items[:20] if item.get("symbol") and item.get("name")},
                 "source": "ifa2.focus_lists+ifa2.focus_list_items",
                 "why_included": self._reference_fact_statement(data),
             },

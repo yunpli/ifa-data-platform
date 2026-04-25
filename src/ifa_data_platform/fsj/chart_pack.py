@@ -116,6 +116,8 @@ class FSJChartPackBuilder:
     def _resolve_focus_symbols(self, *, assembled: dict[str, Any], limit: int) -> list[str]:
         symbols: list[str] = []
         seen: set[str] = set()
+        prioritized_symbols: list[str] = []
+        prioritized_seen: set[str] = set()
         for section in assembled.get("sections") or []:
             for item in (section.get("lineage") or {}).get("evidence_links") or []:
                 ref = str(item.get("ref_key") or "")
@@ -125,6 +127,19 @@ class FSJChartPackBuilder:
             payload = dict(((section.get("lineage") or {}).get("bundle") or {}).get("payload_json") or {})
             scope = dict(payload.get("focus_scope") or {})
             degrade = dict(payload.get("degrade") or {})
+            for focus_item in (scope.get("items") or scope.get("focus_items") or []):
+                if not isinstance(focus_item, dict):
+                    continue
+                symbol = str(focus_item.get("symbol") or focus_item.get("code") or "").strip()
+                if not self._looks_like_symbol(symbol):
+                    continue
+                list_types = [str(item or "").strip() for item in (focus_item.get("list_types") or focus_item.get("focus_list_types") or []) if str(item or "").strip()]
+                if any("key_focus" in list_type for list_type in list_types) and symbol not in prioritized_seen:
+                    prioritized_seen.add(symbol)
+                    prioritized_symbols.append(symbol)
+                if symbol not in seen:
+                    seen.add(symbol)
+                    symbols.append(symbol)
             for container in (scope, payload, degrade):
                 for key in ("focus_symbols", "symbols"):
                     for symbol in container.get(key) or []:
@@ -132,8 +147,9 @@ class FSJChartPackBuilder:
                         if self._looks_like_symbol(symbol) and symbol not in seen:
                             seen.add(symbol)
                             symbols.append(symbol)
-        if len(symbols) >= limit:
-            return symbols[:limit]
+        combined_symbols = prioritized_symbols + [symbol for symbol in symbols if symbol not in prioritized_seen]
+        if len(combined_symbols) >= limit:
+            return combined_symbols[:limit]
         query = text(
             """
             select distinct fi.symbol
@@ -159,7 +175,8 @@ class FSJChartPackBuilder:
                     break
         except Exception:
             pass
-        return symbols[:limit]
+        combined_symbols = prioritized_symbols + [symbol for symbol in symbols if symbol not in prioritized_seen]
+        return combined_symbols[:limit]
 
     def _build_market_index_chart(self, *, business_date: str, charts_dir: Path) -> ChartAsset:
         rows = self._fetch_daily_rows(

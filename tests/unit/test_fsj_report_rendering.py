@@ -135,7 +135,7 @@ def _assembled_sections() -> dict:
                     },
                 ],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "items": [{"symbol": "300024.SZ", "name": "机器人龙头A"}, {"symbol": "002031.SZ", "name": "机器人链补涨B"}, {"symbol": "601138.SH", "name": "工业自动化核心C"}], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
+                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "items": [{"symbol": "300024.SZ", "name": "机器人龙头A", "list_types": ["key_focus"], "priority": 1}, {"symbol": "002031.SZ", "name": "机器人链补涨B", "list_types": ["focus"], "priority": 2}, {"symbol": "601138.SH", "name": "工业自动化核心C", "list_types": ["focus"], "priority": 3}], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [
@@ -366,15 +366,24 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert customer_presentation["disclaimer"]
     assert customer_presentation["focus_module"]["focus_symbol_count"] == 3
     assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "机器人龙头A"
-    assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "补充观察名单暂未展开"
+    assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "机器人链补涨B"
+    assert customer_presentation["focus_module"]["focus_watch_items"][1]["display_name"] == "工业自动化核心C"
     assert customer_presentation["focus_module"]["watchlist_tiers"][1]["label"] == "Tier 2 / Focus Watchlist"
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"
 
 
 def test_main_report_renderer_uses_professional_focus_fallback_wording_when_watchlist_tier_is_empty() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["lineage"]["bundle"]["payload_json"]["focus_scope"] = {
+        "focus_symbols": ["300024.SZ"],
+        "focus_list_types": ["key_focus"],
+        "items": [{"symbol": "300024.SZ", "name": "机器人龙头A", "list_types": ["key_focus"], "priority": 1}],
+        "why_included": "当前报告优先跟踪核心验证对象。",
+    }
+
     rendered = MainReportHTMLRenderer().render(
-        _assembled_sections(),
+        assembled,
         report_run_id="report-run-customer-empty-focus-tier-1",
         artifact_uri="file:///tmp/customer-empty-focus-tier.html",
         generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
@@ -393,6 +402,10 @@ def test_main_report_renderer_keeps_missing_name_watchlist_rows_readable_without
     assembled["sections"][0]["lineage"]["bundle"]["payload_json"]["focus_scope"] = {
         "focus_symbols": ["000001.SZ", "000002.SZ"],
         "focus_list_types": ["key_focus"],
+        "items": [
+            {"symbol": "000001.SZ", "list_types": ["key_focus"], "priority": 1},
+            {"symbol": "000002.SZ", "list_types": ["key_focus"], "priority": 2},
+        ],
         "why_included": "当前业务观察池覆盖 2 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
     }
 
@@ -675,6 +688,30 @@ def test_chart_pack_builder_uses_focus_scope_symbols_for_key_focus_assets(tmp_pa
     assert focus_assets["key_focus_window"]["source_window"]["symbols"] == ["300024.SZ", "002031.SZ", "601138.SH"]
     assert focus_assets["key_focus_return_bar"]["source_window"]["symbols"] == ["300024.SZ", "002031.SZ", "601138.SH"]
     assert "观察池标的" in manifest["html_embed_blocks"][1]["caption"]
+
+
+def test_chart_pack_builder_prioritizes_db_backed_key_focus_items_before_plain_focus(tmp_path: Path) -> None:
+    builder = FSJChartPackBuilder()
+    assembled = _assembled_sections()
+    assembled["sections"][0]["lineage"]["bundle"]["payload_json"]["focus_scope"] = {
+        "focus_symbols": ["000002.SZ", "000003.SZ", "000001.SZ", "000004.SZ"],
+        "focus_list_types": ["focus", "key_focus"],
+        "items": [
+            {"symbol": "000003.SZ", "name": "补充观察B", "list_types": ["focus"], "priority": 3},
+            {"symbol": "000001.SZ", "name": "核心观察A", "list_types": ["key_focus"], "priority": 1},
+            {"symbol": "000004.SZ", "name": "补充观察C", "list_types": ["focus"], "priority": 4},
+            {"symbol": "000002.SZ", "name": "核心观察D", "list_types": ["key_focus"], "priority": 2},
+        ],
+    }
+
+    manifest = builder.build_main_chart_pack(
+        business_date="2099-04-22",
+        assembled=assembled,
+        package_dir=tmp_path,
+    )
+
+    focus_assets = {asset["chart_key"]: asset for asset in manifest["assets"] if asset["chart_key"].startswith("key_focus")}
+    assert focus_assets["key_focus_window"]["source_window"]["symbols"][:3] == ["000001.SZ", "000002.SZ", "000003.SZ"]
 
 
 def test_main_report_renderer_keeps_support_content_at_concise_summary_boundary() -> None:
