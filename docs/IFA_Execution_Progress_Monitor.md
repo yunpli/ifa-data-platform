@@ -832,6 +832,37 @@
 - push 状态：pushed to `origin/a-lane-p4-3-llm-field-lineage`
 - 交付结论：POST-P7-FINAL-EARLY-CUSTOMER-001 completed as a bounded closeout pass.
 
+#### Task ID: POST-V2-FSJ-REPORT-ARCH-001
+- Parent Task ID：none
+- 完成时间：2026-04-25
+- 做了什么：完成 FSJ→report architecture and consumption audit，按要求检查了 FSJ schema / bundle rows / objects / evidence lineage、`early_main_producer.py`、`report_assembly.py`、`report_rendering.py`、support bundle consumption方式，以及当前 customer HTML + manifest 的真实内容来源，明确定位为什么 final customer HTML 没有真正反映 Fact / Signal / Judgment intelligence。
+- 改了哪些文件：
+  - `docs/POST_V2_FSJ_REPORT_ARCH_001_FSJ_TO_REPORT_CONSUMPTION_AUDIT_2026-04-25.md`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - live DB query against `ifa2.ifa_fsj_bundles`, `ifa2.ifa_fsj_objects`, `ifa2.ifa_fsj_edges`, `ifa2.ifa_fsj_evidence_links`, `ifa2.ifa_fsj_observed_records`
+  - code inspection of `src/ifa_data_platform/fsj/store.py`
+  - code inspection of `src/ifa_data_platform/fsj/early_main_producer.py`
+  - code inspection of `src/ifa_data_platform/fsj/report_assembly.py`
+  - code inspection of `src/ifa_data_platform/fsj/report_rendering.py`
+  - artifact inspection of `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.html`
+  - manifest inspection of the matching `.manifest.json`
+- 结果摘要：
+  - FSJ is real: main + support bundles for `2026-04-23` contain real fact/signal/judgment objects and lineage.
+  - Early FSJ is only partially sufficient: enough for an honest pre-open candidate / validation report, not enough for a concrete named mainline thesis.
+  - `report_assembly` does consume FSJ objects, but only into flat section summaries + fact/signal/judgment lists + support summaries.
+  - `report_rendering` mostly rewrites text statements into customer prose instead of rendering a formal market-briefing section contract.
+  - Raw counts appear because producer-level FSJ facts already encode coverage / corpus / watchlist telemetry as report facts; renderer only paraphrases them.
+  - Support macro / commodities / AI-tech are not structurally merged into main judgment; main currently consumes only concise support summaries.
+  - A middle layer like `market_briefing_sections` is missing and is the minimum repair point.
+- 证据路径：
+  - `docs/POST_V2_FSJ_REPORT_ARCH_001_FSJ_TO_REPORT_CONSUMPTION_AUDIT_2026-04-25.md`
+  - `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.html`
+  - `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.manifest.json`
+- commit hash：pending
+- push 状态：pending
+- 交付结论：POST-V2-FSJ-REPORT-ARCH-001 closed as audit-first. Recommended next step is not more HTML polish; it is a middle-layer section contract that turns FSJ + support FSJ into formal market briefing sections and keeps coverage telemetry internal.
+
 ## 7. Blockers
 
 | Blocker ID | Found At | Task ID | Parent Task ID | Description | Impact | Suggested Resolution | Current Owner | Status |
