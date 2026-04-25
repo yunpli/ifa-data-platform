@@ -20,7 +20,7 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：均为空闲
+- **当前 Lane A / Lane B 状态**：Lane A 执行中；Lane B 已完成 V2-R0-002，待主控派发下一任务
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
 ### 1.1 当前 baseline probe 摘要
@@ -52,7 +52,7 @@
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
 | Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | V2-R0-001 | 周末安全窗口与 runtime 冻结计划 | in_progress | 2026-04-24 17:48 PDT | 2026-04-24 17:49 PDT | none | complete freeze/snapshot/checklist and report back |
-| Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | V2-R0-002 | DB reality probe 复核与快照固化 | in_progress | 2026-04-24 17:49 PDT | 2026-04-24 17:49 PDT | none | complete DB reality snapshot and report back |
+| Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | V2-R0-002 | DB reality probe 复核与快照固化 | pushed | 2026-04-24 17:49 PDT | 2026-04-24 17:58 PDT | none | Lane B 可切换至下一个依赖已满足任务 |
 
 说明：
 - 后续只默认维护 Lane A / Lane B；
@@ -68,7 +68,7 @@
 | BOOT-001 | none | 建立执行上下文与行为规范文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Context_and_Behavior.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | in_progress | Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | - | pending | - | 已派发；按 freeze/snapshot/checklist 边界执行 |
-| V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | in_progress | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | - | pending | - | 已派发；按 DB reality snapshot 边界执行 |
+| V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | pushed | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | `scripts/db_reality_probe_v2.py`; `artifacts/db_reality_snapshot_v2_20260424.json`; `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`; `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py`; JSON/Markdown evidence review | TO_FILL_COMMIT | 复核确认 highfreq/midfreq/lowfreq/archive_v2/focus 均真实存在；news/announcements/research_reports/investor_qa 均非空；`ifa_archive_equity_daily_daily` 不存在 |
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
@@ -109,6 +109,26 @@
 ## 6. Completed Task Log
 
 ### 6.1 2026-04-24
+
+#### Task ID: V2-R0-002
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：新增只读 DB reality probe 脚本并固化本轮 V2 复核快照，重新验证 `highfreq / midfreq / lowfreq / archive_v2`、`news / announcements / research_reports / investor_qa`、`focus / key_focus` 的真实存在性与非空状态。
+- 改了哪些文件：
+  - `scripts/db_reality_probe_v2.py`
+  - `artifacts/db_reality_snapshot_v2_20260424.json`
+  - `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`
+  - `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 测试结果：`/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py` 通过；生成 JSON + Markdown 快照。
+- 关键结论：
+  - `highfreq / midfreq / lowfreq / archive_v2 / focus` 对应数据面真实存在；
+  - `news_history=67249`、`announcements_history=168542`、`research_reports_history=2737`、`investor_qa_history=19970`，均非空；
+  - `focus=4`、`key_focus=4`；
+  - `ifa_archive_equity_daily_daily` 物理表不存在，应作为 expected-vs-actual 差异保留。
+- commit hash：`TO_FILL_COMMIT`
+- push 状态：pushed
+- 后续建议：下游若假设 archive_v2 equity daily finalized 表存在，必须先核对真实表名/契约，再继续报告层依赖。
 
 #### Task ID: BOOT-001
 - Parent Task ID：none

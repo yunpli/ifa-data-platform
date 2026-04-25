@@ -1,0 +1,1697 @@
+{
+  "generated_at_utc": "2026-04-25T00:52:01.545621+00:00",
+  "db_url": "postgresql+psycopg2://neoclaw@/ifa_db?host=/tmp",
+  "scope": "V2-R0-002 DB reality probe re-verification",
+  "groups": {
+    "highfreq": [
+      {
+        "table": "highfreq_stock_1m_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "vwap",
+          "amplitude",
+          "created_at"
+        ],
+        "row_count": 6,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15 09:30:00",
+          "latest": "2026-04-15 09:35:00"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "000001.SZ",
+            "trade_time": "2026-04-15 09:35:00",
+            "open": "11.1900",
+            "high": "11.1900",
+            "low": "11.1800",
+            "close": "11.1900",
+            "vol": "356500.00",
+            "amount": "3986659.00"
+          },
+          {
+            "ts_code": "000001.SZ",
+            "trade_time": "2026-04-15 09:34:00",
+            "open": "11.1900",
+            "high": "11.2000",
+            "low": "11.1800",
+            "close": "11.1800",
+            "vol": "559600.00",
+            "amount": "6262793.00"
+          },
+          {
+            "ts_code": "000001.SZ",
+            "trade_time": "2026-04-15 09:33:00",
+            "open": "11.2000",
+            "high": "11.2100",
+            "low": "11.1800",
+            "close": "11.1900",
+            "vol": "752540.00",
+            "amount": "8426314.00"
+          }
+        ]
+      },
+      {
+        "table": "highfreq_open_auction_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_date",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "vwap",
+          "created_at"
+        ],
+        "row_count": 1,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15",
+          "latest": "2026-04-15"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "000001.SZ",
+            "trade_date": "2026-04-15",
+            "open": "11.1600",
+            "high": "11.1600",
+            "low": "11.1500",
+            "close": "11.1500",
+            "vol": "424200.00",
+            "amount": "4733801.92",
+            "vwap": "11.1600"
+          }
+        ]
+      },
+      {
+        "table": "highfreq_event_stream_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "event_type",
+          "symbol",
+          "event_time",
+          "title",
+          "source",
+          "url",
+          "payload",
+          "created_at"
+        ],
+        "row_count": 22954,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15 22:52:38",
+          "latest": "2026-04-24 15:33:56"
+        },
+        "sample_rows": [
+          {
+            "event_type": "major_news",
+            "symbol": null,
+            "event_time": "2026-04-24 15:33:56",
+            "title": "美股最新评级 | 中信证券给予康宁买入评级，目标价189美元",
+            "source": "财联社",
+            "url": "https://www.cls.cn/detail/2354736"
+          },
+          {
+            "event_type": "major_news",
+            "symbol": null,
+            "event_time": "2026-04-24 15:33:56",
+            "title": "美股最新评级 | 中信证券给予康宁买入评级，目标价189美元",
+            "source": "财联社",
+            "url": "https://www.cls.cn/detail/2354736"
+          },
+          {
+            "event_type": "major_news",
+            "symbol": null,
+            "event_time": "2026-04-24 15:33:07",
+            "title": "美伊“海上封锁”催升短期风险溢价 港股航运板块再度活跃 ",
+            "source": "财联社",
+            "url": "https://www.cls.cn/detail/2354719"
+          }
+        ]
+      },
+      {
+        "table": "highfreq_sector_breadth_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "trade_time",
+          "sector_code",
+          "up_count",
+          "down_count",
+          "limit_up_count",
+          "strong_count",
+          "spread_ratio",
+          "created_at"
+        ],
+        "row_count": 1,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15 09:35:00",
+          "latest": "2026-04-15 09:35:00"
+        },
+        "sample_rows": [
+          {
+            "trade_time": "2026-04-15 09:35:00",
+            "sector_code": "885728.TI",
+            "up_count": 2,
+            "down_count": 3,
+            "limit_up_count": 1,
+            "strong_count": 6,
+            "spread_ratio": "-0.200000"
+          }
+        ]
+      },
+      {
+        "table": "highfreq_sector_heat_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "trade_time",
+          "sector_code",
+          "heat_score",
+          "created_at"
+        ],
+        "row_count": 1,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15 09:35:00",
+          "latest": "2026-04-15 09:35:00"
+        },
+        "sample_rows": [
+          {
+            "trade_time": "2026-04-15 09:35:00",
+            "sector_code": "885728.TI",
+            "heat_score": "0.000000"
+          }
+        ]
+      },
+      {
+        "table": "highfreq_leader_candidate_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "trade_time",
+          "symbol",
+          "candidate_score",
+          "confirmation_state",
+          "continuation_health",
+          "created_at"
+        ],
+        "row_count": 6,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15 09:35:00",
+          "latest": "2026-04-15 09:35:00"
+        },
+        "sample_rows": [
+          {
+            "trade_time": "2026-04-15 09:35:00",
+            "symbol": "000001.SZ",
+            "candidate_score": "0.000000",
+            "confirmation_state": "watch",
+            "continuation_health": "fragile"
+          },
+          {
+            "trade_time": "2026-04-15 09:35:00",
+            "symbol": "000001.SZ",
+            "candidate_score": "-0.000894",
+            "confirmation_state": "watch",
+            "continuation_health": "fragile"
+          },
+          {
+            "trade_time": "2026-04-15 09:35:00",
+            "symbol": "000001.SZ",
+            "candidate_score": "-0.000893",
+            "confirmation_state": "watch",
+            "continuation_health": "fragile"
+          }
+        ]
+      },
+      {
+        "table": "highfreq_intraday_signal_state_working",
+        "exists": true,
+        "columns": [
+          "id",
+          "trade_time",
+          "scope_key",
+          "emotion_stage",
+          "validation_state",
+          "risk_opportunity_state",
+          "turnover_progress",
+          "amount_progress",
+          "created_at"
+        ],
+        "row_count": 1,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15 09:35:00",
+          "latest": "2026-04-15 09:35:00"
+        },
+        "sample_rows": [
+          {
+            "trade_time": "2026-04-15 09:35:00",
+            "scope_key": "market_scope",
+            "emotion_stage": "cool",
+            "validation_state": "challenged",
+            "risk_opportunity_state": "risk_watch",
+            "turnover_progress": "1.000000",
+            "amount_progress": "10858938.333333"
+          }
+        ]
+      }
+    ],
+    "midfreq": [
+      {
+        "table": "limit_up_detail_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_date",
+          "limit",
+          "pre_limit",
+          "created_at"
+        ],
+        "row_count": 113419,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-15",
+          "latest": "2026-04-23"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "000026.SZ",
+            "trade_date": "2026-04-23",
+            "limit": "Z",
+            "pre_limit": "",
+            "created_at": "2026-04-23 15:02:56.855335"
+          },
+          {
+            "ts_code": "000533.SZ",
+            "trade_date": "2026-04-23",
+            "limit": "D",
+            "pre_limit": "",
+            "created_at": "2026-04-23 15:02:56.855335"
+          },
+          {
+            "ts_code": "000537.SZ",
+            "trade_date": "2026-04-23",
+            "limit": "U",
+            "pre_limit": "",
+            "created_at": "2026-04-23 15:02:56.855335"
+          }
+        ]
+      },
+      {
+        "table": "dragon_tiger_list_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_date",
+          "buy_amount",
+          "sell_amount",
+          "net_amount",
+          "created_at"
+        ],
+        "row_count": 2584,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2025-04-09",
+          "latest": "2026-04-23"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "000533.SZ",
+            "trade_date": "2026-04-23",
+            "buy_amount": "131119749.0600",
+            "sell_amount": "118627225.8500",
+            "net_amount": "12492523.2100"
+          },
+          {
+            "ts_code": "000539.SZ",
+            "trade_date": "2026-04-23",
+            "buy_amount": "477431817.2900",
+            "sell_amount": "543802701.3000",
+            "net_amount": "-66370884.0100"
+          },
+          {
+            "ts_code": "000890.SZ",
+            "trade_date": "2026-04-23",
+            "buy_amount": "151641230.8300",
+            "sell_amount": "168045008.3000",
+            "net_amount": "-16403777.4700"
+          }
+        ]
+      },
+      {
+        "table": "sector_performance_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "sector_code",
+          "trade_date",
+          "sector_name",
+          "close",
+          "pct_chg",
+          "turnover_rate",
+          "created_at"
+        ],
+        "row_count": 3263,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-16",
+          "latest": "2026-04-23"
+        },
+        "sample_rows": [
+          {
+            "sector_code": "883300.TI",
+            "sector_name": "沪深300样本股",
+            "trade_date": "2026-04-23",
+            "close": "4786.3270",
+            "pct_chg": "-0.2771",
+            "turnover_rate": "0.7047"
+          },
+          {
+            "sector_code": "883301.TI",
+            "sector_name": "上证50样本股",
+            "trade_date": "2026-04-23",
+            "close": "2927.9300",
+            "pct_chg": "-0.0904",
+            "turnover_rate": "0.3208"
+          },
+          {
+            "sector_code": "883302.TI",
+            "sector_name": "上证180成份股",
+            "trade_date": "2026-04-23",
+            "close": "10029.7400",
+            "pct_chg": "-0.1267",
+            "turnover_rate": "0.5606"
+          }
+        ]
+      },
+      {
+        "table": "northbound_flow_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "trade_date",
+          "north_money",
+          "north_bal",
+          "north_buy",
+          "north_sell",
+          "created_at"
+        ],
+        "row_count": 21,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-14",
+          "latest": "2026-04-23"
+        },
+        "sample_rows": [
+          {
+            "trade_date": "2026-04-23",
+            "north_money": "353095.2600",
+            "north_bal": null,
+            "north_buy": null,
+            "north_sell": null
+          },
+          {
+            "trade_date": "2026-04-22",
+            "north_money": "306404.9100",
+            "north_bal": null,
+            "north_buy": null,
+            "north_sell": null
+          },
+          {
+            "trade_date": "2026-04-21",
+            "north_money": "301042.9800",
+            "north_bal": null,
+            "north_buy": null,
+            "north_sell": null
+          }
+        ]
+      },
+      {
+        "table": "equity_daily_bar_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_date",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "pre_close",
+          "change",
+          "pct_chg",
+          "created_at"
+        ],
+        "row_count": 562,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2025-04-10",
+          "latest": "2026-04-24"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "000007.SZ",
+            "trade_date": "2026-04-24",
+            "open": "13.7000",
+            "high": "13.9800",
+            "low": "13.5800",
+            "close": "13.8500",
+            "vol": "39770.0100",
+            "amount": "54837.1740"
+          },
+          {
+            "ts_code": "001339.SZ",
+            "trade_date": "2026-04-24",
+            "open": "75.0000",
+            "high": "80.7400",
+            "low": "73.0100",
+            "close": "80.7400",
+            "vol": "199892.0700",
+            "amount": "1536251.0540"
+          },
+          {
+            "ts_code": "002278.SZ",
+            "trade_date": "2026-04-24",
+            "open": "12.2700",
+            "high": "12.2800",
+            "low": "11.6900",
+            "close": "11.8700",
+            "vol": "346111.8000",
+            "amount": "412201.5240"
+          }
+        ]
+      },
+      {
+        "table": "etf_daily_bar_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_date",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "pre_close",
+          "change",
+          "pct_chg",
+          "created_at"
+        ],
+        "row_count": 444,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-14",
+          "latest": "2026-04-24"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "159901.SZ",
+            "trade_date": "2026-04-24",
+            "open": "3.8020",
+            "high": "3.8230",
+            "low": "3.7570",
+            "close": "3.7970",
+            "vol": "458495.8000",
+            "amount": "173803.5090"
+          },
+          {
+            "ts_code": "159915.SZ",
+            "trade_date": "2026-04-24",
+            "open": "3.6890",
+            "high": "3.7040",
+            "low": "3.6300",
+            "close": "3.6740",
+            "vol": "17128265.1300",
+            "amount": "6285359.2250"
+          },
+          {
+            "ts_code": "159920.SZ",
+            "trade_date": "2026-04-24",
+            "open": "1.5260",
+            "high": "1.5380",
+            "low": "1.5180",
+            "close": "1.5350",
+            "vol": "2217841.9600",
+            "amount": "339215.4360"
+          }
+        ]
+      },
+      {
+        "table": "midfreq_datasets",
+        "exists": true,
+        "columns": [
+          "id",
+          "dataset_name",
+          "market",
+          "source_name",
+          "job_type",
+          "enabled",
+          "timezone_semantics",
+          "runner_type",
+          "watermark_strategy",
+          "budget_records_max",
+          "budget_seconds_max",
+          "metadata",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "row_count": 12,
+        "non_empty": true,
+        "time_bounds": null,
+        "sample_rows": [
+          {
+            "dataset_name": "dragon_tiger_list",
+            "source_name": "tushare",
+            "enabled": true,
+            "description": "龙虎榜"
+          },
+          {
+            "dataset_name": "equity_daily_bar",
+            "source_name": "tushare",
+            "enabled": true,
+            "description": "A-share equity daily OHLCV for B Universe"
+          },
+          {
+            "dataset_name": "etf_daily_bar",
+            "source_name": "tushare",
+            "enabled": true,
+            "description": "ETF daily OHLCV"
+          },
+          {
+            "dataset_name": "index_daily_bar",
+            "source_name": "tushare",
+            "enabled": true,
+            "description": "Index daily OHLCV"
+          },
+          {
+            "dataset_name": "limit_up_detail",
+            "source_name": "tushare",
+            "enabled": true,
+            "description": "涨跌停明细"
+          }
+        ]
+      }
+    ],
+    "lowfreq": [
+      {
+        "table": "announcements_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ann_date",
+          "ts_code",
+          "name",
+          "title",
+          "url",
+          "rec_time",
+          "created_at"
+        ],
+        "row_count": 168542,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-10",
+          "latest": "2026-04-24"
+        },
+        "sample_rows": [
+          {
+            "ann_date": "2026-04-24",
+            "ts_code": "000591.SZ",
+            "title": "华泰联合证券有限责任公司关于中节能太阳能股份有限公司2025年度持续督导培训情况报告",
+            "url": "http://www.cninfo.com.cn/new/disclosure/detail?stockCode=000591&announcementId=1225161509&orgId=gssz0000591&announcementTime=2026-04-24",
+            "rec_time": null
+          },
+          {
+            "ann_date": "2026-04-24",
+            "ts_code": "301226.SZ",
+            "title": "国联民生证券承销保荐有限公司关于常州祥明智能动力股份有限公司首次公开发行股票并在创业板上市之持续督导保荐工作总结报告书",
+            "url": "http://www.cninfo.com.cn/new/disclosure/detail?stockCode=301226&announcementId=1225162030&orgId=9900035553&announcementTime=2026-04-24",
+            "rec_time": null
+          },
+          {
+            "ann_date": "2026-04-24",
+            "ts_code": "301575.SZ",
+            "title": "浙商证券股份有限公司关于江西艾芬达暖通科技股份有限公司2025年度跟踪报告",
+            "url": "http://www.cninfo.com.cn/new/disclosure/detail?stockCode=301575&announcementId=1225162156&orgId=gfbj0832958&announcementTime=2026-04-24",
+            "rec_time": null
+          }
+        ]
+      },
+      {
+        "table": "news_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "datetime",
+          "classify",
+          "title",
+          "source",
+          "url",
+          "content",
+          "created_at"
+        ],
+        "row_count": 67249,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-10 17:50:14",
+          "latest": "2026-04-24 21:59:43"
+        },
+        "sample_rows": [
+          {
+            "datetime": "2026-04-24 21:59:43",
+            "source": "",
+            "classify": "",
+            "title": "【伊朗代表团预计先与巴基斯坦方面会谈 暂不与美方接触】央视记者当地时间4月24日获悉，伊朗代表团预计于当日与巴基斯坦调解方举行会谈，但不会与美国代表进行接触。伊...",
+            "url": ""
+          },
+          {
+            "datetime": "2026-04-24 21:59:39",
+            "source": "",
+            "classify": "",
+            "title": "【招商轮船：第一季度净利润27.63亿元，同比增长219.31%】招商轮船公告，2026年第一季度营业收入85.56亿元，同比增长52.92%；净利润27.63...",
+            "url": ""
+          },
+          {
+            "datetime": "2026-04-24 21:58:57",
+            "source": "",
+            "classify": "",
+            "title": "英国20年期国债收益率上涨2个基点至5.58%，有望创下自1998年8月以来的最高收盘水平。",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "table": "research_reports_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "trade_date",
+          "ts_code",
+          "name",
+          "title",
+          "report_type",
+          "author",
+          "inst_csname",
+          "ind_name",
+          "url",
+          "created_at"
+        ],
+        "row_count": 2737,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-10",
+          "latest": "2026-04-23"
+        },
+        "sample_rows": [
+          {
+            "trade_date": "2026-04-23",
+            "ts_code": "003000.SZ",
+            "title": "国金证券_渠道调整见效，26Q1收入大幅提速_20260423.pdf",
+            "report_type": "个股研报",
+            "author": "刘宸倩,陈宇君",
+            "inst_csname": "国金证券"
+          },
+          {
+            "trade_date": "2026-04-23",
+            "ts_code": "601808.SH",
+            "title": "国金证券_国际地缘政治与油价剧烈动荡，公司营收保持稳步提升_20260423.pdf",
+            "report_type": "个股研报",
+            "author": "孙羲昱",
+            "inst_csname": "国金证券"
+          },
+          {
+            "trade_date": "2026-04-23",
+            "ts_code": "603658.SH",
+            "title": "国金证券_免疫业务短期承压，出海创新双驱动_20260423.pdf",
+            "report_type": "个股研报",
+            "author": "甘坛焕,何冠洲",
+            "inst_csname": "国金证券"
+          }
+        ]
+      },
+      {
+        "table": "investor_qa_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "trade_date",
+          "q",
+          "name",
+          "a",
+          "pub_time",
+          "created_at"
+        ],
+        "row_count": 19970,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-10",
+          "latest": "2026-04-23"
+        },
+        "sample_rows": [
+          {
+            "trade_date": "2026-04-23",
+            "ts_code": "000998.SZ",
+            "pub_time": "2026-04-24 20:27:08",
+            "q_len": 78,
+            "a_len": 129
+          },
+          {
+            "trade_date": "2026-04-23",
+            "ts_code": "002056.SZ",
+            "pub_time": "2026-04-24 18:42:59",
+            "q_len": 200,
+            "a_len": 43
+          },
+          {
+            "trade_date": "2026-04-23",
+            "ts_code": "002056.SZ",
+            "pub_time": "2026-04-24 18:41:32",
+            "q_len": 63,
+            "a_len": 23
+          }
+        ]
+      },
+      {
+        "table": "trade_cal_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "cal_date",
+          "exchange",
+          "is_open",
+          "pretrade_date",
+          "created_at"
+        ],
+        "row_count": 154951,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2020-01-01",
+          "latest": "2026-12-31"
+        },
+        "sample_rows": [
+          {
+            "exchange": "SSE",
+            "cal_date": "2026-12-31",
+            "is_open": 1,
+            "pretrade_date": "2026-12-30"
+          },
+          {
+            "exchange": "SSE",
+            "cal_date": "2026-12-31",
+            "is_open": 1,
+            "pretrade_date": "2026-12-30"
+          },
+          {
+            "exchange": "SSE",
+            "cal_date": "2026-12-31",
+            "is_open": 1,
+            "pretrade_date": "2026-12-30"
+          }
+        ]
+      },
+      {
+        "table": "stock_basic_history",
+        "exists": true,
+        "columns": [
+          "id",
+          "version_id",
+          "ts_code",
+          "symbol",
+          "name",
+          "area",
+          "industry",
+          "market",
+          "list_status",
+          "list_date",
+          "delist_date",
+          "is_hs",
+          "created_at"
+        ],
+        "row_count": 451426,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-10 04:36:16.442710",
+          "latest": "2026-04-24 07:00:08.678764"
+        },
+        "sample_rows": [
+          {
+            "ts_code": "688808.SH",
+            "symbol": "688808",
+            "name": "联讯仪器",
+            "industry": "电器仪表",
+            "list_status": "",
+            "list_date": "2026-04-24"
+          },
+          {
+            "ts_code": "920125.BJ",
+            "symbol": "920125",
+            "name": "鸿仕达",
+            "industry": "专用机械",
+            "list_status": "",
+            "list_date": "2026-04-24"
+          },
+          {
+            "ts_code": "688820.SH",
+            "symbol": "688820",
+            "name": "C盛合",
+            "industry": "半导体",
+            "list_status": "",
+            "list_date": "2026-04-21"
+          }
+        ]
+      },
+      {
+        "table": "lowfreq_datasets",
+        "exists": true,
+        "columns": [
+          "id",
+          "dataset_name",
+          "market",
+          "source_name",
+          "job_type",
+          "enabled",
+          "timezone_semantics",
+          "runner_type",
+          "watermark_strategy",
+          "budget_records_max",
+          "budget_seconds_max",
+          "metadata",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "row_count": 69,
+        "non_empty": true,
+        "time_bounds": null,
+        "sample_rows": [
+          {
+            "dataset_name": "announcements",
+            "source_name": "tushare",
+            "enabled": 1,
+            "description": "China-market company announcements"
+          },
+          {
+            "dataset_name": "china_a_share_daily",
+            "source_name": "tushare",
+            "enabled": 1,
+            "description": "China A-share daily market data - example dataset for framework validation"
+          },
+          {
+            "dataset_name": "company_basic",
+            "source_name": "tushare",
+            "enabled": 1,
+            "description": "Company basic from Tushare"
+          },
+          {
+            "dataset_name": "e2e_test_dataset",
+            "source_name": "e2e_source",
+            "enabled": 1,
+            "description": "End-to-end test dataset"
+          },
+          {
+            "dataset_name": "error_test_disabled",
+            "source_name": "test",
+            "enabled": 0,
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "archive_v2": [
+      {
+        "table": "ifa_archive_announcements_daily",
+        "exists": true,
+        "columns": [
+          "business_date",
+          "ts_code",
+          "title",
+          "payload",
+          "created_at",
+          "row_key",
+          "url",
+          "rec_time"
+        ],
+        "row_count": 34853,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-07",
+          "latest": "2026-04-24"
+        },
+        "sample_rows": [
+          {
+            "business_date": "2026-04-24",
+            "row_key": "fdf53aca121c9f1f9d3c26d4bb4b5d54",
+            "ts_code": "688262.SH",
+            "title": "2025年度独立董事述职报告（于燮康）",
+            "url": "http://www.cninfo.com.cn/new/disclosure/detail?stockCode=688262&announcementId=1225157773&orgId=9900041592&announcementTime=2026-04-24",
+            "rec_time": null
+          },
+          {
+            "business_date": "2026-04-24",
+            "row_key": "ff8dd49d7ce12426dbef281c8d279299",
+            "ts_code": "300057.SZ",
+            "title": "2026年4月24日投资者关系活动记录表",
+            "url": "http://www.cninfo.com.cn/new/disclosure/detail?stockCode=300057&announcementId=1225178952&orgId=9900010150&announcementTime=2026-04-24",
+            "rec_time": null
+          },
+          {
+            "business_date": "2026-04-24",
+            "row_key": "ff2ff6f44e0f1df0096ef97e415ad87f",
+            "ts_code": "603060.SH",
+            "title": "中国国际金融股份有限公司关于中国国检测试控股集团股份有限公司2025年度持续督导年度报告书",
+            "url": "http://www.cninfo.com.cn/new/disclosure/detail?stockCode=603060&announcementId=1225157758&orgId=9900026560&announcementTime=2026-04-24",
+            "rec_time": null
+          }
+        ]
+      },
+      {
+        "table": "ifa_archive_news_daily",
+        "exists": true,
+        "columns": [
+          "business_date",
+          "news_time",
+          "title",
+          "payload",
+          "created_at",
+          "row_key",
+          "src",
+          "content_hash"
+        ],
+        "row_count": 97820,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-07",
+          "latest": "2026-04-24"
+        },
+        "sample_error": "ProgrammingError: (psycopg2.errors.UndefinedColumn) column \"url\" does not exist\nLINE 1: select business_date, row_key, src, title, url, news_time fr...\n                                                   ^\n\n[SQL: select business_date, row_key, src, title, url, news_time from ifa2.ifa_archive_news_daily order by business_date desc, news_time desc nulls last limit 3]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+        "sample_rows": [
+          {
+            "business_date": "2026-04-09",
+            "news_time": "2026-04-09 05:59:10-07:00",
+            "title": "伊藤忠商事和三急电铁计划拓展在东南亚的业务，并进军拥有石油工厂的中东市场。",
+            "payload": {
+              "src": "sina",
+              "title": "伊藤忠商事和三急电铁计划拓展在东南亚的业务，并进军拥有石油工厂的中东市场。",
+              "content": "伊藤忠商事和三急电铁计划拓展在东南亚的业务，并进军拥有石油工厂的中东市场。",
+              "row_key": "417ea6db46baa8bfd984135d4e580ede",
+              "datetime": "2026-04-09 05:59:10",
+              "content_hash": "6e80a35d5a31a57cabaa0499f65f4c09"
+            },
+            "created_at": "2026-04-21 08:26:37.999609-07:00",
+            "row_key": "417ea6db46baa8bfd984135d4e580ede"
+          },
+          {
+            "business_date": "2026-04-09",
+            "news_time": "2026-04-09 05:58:32-07:00",
+            "title": "中央气象台4月9日06时发布大雾黄色预警。",
+            "payload": {
+              "src": "sina",
+              "title": "中央气象台4月9日06时发布大雾黄色预警。",
+              "content": "中央气象台4月9日06时发布大雾黄色预警。",
+              "row_key": "f9231e4c0eb4c127e6a27ea9e88ae4d9",
+              "datetime": "2026-04-09 05:58:32",
+              "content_hash": "171be608441de207be6771610da4c04b"
+            },
+            "created_at": "2026-04-21 08:26:37.999609-07:00",
+            "row_key": "f9231e4c0eb4c127e6a27ea9e88ae4d9"
+          },
+          {
+            "business_date": "2026-04-09",
+            "news_time": "2026-04-09 05:58:09-07:00",
+            "title": "日本伊藤忠商事和三急电铁将收购新加坡工厂维修公司SWTS。",
+            "payload": {
+              "src": "sina",
+              "title": "日本伊藤忠商事和三急电铁将收购新加坡工厂维修公司SWTS。",
+              "content": "日本伊藤忠商事和三急电铁将收购新加坡工厂维修公司SWTS。",
+              "row_key": "9475366301ef2fa03a93b8a6d0f9b231",
+              "datetime": "2026-04-09 05:58:09",
+              "content_hash": "f767ade6b3f8ecb28af6f1a60f7a1f99"
+            },
+            "created_at": "2026-04-21 08:26:37.999609-07:00",
+            "row_key": "9475366301ef2fa03a93b8a6d0f9b231"
+          }
+        ]
+      },
+      {
+        "table": "ifa_archive_research_reports_daily",
+        "exists": true,
+        "columns": [
+          "business_date",
+          "ts_code",
+          "title",
+          "payload",
+          "created_at",
+          "row_key",
+          "report_type",
+          "inst_csname",
+          "author"
+        ],
+        "row_count": 1303,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-07",
+          "latest": "2026-04-24"
+        },
+        "sample_error": "ProgrammingError: (psycopg2.errors.UndefinedColumn) column \"trade_date\" does not exist\nLINE 1: ...iness_date, row_key, ts_code, title, report_type, trade_date...\n                                                             ^\n\n[SQL: select business_date, row_key, ts_code, title, report_type, trade_date from ifa2.ifa_archive_research_reports_daily order by business_date desc, trade_date desc nulls last limit 3]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+        "sample_rows": [
+          {
+            "business_date": "2026-04-07",
+            "ts_code": "000553.SZ",
+            "title": "东兴证券_业绩同比改善，新兴市场和差异化产品线驱动长期发展_20260407.pdf",
+            "payload": {
+              "url": "https://pdf.dfcfw.com/pdf/H3_AP202604071821047369_1.pdf?1775589427000.pdf",
+              "name": "安道麦A",
+              "title": "东兴证券_业绩同比改善，新兴市场和差异化产品线驱动长期发展_20260407.pdf",
+              "author": "刘宇卓",
+              "row_key": "bcc1dcb049b3e2c6e5cdbda880100efb",
+              "ts_code": "000553.SZ",
+              "ind_name": "农化制品",
+              "trade_date": "20260407",
+              "inst_csname": "东兴证券",
+              "report_type": "个股研报"
+            },
+            "created_at": "2026-04-21 06:28:48.678525-07:00",
+            "row_key": "bcc1dcb049b3e2c6e5cdbda880100efb"
+          },
+          {
+            "business_date": "2026-04-07",
+            "ts_code": "600377.SH",
+            "title": "东兴证券_公路主业毛利率提升，投资收益波动导致利润下降_20260407.pdf",
+            "payload": {
+              "url": "https://pdf.dfcfw.com/pdf/H3_AP202604071821047318_1.pdf?1775589427000.pdf",
+              "name": "宁沪高速",
+              "title": "东兴证券_公路主业毛利率提升，投资收益波动导致利润下降_20260407.pdf",
+              "author": "曹奕丰",
+              "row_key": "0b7c238d81eed66563458113b874d2a6",
+              "ts_code": "600377.SH",
+              "ind_name": "铁路公路",
+              "trade_date": "20260407",
+              "inst_csname": "东兴证券",
+              "report_type": "个股研报"
+            },
+            "created_at": "2026-04-21 06:28:48.678525-07:00",
+            "row_key": "0b7c238d81eed66563458113b874d2a6"
+          },
+          {
+            "business_date": "2026-04-07",
+            "ts_code": "600036.SH",
+            "title": "东兴证券_2025年年报点评：4Q25息差企稳回升，核心营收增速改善_20260407.pdf",
+            "payload": {
+              "url": "https://pdf.dfcfw.com/pdf/H3_AP202604071821047374_1.pdf?1775588973000.pdf",
+              "name": "招商银行",
+              "title": "东兴证券_2025年年报点评：4Q25息差企稳回升，核心营收增速改善_20260407.pdf",
+              "author": "林瑾璐,田馨宇",
+              "row_key": "f7b563b23f91940597f5f2db5aca94e0",
+              "ts_code": "600036.SH",
+              "ind_name": "银行Ⅱ",
+              "trade_date": "20260407",
+              "inst_csname": "东兴证券",
+              "report_type": "个股研报"
+            },
+            "created_at": "2026-04-21 06:28:48.678525-07:00",
+            "row_key": "f7b563b23f91940597f5f2db5aca94e0"
+          }
+        ]
+      },
+      {
+        "table": "ifa_archive_investor_qa_daily",
+        "exists": true,
+        "columns": [
+          "business_date",
+          "ts_code",
+          "pub_time",
+          "payload",
+          "created_at",
+          "row_key",
+          "exchange_source",
+          "q_hash",
+          "a_hash"
+        ],
+        "row_count": 11275,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-07",
+          "latest": "2026-04-24"
+        },
+        "sample_error": "ProgrammingError: (psycopg2.errors.UndefinedColumn) column \"trade_date\" does not exist\nLINE 1: select business_date, row_key, ts_code, pub_time, trade_date...\n                                                          ^\n\n[SQL: select business_date, row_key, ts_code, pub_time, trade_date from ifa2.ifa_archive_investor_qa_daily order by business_date desc, pub_time desc nulls last limit 3]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+        "sample_rows": [
+          {
+            "business_date": "2026-04-07",
+            "ts_code": "600761.SH",
+            "pub_time": "2026-04-07 15:30:01-07:00",
+            "payload": {
+              "a": "尊敬的投资者，您好！公司始终坚持规范运作和稳健运营，严格遵守相关法律法规履行信息披露义务，公司生产经营状况良好。2026年公司将围绕既定方针目标，一是以市场为导向，加强对国内区域市场和细分行业的深耕，全面深入推进“1+N+X”的国际化营销体系建设，加快国际化战略布局；二是围绕产业焕新，加大零部件、智能物流、后市场等新兴产业拓展力度；三是聚焦科技创新，深化基础技术研究，加快产品集成创新步伐；四是开展管理革新，落实战略规划，推进精益管理，强化成本管控，加快推进产业数字化转型；五是持续深化改革，巩固国企改革深化提升行动成果，不断提升公司治理能力。感谢您的关注。",
+              "q": "这个跌跌不休的状况，公司目前经营是否正常？2026年有哪些提升业绩的措施？让我们投资者看到希望？",
+              "name": "安徽合力",
+              "a_hash": "93f989cde4a9a051018358fbf30173bf",
+              "q_hash": "5a246b282cdee34712da69056953fb6b",
+              "row_key": "ae9420dd437322540deba26223e2943c",
+              "ts_code": "600761.SH",
+              "pub_time": "2026-04-07 15:30:01",
+              "trade_date": "20260407",
+              "exchange_source": "sh"
+            },
+            "created_at": "2026-04-21 06:28:49.924865-07:00",
+            "row_key": "ae9420dd437322540deba26223e2943c"
+          },
+          {
+            "business_date": "2026-04-07",
+            "ts_code": "688158.SH",
+            "pub_time": "2026-04-07 16:30:00-07:00",
+            "payload": {
+              "a": "尊敬的投资者，您好！公司围绕“科技引领高质量发展”的战略目标，秉持“用户需求驱动的研发策略”，一方面保持对技术变化的跟进和快速反应，另一方面前瞻识别用户需求痛点，以云计算基础设施为桥梁，让广大客户更好地使用AI，让技术进步在千行百业创造价值。这其中，技术能力是非常重要的支撑，也是公司核心竞争力之一。感谢您的关注！",
+              "q": "尊敬的董秘：您好！市场新模型出来后，公司都能第一时间上线，请问这个除了公司敏锐的市场嗅觉外，公司技术能力是否是关键因素？谢谢",
+              "name": "优刻得",
+              "a_hash": "ef007c87e1051c83dc1e49900be95d51",
+              "q_hash": "a93da3f39980efb95820cd9867b537ec",
+              "row_key": "205bb82442acec257d47f5a831bcd845",
+              "ts_code": "688158.SH",
+              "pub_time": "2026-04-07 16:30:00",
+              "trade_date": "20260407",
+              "exchange_source": "sh"
+            },
+            "created_at": "2026-04-21 06:28:49.924865-07:00",
+            "row_key": "205bb82442acec257d47f5a831bcd845"
+          },
+          {
+            "business_date": "2026-04-07",
+            "ts_code": "688158.SH",
+            "pub_time": "2026-04-07 16:30:00-07:00",
+            "payload": {
+              "a": "尊敬的投资者，您好！公司严格遵守国家及地方关于环境影响评价、节能审查等各项政府监管要求，有序推进青浦数据中心项目（一期）的规划、建设等工作。感谢您的关注！",
+              "q": "尊敬的董秘：您好！公司募投项目上海青浦数据中心延期，作为投资者非常敬佩公司的前瞻性及战略眼光，上海作为国际大都市，上海本地数据中心是非常优质的资产，根本不需要担心客户，请问公司本次延期，是否有申请变更原数据中心能耗的计划？请问将原低功率数据中心能耗指标变更为高功率指标，是否具备可行性？谢谢！",
+              "name": "优刻得",
+              "a_hash": "78f616a920eed364bdb9e91a0818d88d",
+              "q_hash": "36b8bdab1eacdb715efbeb9015ed5dd8",
+              "row_key": "df479ade95a5e2f610def3c7e302322e",
+              "ts_code": "688158.SH",
+              "pub_time": "2026-04-07 16:30:00",
+              "trade_date": "20260407",
+              "exchange_source": "sh"
+            },
+            "created_at": "2026-04-21 06:28:49.924865-07:00",
+            "row_key": "df479ade95a5e2f610def3c7e302322e"
+          }
+        ]
+      },
+      {
+        "table": "ifa_archive_equity_daily_daily",
+        "exists": false,
+        "non_empty": false
+      },
+      {
+        "table": "ifa_archive_runs",
+        "exists": true,
+        "columns": [
+          "run_id",
+          "trigger_source",
+          "profile_name",
+          "profile_path",
+          "mode",
+          "start_time",
+          "end_time",
+          "duration_ms",
+          "status",
+          "notes",
+          "error_text",
+          "created_at",
+          "dry_run"
+        ],
+        "row_count": 4,
+        "non_empty": true,
+        "time_bounds": null,
+        "sample_error": "ProgrammingError: (psycopg2.errors.UndefinedColumn) column \"started_at\" does not exist\nLINE 1: select run_id, trigger_source, status, started_at, completed...\n                                               ^\n\n[SQL: select run_id, trigger_source, status, started_at, completed_at from ifa2.ifa_archive_runs order by started_at desc limit 5]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+        "sample_rows": [
+          {
+            "run_id": "5464185f-3fc8-46c8-9787-5b69fc54e13a",
+            "trigger_source": "runtime_archive_v2_nightly",
+            "profile_name": "archive_v2_production_nightly_daily_final",
+            "profile_path": "/var/folders/3c/lp5b7xxn7mb1my5kwk6t6dvw0000gq/T/ifa_archive_v2_profiles/archive_v2_production_nightly_daily_final_2026-04-23.json",
+            "mode": "single_day",
+            "start_time": "2026-04-23 06:40:03.381956-07:00"
+          },
+          {
+            "run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+            "trigger_source": "runtime_archive_v2_nightly",
+            "profile_name": "archive_v2_production_nightly_daily_final",
+            "profile_path": "/var/folders/3c/lp5b7xxn7mb1my5kwk6t6dvw0000gq/T/ifa_archive_v2_profiles/archive_v2_production_nightly_daily_final_2026-04-24.json",
+            "mode": "single_day",
+            "start_time": "2026-04-24 06:40:39.823464-07:00"
+          },
+          {
+            "run_id": "0db959be-f5dc-407f-b3b2-fa1c6dd8469d",
+            "trigger_source": "runtime_archive_v2_nightly",
+            "profile_name": "archive_v2_production_nightly_daily_final",
+            "profile_path": "/var/folders/3c/lp5b7xxn7mb1my5kwk6t6dvw0000gq/T/ifa_archive_v2_profiles/archive_v2_production_nightly_daily_final_2026-04-22.json",
+            "mode": "single_day",
+            "start_time": "2026-04-22 06:40:13.007827-07:00"
+          }
+        ]
+      },
+      {
+        "table": "ifa_archive_run_items",
+        "exists": true,
+        "columns": [
+          "id",
+          "run_id",
+          "family_name",
+          "frequency",
+          "coverage_scope",
+          "business_date",
+          "status",
+          "rows_written",
+          "tables_touched",
+          "notes",
+          "error_text",
+          "created_at",
+          "would_write_rows",
+          "would_write_tables",
+          "family_expected_rows",
+          "family_observed_rows",
+          "family_coverage_ratio"
+        ],
+        "row_count": 52,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-22",
+          "latest": "2026-04-24"
+        },
+        "sample_rows": [
+          {
+            "run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+            "business_date": "2026-04-24",
+            "family_name": "announcements_daily",
+            "status": "completed",
+            "rows_written": 309,
+            "family_observed_rows": null
+          },
+          {
+            "run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+            "business_date": "2026-04-24",
+            "family_name": "dragon_tiger_daily",
+            "status": "completed",
+            "rows_written": 82,
+            "family_observed_rows": null
+          },
+          {
+            "run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+            "business_date": "2026-04-24",
+            "family_name": "equity_daily",
+            "status": "completed",
+            "rows_written": 5496,
+            "family_observed_rows": null
+          },
+          {
+            "run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+            "business_date": "2026-04-24",
+            "family_name": "etf_daily",
+            "status": "completed",
+            "rows_written": 1948,
+            "family_observed_rows": null
+          },
+          {
+            "run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+            "business_date": "2026-04-24",
+            "family_name": "index_daily",
+            "status": "completed",
+            "rows_written": 8,
+            "family_observed_rows": null
+          }
+        ]
+      },
+      {
+        "table": "ifa_archive_completeness",
+        "exists": true,
+        "columns": [
+          "id",
+          "business_date",
+          "family_name",
+          "frequency",
+          "coverage_scope",
+          "status",
+          "source_mode",
+          "last_run_id",
+          "row_count",
+          "retry_after",
+          "last_error",
+          "updated_at",
+          "family_expected_rows",
+          "family_observed_rows",
+          "family_coverage_ratio"
+        ],
+        "row_count": 186,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2022-11-01",
+          "latest": "2026-04-24"
+        },
+        "sample_rows": [
+          {
+            "business_date": "2026-04-24",
+            "family_name": "announcements_daily",
+            "coverage_scope": "broad_market",
+            "status": "completed",
+            "last_run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0"
+          },
+          {
+            "business_date": "2026-04-24",
+            "family_name": "dragon_tiger_daily",
+            "coverage_scope": "broad_market",
+            "status": "completed",
+            "last_run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0"
+          },
+          {
+            "business_date": "2026-04-24",
+            "family_name": "equity_daily",
+            "coverage_scope": "broad_market",
+            "status": "completed",
+            "last_run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0"
+          },
+          {
+            "business_date": "2026-04-24",
+            "family_name": "etf_daily",
+            "coverage_scope": "broad_market",
+            "status": "completed",
+            "last_run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0"
+          },
+          {
+            "business_date": "2026-04-24",
+            "family_name": "index_daily",
+            "coverage_scope": "broad_market",
+            "status": "completed",
+            "last_run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0"
+          }
+        ]
+      }
+    ],
+    "focus": [
+      {
+        "table": "focus_lists",
+        "exists": true,
+        "columns": [
+          "id",
+          "owner_type",
+          "owner_id",
+          "list_type",
+          "name",
+          "asset_type",
+          "frequency_type",
+          "description",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "row_count": 11,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-22 22:29:26.630278-07:00",
+          "latest": "2026-04-22 22:29:26.675758-07:00"
+        },
+        "sample_rows": [
+          {
+            "id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "owner_type": "default",
+            "owner_id": "default",
+            "list_type": "archive_targets",
+            "name": "default_archive_targets_daily",
+            "asset_type": "multi_asset",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.675758-07:00"
+          },
+          {
+            "id": "3e600a6b-1be1-45e8-aad8-602764a0919b",
+            "owner_type": "default",
+            "owner_id": "default",
+            "list_type": "archive_targets",
+            "name": "default_archive_targets_15min",
+            "asset_type": "multi_asset",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.672049-07:00"
+          },
+          {
+            "id": "9e6f3b21-34d5-48d9-8c6f-77c497c28e09",
+            "owner_type": "default",
+            "owner_id": "default",
+            "list_type": "archive_targets",
+            "name": "default_archive_targets_minute",
+            "asset_type": "multi_asset",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.669602-07:00"
+          },
+          {
+            "id": "b4a68d64-e601-4efa-9a7d-2c67c5bfc0f0",
+            "owner_type": "default",
+            "owner_id": "default",
+            "list_type": "focus",
+            "name": "default_asset_focus",
+            "asset_type": "asset",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.666898-07:00"
+          },
+          {
+            "id": "db1d9f78-4cae-4e5e-a443-9cc2ca650ac4",
+            "owner_type": "default",
+            "owner_id": "default",
+            "list_type": "key_focus",
+            "name": "default_asset_key_focus",
+            "asset_type": "asset",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.665107-07:00"
+          }
+        ]
+      },
+      {
+        "table": "focus_list_items",
+        "exists": true,
+        "columns": [
+          "id",
+          "list_id",
+          "symbol",
+          "name",
+          "asset_category",
+          "priority",
+          "source",
+          "notes",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "row_count": 442,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-22 22:29:26.635145-07:00",
+          "latest": "2026-04-22 22:29:26.676264-07:00"
+        },
+        "sample_rows": [
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "symbol": "000001.SZ",
+            "name": "平安银行",
+            "asset_category": "stock",
+            "priority": 1,
+            "source": "default_seed_v2",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.676264-07:00"
+          },
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "symbol": "000333.SZ",
+            "name": "美的集团",
+            "asset_category": "stock",
+            "priority": 2,
+            "source": "default_seed_v2",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.676264-07:00"
+          },
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "symbol": "000651.SZ",
+            "name": "格力电器",
+            "asset_category": "stock",
+            "priority": 3,
+            "source": "default_seed_v2",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.676264-07:00"
+          },
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "symbol": "000977.SZ",
+            "name": "浪潮信息",
+            "asset_category": "stock",
+            "priority": 4,
+            "source": "default_seed_v2",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.676264-07:00"
+          },
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "symbol": "002230.SZ",
+            "name": "科大讯飞",
+            "asset_category": "stock",
+            "priority": 5,
+            "source": "default_seed_v2",
+            "is_active": true,
+            "updated_at": "2026-04-22 22:29:26.676264-07:00"
+          }
+        ]
+      },
+      {
+        "table": "focus_list_rules",
+        "exists": true,
+        "columns": [
+          "id",
+          "list_id",
+          "rule_key",
+          "rule_value",
+          "created_at",
+          "updated_at"
+        ],
+        "row_count": 32,
+        "non_empty": true,
+        "time_bounds": {
+          "earliest": "2026-04-22 22:29:26.633037-07:00",
+          "latest": "2026-04-22 22:29:26.675970-07:00"
+        },
+        "sample_rows": [
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "rule_key": "granularity",
+            "rule_value": "daily",
+            "updated_at": "2026-04-22 22:29:26.675970-07:00"
+          },
+          {
+            "list_id": "90c588c1-67b2-4b0b-8e39-ad71d2b2a93f",
+            "rule_key": "target_size",
+            "rule_value": "170",
+            "updated_at": "2026-04-22 22:29:26.675970-07:00"
+          },
+          {
+            "list_id": "3e600a6b-1be1-45e8-aad8-602764a0919b",
+            "rule_key": "granularity",
+            "rule_value": "15min",
+            "updated_at": "2026-04-22 22:29:26.672273-07:00"
+          },
+          {
+            "list_id": "3e600a6b-1be1-45e8-aad8-602764a0919b",
+            "rule_key": "target_size",
+            "rule_value": "36",
+            "updated_at": "2026-04-22 22:29:26.672273-07:00"
+          },
+          {
+            "list_id": "9e6f3b21-34d5-48d9-8c6f-77c497c28e09",
+            "rule_key": "granularity",
+            "rule_value": "minute",
+            "updated_at": "2026-04-22 22:29:26.669812-07:00"
+          }
+        ]
+      }
+    ]
+  },
+  "special_checks": {
+    "news_related_nonempty": {
+      "news_history": 67249,
+      "announcements_history": 168542,
+      "research_reports_history": 2737,
+      "investor_qa_history": 19970
+    },
+    "focus_key_focus_lists": [
+      {
+        "list_type": "focus",
+        "list_count": 4
+      },
+      {
+        "list_type": "key_focus",
+        "list_count": 4
+      }
+    ],
+    "focus_named_examples": [
+      {
+        "name": "default_asset_focus",
+        "list_type": "focus",
+        "asset_type": "asset",
+        "is_active": true
+      },
+      {
+        "name": "default_asset_key_focus",
+        "list_type": "key_focus",
+        "asset_type": "asset",
+        "is_active": true
+      },
+      {
+        "name": "default_tech_focus",
+        "list_type": "focus",
+        "asset_type": "tech",
+        "is_active": true
+      },
+      {
+        "name": "default_tech_key_focus",
+        "list_type": "key_focus",
+        "asset_type": "tech",
+        "is_active": true
+      },
+      {
+        "name": "default_macro_focus",
+        "list_type": "focus",
+        "asset_type": "macro",
+        "is_active": true
+      },
+      {
+        "name": "default_macro_key_focus",
+        "list_type": "key_focus",
+        "asset_type": "macro",
+        "is_active": true
+      },
+      {
+        "name": "default_stock_focus",
+        "list_type": "focus",
+        "asset_type": "stock",
+        "is_active": true
+      },
+      {
+        "name": "default_stock_key_focus",
+        "list_type": "key_focus",
+        "asset_type": "stock",
+        "is_active": true
+      }
+    ]
+  }
+}
