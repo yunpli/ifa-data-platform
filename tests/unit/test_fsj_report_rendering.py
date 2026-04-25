@@ -135,7 +135,7 @@ def _assembled_sections() -> dict:
                     },
                 ],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
+                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "items": [{"symbol": "300024.SZ", "name": "机器人龙头A"}, {"symbol": "002031.SZ", "name": "机器人链补涨B"}, {"symbol": "601138.SH", "name": "工业自动化核心C"}], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [
@@ -341,6 +341,10 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert "今日 Key Focus / Focus" in rendered["content"]
     assert "Tier 1 / Key Focus" in rendered["content"]
     assert "Tier 2 / Focus Watchlist" in rendered["content"]
+    assert "机器人龙头A（300024.SZ）" in rendered["content"]
+    assert "观察逻辑：当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象" in rendered["content"]
+    assert "今日验证点：今日重点看承接质量、强弱延续和是否获得主线确认" in rendered["content"]
+    assert "风险/失效条件：若量价跟随不足、板块扩散未形成或强势仅停留在个股层面，应降级为观察而非追认" in rendered["content"]
     assert "早报 / 中报 / 晚报分时段解读" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
     assert "盘中观察" not in rendered["content"]  # assembled fixture only has early/late sections
@@ -361,8 +365,25 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert customer_presentation["next_steps"]
     assert customer_presentation["disclaimer"]
     assert customer_presentation["focus_module"]["focus_symbol_count"] == 3
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "机器人龙头A"
+    assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "补充观察池暂未扩展"
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"
+
+
+def test_main_report_renderer_uses_professional_focus_fallback_wording_when_watchlist_tier_is_empty() -> None:
+    rendered = MainReportHTMLRenderer().render(
+        _assembled_sections(),
+        report_run_id="report-run-customer-empty-focus-tier-1",
+        artifact_uri="file:///tmp/customer-empty-focus-tier.html",
+        generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "补充观察池暂未扩展" in rendered["content"]
+    assert "当前报告将研究资源优先集中在核心验证对象" in rendered["content"]
+    assert "若盘中出现新的扩散线索、联动方向或主线分歧修复，再补充进入观察池" in rendered["content"]
+    assert "暂无 Focus Watchlist" not in rendered["content"]
 
 
 def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible() -> None:
@@ -378,6 +399,8 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert rendered["metadata"]["output_profile"] == "review"
     assert rendered["metadata"]["presentation_schema_version"] is None
     assert "Key Focus / Focus 模块" in rendered["content"]
+    assert "机器人龙头A（300024.SZ）" in rendered["content"]
+    assert "今日重点看承接质量、强弱延续和是否获得主线确认" in rendered["content"]
     assert "bundle-early" in rendered["content"]
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
@@ -420,6 +443,66 @@ def test_customer_profile_sanitizes_upstream_contract_phrasing_but_review_keeps_
     assert "high+reference" in review["content"]
     assert "watchlist_only" in review["content"]
     assert "same-day stable/final" in review["content"]
+
+
+def test_customer_profile_rewrites_raw_telemetry_and_text_fragments_into_advisory_prose() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"].insert(
+        1,
+        {
+            "slot": "mid",
+            "section_key": "intraday_main",
+            "section_render_key": "main.midday",
+            "title": "盘中结构更新",
+            "order_index": 20,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": "bundle-mid",
+                "status": "active",
+                "producer_version": "phase1-main-mid-v1",
+                "slot_run_id": "slot-run-mid",
+                "replay_id": "replay-mid",
+            },
+            "summary": "盘中仍处于验证阶段。",
+            "judgments": [{"statement": "盘中结构层覆盖：1m 样本 0 条，广度 0 条，热度 0 条，信号状态 0 条；最新 validation=unknown，emotion=unknown。"}],
+            "signals": [{"statement": "盘中领涨/事件层覆盖：龙头候选 0 个，事件流 8 条；当前优先观察对象包括：300024.SZ。"}],
+            "facts": [{"statement": "盘中文本/事件解释线索 8 条，最近样本包括：投资者问答：请问订单情况如何？；公司回复：谢谢关注。"}],
+            "support_summaries": [],
+            "lineage": {"bundle": {"payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ"]}}}},
+        },
+    )
+    assembled["sections"][0]["facts"][0]["statement"] = "盘前市场侧输入覆盖：竞价样本 0 条，事件流 8 条，候选龙头 0 个，信号状态 0 条。"
+
+    customer = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-telemetry-1",
+        artifact_uri="file:///tmp/customer-telemetry.html",
+        generated_at=datetime(2099, 4, 22, 8, 5, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    review = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-review-telemetry-1",
+        artifact_uri="file:///tmp/review-telemetry.html",
+        generated_at=datetime(2099, 4, 22, 8, 5, tzinfo=timezone.utc),
+        output_profile="review",
+    )
+
+    assert "竞价样本 0 条" not in customer["content"]
+    assert "候选龙头 0 个" not in customer["content"]
+    assert "1m 样本 0 条" not in customer["content"]
+    assert "validation=unknown" not in customer["content"]
+    assert "emotion=unknown" not in customer["content"]
+    assert "投资者问答" not in customer["content"]
+    assert "公司回复：谢谢关注" not in customer["content"]
+    assert "盘前市场侧确认仍然偏弱" in customer["content"]
+    assert "盘中结构验证尚不充分" in customer["content"]
+    assert "盘中事件线索仍在演化" in customer["content"]
+    assert "相关文本与事件线索可作为背景参考" in customer["content"]
+
+    assert "竞价样本 0 条" in review["content"]
+    assert "validation=unknown" in review["content"]
+    assert "投资者问答" in review["content"]
 
 
 def test_main_report_renderer_renders_chart_pack_with_explicit_windows_and_missing_degrade() -> None:

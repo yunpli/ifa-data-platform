@@ -322,6 +322,7 @@ class MainReportHTMLRenderer:
         key_focus_symbols: list[str] = []
         focus_only_symbols: list[str] = []
         focus_list_types: list[str] = []
+        focus_name_map: dict[str, str] = {}
         reasons: list[str] = []
         source_sections: list[str] = []
         judgment_refs: list[str] = []
@@ -337,6 +338,7 @@ class MainReportHTMLRenderer:
             lineage = dict(section.get("lineage") or {})
             payload = dict((lineage.get("bundle") or {}).get("payload_json") or {})
             scope = dict(payload.get("focus_scope") or {})
+            focus_name_map.update(self._extract_focus_name_map(scope))
             section_list_types = {str(item or "").strip() for item in (scope.get("focus_list_types") or []) if str(item or "").strip()}
             for symbol in scope.get("focus_symbols") or []:
                 symbol = str(symbol or "").strip()
@@ -368,7 +370,27 @@ class MainReportHTMLRenderer:
                     judgment_refs.append(judgment_key)
         if not key_focus_symbols:
             key_focus_symbols = focus_symbols[: min(5, len(focus_symbols))]
-        display_focus_symbols = (key_focus_symbols + [symbol for symbol in focus_only_symbols if symbol not in set(key_focus_symbols)])[:12]
+        key_focus_items = [
+            self._build_focus_watch_item(
+                symbol=symbol,
+                tier="key_focus",
+                display_name=focus_name_map.get(symbol),
+                primary_reason=reasons[0] if reasons else "",
+            )
+            for symbol in key_focus_symbols[:5]
+        ]
+        focus_watch_items = [
+            self._build_focus_watch_item(
+                symbol=symbol,
+                tier="focus_watch",
+                display_name=focus_name_map.get(symbol),
+                primary_reason=reasons[0] if reasons else "",
+            )
+            for symbol in focus_only_symbols[:7]
+        ]
+        if not focus_watch_items:
+            focus_watch_items = [self._professional_empty_focus_item()]
+        display_focus_symbols = [item["symbol"] for item in (key_focus_items + focus_watch_items) if item.get("symbol")][:12]
         return {
             "module_type": "fsj_focus_module",
             "business_date": assembled.get("business_date"),
@@ -379,9 +401,12 @@ class MainReportHTMLRenderer:
             "key_focus_symbol_count": len(key_focus_symbols),
             "focus_watch_symbols": focus_only_symbols[:7],
             "focus_watch_symbol_count": len(focus_only_symbols),
+            "focus_name_map": focus_name_map,
+            "key_focus_items": key_focus_items,
+            "focus_watch_items": focus_watch_items,
             "watchlist_tiers": [
-                {"label": "Tier 1 / Key Focus", "description": "用于开盘或收盘阶段优先验证强弱与节奏。", "symbols": key_focus_symbols[:5]},
-                {"label": "Tier 2 / Focus Watch", "description": "作为补充观察池，用于确认扩散、分歧和噪音过滤。", "symbols": focus_only_symbols[:7]},
+                {"label": "Tier 1 / Key Focus", "description": "优先观察的核心名单，用于验证强弱、节奏与主线确认质量。", "symbols": key_focus_symbols[:5], "items": key_focus_items},
+                {"label": "Tier 2 / Focus Watch", "description": "补充观察池，用于确认扩散、分歧与噪音过滤。", "symbols": focus_only_symbols[:7], "items": focus_watch_items},
             ],
             "why_included": reasons[0] if reasons else "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
             "reasons": self._focus_reasons(reasons=reasons, key_focus_symbols=key_focus_symbols, focus_only_symbols=focus_only_symbols, total_focus_count=len(focus_symbols)),
@@ -393,6 +418,68 @@ class MainReportHTMLRenderer:
             "judgment_refs": judgment_refs[:8],
             "review_ready": bool(focus_symbols or focus_list_types),
         }
+
+    def _extract_focus_name_map(self, scope: dict[str, Any]) -> dict[str, str]:
+        result: dict[str, str] = {}
+        raw_maps = [scope.get("name_map"), scope.get("symbol_name_map"), scope.get("focus_name_map")]
+        for raw in raw_maps:
+            if not isinstance(raw, dict):
+                continue
+            for symbol, name in raw.items():
+                symbol_text = str(symbol or "").strip()
+                name_text = str(name or "").strip()
+                if symbol_text and name_text:
+                    result[symbol_text] = name_text
+        for item in (scope.get("items") or scope.get("focus_items") or []):
+            if not isinstance(item, dict):
+                continue
+            symbol_text = str(item.get("symbol") or item.get("code") or "").strip()
+            name_text = str(item.get("name") or item.get("display_name") or item.get("company_name") or item.get("label") or "").strip()
+            if symbol_text and name_text:
+                result[symbol_text] = name_text
+        return result
+
+    def _build_focus_watch_item(self, *, symbol: str, tier: str, display_name: str | None, primary_reason: str) -> dict[str, str]:
+        clean_symbol = str(symbol or "").strip()
+        display = self._format_focus_display_name(clean_symbol, display_name)
+        rationale_seed = self._sanitize_customer_text(primary_reason)
+        if tier == "key_focus":
+            rationale = rationale_seed or "纳入核心跟踪名单，主要用于判断主线强度是否继续得到盘中或收盘验证。"
+            validation_point = "今日重点看承接质量、强弱延续和是否获得主线确认。"
+            invalidation = "若量价跟随不足、板块扩散未形成或强势仅停留在个股层面，应降级为观察而非追认。"
+        else:
+            rationale = rationale_seed or "纳入补充观察池，用于辅助识别主线扩散、分歧与噪音过滤。"
+            validation_point = "今日重点看是否出现跟随扩散、回流承接或板块联动信号。"
+            invalidation = "若全天缺少联动、承接偏弱或仅有零散异动，则继续保留在观察层而不升级。"
+        return {
+            "symbol": clean_symbol,
+            "display_name": display,
+            "short_label": f"{display}（{clean_symbol}）" if clean_symbol else display,
+            "observation_rationale": rationale,
+            "today_validation_point": validation_point,
+            "risk_invalidation": invalidation,
+        }
+
+    def _professional_empty_focus_item(self) -> dict[str, str]:
+        return {
+            "symbol": "",
+            "display_name": "补充观察池暂未扩展",
+            "short_label": "补充观察池暂未扩展",
+            "observation_rationale": "当前报告将研究资源优先集中在核心验证对象，未额外展开第二层观察名单。",
+            "today_validation_point": "若盘中出现新的扩散线索、联动方向或主线分歧修复，再补充进入观察池。",
+            "risk_invalidation": "若没有新增确认线索，不主动为了凑名单而扩大观察范围。",
+        }
+
+    def _format_focus_display_name(self, symbol: str, display_name: str | None) -> str:
+        clean_name = str(display_name or "").strip()
+        if clean_name:
+            return clean_name
+        clean_symbol = str(symbol or "").strip()
+        if not clean_symbol:
+            return "未命名观察对象"
+        if clean_symbol.endswith((".SH", ".SZ", ".BJ")):
+            return f"A股标的 {clean_symbol}"
+        return f"观察对象 {clean_symbol}"
 
     def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
         polished = [str(item).strip() for item in reasons if str(item).strip()]
@@ -415,16 +502,36 @@ class MainReportHTMLRenderer:
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
         key_focus = [str(item) for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
         focus_watch = [str(item) for item in (focus_module.get("focus_watch_symbols") or []) if str(item).strip()]
+        key_focus_items = list(focus_module.get("key_focus_items") or [])
+        focus_watch_items = list(focus_module.get("focus_watch_items") or [])
         focus_symbols = [str(item) for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
         charts = focus_module.get("chart_refs") or []
         chart_text = "；".join(f"{item.get('title')}（{item.get('chart_key')}）" for item in charts if item.get("chart_key")) or "暂无图表关联"
         return (
             f'<div class="bucket"><h3>Why included</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in (reasons or [str(focus_module.get("why_included") or "暂无说明")]))}</ul></div>'
-            f'<div class="bucket"><h3>Key Focus</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in key_focus) or "<li>暂无 Key Focus</li>"}</ul></div>'
-            f'<div class="bucket"><h3>Focus Watchlist</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in focus_watch) or "<li>暂无 Focus Watchlist</li>"}</ul></div>'
+            f'<div class="bucket"><h3>Key Focus</h3><ul>{self._render_internal_focus_item_list(key_focus_items) or "".join(f"<li>{escape(item)}</li>" for item in key_focus) or "<li>暂无 Key Focus</li>"}</ul></div>'
+            f'<div class="bucket"><h3>Focus Watchlist</h3><ul>{self._render_internal_focus_item_list(focus_watch_items) or "".join(f"<li>{escape(item)}</li>" for item in focus_watch) or "<li>暂无 Focus Watchlist</li>"}</ul></div>'
             f'<div class="bucket"><h3>Module coverage</h3><ul><li>total_focus_symbols：{escape(str(focus_module.get("focus_symbol_count") or len(focus_symbols)))}</li><li>displayed_symbols：{escape(", ".join(focus_symbols) or "-")}</li></ul></div>'
             f'<div class="bucket"><h3>Module wiring</h3><ul><li>list_types：{escape(", ".join(list_types) or "-")}</li><li>chart_refs：{escape(chart_text)}</li><li>judgment_refs：{escape(", ".join(focus_module.get("judgment_refs") or []) or "-")}</li></ul></div>'
         )
+
+    def _render_internal_focus_item_list(self, items: Sequence[dict[str, Any]]) -> str:
+        rendered: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip()
+            rationale = str(item.get("observation_rationale") or "").strip()
+            validation = str(item.get("today_validation_point") or "").strip()
+            risk = str(item.get("risk_invalidation") or "").strip()
+            if not label:
+                continue
+            detail_parts = [part for part in (rationale, validation, risk) if part]
+            if detail_parts:
+                rendered.append(f"<li><strong>{escape(label)}</strong>：{escape(' / '.join(detail_parts))}</li>")
+            else:
+                rendered.append(f"<li>{escape(label)}</li>")
+        return "".join(rendered)
 
     def _customer_section_title(self, slot: str, fallback: str) -> str:
         mapping = {
@@ -435,11 +542,18 @@ class MainReportHTMLRenderer:
         return mapping.get(slot, fallback)
 
     def _customer_item_statements(self, items: Sequence[dict[str, Any]], *, limit: int) -> list[str]:
-        statements = [
-            self._sanitize_customer_text(str(item.get("statement") or "").strip())
-            for item in items
-            if str(item.get("statement") or "").strip()
-        ]
+        statements: list[str] = []
+        for item in items:
+            raw = str(item.get("statement") or "").strip()
+            if not raw:
+                continue
+            sanitized = self._sanitize_customer_text(raw)
+            if not sanitized or self._customer_should_drop_statement(sanitized):
+                continue
+            if sanitized not in statements:
+                statements.append(sanitized)
+            if len(statements) >= limit:
+                break
         return statements[:limit]
 
     def _sanitize_customer_text(self, text: str) -> str:
@@ -451,13 +565,84 @@ class MainReportHTMLRenderer:
             ("watchlist_only", "仅作为观察池处理"),
             ("same-day stable/final", "收盘口径已确认"),
             ("same-day final market packet ready", "收盘口径已确认"),
+            ("same-day final", "收盘口径已确认"),
+            ("same-day", "当日"),
             ("high+reference", "盘前高频与参考信息"),
+            ("high layer", "高频结构信号"),
+            ("reference seed", "参考观察池"),
+            ("intraday retained", "盘中留存"),
+            ("retained intraday", "盘中留存"),
             ("close package", "收盘确认依据"),
             ("open validation", "开盘验证"),
+            ("adjust 输入", "校准输入"),
+            ("observe/track-only", "观察/跟踪"),
         ]
         for old, new in replacements:
             sanitized = sanitized.replace(old, new)
-        return sanitized
+
+        normalized = re.sub(r"\s+", " ", sanitized).strip(" ，；。")
+        if normalized.startswith("盘前市场侧输入覆盖："):
+            return self._rewrite_customer_telemetry_statement(normalized, stage="early_market")
+        if normalized.startswith("盘中结构层覆盖："):
+            return self._rewrite_customer_telemetry_statement(normalized, stage="mid_structure")
+        if normalized.startswith("盘中领涨/事件层覆盖："):
+            return self._rewrite_customer_telemetry_statement(normalized, stage="mid_leader")
+        if normalized.startswith("隔夜/近期文本催化共") or normalized.startswith("盘中文本/事件解释线索") or normalized.startswith("same-day 可追溯文本/事件事实"):
+            return self._rewrite_customer_telemetry_statement(normalized, stage="text_context")
+        if normalized.startswith("same-day retained intraday context："):
+            return self._rewrite_customer_telemetry_statement(normalized, stage="late_intraday")
+
+        normalized = re.sub(r"validation=unknown[，,；;]?", "", normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r"emotion=unknown[，,；;]?", "", normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r"最新\s*[，,；;]?", "", normalized)
+        normalized = re.sub(r"[，,；;]\s*[，,；;]+", "；", normalized)
+        return normalized.strip(" ，；。")
+
+    def _rewrite_customer_telemetry_statement(self, text: str, *, stage: str) -> str:
+        numbers = {key: int(value) for key, value in re.findall(r"([\\w\\u4e00-\\u9fff/+-]+)\s(\d+)\s*[条个]?", text)}
+        if stage == "early_market":
+            event_count = numbers.get("事件流", 0)
+            auction_count = numbers.get("竞价样本", 0)
+            leader_count = numbers.get("候选龙头", 0)
+            signal_count = numbers.get("信号状态", 0)
+            if event_count <= 0 and auction_count <= 0 and leader_count <= 0 and signal_count <= 0:
+                return "盘前市场侧确认仍然偏弱，当前更适合把相关方向视为待开盘验证的观察线索，而非直接上升为明确主线。"
+            if auction_count <= 0 or leader_count <= 0 or signal_count <= 0:
+                return "盘前已有部分事件与交易线索出现，但市场侧共振仍不完整，开盘后的量价承接与龙头确认仍是第一观察位。"
+            return "盘前市场线索已开始形成共振，可将相关方向列为开盘后的优先验证对象，但仍不宜提前当作已确认结论。"
+        if stage == "mid_structure":
+            stock_1m = numbers.get("1m", 0)
+            breadth = numbers.get("广度", 0)
+            heat = numbers.get("热度", 0)
+            signal_count = numbers.get("信号状态", 0)
+            if stock_1m <= 0 and breadth <= 0 and heat <= 0 and signal_count <= 0:
+                return "盘中结构验证尚不充分，当前更适合观察量价扩散、板块承接与情绪修复是否逐步形成。"
+            return "盘中结构已有一定跟踪基础，但验证信号仍需继续观察，暂不宜把阶段性波动直接外推为全天定论。"
+        if stage == "mid_leader":
+            leader_count = numbers.get("龙头候选", 0)
+            event_count = numbers.get("事件流", 0)
+            if leader_count <= 0:
+                return "盘中事件线索仍在演化，暂未形成足够清晰的领涨锚点，宜继续通过扩散与承接来确认主线强弱。"
+            if event_count <= 0:
+                return "盘中已有领涨观察对象浮现，但事件催化配合度仍需继续确认。"
+            return "盘中领涨与事件线索可用于辅助判断强弱节奏，但是否能够升级为更强主线，仍需看扩散质量。"
+        if stage == "text_context":
+            return "相关文本与事件线索可作为背景参考，用于补充理解当日脉络，但不宜直接替代盘面与收盘口径确认。"
+        if stage == "late_intraday":
+            return "日内过程信号更适合用于解释盘中到收盘的演变，收盘结论仍应以稳定的收盘口径与次日延续性验证为准。"
+        return text
+
+    def _customer_should_drop_statement(self, text: str) -> bool:
+        normalized = str(text or "").strip().lower()
+        if not normalized:
+            return True
+        noisy_patterns = [
+            r"validation=unknown",
+            r"emotion=unknown",
+            r"(?:竞价样本|事件流|候选龙头|信号状态|1m 样本|广度|热度)\s*0\s*[条个]?",
+            r"暂无标题样本",
+        ]
+        return any(re.search(pattern, normalized, flags=re.IGNORECASE) for pattern in noisy_patterns)
 
     def _customer_top_judgment(self, customer_sections: Sequence[dict[str, Any]]) -> str:
         early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
@@ -537,9 +722,12 @@ class MainReportHTMLRenderer:
             section_signals = [str(item).strip() for item in (late_section.get("signals") or []) if str(item).strip()]
             if section_signals:
                 next_steps.append(f"收盘后复核位：以“{section_signals[0]}”核对当日结论能否顺延到次日跟踪框架。")
-        key_focus = [str(item).strip() for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
-        if key_focus:
-            next_steps.append(f"重点跟踪名单：继续观察 {', '.join(key_focus[:3])} 的强弱分化、承接质量与是否得到主线验证。")
+        key_focus_items = [item for item in (focus_module.get("key_focus_items") or []) if isinstance(item, dict)]
+        if key_focus_items:
+            labels = [str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip() for item in key_focus_items[:3]]
+            labels = [item for item in labels if item]
+            if labels:
+                next_steps.append(f"重点跟踪名单：继续观察 {'、'.join(labels)} 的强弱分化、承接质量与是否得到主线验证。")
         if not next_steps:
             next_steps.append("明日观察：继续围绕主线确认、风险约束与重点标的强弱分化来更新判断。")
         return next_steps[:3]
@@ -645,15 +833,38 @@ class MainReportHTMLRenderer:
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
         if not reasons:
             reasons = [str(focus_module.get("why_included") or "将今日重点观察池直接前置展示，帮助理解为什么这些对象值得跟踪。")]
-        key_focus = [f"重点跟踪对象：{str(item)}" for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
-        focus_watch = [f"观察名单：{str(item)}" for item in (focus_module.get("focus_watch_symbols") or []) if str(item).strip()]
+        key_focus_items = list(focus_module.get("key_focus_items") or [])
+        focus_watch_items = list(focus_module.get("focus_watch_items") or [])
         chart_refs = [str(item.get("title") or item.get("chart_key") or "") for item in (focus_module.get("chart_refs") or []) if str(item.get("title") or item.get("chart_key") or "").strip()]
         return (
             self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
-            + self._render_customer_bucket("Tier 1 / Key Focus", key_focus, fallback="暂无 Key Focus")
-            + self._render_customer_bucket("Tier 2 / Focus Watchlist", focus_watch, fallback="暂无 Focus Watchlist")
+            + self._render_customer_watchlist_bucket("Tier 1 / Key Focus", key_focus_items, fallback="核心验证名单暂未生成")
+            + self._render_customer_watchlist_bucket("Tier 2 / Focus Watchlist", focus_watch_items, fallback="补充观察池暂未扩展")
             + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
         )
+
+    def _render_customer_watchlist_bucket(self, title: str, items: Sequence[dict[str, Any]], *, fallback: str) -> str:
+        rows: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip()
+            rationale = self._sanitize_customer_text(str(item.get("observation_rationale") or "").strip())
+            validation = self._sanitize_customer_text(str(item.get("today_validation_point") or "").strip())
+            risk = self._sanitize_customer_text(str(item.get("risk_invalidation") or "").strip())
+            if not label:
+                continue
+            detail_parts = []
+            if rationale:
+                detail_parts.append(f"观察逻辑：{rationale}")
+            if validation:
+                detail_parts.append(f"今日验证点：{validation}")
+            if risk:
+                detail_parts.append(f"风险/失效条件：{risk}")
+            rows.append(f"<li><strong>{escape(label)}</strong><br/>{'<br/>'.join(escape(part) for part in detail_parts) if detail_parts else escape(fallback)}</li>")
+        if not rows:
+            rows = [f"<li>{escape(fallback)}</li>"]
+        return f"<div class=\"bucket\"><div class=\"bucket-title\">{escape(title)}</div><ul>{''.join(rows)}</ul></div>"
 
     def _render_customer_chart_pack(self, chart_pack: dict[str, Any]) -> str:
         assets = list(chart_pack.get("assets") or [])
