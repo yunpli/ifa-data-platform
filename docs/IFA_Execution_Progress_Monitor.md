@@ -21,8 +21,8 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P1-CUSTOMER-REPORT-001` 并恢复 idle；Lane B 已完成 `POST-P0-BLDRIFT-001`
-- **Acceptance Lane 状态**：`ACCEPT-P1-001` 已完成并 closed；结论为 bounded acceptance pass（chart/focus integration + customer leakage recheck accepted），但最终 customer-grade iFA product acceptance 仍有非阻断残余缺口
+- **当前 Lane A / Lane B 状态**：Lane A / Lane B 已完成当前一轮 customer/report/drift 主线任务并恢复 idle
+- **Acceptance Lane 状态**：已启动 `ACCEPT-P2-001`（Customer-grade iFA Report Product Acceptance）
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:7f0c2c3d-514b-434a-8eec-0448408bd9dd` | POST-P1-CUSTOMER-REPORT-001 | Customer Main Report Product Tightening | completed | 2026-04-24 20:39 PDT | 2026-04-24 20:46 PDT | none | completed: customer main surface now carries iFA title, Lindenwood attribution, disclaimer, top judgment, risk, and next-step blocks; focused tests + dry-run sample passed |
-| Lane B | `agent:developer:subagent:b9193d4b-3444-43d0-994c-ad1e04f1cdee` | POST-P0-BLDRIFT-001 | business-layer CLI drift + replay/backfill semantic closure | completed | 2026-04-24 20:25 PDT | 2026-04-24 20:54 PDT | none | completed: business-layer CLI direct-exec drift fixed; wrapper replay semantics tightened; commits `1a442c9` / `4ce1ac5` pushed |
+| Lane A | `none` | none | idle | idle | - | 2026-04-24 20:46 PDT | none | wait for next assignment after ACCEPT-P2-001 |
+| Lane B | `none` | none | idle | idle | - | 2026-04-24 20:54 PDT | none | wait for next assignment after ACCEPT-P2-001 |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -64,14 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `none`
-- Current Acceptance Task: `none`
-- Status: `idle`
-- Started At: `-`
-- Last Update: `2026-04-24 20:33 PDT`
-- Findings: `ACCEPT-P1-001 closed: bounded acceptance pass; chart/focus integration visible in fresh golden samples; customer leakage recheck passed for sampled customer outputs; chart pack remains partial-ready and customer main product depth still below final iFA launch grade`
+- Current Sub-Agent: `agent:developer:subagent:PENDING_ACCEPT_P2_001`
+- Current Acceptance Task: `ACCEPT-P2-001` — `Customer-grade iFA Report Product Acceptance`
+- Status: `in_progress`
+- Started At: `2026-04-24 20:47 PDT`
+- Last Update: `2026-04-24 20:47 PDT`
+- Findings: `pending`
 - Blocker: `none`
-- Next Action: `wait for QA/editorial/business-layer follow-up tasks before any final customer-grade signoff`
+- Next Action: `produce customer-grade acceptance markdown and attach on completion`
 
 ---
 
@@ -94,6 +94,7 @@
 | POST-P0-FOCUS-001 | none | Focus / Key-Focus 产品化 | post-P0 | P1 | pushed | Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 -m py_compile src/ifa_data_platform/fsj/early_main_producer.py src/ifa_data_platform/fsj/report_rendering.py tests/unit/test_fsj_report_rendering.py` | `0611241` / `6d01af8` | minimal focus/key-focus productization closure landed and pushed |
 | POST-P0-QA-001 | none | Product / Editorial / Leakage / Time-window QA foundation | post-P0 | P1 | pushed | Lane A | `agent:developer:subagent:97a8bcc5-3fe2-4f47-aac1-43e485b51de2` | `src/ifa_data_platform/fsj/report_quality.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_quality.py` | `0c91de4` / `552cf3f` | bounded QA axes + customer readiness + leak detection + golden hook surfacing landed and pushed || POST-P0-BLDRIFT-001 | none | business-layer CLI drift + replay/backfill semantic closure | post-P0 | P1 | completed | Lane B | `agent:developer:subagent:b9193d4b-3444-43d0-994c-ad1e04f1cdee` | `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_cli_registry.py`; `docs/POST_P0_BLDRIFT_001_BUSINESS_LAYER_CLI_DRIFT_AND_REPLAY_CLOSURE_2026-04-24.md`; `/Users/neoclaw/repos/ifa-business-layer/scripts/ifa_llm_cli.py`; `/Users/neoclaw/repos/ifa-business-layer/tests/integration/llm/test_llm_cli_smoke.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/integration/llm/test_llm_cli_smoke.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_cli_registry.py`; `python3 scripts/ifa_llm_cli.py --help`; `python3 /Users/neoclaw/repos/ifa-business-layer/scripts/ifa_llm_cli.py --help`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python - <<'PY' ... _run_business_repo_llm(...) ... PY`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode replay --output-profile customer --output-root artifacts/post_p0_bldrift_probe --report-run-id-prefix post-p0-bldrift`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode replay --main-flow morning-delivery --output-root artifacts/post_p0_bldrift_probe` | commits `1a442c9` (business-layer) / `4ce1ac5` (data-platform); both pushed | acceptance met for bounded task; direct-exec business-layer CLI drift fixed and wrapper replay semantics tightened without widening scope |
 | ACCEPT-P1-001 | none | Golden Sample Product Quality / Readability / iFA Standard Acceptance | acceptance | P1 | pushed | Acceptance Lane | `agent:developer:subagent:26bf2023-2cf9-4469-a4a2-832ef55ef90c` | `docs/V2_P1_GOLDEN_SAMPLE_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/chart_pack.py src/ifa_data_platform/fsj/early_main_producer.py src/ifa_data_platform/fsj/report_rendering.py scripts/fsj_report_cli.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/accept_p1_001 --report-run-id-prefix accept-p1-main-early`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/accept_p1_001 --report-run-id-prefix accept-p1-main-late-review`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/accept_p1_001 --report-run-id-prefix accept-p1-support-early-review`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile customer --output-root artifacts/accept_p1_001 --report-run-id-prefix accept-p1-support-late`; customer leakage pattern recheck on sampled customer HTML; chart/focus manifest inspection; `rg -n "FCJ" artifacts/accept_p1_001 docs src tests scripts -S` | `b9f6339` | bounded acceptance pass: chart/focus integration accepted; sampled customer outputs leakage-clean; final customer-grade iFA quality still has non-blocking residual gaps |
+| ACCEPT-P2-001 | none | Customer-grade iFA Report Product Acceptance | acceptance | P2 | in_progress | Acceptance Lane | `agent:developer:subagent:PENDING_ACCEPT_P2_001` | `docs/V2_P2_CUSTOMER_GRADE_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | pending | - | acceptance lane validates customer-grade main early report after tightening, Lindenwood attribution, disclaimer, risk/next-step, chart readiness improvement, focus explanatory quality, and leakage safety |
 | POST-P1-CUSTOMER-REPORT-001 | none | Customer Main Report Product Tightening | post-P1 | P1 | pushed | Lane A | `agent:developer:subagent:7f0c2c3d-514b-434a-8eec-0448408bd9dd` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p1_customer_report_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T034424Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p1_customer_report_001 --report-run-id-prefix post-p1-customer-main-early`; customer leakage recheck on generated HTML for `bundle_id|producer_version|slot_run_id|replay_id|report_links|file:///|artifact_id|renderer version|action=|confidence=|evidence=` | pending | tightened customer main report to meet ACCEPT-P1-001 visible product gaps without altering internal/review surfaces; fresh sample contains iFA title, Lindenwood attribution, disclaimer, risk, next-step, top judgment and remains leakage-clean |
 
 ### 4.1 Status 枚举
