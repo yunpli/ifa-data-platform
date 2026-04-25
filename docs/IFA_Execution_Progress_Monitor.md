@@ -51,8 +51,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | none | none | none | idle | - | 2026-04-24 | none | assign next task from V2 |
-| Lane B | none | none | none | idle | - | 2026-04-24 | none | assign next task from V2 |
+| Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | V2-R0-001 | 周末安全窗口与 runtime 冻结计划 | in_progress | 2026-04-24 17:48 PDT | 2026-04-24 17:49 PDT | none | complete freeze/snapshot/checklist and report back |
+| Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | V2-R0-002 | DB reality probe 复核与快照固化 | in_progress | 2026-04-24 17:49 PDT | 2026-04-24 17:49 PDT | none | complete DB reality snapshot and report back |
 
 说明：
 - 后续只默认维护 Lane A / Lane B；
@@ -67,8 +67,8 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | BOOT-001 | none | 建立执行上下文与行为规范文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Context_and_Behavior.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
-| V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
-| V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
+| V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | in_progress | Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | - | pending | - | 已派发；按 freeze/snapshot/checklist 边界执行 |
+| V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | in_progress | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | - | pending | - | 已派发；按 DB reality snapshot 边界执行 |
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
