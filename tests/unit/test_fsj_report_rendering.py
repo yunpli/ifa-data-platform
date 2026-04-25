@@ -471,6 +471,72 @@ def test_customer_profile_sanitizes_upstream_contract_phrasing_but_review_keeps_
     assert "same-day stable/final" in review["content"]
 
 
+def test_customer_profile_polishes_section_level_contract_shaped_prose() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["facts"][0]["statement"] = "盘前 盘中结构信号 与 观察名单 已足以形成待开盘验证的主线候选，但仍不应视为已确认"
+    assembled["sections"].insert(
+        1,
+        {
+            "slot": "mid",
+            "section_key": "intraday_main",
+            "section_render_key": "main.midday",
+            "title": "盘中结构更新",
+            "order_index": 20,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": "bundle-mid",
+                "status": "active",
+                "producer_version": "phase1-main-mid-v1",
+                "slot_run_id": "slot-run-mid",
+                "replay_id": "replay-mid",
+            },
+            "summary": "A股盘中主线更新：盘中 盘中结构信号 证据不足或不够新鲜，仅保留跟踪/观察级更新",
+            "judgments": [],
+            "signals": [{"statement": "午后继续验证点：等待盘中 盘中结构信号 刷新后再判断是否出现强化、扩散或分歧"}],
+            "facts": [{"statement": "盘中锚点：A股盘中主线更新：盘中 盘中结构信号 证据不足或不够新鲜，仅保留跟踪/观察级更新"}],
+            "support_summaries": [],
+            "lineage": {"bundle": {"payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ"]}}}},
+        },
+    )
+    assembled["sections"][2]["judgments"] = [{"statement": "将当前 收盘依据已完整 事实作为晚报主线收盘结论依据；盘中留存信息 仅做演化解释，T-1 仅做历史对照"}]
+    assembled["sections"][2]["signals"] = [
+        {"statement": "收盘依据已完整 市场表与同日文本事实已足以形成收盘 收盘确认材料，可以做晚报主线结论"},
+        {"statement": "日内 retained highfreq 证据可用于解释从盘中到收盘的演化，但不能替代 收盘依据已完整 close 证据"},
+    ]
+    assembled["sections"][2]["facts"] = [
+        {"statement": "当日 盘中留存信息 context：事件流 8 条，leader 0 个，signal-state 0 条；仅用于解释日内演变，不作为收盘 final 确认证据"},
+        {"statement": "当日 收盘稳定市场层覆盖：日线 20 条，北向资金 1 条，涨停明细 85 条，涨跌停状态 1 条，龙虎榜 61 条，板块表现 394 条"},
+    ]
+
+    customer = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-prose-1",
+        artifact_uri="file:///tmp/customer-prose.html",
+        generated_at=datetime(2099, 4, 22, 8, 6, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    review = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-review-prose-1",
+        artifact_uri="file:///tmp/review-prose.html",
+        generated_at=datetime(2099, 4, 22, 8, 6, tzinfo=timezone.utc),
+        output_profile="review",
+    )
+
+    assert "盘中 盘中结构信号" not in customer["content"]
+    assert "收盘 收盘确认材料" not in customer["content"]
+    assert "盘前线索与观察名单已经给出初步方向" in customer["content"]
+    assert "午后继续观察盘中结构是否修复" in customer["content"]
+    assert "盘中锚点：当前结构证据仍不够扎实" in customer["content"]
+    assert "晚报结论应以当日收盘后的完整证据为基础" in customer["content"]
+    assert "收盘阶段的核心市场与文本证据已经基本到齐" in customer["content"]
+    assert "盘中过程信息可用于解释日内演化" in customer["content"]
+    assert "收盘后的核心市场数据覆盖已经相对完整" in customer["content"]
+
+    assert "盘中 盘中结构信号" in review["content"]
+    assert "same-day stable/final" not in customer["content"]
+
+
 def test_customer_profile_rewrites_raw_telemetry_and_text_fragments_into_advisory_prose() -> None:
     assembled = _assembled_sections()
     assembled["sections"].insert(

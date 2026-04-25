@@ -1,0 +1,96 @@
+{
+  "artifact_type": "fsj_main_report_evaluation",
+  "artifact_version": "v1",
+  "business_date": "2026-04-23",
+  "market": "a_share",
+  "agent_domain": "main",
+  "renderer_version": "v3",
+  "delivery_readiness": {
+    "qa_ready": true,
+    "qa_score": 92,
+    "late_contract_mode": "full_close_package"
+  },
+  "summary": {
+    "slot_scores": {
+      "early": 100,
+      "mid": 100,
+      "late": 100
+    },
+    "strongest_slot": "late",
+    "weakest_slot": "early",
+    "slot_score_span": 0,
+    "average_slot_score": 100.0,
+    "progression": {
+      "state": "complete",
+      "observed_slots": [
+        "early",
+        "mid",
+        "late"
+      ],
+      "missing_slots": [],
+      "duplicate_summary_count": 0,
+      "duplicate_summaries": [],
+      "late_contract_mode": "full_close_package"
+    }
+  },
+  "slots": [
+    {
+      "slot": "early",
+      "status": "ready",
+      "score": 100,
+      "evidence_density": 17,
+      "support_summary_count": 3,
+      "issue_codes": [],
+      "strengths": [
+        "ready",
+        "lineage_complete",
+        "has_judgment",
+        "has_signal",
+        "has_fact",
+        "has_evidence",
+        "has_existing_report_link",
+        "support_context_present",
+        "dense"
+      ]
+    },
+    {
+      "slot": "mid",
+      "status": "ready",
+      "score": 100,
+      "evidence_density": 23,
+      "support_summary_count": 0,
+      "issue_codes": [
+        "source_health_degraded"
+      ],
+      "strengths": [
+        "ready",
+        "lineage_complete",
+        "has_judgment",
+        "has_signal",
+        "has_fact",
+        "has_evidence",
+        "has_existing_report_link",
+        "dense"
+      ]
+    },
+    {
+      "slot": "late",
+      "status": "ready",
+      "score": 100,
+      "evidence_density": 29,
+      "support_summary_count": 3,
+      "issue_codes": [],
+      "strengths": [
+        "ready",
+        "lineage_complete",
+        "has_judgment",
+        "has_signal",
+        "has_fact",
+        "has_evidence",
+        "has_existing_report_link",
+        "support_context_present",
+        "dense"
+      ]
+    }
+  ]
+}

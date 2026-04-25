@@ -626,6 +626,7 @@ class MainReportHTMLRenderer:
             ("reference seed", "观察名单"),
             ("intraday retained", "盘中留存信息"),
             ("retained intraday", "盘中留存信息"),
+            ("retained highfreq", "盘中过程信息"),
             ("close package", "收盘确认材料"),
             ("open validation", "开盘确认"),
             ("adjust 输入", "辅助校准"),
@@ -635,6 +636,10 @@ class MainReportHTMLRenderer:
             sanitized = sanitized.replace(old, new)
 
         normalized = re.sub(r"\s+", " ", sanitized).strip(" ，；。")
+        normalized = re.sub(r"盘前\s+盘中结构信号", "盘前结构线索", normalized)
+        normalized = re.sub(r"盘中\s+盘中结构信号", "盘中结构信号", normalized)
+        normalized = re.sub(r"收盘\s+收盘确认依据", "收盘确认依据", normalized)
+        normalized = re.sub(r"收盘\s+收盘确认材料", "收盘确认材料", normalized)
         if normalized.startswith("盘前市场侧输入覆盖："):
             return self._rewrite_customer_telemetry_statement(normalized, stage="early_market")
         if normalized.startswith("盘中结构层覆盖："):
@@ -643,13 +648,45 @@ class MainReportHTMLRenderer:
             return self._rewrite_customer_telemetry_statement(normalized, stage="mid_leader")
         if normalized.startswith("隔夜/近期文本催化共") or normalized.startswith("盘中文本/事件解释线索") or normalized.startswith("same-day 可追溯文本/事件事实"):
             return self._rewrite_customer_telemetry_statement(normalized, stage="text_context")
-        if normalized.startswith("same-day retained intraday context："):
+        if normalized.startswith("same-day retained intraday context：") or normalized.startswith("当日 盘中留存信息 context："):
             return self._rewrite_customer_telemetry_statement(normalized, stage="late_intraday")
+        if normalized.startswith("same-day 收盘稳定市场层覆盖：") or normalized.startswith("当日 收盘稳定市场层覆盖："):
+            return self._rewrite_customer_telemetry_statement(normalized, stage="late_close_coverage")
 
         normalized = re.sub(r"validation=unknown[，,；;]?", "", normalized, flags=re.IGNORECASE)
         normalized = re.sub(r"emotion=unknown[，,；;]?", "", normalized, flags=re.IGNORECASE)
         normalized = re.sub(r"最新\s*[，,；;]?", "", normalized)
         normalized = re.sub(r"[，,；;]\s*[，,；;]+", "；", normalized)
+
+        direct_rewrites = [
+            (
+                r"^盘前结构线索 与 观察名单 已足以形成待开盘验证的主线候选，但仍不应视为已确认$",
+                "盘前线索与观察名单已经给出初步方向，但仍要等开盘后的量价与承接进一步确认。",
+            ),
+            (
+                r"^午后继续验证点：等待盘中结构信号 刷新后再判断是否出现强化、扩散或分歧$",
+                "午后继续观察盘中结构是否修复，并确认是否出现强化、扩散或分歧。",
+            ),
+            (
+                r"^盘中锚点：A股盘中主线更新：盘中结构信号 证据不足或不够新鲜，仅保留跟踪/观察级更新$",
+                "盘中锚点：当前结构证据仍不够扎实，更适合作为跟踪信号，而不是提前下收盘定论。",
+            ),
+            (
+                r"^收盘依据已完整 市场表与同日文本事实已足以形成收盘确认材料，可以做晚报主线结论$",
+                "收盘阶段的核心市场与文本证据已经基本到齐，足以支撑晚报对当日主线作出复盘判断。",
+            ),
+            (
+                r"^日内 盘中过程信息 证据可用于解释从盘中到收盘的演化，但不能替代 收盘依据已完整 close 证据$",
+                "盘中过程信息可用于解释日内演化，但不能替代收盘阶段的核心确认依据。",
+            ),
+            (
+                r"^将当前 收盘依据已完整 事实作为晚报主线收盘结论依据；盘中留存信息 仅做演化解释，T-1 仅做历史对照$",
+                "晚报结论应以当日收盘后的完整证据为基础；盘中过程信息仅用于解释演化，前一交易日内容仅作历史对照。",
+            ),
+        ]
+        for pattern, replacement in direct_rewrites:
+            if re.match(pattern, normalized):
+                return replacement
         return normalized.strip(" ，；。")
 
     def _rewrite_customer_telemetry_statement(self, text: str, *, stage: str) -> str:
@@ -684,6 +721,8 @@ class MainReportHTMLRenderer:
             return "相关文本与事件线索可作为背景参考，用于补充理解当日脉络，但不宜直接替代盘面与收盘口径确认。"
         if stage == "late_intraday":
             return "日内过程信号更适合用于解释盘中到收盘的演变，收盘结论仍应以稳定的收盘口径与次日延续性验证为准。"
+        if stage == "late_close_coverage":
+            return "收盘后的核心市场数据覆盖已经相对完整，可以支持对当日主线强弱与次日延续性做更稳健的复盘判断。"
         return text
 
     def _customer_should_drop_statement(self, text: str) -> bool:
@@ -733,7 +772,7 @@ class MainReportHTMLRenderer:
         if slot == "early":
             return first_highlight or first_signal or "盘前更适合先确认是否出现可持续的量价与领涨共振，再决定是否提高判断强度。"
         if slot == "mid":
-            return first_signal or "盘中阶段以校准节奏为主，任何阶段性强化都需要继续观察扩散质量与承接稳定度。"
+            return first_signal or "盘中阶段以校准节奏为主，重点观察结构是否继续修复，以及扩散质量与承接稳定度是否同步改善。"
         if slot == "late":
             overlay = f"，并结合{support_domains}的补充线索做交叉核对" if support_domains else ""
             return f"收盘判断宜回到全天证据框架中复核{overlay}；若次日缺少延续性，结论应及时回落为跟踪而非追认。"

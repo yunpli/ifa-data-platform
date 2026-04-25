@@ -1,0 +1,564 @@
+{
+  "artifact_type": "fsj_main_report_judgment_review_surface",
+  "artifact_version": "v1",
+  "business_date": "2026-04-23",
+  "judgment_item_count": 3,
+  "review_slot_count": 3,
+  "review_status": "pending_operator_item_review",
+  "items": [
+    {
+      "judgment_key": "judgment:early:mainline_plan",
+      "slot": "early",
+      "section_key": "pre_open_main",
+      "section_title": "盘前主结论",
+      "statement": "将当前候选主线作为开盘首要验证对象；若竞价强度和事件延续性无法继续兑现，则立即降回观察项。",
+      "judgment_action": "validate",
+      "confidence": "medium",
+      "evidence_level": null,
+      "contract_mode": "candidate_with_open_validation",
+      "completeness_label": "complete",
+      "degrade_reason": null,
+      "support_bundle_ids": [
+        "a_share:2026-04-23:early:ai_tech:support_ai_tech:8b9512842822",
+        "a_share:2026-04-23:early:commodities:support_commodities:0cfeb8bec554",
+        "a_share:2026-04-23:early:macro:support_macro:143a4e15bdd3"
+      ],
+      "evidence_refs": [
+        {
+          "ref_key": "5f72fb5a-f9fe-4fbd-8437-5e434e72778b",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "fsj-runtime:replay:2026-04-23:early:688a28e55ef6d278",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "2026-04-23:auction",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:events",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "default:focus_scope",
+          "ref_system": "business_seed",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:text_catalysts",
+          "ref_system": "lowfreq",
+          "evidence_role": "source_observed"
+        }
+      ],
+      "focus_module_refs": {
+        "module_type": "fsj_focus_module",
+        "business_date": "2026-04-23",
+        "list_types": [
+          "focus",
+          "key_focus"
+        ],
+        "focus_symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ",
+          "000006.SZ",
+          "000007.SZ"
+        ],
+        "focus_symbol_count": 20,
+        "key_focus_symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ",
+          "000006.SZ",
+          "000007.SZ"
+        ],
+        "key_focus_symbol_count": 20,
+        "focus_watch_symbols": [],
+        "focus_watch_symbol_count": 0,
+        "focus_name_map": {},
+        "key_focus_items": [
+          {
+            "symbol": "000001.SZ",
+            "code": "000001.SZ",
+            "display_name": "核心观察标的一",
+            "short_label": "核心观察标的一（000001.SZ）",
+            "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+            "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+          },
+          {
+            "symbol": "000002.SZ",
+            "code": "000002.SZ",
+            "display_name": "核心观察标的二",
+            "short_label": "核心观察标的二（000002.SZ）",
+            "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+            "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+          },
+          {
+            "symbol": "000004.SZ",
+            "code": "000004.SZ",
+            "display_name": "核心观察标的三",
+            "short_label": "核心观察标的三（000004.SZ）",
+            "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+            "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+          },
+          {
+            "symbol": "000006.SZ",
+            "code": "000006.SZ",
+            "display_name": "核心观察标的四",
+            "short_label": "核心观察标的四（000006.SZ）",
+            "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+            "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+          },
+          {
+            "symbol": "000007.SZ",
+            "code": "000007.SZ",
+            "display_name": "核心观察标的五",
+            "short_label": "核心观察标的五（000007.SZ）",
+            "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+            "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+          }
+        ],
+        "focus_watch_items": [
+          {
+            "symbol": "",
+            "display_name": "补充观察名单暂未展开",
+            "short_label": "补充观察名单暂未展开",
+            "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+            "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+            "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+          }
+        ],
+        "watchlist_tiers": [
+          {
+            "label": "Tier 1 / Key Focus",
+            "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。",
+            "symbols": [
+              "000001.SZ",
+              "000002.SZ",
+              "000004.SZ",
+              "000006.SZ",
+              "000007.SZ"
+            ],
+            "items": [
+              {
+                "symbol": "000001.SZ",
+                "code": "000001.SZ",
+                "display_name": "核心观察标的一",
+                "short_label": "核心观察标的一（000001.SZ）",
+                "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+                "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+                "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+              },
+              {
+                "symbol": "000002.SZ",
+                "code": "000002.SZ",
+                "display_name": "核心观察标的二",
+                "short_label": "核心观察标的二（000002.SZ）",
+                "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+                "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+                "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+              },
+              {
+                "symbol": "000004.SZ",
+                "code": "000004.SZ",
+                "display_name": "核心观察标的三",
+                "short_label": "核心观察标的三（000004.SZ）",
+                "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+                "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+                "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+              },
+              {
+                "symbol": "000006.SZ",
+                "code": "000006.SZ",
+                "display_name": "核心观察标的四",
+                "short_label": "核心观察标的四（000006.SZ）",
+                "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+                "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+                "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+              },
+              {
+                "symbol": "000007.SZ",
+                "code": "000007.SZ",
+                "display_name": "核心观察标的五",
+                "short_label": "核心观察标的五（000007.SZ）",
+                "observation_rationale": "列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+                "today_validation_point": "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。",
+                "risk_invalidation": "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
+              }
+            ]
+          },
+          {
+            "label": "Tier 2 / Focus Watchlist",
+            "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。",
+            "symbols": [],
+            "items": [
+              {
+                "symbol": "",
+                "display_name": "补充观察名单暂未展开",
+                "short_label": "补充观察名单暂未展开",
+                "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+                "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+                "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+              }
+            ]
+          }
+        ],
+        "why_included": "当前业务观察池覆盖 30 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+        "reasons": [
+          "当前业务观察池覆盖 30 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+          "Tier 1 / Key Focus 共 20 个，优先用于验证强度、节奏与是否具备继续跟踪价值。"
+        ],
+        "source_sections": [
+          "early"
+        ],
+        "chart_refs": [
+          {
+            "chart_key": "key_focus_window",
+            "title": "Key Focus 窗口图"
+          },
+          {
+            "chart_key": "key_focus_return_bar",
+            "title": "Key Focus 日度涨跌幅"
+          }
+        ],
+        "judgment_refs": [
+          "judgment:early:mainline_plan"
+        ],
+        "review_ready": true
+      },
+      "review": {
+        "status": "pending",
+        "allowed_actions": [
+          "approve",
+          "needs_edit",
+          "reject",
+          "monitor"
+        ],
+        "operator_comment": null,
+        "review_focus": [
+          "evidence_chain_complete",
+          "slot_wording_within_boundary",
+          "support_merge_is_truthful",
+          "focus_scope_alignment"
+        ]
+      }
+    },
+    {
+      "judgment_key": "judgment:mid:mainline_update",
+      "slot": "mid",
+      "section_key": "midday_main",
+      "section_title": "盘中主结论",
+      "statement": "当前仅输出 observe/track-only 的盘中更新，不输出‘强化/分歧/转强已确认’这类强结论。",
+      "judgment_action": "watch",
+      "confidence": "low",
+      "evidence_level": null,
+      "contract_mode": "monitoring_only",
+      "completeness_label": null,
+      "degrade_reason": "insufficient_intraday_structure",
+      "support_bundle_ids": [],
+      "evidence_refs": [
+        {
+          "ref_key": "early:2026-04-23",
+          "ref_system": "fsj",
+          "evidence_role": "prior_slot_reference"
+        },
+        {
+          "ref_key": "fsj-runtime:replay:2026-04-23:mid:56b2279c6efe7d73",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "2026-04-23:sector_breadth",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:sector_heat",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:signal_state",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:stock_1m",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:latest_text",
+          "ref_system": "lowfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:events",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:leaders",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        }
+      ],
+      "focus_module_refs": {
+        "module_type": "fsj_focus_module",
+        "business_date": "2026-04-23",
+        "list_types": [],
+        "focus_symbols": [],
+        "focus_symbol_count": 0,
+        "key_focus_symbols": [],
+        "key_focus_symbol_count": 0,
+        "focus_watch_symbols": [],
+        "focus_watch_symbol_count": 0,
+        "focus_name_map": {},
+        "key_focus_items": [],
+        "focus_watch_items": [
+          {
+            "symbol": "",
+            "display_name": "补充观察名单暂未展开",
+            "short_label": "补充观察名单暂未展开",
+            "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+            "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+            "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+          }
+        ],
+        "watchlist_tiers": [
+          {
+            "label": "Tier 1 / Key Focus",
+            "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。",
+            "symbols": [],
+            "items": []
+          },
+          {
+            "label": "Tier 2 / Focus Watchlist",
+            "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。",
+            "symbols": [],
+            "items": [
+              {
+                "symbol": "",
+                "display_name": "补充观察名单暂未展开",
+                "short_label": "补充观察名单暂未展开",
+                "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+                "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+                "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+              }
+            ]
+          }
+        ],
+        "why_included": "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
+        "reasons": [
+          "当前观察池共覆盖 0 个对象，用于界定优先跟踪范围与噪音过滤边界。"
+        ],
+        "source_sections": [
+          "mid"
+        ],
+        "chart_refs": [
+          {
+            "chart_key": "key_focus_window",
+            "title": "Key Focus 窗口图"
+          },
+          {
+            "chart_key": "key_focus_return_bar",
+            "title": "Key Focus 日度涨跌幅"
+          }
+        ],
+        "judgment_refs": [
+          "judgment:mid:mainline_update"
+        ],
+        "review_ready": false
+      },
+      "review": {
+        "status": "pending",
+        "allowed_actions": [
+          "approve",
+          "needs_edit",
+          "reject",
+          "monitor"
+        ],
+        "operator_comment": null,
+        "review_focus": [
+          "evidence_chain_complete",
+          "slot_wording_within_boundary",
+          "support_merge_is_truthful",
+          "focus_scope_alignment"
+        ]
+      }
+    },
+    {
+      "judgment_key": "judgment:late:mainline_close",
+      "slot": "late",
+      "section_key": "post_close_main",
+      "section_title": "收盘主结论",
+      "statement": "将当前 same-day stable/final 事实作为晚报主线收盘结论依据；intraday retained 仅做演化解释，T-1 仅做历史对照。",
+      "judgment_action": "confirm",
+      "confidence": "high",
+      "evidence_level": null,
+      "contract_mode": "full_close_package",
+      "completeness_label": "complete",
+      "degrade_reason": null,
+      "support_bundle_ids": [
+        "a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47",
+        "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+        "a_share:2026-04-23:late:macro:support_macro:7846ec308c0c"
+      ],
+      "evidence_refs": [
+        {
+          "ref_key": "mid:2026-04-23",
+          "ref_system": "fsj",
+          "evidence_role": "prior_slot_reference"
+        },
+        {
+          "ref_key": "fsj-runtime:replay:2026-04-23:late:13ccd817235d1a34",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "2026-04-23:intraday_events",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:intraday_leaders",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:intraday_signal_state",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:dragon_tiger_list",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:equity_daily_bar",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:limit_up_detail",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:limit_up_down_status",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:northbound_flow",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:sector_performance",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:same_day_text",
+          "ref_system": "lowfreq",
+          "evidence_role": "source_observed"
+        }
+      ],
+      "focus_module_refs": {
+        "module_type": "fsj_focus_module",
+        "business_date": "2026-04-23",
+        "list_types": [],
+        "focus_symbols": [],
+        "focus_symbol_count": 0,
+        "key_focus_symbols": [],
+        "key_focus_symbol_count": 0,
+        "focus_watch_symbols": [],
+        "focus_watch_symbol_count": 0,
+        "focus_name_map": {},
+        "key_focus_items": [],
+        "focus_watch_items": [
+          {
+            "symbol": "",
+            "display_name": "补充观察名单暂未展开",
+            "short_label": "补充观察名单暂未展开",
+            "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+            "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+            "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+          }
+        ],
+        "watchlist_tiers": [
+          {
+            "label": "Tier 1 / Key Focus",
+            "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。",
+            "symbols": [],
+            "items": []
+          },
+          {
+            "label": "Tier 2 / Focus Watchlist",
+            "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。",
+            "symbols": [],
+            "items": [
+              {
+                "symbol": "",
+                "display_name": "补充观察名单暂未展开",
+                "short_label": "补充观察名单暂未展开",
+                "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+                "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+                "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+              }
+            ]
+          }
+        ],
+        "why_included": "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
+        "reasons": [
+          "当前观察池共覆盖 0 个对象，用于界定优先跟踪范围与噪音过滤边界。"
+        ],
+        "source_sections": [
+          "late"
+        ],
+        "chart_refs": [
+          {
+            "chart_key": "key_focus_window",
+            "title": "Key Focus 窗口图"
+          },
+          {
+            "chart_key": "key_focus_return_bar",
+            "title": "Key Focus 日度涨跌幅"
+          }
+        ],
+        "judgment_refs": [
+          "judgment:late:mainline_close"
+        ],
+        "review_ready": false
+      },
+      "review": {
+        "status": "pending",
+        "allowed_actions": [
+          "approve",
+          "needs_edit",
+          "reject",
+          "monitor"
+        ],
+        "operator_comment": null,
+        "review_focus": [
+          "evidence_chain_complete",
+          "slot_wording_within_boundary",
+          "support_merge_is_truthful",
+          "focus_scope_alignment"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "artifact_type": "fsj_main_chart_pack",
+  "artifact_version": "v1",
+  "business_date": "2026-04-23",
+  "chart_count": 3,
+  "ready_chart_count": 2,
+  "degrade_status": "partial",
+  "degrade_reason": [
+    "key_focus_return_bar:insufficient focus bars to calculate day-over-day return"
+  ],
+  "chart_classes": [
+    "key_focus_line",
+    "key_focus_return_bar",
+    "market_index_line"
+  ],
+  "assets": [
+    {
+      "chart_key": "market_index_window",
+      "chart_class": "market_index_line",
+      "title": "市场/指数窗口图",
+      "filename": "market_index_window.svg",
+      "relative_path": "charts/market_index_window.svg",
+      "source_window": {
+        "source_table": "ifa2.index_daily_bar_history",
+        "frequency": "daily",
+        "lookback_bars": 20,
+        "end_business_date": "2026-04-23",
+        "symbols": [
+          "000001.SH",
+          "399001.SZ",
+          "399006.SZ"
+        ]
+      },
+      "status": "ready",
+      "note": null,
+      "series_count": 3,
+      "symbol_count": 3
+    },
+    {
+      "chart_key": "key_focus_window",
+      "chart_class": "key_focus_line",
+      "title": "Key Focus 窗口图",
+      "filename": "key_focus_window.svg",
+      "relative_path": "charts/key_focus_window.svg",
+      "source_window": {
+        "source_table": "ifa2.equity_daily_bar_history",
+        "frequency": "daily",
+        "lookback_bars": 20,
+        "end_business_date": "2026-04-23",
+        "symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ"
+        ]
+      },
+      "status": "ready",
+      "note": null,
+      "series_count": 2,
+      "symbol_count": 2
+    },
+    {
+      "chart_key": "key_focus_return_bar",
+      "chart_class": "key_focus_return_bar",
+      "title": "Key Focus 日度涨跌幅",
+      "filename": "key_focus_return_bar.svg",
+      "relative_path": "charts/key_focus_return_bar.svg",
+      "source_window": {
+        "source_table": "ifa2.equity_daily_bar_history",
+        "frequency": "daily",
+        "lookback_bars": 2,
+        "end_business_date": "2026-04-23",
+        "symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ"
+        ]
+      },
+      "status": "missing",
+      "note": "insufficient focus bars to calculate day-over-day return",
+      "series_count": 0,
+      "symbol_count": 0
+    }
+  ],
+  "html_embed_blocks": [
+    {
+      "chart_key": "market_index_window",
+      "title": "市场/指数窗口图",
+      "status": "ready",
+      "relative_path": "charts/market_index_window.svg",
+      "source_window": {
+        "source_table": "ifa2.index_daily_bar_history",
+        "frequency": "daily",
+        "lookback_bars": 20,
+        "end_business_date": "2026-04-23",
+        "symbols": [
+          "000001.SH",
+          "399001.SZ",
+          "399006.SZ"
+        ]
+      },
+      "caption": "window=20 daily bars"
+    },
+    {
+      "chart_key": "key_focus_window",
+      "title": "Key Focus 窗口图",
+      "status": "ready",
+      "relative_path": "charts/key_focus_window.svg",
+      "source_window": {
+        "source_table": "ifa2.equity_daily_bar_history",
+        "frequency": "daily",
+        "lookback_bars": 20,
+        "end_business_date": "2026-04-23",
+        "symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ"
+        ]
+      },
+      "caption": "window=20 daily bars"
+    },
+    {
+      "chart_key": "key_focus_return_bar",
+      "title": "Key Focus 日度涨跌幅",
+      "status": "missing",
+      "relative_path": "charts/key_focus_return_bar.svg",
+      "source_window": {
+        "source_table": "ifa2.equity_daily_bar_history",
+        "frequency": "daily",
+        "lookback_bars": 2,
+        "end_business_date": "2026-04-23",
+        "symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ"
+        ]
+      },
+      "caption": "观察池标的缺少足够的连续行情，暂时无法计算日度涨跌幅，保留清单与纳入理由供跟踪。"
+    }
+  ]
+}
