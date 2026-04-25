@@ -21,7 +21,7 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P2-EDITORIAL-001` 并恢复 idle；Lane B 已完成 `POST-P2-CHART-FOCUS-001` 并恢复 idle
+- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P2-CUSTOMER-SANITIZE-001` 并恢复 idle；Lane B 已完成 `POST-P2-CHART-FOCUS-001` 并恢复 idle
 - **Acceptance Lane 状态**：`ACCEPT-P2-001` 已完成并 closed；等 Lane A / Lane B 完成下一轮 residual-gap 收口后再启动 `ACCEPT-P3-001`
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
@@ -54,7 +54,7 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:cbcaa338-ac20-4869-b865-78cc60657550` | POST-P2-EDITORIAL-001 | Premium Editorial Finish and Advisory Language Upgrade | pushed | 2026-04-24 20:57 PDT | 2026-04-25 21:01 PDT | none | lane complete; customer editorial finish upgraded, evidence/doc committed, Lane A ready for next assignment |
+| Lane A | `agent:developer:subagent:9047a4a2-703d-4f4b-a36e-ea354827982f` | POST-P2-CUSTOMER-SANITIZE-001 | Customer-facing upstream phrase sanitization | pushed | 2026-04-24 21:05 PDT | 2026-04-25 21:08 PDT | none | lane complete; customer-facing upstream/contract wording sanitized in customer profile only, fresh sample + leakage recheck passed, Lane A ready for next assignment |
 | Lane B | `agent:developer:subagent:8cf4eec9-852c-4e99-9e85-e1ae4860e78b` | POST-P2-CHART-FOCUS-001 | Chart Readiness and Focus Advisory Watchlist Polish | pushed | 2026-04-24 20:57 PDT | 2026-04-24 21:08 PDT | none | lane complete; focus-scope chart wiring repaired, customer chart degrade wording improved, watchlist tiering polished |
 
 说明：
@@ -97,6 +97,7 @@
 | ACCEPT-P2-001 | none | Customer-grade iFA Report Product Acceptance | acceptance | P2 | pushed | Acceptance Lane | `agent:developer:subagent:c4b112a9-e106-460d-9678-747ad6b1ffc1` | `docs/V2_P2_CUSTOMER_GRADE_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m py_compile src/ifa_data_platform/fsj/report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; tightened-customer-HTML leakage recheck; chart manifest inspection; commit delta inspection for `ae28b0d` / `b6a72fe` | `b1031c0` | acceptance verdict = PASS with non-blocking residual gaps; tightened customer main now includes Lindenwood attribution, disclaimer, stronger top judgment, explicit risk/next-step blocks, acceptable chart degrade explanation, improved focus explanatory surface, and remains leakage-clean |
 | POST-P1-CUSTOMER-REPORT-001 | none | Customer Main Report Product Tightening | post-P1 | P1 | pushed | Lane A | `agent:developer:subagent:7f0c2c3d-514b-434a-8eec-0448408bd9dd` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p1_customer_report_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T034424Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p1_customer_report_001 --report-run-id-prefix post-p1-customer-main-early`; customer leakage recheck on generated HTML for `bundle_id|producer_version|slot_run_id|replay_id|report_links|file:///|artifact_id|renderer version|action=|confidence=|evidence=` | `ae28b0d` | tightened customer main report to meet ACCEPT-P1-001 visible product gaps without altering internal/review surfaces; fresh sample contains iFA title, Lindenwood attribution, disclaimer, risk, next-step, top judgment and remains leakage-clean |
 | POST-P2-EDITORIAL-001 | none | Premium Editorial Finish and Advisory Language Upgrade | post-P2 | P2 | pushed | Lane A | `agent:developer:subagent:cbcaa338-ac20-4869-b865-78cc60657550` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/chart_pack.py`; `docs/POST_P2_EDITORIAL_001_PREMIUM_EDITORIAL_FINISH_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/chart_pack.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_editorial_001 --report-run-id-prefix post-p2-editorial-main-early`; leakage recheck on fresh customer HTML | `f8eb951` | customer-only editorial finish upgraded without disturbing internal/review surfaces; residual gap remains in upstream producer wording (`high+reference`, `same-day stable/final`) |
+| POST-P2-CUSTOMER-SANITIZE-001 | none | Customer-facing upstream phrase sanitization | post-P2 | P2 | pushed | Lane A | `agent:developer:subagent:9047a4a2-703d-4f4b-a36e-ea354827982f` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040821Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_customer_sanitize_001 --report-run-id-prefix post-p2-customer-sanitize-main-early`; leakage recheck on fresh customer HTML for `high+reference|same-day stable/final|candidate_with_open_validation|watchlist_only|close package|final market packet ready` | `3a7b938` | customer profile now sanitizes upstream/internal contract phrasing into customer-readable wording while internal/review surfaces retain raw lineage and engineering phrasing |
 | POST-P2-CHART-FOCUS-001 | none | Chart Readiness and Focus Advisory Watchlist Polish | post-P2 | P2 | pushed | Lane B | `agent:developer:subagent:8cf4eec9-852c-4e99-9e85-e1ae4860e78b` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_chart_focus_probe_v2 --report-run-id-prefix post-p2-chart-focus-v2` | `c67994d` | bounded chart/focus polish landed: focus_scope symbol wiring fixed, key-focus chart ready rate improved, customer watchlist tiers/degrade explanation upgraded |
 
 ### 4.1 Status 枚举
@@ -567,6 +568,32 @@
 - commit hash：`f8eb951`
 - push 状态：pushed (`a-lane-p4-3-llm-field-lineage` -> `origin/a-lane-p4-3-llm-field-lineage`)
 - 交付结论：POST-P2-EDITORIAL-001 bounded acceptance met；premium editorial finish 在 customer main presentation seam 内完成，未破坏 internal/review surfaces。
+
+#### Task ID: POST-P2-CUSTOMER-SANITIZE-001
+- Parent Task ID：none
+- 完成时间：2026-04-25
+- 做了什么：在不触碰 producer contract、不影响 internal/review surface、也不改 Lane B 的 chart/focus 命名逻辑前提下，仅在 customer presentation projection 增加 upstream phrase sanitization，把 `high+reference`、`same-day stable/final`、`candidate_with_open_validation`、`watchlist_only`、`close package`、`same-day final market packet ready` 等 contract/engineering phrasing 转成客户可读表述。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_customer_sanitize_001 --report-run-id-prefix post-p2-customer-sanitize-main-early`
+  - leakage recheck on `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040821Z.html` for `high+reference|same-day stable/final|candidate_with_open_validation|watchlist_only|close package|final market packet ready`
+- 结果摘要：
+  - customer HTML 不再直接暴露明显 upstream/contract wording；
+  - customer section summary、judgment/signal/fact statements、support summary 同步走客户化措辞；
+  - review/internal 仍保留 raw wording 与 lineage，可继续用于审阅和问题定位；
+  - 未改 producer-side contract、未碰 chart logic/focus wiring。
+- 证据路径：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040821Z.html`
+  - `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/main_early_publish_summary.json`
+- commit hash：`3a7b938`
+- push 状态：pushed (`a-lane-p4-3-llm-field-lineage` -> `origin/a-lane-p4-3-llm-field-lineage`)
+- 交付结论：POST-P2-CUSTOMER-SANITIZE-001 bounded acceptance met；customer-facing leakage recheck passes while internal/review surfaces remain unsanitized by design。
 
 #### Task ID: ACCEPT-P2-001
 - Parent Task ID：none

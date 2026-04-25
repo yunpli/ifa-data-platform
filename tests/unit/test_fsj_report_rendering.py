@@ -383,6 +383,45 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert "source:early:robotics" in rendered["content"]
 
 
+def test_customer_profile_sanitizes_upstream_contract_phrasing_but_review_keeps_it() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["summary"] = "candidate_with_open_validation：主线基于 high+reference 形成。"
+    assembled["sections"][0]["judgments"][0]["statement"] = "candidate_with_open_validation：先跟踪，不做确认。"
+    assembled["sections"][0]["signals"][0]["statement"] = "watchlist_only：若竞价不足则留在观察池。"
+    assembled["sections"][1]["signals"][0]["statement"] = "same-day stable/final market packet ready，收盘 close package 可用。"
+
+    customer = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-sanitize-1",
+        artifact_uri="file:///tmp/customer-sanitize.html",
+        generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    review = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-review-sanitize-1",
+        artifact_uri="file:///tmp/review-sanitize.html",
+        generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
+        output_profile="review",
+    )
+
+    assert "candidate_with_open_validation" not in customer["content"]
+    assert "high+reference" not in customer["content"]
+    assert "watchlist_only" not in customer["content"]
+    assert "same-day stable/final" not in customer["content"]
+    assert "close package" not in customer["content"]
+    assert "证据强度较高但仍需开盘验证" in customer["content"]
+    assert "盘前高频与参考信息" in customer["content"]
+    assert "仅作为观察池处理" in customer["content"]
+    assert "收盘口径已确认" in customer["content"]
+    assert "收盘确认依据" in customer["content"]
+
+    assert "candidate_with_open_validation" in review["content"]
+    assert "high+reference" in review["content"]
+    assert "watchlist_only" in review["content"]
+    assert "same-day stable/final" in review["content"]
+
+
 def test_main_report_renderer_renders_chart_pack_with_explicit_windows_and_missing_degrade() -> None:
     rendered = MainReportHTMLRenderer().render(
         _assembled_sections(),

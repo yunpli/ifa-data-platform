@@ -254,10 +254,11 @@ class MainReportHTMLRenderer:
             support_items = [
                 {
                     "domain": SUPPORT_DOMAIN_LABELS.get(str(item.get("agent_domain") or ""), str(item.get("agent_domain") or "support")),
-                    "summary": str(item.get("summary") or "暂无摘要"),
+                    "summary": self._sanitize_customer_text(str(item.get("summary") or "暂无摘要")),
                 }
                 for item in (section.get("support_summaries") or [])
             ]
+            section_summary = self._sanitize_customer_text(str(section.get("summary") or "暂无摘要"))
             highlights = self._customer_item_statements(section.get("judgments") or [], limit=3)
             signals = self._customer_item_statements(section.get("signals") or [], limit=3)
             facts = self._customer_item_statements(section.get("facts") or [], limit=3)
@@ -266,7 +267,7 @@ class MainReportHTMLRenderer:
                     "slot": slot,
                     "slot_label": slot_label,
                     "title": self._customer_section_title(slot, str(section.get("title") or slot_label)),
-                    "summary": str(section.get("summary") or "暂无摘要"),
+                    "summary": section_summary,
                     "status": str(section.get("status") or "unknown"),
                     "highlights": highlights,
                     "signals": signals,
@@ -274,7 +275,7 @@ class MainReportHTMLRenderer:
                     "support_themes": support_items,
                     "advisory_note": self._customer_slot_advisory_note(
                         slot=slot,
-                        summary=str(section.get("summary") or "暂无摘要"),
+                        summary=section_summary,
                         highlights=highlights,
                         signals=signals,
                         support_items=support_items,
@@ -434,8 +435,29 @@ class MainReportHTMLRenderer:
         return mapping.get(slot, fallback)
 
     def _customer_item_statements(self, items: Sequence[dict[str, Any]], *, limit: int) -> list[str]:
-        statements = [str(item.get("statement") or "").strip() for item in items if str(item.get("statement") or "").strip()]
+        statements = [
+            self._sanitize_customer_text(str(item.get("statement") or "").strip())
+            for item in items
+            if str(item.get("statement") or "").strip()
+        ]
         return statements[:limit]
+
+    def _sanitize_customer_text(self, text: str) -> str:
+        sanitized = str(text or "").strip()
+        if not sanitized:
+            return sanitized
+        replacements = [
+            ("candidate_with_open_validation", "证据强度较高但仍需开盘验证"),
+            ("watchlist_only", "仅作为观察池处理"),
+            ("same-day stable/final", "收盘口径已确认"),
+            ("same-day final market packet ready", "收盘口径已确认"),
+            ("high+reference", "盘前高频与参考信息"),
+            ("close package", "收盘确认依据"),
+            ("open validation", "开盘验证"),
+        ]
+        for old, new in replacements:
+            sanitized = sanitized.replace(old, new)
+        return sanitized
 
     def _customer_top_judgment(self, customer_sections: Sequence[dict[str, Any]]) -> str:
         early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
