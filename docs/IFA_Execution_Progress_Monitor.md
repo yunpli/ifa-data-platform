@@ -21,7 +21,7 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P2-CUSTOMER-SANITIZE-001` 并恢复 idle；Lane B 已完成 `POST-P2-CHART-FOCUS-001` 并恢复 idle
+- **当前 Lane A / Lane B 状态**：Lane A 已切换到 `POST-P3-EDITORIAL-COMPRESSION-001`；Lane B 已切换到 `POST-P3-WATCHLIST-PRO-001`
 - **Acceptance Lane 状态**：`ACCEPT-P3-001` 已完成并 closed；结论为 honest fail（premium editorial + professional watchlist bar 尚未通过），chart partial / customer explanation 与 leakage recheck 通过
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:9047a4a2-703d-4f4b-a36e-ea354827982f` | POST-P2-CUSTOMER-SANITIZE-001 | Customer-facing upstream phrase sanitization | pushed | 2026-04-24 21:05 PDT | 2026-04-25 21:08 PDT | none | lane complete; customer-facing upstream/contract wording sanitized in customer profile only, fresh sample + leakage recheck passed, Lane A ready for next assignment |
-| Lane B | `agent:developer:subagent:8cf4eec9-852c-4e99-9e85-e1ae4860e78b` | POST-P2-CHART-FOCUS-001 | Chart Readiness and Focus Advisory Watchlist Polish | pushed | 2026-04-24 20:57 PDT | 2026-04-24 21:08 PDT | none | lane complete; focus-scope chart wiring repaired, customer chart degrade wording improved, watchlist tiering polished |
+| Lane A | `agent:developer:subagent:PENDING_POST_P3_EDITORIAL_COMPRESSION_001` | POST-P3-EDITORIAL-COMPRESSION-001 | Customer-only Editorial Compression and Raw Fact Suppression | in_progress | 2026-04-24 21:37 PDT | 2026-04-24 21:37 PDT | none | suppress raw/noisy customer facts and telemetry while preserving internal/review truth |
+| Lane B | `agent:developer:subagent:PENDING_POST_P3_WATCHLIST_PRO_001` | POST-P3-WATCHLIST-PRO-001 | Professional Advisory Watchlist and Focus Naming Upgrade | in_progress | 2026-04-24 21:37 PDT | 2026-04-24 21:37 PDT | none | professionalize focus/watchlist naming, rationale, and fallback wording |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -64,14 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `agent:developer:subagent:487b3282-db6e-49d9-8e38-af9e1b06d8c7`
-- Current Acceptance Task: `ACCEPT-P3-001`
-- Status: `pushed`
-- Started At: `2026-04-24 21:13 PDT`
-- Last Update: `2026-04-24 21:41 PDT`
-- Findings: `ACCEPT-P3-001 closed: premium editorial + chart/focus acceptance does not fully pass yet; chart partial/customer explanation passes, leakage recheck passes, but customer facts remain too raw/noisy and focus/watchlist still falls short of premium advisory quality`
-- Blocker: `premium editorial compression and professional watchlist presentation still blocking final acceptance`
-- Next Action: `route residuals back to implementation lane for another customer-only editorial/watchlist pass before re-running acceptance`
+- Current Sub-Agent: `none`
+- Current Acceptance Task: `none`
+- Status: `idle`
+- Started At: `-`
+- Last Update: `2026-04-24 21:37 PDT`
+- Findings: `ACCEPT-P3-001 closed as honest fail / near-pass; next required work is customer-only editorial compression + professional advisory watchlist upgrade`
+- Blocker: `none`
+- Next Action: `wait for POST-P3-EDITORIAL-COMPRESSION-001 and POST-P3-WATCHLIST-PRO-001 before launching ACCEPT-P4-001`
 
 ---
 
