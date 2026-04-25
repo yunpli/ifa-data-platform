@@ -6,6 +6,7 @@ from pathlib import Path
 import json
 import pytest
 
+from ifa_data_platform.fsj import report_rendering as rr
 from ifa_data_platform.fsj.chart_pack import FSJChartPackBuilder
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
@@ -338,9 +339,9 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert "风险提示" in rendered["content"]
     assert "明日观察 / 下一步" in rendered["content"]
     assert "免责声明" in rendered["content"]
-    assert "今日 Key Focus / Focus" in rendered["content"]
-    assert "Tier 1 / Key Focus" in rendered["content"]
-    assert "Tier 2 / Focus Watchlist" in rendered["content"]
+    assert "今日 核心关注 / 关注" in rendered["content"]
+    assert "核心关注" in rendered["content"]
+    assert "关注" in rendered["content"]
     assert "机器人龙头A（300024.SZ）" in rendered["content"]
     assert "纳入原因：列入核心观察名单，当前已具备本地市场侧样本与文本/事件侧线索，机器人龙头A更适合继续核验强度、承接与主线带动性，而不是直接上升为确定性判断" in rendered["content"]
     assert "盘中观察要点：盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认" in rendered["content"]
@@ -368,7 +369,8 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "机器人龙头A"
     assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "机器人链补涨B"
     assert customer_presentation["focus_module"]["focus_watch_items"][1]["display_name"] == "工业自动化核心C"
-    assert customer_presentation["focus_module"]["watchlist_tiers"][1]["label"] == "Tier 2 / Focus Watchlist"
+    assert customer_presentation["focus_module"]["watchlist_tiers"][0]["label"] == "核心关注 / 核心关注列表"
+    assert customer_presentation["focus_module"]["watchlist_tiers"][1]["label"] == "关注 / 关注列表"
     assert customer_presentation["focus_module"]["key_focus_items"][0]["evidence_depth"] == "market_and_text"
     assert customer_presentation["focus_module"]["focus_watch_items"][0]["evidence_depth"] == "market_and_text"
     assert customer_presentation["focus_module"]["focus_watch_items"][1]["evidence_depth"] == "text_only"
@@ -393,7 +395,7 @@ def test_main_report_renderer_uses_professional_focus_fallback_wording_when_watc
         output_profile="customer",
     )
 
-    assert "补充观察名单暂未展开" in rendered["content"]
+    assert "关注列表暂未展开" in rendered["content"]
     assert "当前报告把研究资源优先放在核心验证对象上" in rendered["content"]
     assert "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围" in rendered["content"]
     assert "暂无 Focus Watchlist" not in rendered["content"]
@@ -427,6 +429,39 @@ def test_main_report_renderer_keeps_missing_name_watchlist_rows_readable_without
     assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "核心观察标的一"
     assert customer_presentation["focus_module"]["key_focus_items"][0]["short_label"] == "核心观察标的一（000001.SZ）"
 
+
+
+
+def test_main_report_renderer_honors_default_focus_display_limits_and_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rr, "KEY_FOCUS_DISPLAY_LIMIT", 30)
+    monkeypatch.setattr(rr, "FOCUS_DISPLAY_LIMIT", 50)
+    assembled = _assembled_sections()
+    items = []
+    focus_symbols = []
+    for i in range(1, 61):
+        symbol = f"{i:06d}.SZ"
+        focus_symbols.append(symbol)
+        items.append({"symbol": symbol, "name": f"样本{i}", "list_types": ["key_focus"] if i <= 30 else ["focus"], "priority": i})
+    assembled["sections"][0]["lineage"]["bundle"]["payload_json"]["focus_scope"] = {
+        "focus_symbols": focus_symbols,
+        "focus_list_types": ["key_focus", "focus"],
+        "items": items,
+        "why_included": "测试显示上限与封顶。",
+    }
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-focus-limit-1",
+        artifact_uri="file:///tmp/customer-focus-limit.html",
+        generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    focus_module = rendered["metadata"]["customer_presentation"]["focus_module"]
+
+    assert len(focus_module["key_focus_items"]) == 20
+    assert len(focus_module["focus_watch_items"]) == 40
+    assert len(focus_module["key_focus_symbols"]) == 20
+    assert len(focus_module["focus_watch_symbols"]) == 40
 
 def test_main_report_renderer_differentiates_watchlist_rationale_by_symbol_evidence_depth() -> None:
     assembled = _assembled_sections()
@@ -497,7 +532,7 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert rendered["title"] == "A股主报告审阅包｜2099-04-22"
     assert rendered["metadata"]["output_profile"] == "review"
     assert rendered["metadata"]["presentation_schema_version"] is None
-    assert "Key Focus / Focus 模块" in rendered["content"]
+    assert "核心关注 / 关注 模块" in rendered["content"]
     assert "机器人龙头A（300024.SZ）" in rendered["content"]
     assert "盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认。" in rendered["content"]
     assert "bundle-early" in rendered["content"]
@@ -1015,7 +1050,7 @@ def test_main_report_renderer_customer_profile_surfaces_chart_assets_without_int
 
     assert "关键图表" in rendered["content"]
     assert "charts/market_index_window.svg" not in rendered["content"]
-    assert "部分图表因连续行情样本不足暂不展示涨跌幅对比，本期保留指数与 Key Focus 窗口图作为主要参考。" in rendered["content"]
+    assert "部分图表因连续行情样本不足暂不展示涨跌幅对比，本期保留指数与核心关注窗口图作为主要参考。" in rendered["content"]
     assert "chart_degrade_status=partial" not in rendered["content"]
     assert "ready_chart_count=2/3" not in rendered["content"]
     assert "bundle-early" not in rendered["content"]

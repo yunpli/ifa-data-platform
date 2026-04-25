@@ -1,0 +1,1130 @@
+{
+  "artifact_type": "fsj_main_report_judgment_review_surface",
+  "artifact_version": "v1",
+  "business_date": "2026-04-23",
+  "judgment_item_count": 3,
+  "review_slot_count": 3,
+  "review_status": "pending_operator_item_review",
+  "items": [
+    {
+      "judgment_key": "judgment:early:mainline_plan",
+      "slot": "early",
+      "section_key": "pre_open_main",
+      "section_title": "盘前主结论",
+      "statement": "将当前候选主线作为开盘首要验证对象；若竞价强度和事件延续性无法继续兑现，则立即降回观察项。",
+      "judgment_action": "validate",
+      "confidence": "medium",
+      "evidence_level": null,
+      "contract_mode": "candidate_with_open_validation",
+      "completeness_label": "complete",
+      "degrade_reason": null,
+      "support_bundle_ids": [
+        "a_share:2026-04-23:early:ai_tech:support_ai_tech:8b9512842822",
+        "a_share:2026-04-23:early:commodities:support_commodities:0cfeb8bec554",
+        "a_share:2026-04-23:early:macro:support_macro:143a4e15bdd3"
+      ],
+      "evidence_refs": [
+        {
+          "ref_key": "5f72fb5a-f9fe-4fbd-8437-5e434e72778b",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "fsj-runtime:replay:2026-04-23:early:688a28e55ef6d278",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "2026-04-23:auction",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:events",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "default:focus_scope",
+          "ref_system": "business_seed",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:text_catalysts",
+          "ref_system": "lowfreq",
+          "evidence_role": "source_observed"
+        }
+      ],
+      "focus_module_refs": {
+        "module_type": "fsj_focus_module",
+        "business_date": "2026-04-23",
+        "list_types": [
+          "focus",
+          "key_focus"
+        ],
+        "focus_symbols": [
+          "000001.SZ",
+          "000002.SZ",
+          "000004.SZ",
+          "000006.SZ",
+          "000007.SZ",
+          "000008.SZ",
+          "000009.SZ",
+          "000010.SZ",
+          "000011.SZ",
+          "000012.SZ",
+          "000014.SZ",
+          "000016.SZ",
+          "000017.SZ",
+          "000019.SZ",
+          "000020.SZ",
+          "000021.SZ",
+          "000025.SZ",
+          "000026.SZ",
+          "000027.SZ",
+          "000028.SZ",
+          "000029.SZ"
+        ],
+        "focus_symbol_count": 30,
+        "key_focus_symbols": [
+          "000001.SZ"
+        ],
+        "key_focus_symbol_count": 1,
+        "focus_watch_symbols": [
+          "000002.SZ",
+          "000004.SZ",
+          "000006.SZ",
+          "000007.SZ",
+          "000008.SZ",
+          "000009.SZ",
+          "000010.SZ",
+          "000011.SZ",
+          "000012.SZ",
+          "000014.SZ",
+          "000016.SZ",
+          "000017.SZ",
+          "000019.SZ",
+          "000020.SZ",
+          "000021.SZ",
+          "000025.SZ",
+          "000026.SZ",
+          "000027.SZ",
+          "000028.SZ",
+          "000029.SZ"
+        ],
+        "focus_watch_symbol_count": 29,
+        "focus_name_map": {
+          "000001.SZ": "平安银行",
+          "000002.SZ": "万科Ａ",
+          "000004.SZ": "*ST国华",
+          "000006.SZ": "深振业Ａ",
+          "000007.SZ": "全新好",
+          "000008.SZ": "神州高铁",
+          "000009.SZ": "中国宝安",
+          "000010.SZ": "美丽生态",
+          "000011.SZ": "深物业A",
+          "000012.SZ": "南玻Ａ",
+          "000014.SZ": "沙河股份",
+          "000016.SZ": "深康佳Ａ",
+          "000017.SZ": "深中华A",
+          "000019.SZ": "深粮控股",
+          "000020.SZ": "深华发Ａ",
+          "000021.SZ": "深科技",
+          "000025.SZ": "特力Ａ",
+          "000026.SZ": "飞亚达",
+          "000027.SZ": "深圳能源",
+          "000028.SZ": "国药一致",
+          "000029.SZ": "深深房Ａ",
+          "000030.SZ": "富奥股份",
+          "000031.SZ": "大悦城",
+          "000032.SZ": "深桑达Ａ",
+          "000034.SZ": "神州数码",
+          "000035.SZ": "中国天楹",
+          "000036.SZ": "华联控股",
+          "000037.SZ": "深南电A",
+          "000039.SZ": "中集集团",
+          "000042.SZ": "中洲控股"
+        },
+        "key_focus_items": [
+          {
+            "symbol": "000001.SZ",
+            "code": "000001.SZ",
+            "display_name": "平安银行",
+            "short_label": "平安银行（000001.SZ）",
+            "observation_rationale": "列入核心观察名单，当前已有日线样本或量价记录可供观察，但文本/事件补证仍有限，先围绕盘面延续性做重点跟踪。",
+            "today_validation_point": "盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认。",
+            "risk_invalidation": "若后续跟踪中量价配合转弱、承接不足或板块共振没有延续，应及时降回观察级别。",
+            "list_types": [
+              "key_focus",
+              "focus"
+            ],
+            "evidence_score": 3,
+            "evidence_depth": "market_only"
+          }
+        ],
+        "focus_watch_items": [
+          {
+            "symbol": "000002.SZ",
+            "code": "000002.SZ",
+            "display_name": "万科Ａ",
+            "short_label": "万科Ａ（000002.SZ）",
+            "observation_rationale": "列入关注名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 4,
+            "evidence_depth": "market_and_text"
+          },
+          {
+            "symbol": "000004.SZ",
+            "code": "000004.SZ",
+            "display_name": "*ST国华",
+            "short_label": "*ST国华（000004.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 5 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000006.SZ",
+            "code": "000006.SZ",
+            "display_name": "深振业Ａ",
+            "short_label": "深振业Ａ（000006.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 区域地产 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000007.SZ",
+            "code": "000007.SZ",
+            "display_name": "全新好",
+            "short_label": "全新好（000007.SZ）",
+            "observation_rationale": "列入关注名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 4,
+            "evidence_depth": "market_and_text"
+          },
+          {
+            "symbol": "000008.SZ",
+            "code": "000008.SZ",
+            "display_name": "神州高铁",
+            "short_label": "神州高铁（000008.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 3 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000009.SZ",
+            "code": "000009.SZ",
+            "display_name": "中国宝安",
+            "short_label": "中国宝安（000009.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 电气设备 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000010.SZ",
+            "code": "000010.SZ",
+            "display_name": "美丽生态",
+            "short_label": "美丽生态（000010.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 建筑工程 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000011.SZ",
+            "code": "000011.SZ",
+            "display_name": "深物业A",
+            "short_label": "深物业A（000011.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 房产服务 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000012.SZ",
+            "code": "000012.SZ",
+            "display_name": "南玻Ａ",
+            "short_label": "南玻Ａ（000012.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 玻璃 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000014.SZ",
+            "code": "000014.SZ",
+            "display_name": "沙河股份",
+            "short_label": "沙河股份（000014.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 全国地产 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000016.SZ",
+            "code": "000016.SZ",
+            "display_name": "深康佳Ａ",
+            "short_label": "深康佳Ａ（000016.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 4 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000017.SZ",
+            "code": "000017.SZ",
+            "display_name": "深中华A",
+            "short_label": "深中华A（000017.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 服饰 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000019.SZ",
+            "code": "000019.SZ",
+            "display_name": "深粮控股",
+            "short_label": "深粮控股（000019.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 农业综合 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000020.SZ",
+            "code": "000020.SZ",
+            "display_name": "深华发Ａ",
+            "short_label": "深华发Ａ（000020.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 元器件 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000021.SZ",
+            "code": "000021.SZ",
+            "display_name": "深科技",
+            "short_label": "深科技（000021.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 1 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000025.SZ",
+            "code": "000025.SZ",
+            "display_name": "特力Ａ",
+            "short_label": "特力Ａ（000025.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 100 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000026.SZ",
+            "code": "000026.SZ",
+            "display_name": "飞亚达",
+            "short_label": "飞亚达（000026.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 2 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000027.SZ",
+            "code": "000027.SZ",
+            "display_name": "深圳能源",
+            "short_label": "深圳能源（000027.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 火力发电 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          },
+          {
+            "symbol": "000028.SZ",
+            "code": "000028.SZ",
+            "display_name": "国药一致",
+            "short_label": "国药一致（000028.SZ）",
+            "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 4 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+            "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+            "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 2,
+            "evidence_depth": "text_only"
+          },
+          {
+            "symbol": "000029.SZ",
+            "code": "000029.SZ",
+            "display_name": "深深房Ａ",
+            "short_label": "深深房Ａ（000029.SZ）",
+            "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 区域地产 方向的基础标签，尚不足以支持更高优先级。",
+            "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+            "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+            "list_types": [
+              "focus"
+            ],
+            "evidence_score": 1,
+            "evidence_depth": "focus_list_only"
+          }
+        ],
+        "watchlist_tiers": [
+          {
+            "label": "核心关注 / 核心关注列表",
+            "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。",
+            "symbols": [
+              "000001.SZ"
+            ],
+            "items": [
+              {
+                "symbol": "000001.SZ",
+                "code": "000001.SZ",
+                "display_name": "平安银行",
+                "short_label": "平安银行（000001.SZ）",
+                "observation_rationale": "列入核心观察名单，当前已有日线样本或量价记录可供观察，但文本/事件补证仍有限，先围绕盘面延续性做重点跟踪。",
+                "today_validation_point": "盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认。",
+                "risk_invalidation": "若后续跟踪中量价配合转弱、承接不足或板块共振没有延续，应及时降回观察级别。",
+                "list_types": [
+                  "key_focus",
+                  "focus"
+                ],
+                "evidence_score": 3,
+                "evidence_depth": "market_only"
+              }
+            ]
+          },
+          {
+            "label": "关注 / 关注列表",
+            "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。",
+            "symbols": [
+              "000002.SZ",
+              "000004.SZ",
+              "000006.SZ",
+              "000007.SZ",
+              "000008.SZ",
+              "000009.SZ",
+              "000010.SZ",
+              "000011.SZ",
+              "000012.SZ",
+              "000014.SZ",
+              "000016.SZ",
+              "000017.SZ",
+              "000019.SZ",
+              "000020.SZ",
+              "000021.SZ",
+              "000025.SZ",
+              "000026.SZ",
+              "000027.SZ",
+              "000028.SZ",
+              "000029.SZ"
+            ],
+            "items": [
+              {
+                "symbol": "000002.SZ",
+                "code": "000002.SZ",
+                "display_name": "万科Ａ",
+                "short_label": "万科Ａ（000002.SZ）",
+                "observation_rationale": "列入关注名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 4,
+                "evidence_depth": "market_and_text"
+              },
+              {
+                "symbol": "000004.SZ",
+                "code": "000004.SZ",
+                "display_name": "*ST国华",
+                "short_label": "*ST国华（000004.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 5 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000006.SZ",
+                "code": "000006.SZ",
+                "display_name": "深振业Ａ",
+                "short_label": "深振业Ａ（000006.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 区域地产 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000007.SZ",
+                "code": "000007.SZ",
+                "display_name": "全新好",
+                "short_label": "全新好（000007.SZ）",
+                "observation_rationale": "列入关注名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 4,
+                "evidence_depth": "market_and_text"
+              },
+              {
+                "symbol": "000008.SZ",
+                "code": "000008.SZ",
+                "display_name": "神州高铁",
+                "short_label": "神州高铁（000008.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 3 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000009.SZ",
+                "code": "000009.SZ",
+                "display_name": "中国宝安",
+                "short_label": "中国宝安（000009.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 电气设备 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000010.SZ",
+                "code": "000010.SZ",
+                "display_name": "美丽生态",
+                "short_label": "美丽生态（000010.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 建筑工程 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000011.SZ",
+                "code": "000011.SZ",
+                "display_name": "深物业A",
+                "short_label": "深物业A（000011.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 房产服务 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000012.SZ",
+                "code": "000012.SZ",
+                "display_name": "南玻Ａ",
+                "short_label": "南玻Ａ（000012.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 玻璃 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000014.SZ",
+                "code": "000014.SZ",
+                "display_name": "沙河股份",
+                "short_label": "沙河股份（000014.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 全国地产 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000016.SZ",
+                "code": "000016.SZ",
+                "display_name": "深康佳Ａ",
+                "short_label": "深康佳Ａ（000016.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 4 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000017.SZ",
+                "code": "000017.SZ",
+                "display_name": "深中华A",
+                "short_label": "深中华A（000017.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 服饰 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000019.SZ",
+                "code": "000019.SZ",
+                "display_name": "深粮控股",
+                "short_label": "深粮控股（000019.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 农业综合 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000020.SZ",
+                "code": "000020.SZ",
+                "display_name": "深华发Ａ",
+                "short_label": "深华发Ａ（000020.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 元器件 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000021.SZ",
+                "code": "000021.SZ",
+                "display_name": "深科技",
+                "short_label": "深科技（000021.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 1 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000025.SZ",
+                "code": "000025.SZ",
+                "display_name": "特力Ａ",
+                "short_label": "特力Ａ（000025.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 100 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000026.SZ",
+                "code": "000026.SZ",
+                "display_name": "飞亚达",
+                "short_label": "飞亚达（000026.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 2 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000027.SZ",
+                "code": "000027.SZ",
+                "display_name": "深圳能源",
+                "short_label": "深圳能源（000027.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 火力发电 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              },
+              {
+                "symbol": "000028.SZ",
+                "code": "000028.SZ",
+                "display_name": "国药一致",
+                "short_label": "国药一致（000028.SZ）",
+                "observation_rationale": "列入关注名单，当前主要依赖本地文本/事件线索（合计 4 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。",
+                "today_validation_point": "盘中重点看是否继续形成跟随扩散、回流承接或更完整的联动结构。",
+                "risk_invalidation": "若联动扩散很快中断、回流承接不足或只剩孤立表现，则继续留在补充观察层。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 2,
+                "evidence_depth": "text_only"
+              },
+              {
+                "symbol": "000029.SZ",
+                "code": "000029.SZ",
+                "display_name": "深深房Ａ",
+                "short_label": "深深房Ａ（000029.SZ）",
+                "observation_rationale": "列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 区域地产 方向的基础标签，尚不足以支持更高优先级。",
+                "today_validation_point": "盘中重点看初步异动能否发展为连续联动，而不是停留在零散波动。",
+                "risk_invalidation": "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。",
+                "list_types": [
+                  "focus"
+                ],
+                "evidence_score": 1,
+                "evidence_depth": "focus_list_only"
+              }
+            ]
+          }
+        ],
+        "why_included": "当前业务观察池覆盖 30 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+        "reasons": [
+          "当前业务观察池覆盖 30 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+          "核心关注 共 1 个，优先用于验证强度、节奏与是否具备继续跟踪价值。",
+          "关注 共 29 个，作为扩散与分歧观察池，避免把临时噪音误判为主线。"
+        ],
+        "source_sections": [
+          "early"
+        ],
+        "chart_refs": [
+          {
+            "chart_key": "key_focus_window",
+            "title": "核心关注 窗口图"
+          },
+          {
+            "chart_key": "key_focus_return_bar",
+            "title": "核心关注 日度涨跌幅"
+          }
+        ],
+        "judgment_refs": [
+          "judgment:early:mainline_plan"
+        ],
+        "review_ready": true
+      },
+      "review": {
+        "status": "pending",
+        "allowed_actions": [
+          "approve",
+          "needs_edit",
+          "reject",
+          "monitor"
+        ],
+        "operator_comment": null,
+        "review_focus": [
+          "evidence_chain_complete",
+          "slot_wording_within_boundary",
+          "support_merge_is_truthful",
+          "focus_scope_alignment"
+        ]
+      }
+    },
+    {
+      "judgment_key": "judgment:mid:mainline_update",
+      "slot": "mid",
+      "section_key": "midday_main",
+      "section_title": "盘中主结论",
+      "statement": "当前仅输出 observe/track-only 的盘中更新，不输出‘强化/分歧/转强已确认’这类强结论。",
+      "judgment_action": "watch",
+      "confidence": "low",
+      "evidence_level": null,
+      "contract_mode": "monitoring_only",
+      "completeness_label": null,
+      "degrade_reason": "insufficient_intraday_structure",
+      "support_bundle_ids": [],
+      "evidence_refs": [
+        {
+          "ref_key": "early:2026-04-23",
+          "ref_system": "fsj",
+          "evidence_role": "prior_slot_reference"
+        },
+        {
+          "ref_key": "fsj-runtime:replay:2026-04-23:mid:56b2279c6efe7d73",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "2026-04-23:sector_breadth",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:sector_heat",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:signal_state",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:stock_1m",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:latest_text",
+          "ref_system": "lowfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:events",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:leaders",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        }
+      ],
+      "focus_module_refs": {
+        "module_type": "fsj_focus_module",
+        "business_date": "2026-04-23",
+        "list_types": [],
+        "focus_symbols": [],
+        "focus_symbol_count": 0,
+        "key_focus_symbols": [],
+        "key_focus_symbol_count": 0,
+        "focus_watch_symbols": [],
+        "focus_watch_symbol_count": 0,
+        "focus_name_map": {},
+        "key_focus_items": [],
+        "focus_watch_items": [
+          {
+            "symbol": "",
+            "display_name": "关注列表暂未展开",
+            "short_label": "关注列表暂未展开",
+            "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+            "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+            "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+          }
+        ],
+        "watchlist_tiers": [
+          {
+            "label": "核心关注 / 核心关注列表",
+            "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。",
+            "symbols": [],
+            "items": []
+          },
+          {
+            "label": "关注 / 关注列表",
+            "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。",
+            "symbols": [],
+            "items": [
+              {
+                "symbol": "",
+                "display_name": "关注列表暂未展开",
+                "short_label": "关注列表暂未展开",
+                "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+                "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+                "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+              }
+            ]
+          }
+        ],
+        "why_included": "核心关注 / 关注 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
+        "reasons": [
+          "当前观察池共覆盖 0 个对象，用于界定优先跟踪范围与噪音过滤边界。"
+        ],
+        "source_sections": [
+          "mid"
+        ],
+        "chart_refs": [
+          {
+            "chart_key": "key_focus_window",
+            "title": "核心关注 窗口图"
+          },
+          {
+            "chart_key": "key_focus_return_bar",
+            "title": "核心关注 日度涨跌幅"
+          }
+        ],
+        "judgment_refs": [
+          "judgment:mid:mainline_update"
+        ],
+        "review_ready": false
+      },
+      "review": {
+        "status": "pending",
+        "allowed_actions": [
+          "approve",
+          "needs_edit",
+          "reject",
+          "monitor"
+        ],
+        "operator_comment": null,
+        "review_focus": [
+          "evidence_chain_complete",
+          "slot_wording_within_boundary",
+          "support_merge_is_truthful",
+          "focus_scope_alignment"
+        ]
+      }
+    },
+    {
+      "judgment_key": "judgment:late:mainline_close",
+      "slot": "late",
+      "section_key": "post_close_main",
+      "section_title": "收盘主结论",
+      "statement": "将当前 same-day stable/final 事实作为晚报主线收盘结论依据；intraday retained 仅做演化解释，T-1 仅做历史对照。",
+      "judgment_action": "confirm",
+      "confidence": "high",
+      "evidence_level": null,
+      "contract_mode": "full_close_package",
+      "completeness_label": "complete",
+      "degrade_reason": null,
+      "support_bundle_ids": [
+        "a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47",
+        "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+        "a_share:2026-04-23:late:macro:support_macro:7846ec308c0c"
+      ],
+      "evidence_refs": [
+        {
+          "ref_key": "mid:2026-04-23",
+          "ref_system": "fsj",
+          "evidence_role": "prior_slot_reference"
+        },
+        {
+          "ref_key": "fsj-runtime:replay:2026-04-23:late:13ccd817235d1a34",
+          "ref_system": "runtime",
+          "evidence_role": "slot_replay"
+        },
+        {
+          "ref_key": "2026-04-23:intraday_events",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:intraday_leaders",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:intraday_signal_state",
+          "ref_system": "highfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:dragon_tiger_list",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:equity_daily_bar",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:limit_up_detail",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:limit_up_down_status",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:northbound_flow",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:sector_performance",
+          "ref_system": "midfreq",
+          "evidence_role": "source_observed"
+        },
+        {
+          "ref_key": "2026-04-23:same_day_text",
+          "ref_system": "lowfreq",
+          "evidence_role": "source_observed"
+        }
+      ],
+      "focus_module_refs": {
+        "module_type": "fsj_focus_module",
+        "business_date": "2026-04-23",
+        "list_types": [],
+        "focus_symbols": [],
+        "focus_symbol_count": 0,
+        "key_focus_symbols": [],
+        "key_focus_symbol_count": 0,
+        "focus_watch_symbols": [],
+        "focus_watch_symbol_count": 0,
+        "focus_name_map": {},
+        "key_focus_items": [],
+        "focus_watch_items": [
+          {
+            "symbol": "",
+            "display_name": "关注列表暂未展开",
+            "short_label": "关注列表暂未展开",
+            "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+            "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+            "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+          }
+        ],
+        "watchlist_tiers": [
+          {
+            "label": "核心关注 / 核心关注列表",
+            "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。",
+            "symbols": [],
+            "items": []
+          },
+          {
+            "label": "关注 / 关注列表",
+            "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。",
+            "symbols": [],
+            "items": [
+              {
+                "symbol": "",
+                "display_name": "关注列表暂未展开",
+                "short_label": "关注列表暂未展开",
+                "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+                "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+                "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。"
+              }
+            ]
+          }
+        ],
+        "why_included": "核心关注 / 关注 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
+        "reasons": [
+          "当前观察池共覆盖 0 个对象，用于界定优先跟踪范围与噪音过滤边界。"
+        ],
+        "source_sections": [
+          "late"
+        ],
+        "chart_refs": [
+          {
+            "chart_key": "key_focus_window",
+            "title": "核心关注 窗口图"
+          },
+          {
+            "chart_key": "key_focus_return_bar",
+            "title": "核心关注 日度涨跌幅"
+          }
+        ],
+        "judgment_refs": [
+          "judgment:late:mainline_close"
+        ],
+        "review_ready": false
+      },
+      "review": {
+        "status": "pending",
+        "allowed_actions": [
+          "approve",
+          "needs_edit",
+          "reject",
+          "monitor"
+        ],
+        "operator_comment": null,
+        "review_focus": [
+          "evidence_chain_complete",
+          "slot_wording_within_boundary",
+          "support_merge_is_truthful",
+          "focus_scope_alignment"
+        ]
+      }
+    }
+  ]
+}

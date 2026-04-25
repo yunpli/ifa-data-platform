@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="340" viewBox="0 0 920 340">
+  <rect width="100%" height="100%" fill="#ffffff" rx="18" />
+  <text x="20" y="24" font-size="18" font-weight="700" fill="#0f172a">Key Focus 窗口图</text>
+  <text x="20" y="40" font-size="12" fill="#64748b">source=equity_daily_bar_history | window=20d</text>
+  <rect x="56" y="46" width="844" height="260" fill="#f8fafc" stroke="#cbd5e1" rx="12" />
+  <line x1="56" y1="46.0" x2="900" y2="46.0" stroke="#e2e8f0" /><text x="8" y="50.0" font-size="11" fill="#64748b">20.20</text><line x1="56" y1="111.0" x2="900" y2="111.0" stroke="#e2e8f0" /><text x="8" y="115.0" font-size="11" fill="#64748b">17.90</text><line x1="56" y1="176.0" x2="900" y2="176.0" stroke="#e2e8f0" /><text x="8" y="180.0" font-size="11" fill="#64748b">15.60</text><line x1="56" y1="241.0" x2="900" y2="241.0" stroke="#e2e8f0" /><text x="8" y="245.0" font-size="11" fill="#64748b">13.30</text><line x1="56" y1="306.0" x2="900" y2="306.0" stroke="#e2e8f0" /><text x="8" y="310.0" font-size="11" fill="#64748b">11.00</text>
+  <polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="56.0,306.0" /><polyline fill="none" stroke="#dc2626" stroke-width="2.5" points="56.0,46.0" />
+  <text x="56" y="330" font-size="12" fill="#2563eb">000001.SZ</text><text x="206" y="330" font-size="12" fill="#dc2626">000002.SZ</text>
+</svg>

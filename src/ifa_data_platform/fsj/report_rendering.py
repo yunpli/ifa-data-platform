@@ -23,6 +23,14 @@ RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
 RENDERER_VERSION = "v3"
 VALID_OUTPUT_PROFILES = {"internal", "review", "customer"}
 CUSTOMER_PRESENTATION_SCHEMA_VERSION = "v1"
+KEY_FOCUS_DISPLAY_LIMIT = 10
+FOCUS_DISPLAY_LIMIT = 20
+KEY_FOCUS_DISPLAY_LIMIT_CAP = 20
+FOCUS_DISPLAY_LIMIT_CAP = 40
+KEY_FOCUS_MODULE_LABEL = "核心关注"
+FOCUS_MODULE_LABEL = "关注"
+KEY_FOCUS_TIER_LABEL = "核心关注列表"
+FOCUS_TIER_LABEL = "关注列表"
 
 SLOT_LABELS: dict[str, str] = {
     "early": "早报 / 盘前",
@@ -217,7 +225,7 @@ class MainReportHTMLRenderer:
     </section>
 
     <section class=\"card\">
-      <h2>Key Focus / Focus 模块</h2>
+      <h2>核心关注 / 关注 模块</h2>
       {focus_html}
     </section>
 
@@ -436,14 +444,16 @@ class MainReportHTMLRenderer:
             symbol for symbol in focus_item_order
             if any("key_focus" in list_type for list_type in (focus_item_list_type_map.get(symbol) or []))
         ]
+        key_focus_limit = self._focus_display_limit(KEY_FOCUS_DISPLAY_LIMIT, cap=KEY_FOCUS_DISPLAY_LIMIT_CAP)
+        focus_limit = self._focus_display_limit(FOCUS_DISPLAY_LIMIT, cap=FOCUS_DISPLAY_LIMIT_CAP)
         if prioritized_item_symbols:
-            key_focus_symbols = prioritized_item_symbols[: min(5, len(prioritized_item_symbols))]
+            key_focus_symbols = prioritized_item_symbols[: min(key_focus_limit, len(prioritized_item_symbols))]
         elif not key_focus_symbols:
             prioritized_symbols = [
                 symbol for symbol in ordered_focus_symbols
                 if any("key_focus" in list_type for list_type in (focus_item_list_type_map.get(symbol) or []))
             ]
-            key_focus_symbols = (prioritized_symbols or ordered_focus_symbols)[: min(5, len(ordered_focus_symbols))]
+            key_focus_symbols = (prioritized_symbols or ordered_focus_symbols)[: min(key_focus_limit, len(ordered_focus_symbols))]
         focus_only_symbols = [symbol for symbol in ordered_focus_symbols if symbol not in set(key_focus_symbols)]
         key_focus_items = [
             self._build_focus_watch_item(
@@ -460,7 +470,7 @@ class MainReportHTMLRenderer:
                 ),
                 ordinal=index,
             )
-            for index, symbol in enumerate(key_focus_symbols[:5], start=1)
+            for index, symbol in enumerate(key_focus_symbols[:key_focus_limit], start=1)
         ]
         focus_watch_items = [
             self._build_focus_watch_item(
@@ -477,34 +487,34 @@ class MainReportHTMLRenderer:
                 ),
                 ordinal=index,
             )
-            for index, symbol in enumerate(focus_only_symbols[:7], start=1)
+            for index, symbol in enumerate(focus_only_symbols[:focus_limit], start=1)
         ]
         if not focus_watch_items:
             focus_watch_items = [self._professional_empty_focus_item()]
-        display_focus_symbols = [item["symbol"] for item in (key_focus_items + focus_watch_items) if item.get("symbol")][:12]
+        display_focus_symbols = [item["symbol"] for item in (key_focus_items + focus_watch_items) if item.get("symbol")][: key_focus_limit + focus_limit]
         return {
             "module_type": "fsj_focus_module",
             "business_date": assembled.get("business_date"),
             "list_types": focus_list_types,
             "focus_symbols": display_focus_symbols,
             "focus_symbol_count": len(focus_symbols),
-            "key_focus_symbols": key_focus_symbols[:5],
+            "key_focus_symbols": key_focus_symbols[:key_focus_limit],
             "key_focus_symbol_count": len(key_focus_symbols),
-            "focus_watch_symbols": focus_only_symbols[:7],
+            "focus_watch_symbols": focus_only_symbols[:focus_limit],
             "focus_watch_symbol_count": len(focus_only_symbols),
             "focus_name_map": focus_name_map,
             "key_focus_items": key_focus_items,
             "focus_watch_items": focus_watch_items,
             "watchlist_tiers": [
-                {"label": "Tier 1 / Key Focus", "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。", "symbols": key_focus_symbols[:5], "items": key_focus_items},
-                {"label": "Tier 2 / Focus Watchlist", "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。", "symbols": focus_only_symbols[:7], "items": focus_watch_items},
+                {"label": f"{KEY_FOCUS_MODULE_LABEL} / {KEY_FOCUS_TIER_LABEL}", "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。", "symbols": key_focus_symbols[:key_focus_limit], "items": key_focus_items},
+                {"label": f"{FOCUS_MODULE_LABEL} / {FOCUS_TIER_LABEL}", "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。", "symbols": focus_only_symbols[:focus_limit], "items": focus_watch_items},
             ],
-            "why_included": reasons[0] if reasons else "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
+            "why_included": reasons[0] if reasons else "核心关注 / 关注 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
             "reasons": self._focus_reasons(reasons=reasons, key_focus_symbols=key_focus_symbols, focus_only_symbols=focus_only_symbols, total_focus_count=len(focus_symbols)),
             "source_sections": source_sections,
             "chart_refs": [
-                {"chart_key": "key_focus_window", "title": "Key Focus 窗口图"},
-                {"chart_key": "key_focus_return_bar", "title": "Key Focus 日度涨跌幅"},
+                {"chart_key": "key_focus_window", "title": "核心关注 窗口图"},
+                {"chart_key": "key_focus_return_bar", "title": "核心关注 日度涨跌幅"},
             ],
             "judgment_refs": judgment_refs[:8],
             "review_ready": bool(focus_symbols or focus_list_types),
@@ -661,8 +671,8 @@ class MainReportHTMLRenderer:
     def _professional_empty_focus_item(self) -> dict[str, str]:
         return {
             "symbol": "",
-            "display_name": "补充观察名单暂未展开",
-            "short_label": "补充观察名单暂未展开",
+            "display_name": "关注列表暂未展开",
+            "short_label": "关注列表暂未展开",
             "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
             "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
             "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。",
@@ -698,6 +708,9 @@ class MainReportHTMLRenderer:
         if clean_display and clean_symbol:
             return clean_display if clean_display.endswith(clean_symbol) else f"{clean_display}（{clean_symbol}）"
         return clean_display or clean_symbol
+
+    def _focus_display_limit(self, value: int, *, cap: int) -> int:
+        return max(1, min(int(value), int(cap)))
 
     def _focus_ordinal_label(self, ordinal: int | None) -> str:
         mapping = {
@@ -773,19 +786,19 @@ class MainReportHTMLRenderer:
         sector_or_theme = str(symbol_context.get("sector_or_theme") or "").strip()
         text_event_evidence = dict(symbol_context.get("text_event_evidence") or {})
         if evidence_depth == "market_and_text":
-            return "列入补充观察名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。"
+            return "列入关注名单，当前已同时出现本地市场侧样本与文本/事件补证，可继续观察其是否由跟随线索发展为更明确的板块响应。"
         if evidence_depth == "market_only":
-            return "列入补充观察名单，当前已有基础盘面样本可供跟踪，但缺少更完整的文本/事件确认，先维持观察级别。"
+            return "列入关注名单，当前已有基础盘面样本可供跟踪，但缺少更完整的文本/事件确认，先维持观察级别。"
         if evidence_depth == "text_only":
             text_count = sum(int(text_event_evidence.get(field) or 0) for field in ("announcement_count", "research_count", "investor_qa_count", "dragon_tiger_count", "limit_up_count", "event_count"))
-            return f"列入补充观察名单，当前主要依赖本地文本/事件线索（合计 {text_count} 条）进入观察范围；在盘面证据补出前，仍按基础观察项处理。"
+            return f"列入关注名单，当前主要依赖本地文本/事件线索（合计 {text_count} 条）进入观察范围；在盘面证据补出前，仍按基础关注项处理。"
         if evidence_depth == "focus_list_only" and sector_or_theme:
-            return f"列入补充观察名单，目前更多承担扩散路径跟踪角色；本地仅有 {sector_or_theme} 方向的基础标签，尚不足以支持更高优先级。"
+            return f"列入关注名单，目前更多承担扩散路径跟踪角色；本地仅有 {sector_or_theme} 方向的基础标签，尚不足以支持更高优先级。"
         if evidence_score >= 1:
-            return "列入补充观察名单，已有初步异动或联动痕迹，但证据还不足以支持优先级上调，先保持观察。"
+            return "列入关注名单，已有初步异动或联动痕迹，但证据还不足以支持优先级上调，先保持关注。"
         if has_named_display:
-            return "列入补充观察名单，当前更接近名单内基础观察项；若后续没有新增市场或事件证据，则继续保持观察而非强化表述。"
-        return "当前仅能确认其在补充观察池内，个股级证据不足，因此按基础观察对象处理，而不是给出过强判断。"
+            return "列入关注名单，当前更接近名单内基础关注项；若后续没有新增市场或事件证据，则继续保持关注而非强化表述。"
+        return "当前仅能确认其在关注池内，个股级证据不足，因此按基础关注项处理，而不是给出过强判断。"
 
     def _focus_validation_point(self, *, tier: str, evidence_score: int) -> str:
         if tier == "key_focus":
@@ -816,9 +829,9 @@ class MainReportHTMLRenderer:
     def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
         polished = [str(item).strip() for item in reasons if str(item).strip()]
         if key_focus_symbols:
-            polished.append(f"Tier 1 / Key Focus 共 {len(key_focus_symbols)} 个，优先用于验证强度、节奏与是否具备继续跟踪价值。")
+            polished.append(f"核心关注 共 {len(key_focus_symbols)} 个，优先用于验证强度、节奏与是否具备继续跟踪价值。")
         if focus_only_symbols:
-            polished.append(f"Tier 2 / Focus Watchlist 共 {len(focus_only_symbols)} 个，作为扩散与分歧观察池，避免把临时噪音误判为主线。")
+            polished.append(f"关注 共 {len(focus_only_symbols)} 个，作为扩散与分歧观察池，避免把临时噪音误判为主线。")
         if not polished:
             polished.append(f"当前观察池共覆盖 {total_focus_count} 个对象，用于界定优先跟踪范围与噪音过滤边界。")
         deduped: list[str] = []
@@ -842,7 +855,7 @@ class MainReportHTMLRenderer:
         return (
             f'<div class="bucket"><h3>Why included</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in (reasons or [str(focus_module.get("why_included") or "暂无说明")]))}</ul></div>'
             f'<div class="bucket"><h3>Key Focus</h3><ul>{self._render_internal_focus_item_list(key_focus_items) or "".join(f"<li>{escape(item)}</li>" for item in key_focus) or "<li>暂无 Key Focus</li>"}</ul></div>'
-            f'<div class="bucket"><h3>Focus Watchlist</h3><ul>{self._render_internal_focus_item_list(focus_watch_items) or "".join(f"<li>{escape(item)}</li>" for item in focus_watch) or "<li>暂无 Focus Watchlist</li>"}</ul></div>'
+            f'<div class="bucket"><h3>关注列表</h3><ul>{self._render_internal_focus_item_list(focus_watch_items) or "".join(f"<li>{escape(item)}</li>" for item in focus_watch) or "<li>暂无 关注列表</li>"}</ul></div>'
             f'<div class="bucket"><h3>Module coverage</h3><ul><li>total_focus_symbols：{escape(str(focus_module.get("focus_symbol_count") or len(focus_symbols)))}</li><li>displayed_symbols：{escape(", ".join(focus_symbols) or "-")}</li></ul></div>'
             f'<div class="bucket"><h3>Module wiring</h3><ul><li>list_types：{escape(", ".join(list_types) or "-")}</li><li>chart_refs：{escape(chart_text)}</li><li>judgment_refs：{escape(", ".join(focus_module.get("judgment_refs") or []) or "-")}</li></ul></div>'
         )
@@ -1229,7 +1242,7 @@ class MainReportHTMLRenderer:
       </div>
     </section>
     <section class=\"card\">
-      <h2>今日 Key Focus / Focus</h2>
+      <h2>今日 核心关注 / 关注</h2>
       {focus_module_html}
     </section>
     {chart_pack_html}
@@ -1296,14 +1309,14 @@ class MainReportHTMLRenderer:
     def _render_customer_focus_module(self, focus_module: dict[str, Any]) -> str:
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
         if not reasons:
-            reasons = [str(focus_module.get("why_included") or "将今日重点观察池直接前置展示，帮助理解为什么这些对象值得跟踪。")]
+            reasons = [str(focus_module.get("why_included") or "将今日核心关注池直接前置展示，帮助理解为什么这些对象值得跟踪。")]
         key_focus_items = list(focus_module.get("key_focus_items") or [])
         focus_watch_items = list(focus_module.get("focus_watch_items") or [])
         chart_refs = [str(item.get("title") or item.get("chart_key") or "") for item in (focus_module.get("chart_refs") or []) if str(item.get("title") or item.get("chart_key") or "").strip()]
         return (
             self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
-            + self._render_customer_watchlist_bucket("Tier 1 / Key Focus", key_focus_items, fallback="核心验证名单暂未生成")
-            + self._render_customer_watchlist_bucket("Tier 2 / Focus Watchlist", focus_watch_items, fallback="补充观察名单暂未展开")
+            + self._render_customer_watchlist_bucket("核心关注", key_focus_items, fallback="核心关注列表暂未生成")
+            + self._render_customer_watchlist_bucket("关注", focus_watch_items, fallback="关注列表暂未展开")
             + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
         )
 
@@ -1362,9 +1375,9 @@ class MainReportHTMLRenderer:
         ready_count = int(chart_pack.get("ready_chart_count") or 0)
         chart_count = int(chart_pack.get("chart_count") or 0)
         if chart_count and ready_count < chart_count:
-            return "部分图表因连续行情样本不足暂不展示涨跌幅对比，本期保留指数与 Key Focus 窗口图作为主要参考。"
+            return "部分图表因连续行情样本不足暂不展示涨跌幅对比，本期保留指数与核心关注窗口图作为主要参考。"
         if chart_count:
-            return "本期关键图表样本完整，可结合指数与重点跟踪对象窗口变化一并阅读。"
+            return "本期关键图表样本完整，可结合指数与核心关注对象窗口变化一并阅读。"
         return "本期未生成可展示图表。"
 
     def _refine_customer_summary(self, text: str, *, slot: str, is_support: bool = False) -> str:
