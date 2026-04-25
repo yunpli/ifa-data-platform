@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+import json
+
+from scripts import fsj_report_cli
+
+
+class _Completed:
+    def __init__(self, *, returncode: int = 0, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def test_registry_parser_requires_support_agent_domain() -> None:
+    parser = fsj_report_cli.build_parser()
+    args = parser.parse_args(["registry", "--subject", "main", "--business-date", "2099-04-22"])
+    assert args.command == "registry"
+    assert args.subject == "main"
+
+
+def test_cmd_registry_wraps_artifact_lineage_for_main(monkeypatch, capsys) -> None:
+    seen: dict[str, object] = {}
+
+    def _fake_run(cmd, capture_output=True, text=True):  # noqa: ANN001
+        seen["cmd"] = cmd
+        return _Completed(stdout=json.dumps({"business_date": "2099-04-22", "registry": {"chain_depth": 2}}))
+
+    monkeypatch.setattr(fsj_report_cli.subprocess, "run", _fake_run)
+    parser = fsj_report_cli.build_parser()
+    args = parser.parse_args([
+        "registry",
+        "--subject", "main",
+        "--business-date", "2099-04-22",
+        "--slot", "late",
+        "--format", "json",
+    ])
+
+    fsj_report_cli.main.__globals__["build_parser"] = lambda: parser
+    args.func(args)
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["command_group"] == "registry"
+    assert payload["status"] == "ready"
+    assert payload["wrapped_result"]["payload"]["registry"]["chain_depth"] == 2
+    cmd = seen["cmd"]
+    assert "fsj_artifact_lineage.py" in cmd[1]
+    assert "main_final_report" in cmd
+    assert "late" in cmd

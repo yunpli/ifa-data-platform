@@ -1177,6 +1177,8 @@ class FSJStore:
             "telegram_caption_path": manifest_pointers.get("telegram_caption_path") or selected_handoff.get("selected_telegram_caption_path") or selected_handoff.get("telegram_caption_path"),
             "package_index_path": manifest_pointers.get("package_index_path"),
             "package_browse_readme_path": manifest_pointers.get("package_browse_readme_path"),
+            "judgment_review_surface_path": dict(delivery_package.get("judgment_review_surface") or {}).get("path"),
+            "judgment_mapping_ledger_path": dict(delivery_package.get("judgment_mapping_ledger") or {}).get("path"),
             "send_manifest_path": manifest_pointers.get("send_manifest_path"),
             "review_manifest_path": manifest_pointers.get("review_manifest_path"),
             "workflow_manifest_path": manifest_pointers.get("workflow_manifest_path"),
@@ -1205,6 +1207,8 @@ class FSJStore:
                 "slot_evaluation": dict(delivery_package.get("slot_evaluation") or {}),
                 "dispatch_advice": dict(delivery_package.get("dispatch_advice") or {}),
                 "support_summary_aggregate": dict(delivery_package.get("support_summary_aggregate") or {}),
+                "judgment_review_surface": dict(delivery_package.get("judgment_review_surface") or {}),
+                "judgment_mapping_ledger": dict(delivery_package.get("judgment_mapping_ledger") or {}),
                 "lineage": delivery_lineage,
             },
             "package_artifacts": artifacts,
@@ -1242,6 +1246,8 @@ class FSJStore:
         operator_go_no_go = dict(review_payload.get("operator_go_no_go") or {})
         review_manifest = dict(review_payload.get("review_manifest") or {})
         send_manifest = dict(review_payload.get("send_manifest") or {})
+        judgment_review_surface = dict(package_state.get("judgment_review_surface") or {})
+        judgment_mapping_ledger = dict(package_state.get("judgment_mapping_ledger") or {})
         dispatch_receipt = self._report_dispatch_receipt_from_surface(normalized_surface)
 
         review_blocking_items = list(review_manifest.get("blocking_items") or [])
@@ -1349,6 +1355,8 @@ class FSJStore:
             "promotion_authority": promotion_authority,
             "review_manifest": review_manifest,
             "send_manifest": send_manifest,
+            "judgment_review_surface": judgment_review_surface,
+            "judgment_mapping_ledger": judgment_mapping_ledger,
             "governance": governance_summary,
             "dispatch_receipt": dispatch_receipt,
             "dispatch_state": dispatch_state,
@@ -1396,6 +1404,9 @@ class FSJStore:
                 "board_state_source": board_state_source,
                 "review_blocking_item_count": governance_summary.get("review_blocking_item_count"),
                 "review_warning_item_count": governance_summary.get("review_warning_item_count"),
+                "judgment_item_count": judgment_review_surface.get("judgment_item_count"),
+                "judgment_mapping_count": judgment_mapping_ledger.get("mapping_count"),
+                "retrospective_link_count": judgment_mapping_ledger.get("retrospective_link_count"),
                 "send_blocker_count": governance_summary.get("send_blocker_count"),
                 "governance_blocking_reasons": list(governance_summary.get("blocking_reasons") or []),
                 "source_health": source_health,

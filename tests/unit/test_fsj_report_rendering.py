@@ -496,17 +496,32 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
     assert delivery_manifest["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
     assert delivery_manifest["support_summary_aggregate"]["bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert delivery_manifest["judgment_review_surface"]["judgment_item_count"] == 1
+    assert delivery_manifest["judgment_mapping_ledger"]["mapping_count"] == 1
+    assert delivery_manifest["judgment_mapping_ledger"]["retrospective_link_count"] == 1
     assert delivery_manifest["artifacts"]["evaluation"].endswith(".eval.json")
     assert delivery_manifest["artifacts"]["package_index"] == "package_index.json"
     assert delivery_manifest["artifacts"]["browse_readme"] == "BROWSE_PACKAGE.md"
+    assert delivery_manifest["artifacts"]["judgment_review_surface"] == "judgment_review_surface.json"
+    assert delivery_manifest["artifacts"]["judgment_mapping_ledger"] == "judgment_mapping_ledger.json"
     assert delivery_manifest["dispatch_advice"]["recommended_action"] == "send"
     assert published["dispatch_advice"]["artifact_id"] == published["artifact"]["artifact_id"]
     assert Path(published["package_index_path"]).exists()
     assert Path(published["package_browse_readme_path"]).exists()
+    judgment_review_surface = json.loads((package_dir / "judgment_review_surface.json").read_text(encoding="utf-8"))
+    assert judgment_review_surface["review_status"] == "pending_operator_item_review"
+    assert judgment_review_surface["items"][0]["judgment_key"] == "judgment:early:main"
+    assert judgment_review_surface["items"][0]["review"]["allowed_actions"] == ["approve", "needs_edit", "reject", "monitor"]
+    judgment_mapping_ledger = json.loads((package_dir / "judgment_mapping_ledger.json").read_text(encoding="utf-8"))
+    assert judgment_mapping_ledger["mappings"][0]["support_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert judgment_mapping_ledger["mappings"][0]["customer_wording"] == "若竞价延续强化，则优先观察机器人主线确认。"
+    assert judgment_mapping_ledger["retrospective_links"][0]["linked_prior_judgment_key"] == "judgment:early:main"
     package_index = json.loads(Path(published["package_index_path"]).read_text(encoding="utf-8"))
     assert package_index["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
     assert delivery_manifest["quality_gate"]["source_health"]["degraded_slot_count"] == 1
     assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])
+    assert any(item["role"] == "judgment_review_surface" and item["exists"] is True for item in package_index["files"])
+    assert any(item["role"] == "judgment_mapping_ledger" and item["exists"] is True for item in package_index["files"])
     browse_readme = Path(published["package_browse_readme_path"]).read_text(encoding="utf-8")
     assert "## Snapshot" in browse_readme
     assert "## Files" in browse_readme

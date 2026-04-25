@@ -724,6 +724,7 @@ class MainReportArtifactPublishingService:
         manifest_path = output_path / f"a_share_main_report_{business_date}_{stamp}.manifest.json"
         manifest = {
             "artifact": artifact_record,
+            "assembled": assembled,
             "rendered": {
                 "artifact_type": rendered["artifact_type"],
                 "artifact_version": rendered["artifact_version"],
@@ -741,6 +742,7 @@ class MainReportArtifactPublishingService:
 
         return {
             "artifact": artifact_record,
+            "assembled": assembled,
             "html_path": str(html_path.resolve()),
             "qa_path": str(qa_path.resolve()),
             "eval_path": str(eval_path.resolve()),
@@ -778,10 +780,17 @@ class MainReportArtifactPublishingService:
         report_eval = dict(published["report_evaluation"])
         artifact = dict(published["artifact"])
         rendered = dict(published["rendered"])
+        assembled = dict(published.get("assembled") or {})
         support_summary_aggregate = self._build_support_summary_aggregate(
             rendered=rendered,
             evaluation=evaluation,
             report_eval=report_eval,
+        )
+        judgment_review_surface = self._build_judgment_review_surface(assembled=assembled)
+        judgment_mapping_ledger = self._build_judgment_mapping_ledger(
+            assembled=assembled,
+            rendered=rendered,
+            judgment_review_surface=judgment_review_surface,
         )
 
         package_slug = self._delivery_package_slug(
@@ -815,6 +824,10 @@ class MainReportArtifactPublishingService:
         )
         caption_path = package_dir / "telegram_caption.txt"
         caption_path.write_text(caption_text, encoding="utf-8")
+        judgment_review_surface_path = package_dir / "judgment_review_surface.json"
+        judgment_review_surface_path.write_text(json.dumps(judgment_review_surface, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        judgment_mapping_ledger_path = package_dir / "judgment_mapping_ledger.json"
+        judgment_mapping_ledger_path.write_text(json.dumps(judgment_mapping_ledger, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
         delivery_manifest = {
             "artifact_type": "fsj_main_report_delivery_package",
@@ -850,12 +863,26 @@ class MainReportArtifactPublishingService:
                 "slot_score_span": (report_eval.get("summary") or {}).get("slot_score_span"),
             },
             "support_summary_aggregate": support_summary_aggregate,
+            "judgment_review_surface": {
+                "path": str(judgment_review_surface_path.resolve()),
+                "judgment_item_count": judgment_review_surface.get("judgment_item_count"),
+                "review_slot_count": judgment_review_surface.get("review_slot_count"),
+                "review_status": judgment_review_surface.get("review_status"),
+            },
+            "judgment_mapping_ledger": {
+                "path": str(judgment_mapping_ledger_path.resolve()),
+                "mapping_count": judgment_mapping_ledger.get("mapping_count"),
+                "retrospective_link_count": judgment_mapping_ledger.get("retrospective_link_count"),
+                "learning_asset_candidate_count": judgment_mapping_ledger.get("learning_asset_candidate_count"),
+            },
             "artifacts": {
                 "html": package_html_path.name,
                 "qa": package_qa_path.name,
                 "evaluation": package_eval_path.name,
                 "manifest": package_manifest_path.name,
                 "telegram_caption": caption_path.name,
+                "judgment_review_surface": judgment_review_surface_path.name,
+                "judgment_mapping_ledger": judgment_mapping_ledger_path.name,
             },
         }
         preview_payload = {
@@ -881,6 +908,8 @@ class MainReportArtifactPublishingService:
                 "evaluation": package_eval_path,
                 "manifest": package_manifest_path,
                 "telegram_caption": caption_path,
+                "judgment_review_surface": judgment_review_surface_path,
+                "judgment_mapping_ledger": judgment_mapping_ledger_path,
                 "delivery_manifest": delivery_manifest_path,
             },
         )
@@ -931,6 +960,8 @@ class MainReportArtifactPublishingService:
                         "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
                         "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
                         "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+                        "judgment_review_surface": dict(delivery_manifest.get("judgment_review_surface") or {}),
+                        "judgment_mapping_ledger": dict(delivery_manifest.get("judgment_mapping_ledger") or {}),
                         "dispatch_advice": dict(delivery_manifest.get("dispatch_advice") or {}),
                         "artifacts": dict(delivery_manifest.get("artifacts") or {}),
                         "workflow": {
@@ -1010,6 +1041,171 @@ class MainReportArtifactPublishingService:
             "strongest_slot": (report_eval.get("summary") or {}).get("strongest_slot"),
         }
 
+    def _build_judgment_review_surface(self, *, assembled: dict[str, Any]) -> dict[str, Any]:
+        sections = list(assembled.get("sections") or [])
+        items: list[dict[str, Any]] = []
+        for section in sections:
+            slot = str(section.get("slot") or "")
+            section_key = str(section.get("section_key") or "")
+            lineage = dict(section.get("lineage") or {})
+            degrade_payload = dict((lineage.get("bundle") or {}).get("payload_json") or {}).get("degrade") or {}
+            evidence_links = list(lineage.get("evidence_links") or [])
+            support_bundle_ids = list(lineage.get("support_bundle_ids") or [])
+            section_title = str(section.get("title") or section_key or slot)
+            for index, judgment in enumerate(section.get("judgments") or [], start=1):
+                attributes = dict(judgment.get("attributes_json") or {})
+                item_key = str(judgment.get("object_key") or f"{slot}:{section_key}:judgment:{index}")
+                items.append(
+                    {
+                        "judgment_key": item_key,
+                        "slot": slot,
+                        "section_key": section_key,
+                        "section_title": section_title,
+                        "statement": str(judgment.get("statement") or ""),
+                        "judgment_action": judgment.get("judgment_action"),
+                        "confidence": judgment.get("confidence"),
+                        "evidence_level": judgment.get("evidence_level"),
+                        "contract_mode": attributes.get("contract_mode") or degrade_payload.get("contract_mode"),
+                        "completeness_label": attributes.get("completeness_label") or degrade_payload.get("completeness_label"),
+                        "degrade_reason": attributes.get("degrade_reason") or degrade_payload.get("degrade_reason"),
+                        "support_bundle_ids": support_bundle_ids,
+                        "evidence_refs": [
+                            {
+                                "ref_key": link.get("ref_key"),
+                                "ref_system": link.get("ref_system"),
+                                "evidence_role": link.get("evidence_role"),
+                            }
+                            for link in evidence_links
+                        ],
+                        "review": {
+                            "status": "pending",
+                            "allowed_actions": ["approve", "needs_edit", "reject", "monitor"],
+                            "operator_comment": None,
+                            "review_focus": [
+                                "evidence_chain_complete",
+                                "slot_wording_within_boundary",
+                                "support_merge_is_truthful",
+                            ],
+                        },
+                    }
+                )
+        return {
+            "artifact_type": "fsj_main_report_judgment_review_surface",
+            "artifact_version": self.DELIVERY_PACKAGE_VERSION,
+            "business_date": assembled.get("business_date"),
+            "judgment_item_count": len(items),
+            "review_slot_count": len({item["slot"] for item in items if item.get("slot")}),
+            "review_status": "pending_operator_item_review" if items else "no_judgments_found",
+            "items": items,
+        }
+
+    def _build_judgment_mapping_ledger(
+        self,
+        *,
+        assembled: dict[str, Any],
+        rendered: dict[str, Any],
+        judgment_review_surface: dict[str, Any],
+    ) -> dict[str, Any]:
+        sections = list(assembled.get("sections") or [])
+        customer_sections = {
+            str(item.get("slot") or ""): item
+            for item in ((rendered.get("metadata") or {}).get("customer_presentation") or {}).get("sections", [])
+        }
+        section_positions = {str(section.get("slot") or ""): idx for idx, section in enumerate(sections)}
+        mapping_rows: list[dict[str, Any]] = []
+        retrospective_links: list[dict[str, Any]] = []
+        learning_assets: list[dict[str, Any]] = []
+        prior_rows: list[dict[str, Any]] = []
+        review_items = {str(item.get("judgment_key") or ""): item for item in (judgment_review_surface.get("items") or [])}
+
+        for section in sections:
+            slot = str(section.get("slot") or "")
+            customer = dict(customer_sections.get(slot) or {})
+            support_items = list(section.get("support_summaries") or [])
+            if slot == "late" and prior_rows and not list(section.get("judgments") or []):
+                retrospective_links.extend(
+                    {
+                        "late_judgment_key": None,
+                        "late_slot": slot,
+                        "linked_prior_judgment_key": prior.get("judgment_key"),
+                        "linked_prior_slot": prior.get("slot"),
+                        "link_type": "late_retrospective_slot_anchor",
+                    }
+                    for prior in prior_rows
+                )
+            support_bundle_ids = [str(item.get("bundle_id") or "") for item in support_items if item.get("bundle_id")]
+            support_statements = [str(item.get("summary") or "") for item in support_items if item.get("summary")]
+            highlights = list(customer.get("highlights") or [])
+            section_position = int(section_positions.get(slot, 0))
+            for judgment in section.get("judgments") or []:
+                judgment_key = str(judgment.get("object_key") or "")
+                signal_statements = [str(item.get("statement") or "") for item in (section.get("signals") or []) if item.get("statement")][:3]
+                fact_statements = [str(item.get("statement") or "") for item in (section.get("facts") or []) if item.get("statement")][:3]
+                customer_wording = highlights[0] if highlights else str(customer.get("summary") or judgment.get("statement") or section.get("summary") or "")
+                row = {
+                    "judgment_key": judgment_key,
+                    "slot": slot,
+                    "section_key": section.get("section_key"),
+                    "section_position": section_position,
+                    "main_judgment_statement": str(judgment.get("statement") or ""),
+                    "support_bundle_ids": support_bundle_ids,
+                    "support_statements": support_statements,
+                    "signal_statements": signal_statements,
+                    "fact_statements": fact_statements,
+                    "customer_wording": customer_wording,
+                    "customer_slot_title": customer.get("title"),
+                    "review_surface_ref": review_items.get(judgment_key, {}).get("judgment_key"),
+                    "retrospective_anchor": f"{assembled.get('business_date')}:{slot}:{judgment_key}",
+                }
+                mapping_rows.append(row)
+                if slot == "late":
+                    for prior in prior_rows:
+                        retrospective_links.append(
+                            {
+                                "late_judgment_key": judgment_key,
+                                "late_slot": slot,
+                                "linked_prior_judgment_key": prior.get("judgment_key"),
+                                "linked_prior_slot": prior.get("slot"),
+                                "link_type": "late_retrospective_to_prior_judgment_surface",
+                            }
+                        )
+                learning_assets.append(
+                    {
+                        "judgment_key": judgment_key,
+                        "slot": slot,
+                        "customer_wording": customer_wording,
+                        "main_judgment_statement": row["main_judgment_statement"],
+                        "support_bundle_ids": support_bundle_ids,
+                        "outcome_label": None,
+                        "learning_status": "ready_for_outcome_tagging" if slot == "late" else "await_late_retrospective",
+                    }
+                )
+                prior_rows.append(row)
+
+        slot_links: list[dict[str, Any]] = []
+        ordered_slots = [str(section.get("slot") or "") for section in sections if section.get("slot")]
+        for prev, curr in zip(ordered_slots, ordered_slots[1:]):
+            slot_links.append(
+                {
+                    "from_slot": prev,
+                    "to_slot": curr,
+                    "link_type": "judgment_surface_progression",
+                }
+            )
+
+        return {
+            "artifact_type": "fsj_main_report_judgment_mapping_ledger",
+            "artifact_version": self.DELIVERY_PACKAGE_VERSION,
+            "business_date": assembled.get("business_date"),
+            "mapping_count": len(mapping_rows),
+            "retrospective_link_count": len(retrospective_links),
+            "learning_asset_candidate_count": len(learning_assets),
+            "slot_progression_links": slot_links,
+            "mappings": mapping_rows,
+            "retrospective_links": retrospective_links,
+            "learning_asset_candidates": learning_assets,
+        }
+
     def _build_delivery_package_index(
         self,
         *,
@@ -1039,7 +1235,9 @@ class MainReportArtifactPublishingService:
             "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
             "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
             "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
-            "browse_priority": ["html", "telegram_caption", "delivery_manifest", "evaluation", "qa", "manifest"],
+            "judgment_review_surface": dict(delivery_manifest.get("judgment_review_surface") or {}),
+            "judgment_mapping_ledger": dict(delivery_manifest.get("judgment_mapping_ledger") or {}),
+            "browse_priority": ["html", "telegram_caption", "delivery_manifest", "judgment_review_surface", "judgment_mapping_ledger", "evaluation", "qa", "manifest"],
             "files": file_index,
         }
 
@@ -1055,6 +1253,8 @@ class MainReportArtifactPublishingService:
             f"- strongest_slot: `{(package_index.get('slot_evaluation') or {}).get('strongest_slot') or '-'}`",
             f"- support_domains: `{', '.join(support_summary.get('domains') or []) or '-'}`",
             f"- support_bundle_count: `{len(support_summary.get('bundle_ids') or [])}`",
+            f"- judgment_item_count: `{(package_index.get('judgment_review_surface') or {}).get('judgment_item_count')}`",
+            f"- judgment_mapping_count: `{(package_index.get('judgment_mapping_ledger') or {}).get('mapping_count')}`",
             "",
             "## Files",
         ]

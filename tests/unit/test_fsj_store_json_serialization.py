@@ -106,6 +106,8 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
         "delivery_package": {
             "delivery_package_dir": "/tmp/current-pkg",
             "package_state": "ready",
+            "report_scope": "main",
+            "output_profile": "review",
             "ready_for_delivery": True,
             "quality_gate": {"score": 93, "blocker_count": 0, "warning_count": 1},
             "slot_evaluation": {"strongest_slot": "late"},
@@ -122,6 +124,14 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
             "workflow": {
                 "recommended_action": "send_review",
                 "workflow_state": "selected_candidate_mismatch",
+            },
+            "formal_output": {
+                "output_root_dir": "/tmp/reports",
+                "primary_report_path": "/tmp/current-pkg/report.html",
+                "source_report_path": "/tmp/publish/report.html",
+                "source_manifest_path": "/tmp/publish/report.manifest.json",
+                "source_qa_path": "/tmp/publish/report.qa.json",
+                "source_evaluation_path": "/tmp/publish/report.eval.json",
             },
         },
         "workflow_linkage": {
@@ -152,9 +162,13 @@ def test_report_package_surface_projection_preserves_review_and_send_package_poi
     assert summary["package_paths"]["send_manifest_path"] == "/tmp/current/send_manifest.json"
     assert summary["package_paths"]["review_manifest_path"] == "/tmp/current/review_manifest.json"
     assert summary["package_paths"]["operator_review_bundle_path"] == "/tmp/current/operator_review_bundle.json"
+    assert summary["package_paths"]["formal_primary_report_path"] == "/tmp/current-pkg/report.html"
     assert summary["package_versions"]["artifact_version"] == "v1"
     assert summary["package_versions"]["review_manifest_version"] == "review_manifest.json"
     assert summary["package_state"]["support_summary_aggregate"]["domain_count"] == 3
+    assert summary["package_state"]["report_scope"] == "main"
+    assert summary["package_state"]["output_profile"] == "review"
+    assert summary["package_state"]["formal_output"]["output_root_dir"] == "/tmp/reports"
     assert summary["package_state"]["lineage"]["bundle_id"] == "bundle-selected"
     assert summary["workflow_handoff"]["state"]["workflow_state"] == "selected_candidate_mismatch"
 
@@ -395,6 +409,8 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
             "delivery_package": {
                 "delivery_package_dir": "/tmp/current-pkg",
                 "package_state": "ready",
+                "report_scope": "main",
+                "output_profile": "customer",
                 "ready_for_delivery": True,
                 "lineage": {"bundle_ids": ["bundle-1", "bundle-missing"]},
                 "quality_gate": {"score": 99, "blocker_count": 0, "warning_count": 0},
@@ -410,6 +426,14 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
                     "workflow_state": "ready_to_send",
                     "next_step": "send_selected_package_to_primary_channel",
                     "selection_reason": "best_ready_candidate strongest_slot=late qa_score=99",
+                },
+                "formal_output": {
+                    "output_root_dir": "/tmp/reports",
+                    "primary_report_path": "/tmp/current-pkg/report.html",
+                    "source_report_path": "/tmp/publish/report.html",
+                    "source_manifest_path": "/tmp/publish/report.manifest.json",
+                    "source_qa_path": "/tmp/publish/report.qa.json",
+                    "source_evaluation_path": "/tmp/publish/report.eval.json",
                 },
             },
             "workflow_linkage": {
@@ -475,6 +499,9 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
     assert summary is not None
     assert summary["artifact"]["artifact_id"] == "artifact-current"
     assert summary["selection"]["selected_is_current"] is True
+    assert summary["package"]["report_scope"] == "main"
+    assert summary["package"]["output_profile"] == "customer"
+    assert summary["package"]["formal_output"]["primary_report_path"] == "/tmp/current-pkg/report.html"
     assert summary["package"]["manifests"]["send_manifest"]["path"] == "/tmp/current-pkg/send_manifest.json"
     assert summary["review"]["operator_go_no_go"]["decision"] == "GO"
     assert summary["governance"]["decision"] == "GO"
@@ -490,6 +517,7 @@ def test_report_artifact_lineage_projection_unifies_package_review_send_and_bund
     assert summary["canonical_state_vocabulary"]["status_semantic"] == "sent"
     assert summary["canonical_state_vocabulary"]["operator_bucket"] == "terminal"
     assert summary["dispatch"]["dispatch_state"] == "dispatch_succeeded"
+    assert summary["package"]["manifests"]["formal_output"]["primary_report_path"] == "/tmp/current-pkg/report.html"
     assert summary["what_user_received"]["provider_message_id"] == "42"
     assert summary["what_user_received"]["channel"] == "telegram_document"
     assert summary["bundle_lineage_summary"]["bundle_count"] == 2

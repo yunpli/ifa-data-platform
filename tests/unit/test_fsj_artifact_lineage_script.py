@@ -12,7 +12,7 @@ class _DummyStore:
             "artifact": {"artifact_id": "artifact-active", "status": "active", "report_run_id": "run-1"},
             "canonical_lifecycle": {"state": "sent", "reason": "dispatch_receipt_succeeded"},
             "selection": {"selected_artifact_id": "artifact-active", "selected_is_current": True},
-            "package": {"paths": {"send_manifest_path": "/tmp/send_manifest.json", "review_manifest_path": "/tmp/review_manifest.json", "workflow_manifest_path": "/tmp/workflow_manifest.json", "delivery_manifest_path": "/tmp/delivery_manifest.json"}},
+            "package": {"report_scope": "main", "output_profile": "review", "paths": {"send_manifest_path": "/tmp/send_manifest.json", "review_manifest_path": "/tmp/review_manifest.json", "workflow_manifest_path": "/tmp/workflow_manifest.json", "delivery_manifest_path": "/tmp/delivery_manifest.json", "formal_output_root_dir": "/tmp/reports", "formal_primary_report_path": "/tmp/reports/report.html", "formal_source_report_path": "/tmp/publish/report.html"}},
             "review": {"operator_go_no_go": {"decision": "GO", "approver_kind": "system", "approver_label": "fsj_policy_projection"}, "candidate_comparison": {"candidate_count": 2}},
             "governance": {"decision": "GO", "rationale": "quality gate and artifact integrity both pass", "next_step": "send_selected_package_to_primary_channel", "action_required": False},
             "promotion_authority": {"status": "approved_to_send", "approved": True, "required_action": "send_selected_package_to_primary_channel", "rationale": "quality gate and artifact integrity both pass", "summary_line": "approved_to_send | decision=GO | selected_is_current=True | required_action=send_selected_package_to_primary_channel | rationale=quality gate and artifact integrity both pass", "source_of_truth": "ifa_fsj_report_artifacts.metadata_json.review_surface.operator_go_no_go + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff", "approver_kind": "system", "approver_id": None, "approver_label": "fsj_policy_projection", "decided_at": None, "approver_summary": "kind=system | id=- | label=fsj_policy_projection | decided_at=-"},
@@ -118,6 +118,11 @@ def test_print_text_exposes_governance_and_promotion_authority_fields(capsys) ->
     assert "promotion_authority_approver_label=fsj_policy_projection" in output
     assert "promotion_authority_approver_summary=kind=system | id=- | label=fsj_policy_projection | decided_at=-" in output
     assert "board_state_source=ifa_fsj_report_artifacts.status + ifa_fsj_report_artifacts.metadata_json.delivery_package.workflow + ifa_fsj_report_artifacts.metadata_json.workflow_linkage.selected_handoff" in output
+    assert "report_scope=main" in output
+    assert "output_profile=review" in output
+    assert "formal_output_root_dir=/tmp/reports" in output
+    assert "formal_primary_report_path=/tmp/reports/report.html" in output
+    assert "formal_source_report_path=/tmp/publish/report.html" in output
     assert "canonical_operator_bucket=terminal_dispatch" in output
     assert "llm_prompt_versions=fsj_early_main_v1,fsj_late_main_v1" in output
     assert "llm_field_replay_ready_count=2" in output

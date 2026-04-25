@@ -222,6 +222,42 @@ def cmd_status(args: argparse.Namespace) -> None:
         raise SystemExit(result["exit_code"])
 
 
+def cmd_registry(args: argparse.Namespace) -> None:
+    cmd = [
+        sys.executable,
+        str(ROOT / "fsj_artifact_lineage.py"),
+        "--agent-domain", "main" if args.subject == "main" else args.agent_domain,
+        "--artifact-family", "main_final_report" if args.subject == "main" else "support_report",
+        "--history-limit", str(args.history_limit),
+        "--format", args.format,
+    ]
+    if args.business_date:
+        cmd.extend(["--business-date", args.business_date])
+    if args.slot:
+        cmd.extend(["--strongest-slot", args.slot])
+    result = _run_json(cmd)
+    payload = {
+        "artifact_type": "fsj_report_cli_registry_result",
+        "artifact_version": "v1",
+        "command_group": "registry",
+        "subject": args.subject,
+        "business_date": args.business_date,
+        "slot": args.slot,
+        "agent_domain": args.agent_domain,
+        "history_limit": args.history_limit,
+        "format": args.format,
+        "wrapped_result": result,
+        "status": "ready" if result["exit_code"] == 0 else "blocked",
+    }
+    if args.format == "json":
+        print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+    else:
+        if result["stdout"]:
+            print(result["stdout"])
+    if result["exit_code"] != 0:
+        raise SystemExit(result["exit_code"])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Minimal canonical FSJ report control CLI wrapping existing publish/delivery/status entrypoints without rewriting the main chain."
@@ -255,6 +291,15 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--format", choices=["text", "json"], default="json")
     status.set_defaults(func=cmd_status)
 
+    registry = subparsers.add_parser("registry", help="Read canonical artifact registry/lineage through one canonical wrapper")
+    registry.add_argument("--subject", required=True, choices=["main", "support"])
+    registry.add_argument("--business-date")
+    registry.add_argument("--slot", choices=sorted(set(VALID_MAIN_SLOTS) | set(VALID_SUPPORT_SLOTS)))
+    registry.add_argument("--agent-domain", choices=VALID_SUPPORT_DOMAINS)
+    registry.add_argument("--history-limit", type=int, default=5)
+    registry.add_argument("--format", choices=["text", "json"], default="json")
+    registry.set_defaults(func=cmd_registry)
+
     return parser
 
 
@@ -266,6 +311,8 @@ def main() -> None:
             raise SystemExit("--agent-domain is required when --subject support")
         if args.subject in {"main", "support"} and not args.latest and not args.business_date:
             raise SystemExit("provide --business-date or --latest")
+    if args.command == "registry" and args.subject == "support" and not args.agent_domain:
+        raise SystemExit("--agent-domain is required when --subject support")
     args.func(args)
 
 
