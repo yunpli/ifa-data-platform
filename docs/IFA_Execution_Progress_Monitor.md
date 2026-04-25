@@ -21,8 +21,8 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P0-CHART-001` 并恢复 idle；Lane B 已完成 `POST-P0-FOCUS-001`
-- **Acceptance Lane 状态**：`ACCEPT-P0-001` 已完成并 closed；后续仅在阶段性完成时再启动新的 acceptance task
+- **当前 Lane A / Lane B 状态**：Lane A 已切换到 `POST-P0-QA-001`；Lane B 已切换到 `POST-P0-BLDRIFT-001`
+- **Acceptance Lane 状态**：已启动 `ACCEPT-P1-001`（Golden Sample Product Quality / Readability / iFA Standard Acceptance）
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `none` | none | idle | idle | - | 2026-04-24 20:59 PDT | none | wait for next assignment |
-| Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | POST-P0-FOCUS-001 | Focus / Key-Focus 产品化 | completed | 2026-04-24 20:08 PDT | 2026-04-24 20:24 PDT | none | promoted focus/key-focus into formal report modules and linked adjacent chart/judgment seams |
+| Lane A | `agent:developer:subagent:97a8bcc5-3fe2-4f47-aac1-43e485b51de2` | POST-P0-QA-001 | Product / Editorial / Leakage / Time-window QA foundation | in_progress | 2026-04-24 20:25 PDT | 2026-04-24 20:25 PDT | none | complete bounded QA foundation and report back |
+| Lane B | `agent:developer:subagent:b9193d4b-3444-43d0-994c-ad1e04f1cdee` | POST-P0-BLDRIFT-001 | business-layer CLI drift + replay/backfill semantic closure | in_progress | 2026-04-24 20:25 PDT | 2026-04-24 20:25 PDT | none | fix business-layer CLI drift and tighten replay/backfill semantics |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -64,14 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `none`
-- Current Acceptance Task: `none`
-- Status: `idle`
-- Started At: `-`
-- Last Update: `2026-04-24 19:22 PDT`
-- Findings: `ACCEPT-P0-001 closed: P0 accepted with residual gaps; no new production-blocking blocker found; customer HTML leakage checks passed; no blocking FCJ misuse found`
+- Current Sub-Agent: `agent:developer:subagent:26bf2023-2cf9-4469-a4a2-832ef55ef90c`
+- Current Acceptance Task: `ACCEPT-P1-001` — `Golden Sample Product Quality / Readability / iFA Standard Acceptance`
+- Status: `in_progress`
+- Started At: `2026-04-24 20:25 PDT`
+- Last Update: `2026-04-24 20:25 PDT`
+- Findings: `pending`
 - Blocker: `none`
-- Next Action: `wait for next stage completion before launching a new acceptance task`
+- Next Action: `produce phase acceptance markdown; attach on completion`
 
 ---
 
@@ -90,8 +90,11 @@
 | ACCEPT-P0-001 | none | V2 P0 Acceptance Summary and Golden Sample Validation | acceptance | P0 | pushed | Acceptance Lane | `agent:developer:subagent:7eaa38cf-3a44-4cfb-9f0f-9312e15582f5` | `docs/V2_P0_ACCEPTANCE_SUMMARY_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/accept_p0_001/*` | `python3 scripts/fsj_report_cli.py --help`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-main-early`; `python3 scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile customer --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-support-late`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-main-late-review`; `python3 scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-support-early-review`; `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py tests/unit/test_fsj_early_llm_assist.py`; `python3 -m pytest -q tests/unit/test_macro_support_producer.py tests/unit/test_commodities_support_producer.py tests/unit/test_ai_tech_support_producer.py`; `python3 -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/llm_assist.py scripts/fsj_report_cli.py scripts/fsj_main_report_publish.py scripts/fsj_support_report_publish.py`; `rg -n "FCJ" . -S` | `0f9fe4d` | acceptance lane closed: verdict = P0 accepted with residual gaps; follow-up gaps explicitly tracked in post-P0 active work |
 | POST-P0-JM-001 | none | judgment review / mapping / explainability foundation | post-P0 | P1 | pushed | Lane A | `agent:developer:subagent:0792aff5-7409-4d75-b884-2ec2ec82688f` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/store.py`; `scripts/fsj_main_report_publish.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_report_publish_script.py`; `docs/POST_P0_JM_001_JUDGMENT_REVIEW_MAPPING_FOUNDATION_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py` | `1bc194a` / `17fafa3` | minimal package-native judgment review/mapping foundation landed |
 | POST-P0-RM-001 | none | report registry / output / manifest engineering closure | post-P0 | P1 | pushed | Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/store.py`; `scripts/fsj_artifact_lineage.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_store_json_serialization.py`; `tests/unit/test_fsj_artifact_lineage_script.py`; `tests/unit/test_fsj_report_cli_registry.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/store.py scripts/fsj_artifact_lineage.py scripts/fsj_report_cli.py tests/unit/test_fsj_report_cli_registry.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_store_json_serialization.py tests/unit/test_fsj_artifact_lineage_script.py tests/unit/test_fsj_report_cli_registry.py` | `ced7863e650b1c1d258d8e0dced9b0b7a382562d` / `6466a3904274df4c6b1a118af533ed8e7d3dfd60` | formal output + registry retrieval + manifest tightening landed |
-| POST-P0-CHART-001 | none | Chart Package 最小闭环 | post-P0 | P1 | pushed | Lane A | `agent:developer:subagent:020b5824-8f39-4576-b7c7-30be841e762f` | `src/ifa_data_platform/fsj/chart_pack.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m py_compile src/ifa_data_platform/fsj/chart_pack.py src/ifa_data_platform/fsj/report_rendering.py`; `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py -q` | `0547346` | minimal chart package closure landed: main/customer HTML + delivery package now carry key-focus/index chart assets, explicit source windows, and missing-chart degrade state |
-| POST-P0-FOCUS-001 | none | Focus / Key-Focus 产品化 | post-P0 | P1 | pushed | Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 -m py_compile src/ifa_data_platform/fsj/early_main_producer.py src/ifa_data_platform/fsj/report_rendering.py tests/unit/test_fsj_report_rendering.py` | `0611241` | minimal focus/key-focus productization closure landed and pushed |
+| POST-P0-CHART-001 | none | Chart Package 最小闭环 | post-P0 | P1 | pushed | Lane A | `agent:developer:subagent:020b5824-8f39-4576-b7c7-30be841e762f` | `src/ifa_data_platform/fsj/chart_pack.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m py_compile src/ifa_data_platform/fsj/chart_pack.py src/ifa_data_platform/fsj/report_rendering.py`; `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py -q` | `4473c78` | minimal chart package closure landed: main/customer HTML + delivery package now carry key-focus/index chart assets, explicit source windows, and missing-chart degrade state |
+| POST-P0-FOCUS-001 | none | Focus / Key-Focus 产品化 | post-P0 | P1 | pushed | Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 -m py_compile src/ifa_data_platform/fsj/early_main_producer.py src/ifa_data_platform/fsj/report_rendering.py tests/unit/test_fsj_report_rendering.py` | `0611241` / `6d01af8` | minimal focus/key-focus productization closure landed and pushed |
+| POST-P0-QA-001 | none | Product / Editorial / Leakage / Time-window QA foundation | post-P0 | P1 | in_progress | Lane A | `agent:developer:subagent:97a8bcc5-3fe2-4f47-aac1-43e485b51de2` | - | pending | - | active work: product QA, editorial QA, leakage QA, time-window QA, customer readiness checks |
+| POST-P0-BLDRIFT-001 | none | business-layer CLI drift + replay/backfill semantic closure | post-P0 | P1 | in_progress | Lane B | `agent:developer:subagent:b9193d4b-3444-43d0-994c-ad1e04f1cdee` | - | pending | - | active work: fix business-layer CLI import/runtime drift and reduce wrapper-level replay/backfill semantics |
+| ACCEPT-P1-001 | none | Golden Sample Product Quality / Readability / iFA Standard Acceptance | acceptance | P1 | in_progress | Acceptance Lane | `agent:developer:subagent:26bf2023-2cf9-4469-a4a2-832ef55ef90c` | `docs/V2_P1_GOLDEN_SAMPLE_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | pending | - | acceptance lane validates chart/focus integrated golden samples; markdown must be attached on completion |
 
 ### 4.1 Status 枚举
 
