@@ -739,15 +739,42 @@ class MainReportHTMLRenderer:
 
     def _customer_top_judgment(self, customer_sections: Sequence[dict[str, Any]]) -> str:
         early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
+        mid_section = next((section for section in customer_sections if section.get("slot") == "mid"), None)
         late_section = next((section for section in customer_sections if section.get("slot") == "late"), None)
-        anchor = early_section or late_section or next(iter(customer_sections), {})
+        anchor = early_section or mid_section or late_section or next(iter(customer_sections), {})
         headline = str(anchor.get("summary") or "").strip()
         highlights = [str(item).strip() for item in (anchor.get("highlights") or []) if str(item).strip()]
+        early_headline = str((early_section or {}).get("summary") or "").strip()
+        mid_headline = str((mid_section or {}).get("summary") or "").strip()
         late_headline = str((late_section or {}).get("summary") or "").strip()
-        if early_section and late_headline:
-            clean_headline = (headline or '盘前线索已给出方向').rstrip('，。； ')
-            clean_late = (late_headline or '收盘复核').lstrip('，。； ').rstrip('，。； ')
-            return f"今日主线判断仍以盘中与收盘确认过程为核心：{clean_headline}；而{clean_late}。"
+
+        if early_section and mid_section and late_section:
+            clean_early = (early_headline or "盘前线索已给出方向").rstrip("，。； ")
+            clean_mid = (mid_headline or "盘中仍在校准").rstrip("，。； ")
+            clean_late = (late_headline or "收盘复核").rstrip("，。； ")
+            return (
+                f"今日主线判断应按“盘前预案—盘中修正—收盘复核”的顺序理解：{clean_early}；"
+                f"盘中阶段以确认节奏与强弱变化为主，{clean_mid}；"
+                f"而晚报部分则用于回答当日结论是否真正站稳，{clean_late}。"
+            )
+        if early_section and late_section:
+            clean_early = (early_headline or "盘前线索已给出方向").rstrip("，。； ")
+            clean_late = (late_headline or "收盘复核").rstrip("，。； ")
+            return f"今日主线判断仍以盘中与收盘确认过程为核心：{clean_early}；而{clean_late}。"
+        if mid_section and late_section:
+            clean_mid = (mid_headline or "盘中仍在校准").rstrip("，。； ")
+            clean_late = (late_headline or "收盘复核").rstrip("，。； ")
+            return f"当前更适合先把盘中的强弱修正与节奏变化看清：{clean_mid}；待收盘证据闭合后，再以{clean_late}完成当日定性。"
+        if early_section and mid_section:
+            clean_early = (early_headline or "盘前线索已给出方向").rstrip("，。； ")
+            clean_mid = (mid_headline or "盘中仍在校准").rstrip("，。； ")
+            return f"当前判断仍处于日内验证链条中：{clean_early}；进入盘中后，重点要回答的是{clean_mid}。"
+        if late_section:
+            clean_late = (late_headline or headline or "收盘复核").rstrip("，。； ")
+            return f"晚报阶段更强调复盘而非追认：{clean_late} 当前宜把重心放在次日延续性与风险收益比，而不是把单日结果直接外推。"
+        if mid_section:
+            clean_mid = (mid_headline or headline or "盘中仍在校准").rstrip("，。； ")
+            return f"盘中阶段更强调修正与校准：{clean_mid} 当前不宜提前替收盘结论定调。"
         if headline and highlights:
             return f"{headline} 当前更适合把重心放在验证质量与节奏把握，而不是提前把阶段性线索解读为无条件确认。"
         if headline:
@@ -779,29 +806,33 @@ class MainReportHTMLRenderer:
         return headline or first_highlight or "当前判断应继续结合新增证据滚动更新。"
 
     def _customer_risk_block(self, customer_sections: Sequence[dict[str, Any]]) -> list[str]:
-        risks: list[str] = []
+        slot_risks: list[str] = []
+        support_risks: list[str] = []
         for section in customer_sections:
             slot = str(section.get("slot") or "")
             section_signals = [str(item).strip() for item in (section.get("signals") or []) if str(item).strip()]
             section_facts = [str(item).strip() for item in (section.get("facts") or []) if str(item).strip()]
             if slot == "early":
                 if section_signals:
-                    risks.append("盘前最大的风险不在于线索不足，而在于开盘后承接与扩散不能接住预期；一旦验证落空，应把判断及时降回观察层。")
+                    slot_risks.append("盘前最大的风险不在于线索不足，而在于开盘后承接与扩散不能接住预期；一旦验证落空，应把判断及时降回观察层。")
                 elif section_facts:
-                    risks.append("盘前线索仍需等待开盘后的价格、量能与领涨反馈共同确认，单一消息面不足以支持追认。")
+                    slot_risks.append("盘前线索仍需等待开盘后的价格、量能与领涨反馈共同确认，单一消息面不足以支持追认。")
+            elif slot == "mid":
+                if section_signals:
+                    slot_risks.append("盘中最容易出现的问题，是把阶段性修复或局部异动误读为全天定论；若扩散、承接和强弱排序没有同步改善，判断仍应维持校准口径。")
+                elif section_facts:
+                    slot_risks.append("盘中看到的结构变化更多用于修正节奏，而不是替收盘定性；若午后确认链条没有补齐，应继续把相关方向视为跟踪对象。")
             elif slot == "late":
                 if section_signals:
-                    risks.append("收盘结论只能说明当日证据框架已经闭合，不代表次日延续性已经自动成立；隔夜若缺少增量催化，强度判断需要重新评估。")
+                    slot_risks.append("收盘结论只能说明当日证据框架已经闭合，不代表次日延续性已经自动成立；隔夜若缺少增量催化，强度判断需要重新评估。")
                 elif section_facts:
-                    risks.append("收盘复盘仍需与次日资金回流、板块扩散和核心标的承接情况交叉验证，避免把单日结果外推过度。")
+                    slot_risks.append("收盘复盘仍需与次日资金回流、板块扩散和核心标的承接情况交叉验证，避免把单日结果外推过度。")
             for support in section.get("support_themes") or []:
                 summary = str(support.get("summary") or "").strip()
                 if summary:
-                    risks.append(f"补充视角更适合用来修正主判断的边界，不能单独替代主线结论；当前尤其要防止把“{summary}”直接上升为核心交易依据。")
-            if len(risks) >= 4:
-                break
+                    support_risks.append(f"补充视角更适合用来修正主判断的边界，不能单独替代主线结论；当前尤其要防止把“{summary}”直接上升为核心交易依据。")
         deduped: list[str] = []
-        for item in risks:
+        for item in [*slot_risks, *support_risks]:
             if item and item not in deduped:
                 deduped.append(item)
         if not deduped:
@@ -811,9 +842,12 @@ class MainReportHTMLRenderer:
     def _customer_next_steps(self, customer_sections: Sequence[dict[str, Any]], focus_module: dict[str, Any]) -> list[str]:
         next_steps: list[str] = []
         early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
+        mid_section = next((section for section in customer_sections if section.get("slot") == "mid"), None)
         late_section = next((section for section in customer_sections if section.get("slot") == "late"), None)
         if early_section:
             next_steps.append("开盘后先看核心主线是否出现量价共振、板块扩散与领涨锚点同步改善，再决定是否提升当天判断强度。")
+        if mid_section:
+            next_steps.append("午后优先核对盘中修复能否扩展到板块层与核心标的层；若确认链条仍不完整，应继续把仓位与表述都保持在校准档。")
         if late_section:
             next_steps.append("收盘后重点复核当日强势是否具备次日延续条件，尤其关注资金回流、板块承接与核心标的分化是否仍然健康。")
         key_focus_items = [item for item in (focus_module.get("key_focus_items") or []) if isinstance(item, dict)]

@@ -532,9 +532,52 @@ def test_customer_profile_polishes_section_level_contract_shaped_prose() -> None
     assert "收盘阶段的核心市场与文本证据已经基本到齐" in customer["content"]
     assert "盘中过程信息可用于解释日内演化" in customer["content"]
     assert "收盘后的核心市场数据覆盖已经相对完整" in customer["content"]
+    assert "今日主线判断应按“盘前预案—盘中修正—收盘复核”的顺序理解" in customer["content"]
+    assert "盘中最容易出现的问题，是把阶段性修复或局部异动误读为全天定论" in customer["content"]
+    assert "午后优先核对盘中修复能否扩展到板块层与核心标的层" in customer["content"]
 
     assert "盘中 盘中结构信号" in review["content"]
     assert "same-day stable/final" not in customer["content"]
+
+
+def test_customer_profile_uses_mid_only_top_judgment_without_pretending_close_finality() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"] = [
+        {
+            "slot": "mid",
+            "section_key": "intraday_main",
+            "section_render_key": "main.midday",
+            "title": "盘中结构更新",
+            "order_index": 20,
+            "status": "ready",
+            "bundle": {
+                "bundle_id": "bundle-mid-only",
+                "status": "active",
+                "producer_version": "phase1-main-mid-v1",
+                "slot_run_id": "slot-run-mid-only",
+                "replay_id": "replay-mid-only",
+            },
+            "summary": "盘中证据仍偏谨慎，当前更适合把市场理解为跟踪与校准阶段，而不是提前下收盘定论。",
+            "judgments": [],
+            "signals": [{"statement": "午后继续验证点：等待盘中 盘中结构信号 刷新后再判断是否出现强化、扩散或分歧"}],
+            "facts": [{"statement": "盘中锚点：A股盘中主线更新：盘中 盘中结构信号 证据不足或不够新鲜，仅保留跟踪/观察级更新"}],
+            "support_summaries": [],
+            "lineage": {"bundle": {"payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ"]}}}},
+        }
+    ]
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-mid-only-1",
+        artifact_uri="file:///tmp/customer-mid-only.html",
+        generated_at=datetime(2099, 4, 22, 8, 6, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "盘中阶段更强调修正与校准" in rendered["content"]
+    assert "当前不宜提前替收盘结论定调" in rendered["content"]
+    assert "午后优先核对盘中修复能否扩展到板块层与核心标的层" in rendered["content"]
+    assert "盘中最容易出现的问题，是把阶段性修复或局部异动误读为全天定论" in rendered["content"]
 
 
 def test_customer_profile_rewrites_raw_telemetry_and_text_fragments_into_advisory_prose() -> None:
