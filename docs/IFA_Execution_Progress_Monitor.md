@@ -22,7 +22,7 @@
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
 - **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P2-CUSTOMER-SANITIZE-001` 并恢复 idle；Lane B 已完成 `POST-P2-CHART-FOCUS-001` 并恢复 idle
-- **Acceptance Lane 状态**：`ACCEPT-P2-001` 已完成并 closed；等 Lane A / Lane B 完成下一轮 residual-gap 收口后再启动 `ACCEPT-P3-001`
+- **Acceptance Lane 状态**：`ACCEPT-P3-001` 已完成并 closed；结论为 honest fail（premium editorial + professional watchlist bar 尚未通过），chart partial / customer explanation 与 leakage recheck 通过
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
@@ -64,14 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `none`
-- Current Acceptance Task: `none`
-- Status: `idle`
-- Started At: `-`
-- Last Update: `2026-04-24 20:56 PDT`
-- Findings: `ACCEPT-P2-001 closed: customer-grade iFA report acceptance passes at current P2 milestone, with non-blocking editorial and chart-readiness gaps`
-- Blocker: `none`
-- Next Action: `wait for POST-P2-EDITORIAL-001 and POST-P2-CHART-FOCUS-001 before launching ACCEPT-P3-001`
+- Current Sub-Agent: `agent:developer:subagent:487b3282-db6e-49d9-8e38-af9e1b06d8c7`
+- Current Acceptance Task: `ACCEPT-P3-001`
+- Status: `pushed`
+- Started At: `2026-04-24 21:13 PDT`
+- Last Update: `2026-04-24 21:41 PDT`
+- Findings: `ACCEPT-P3-001 closed: premium editorial + chart/focus acceptance does not fully pass yet; chart partial/customer explanation passes, leakage recheck passes, but customer facts remain too raw/noisy and focus/watchlist still falls short of premium advisory quality`
+- Blocker: `premium editorial compression and professional watchlist presentation still blocking final acceptance`
+- Next Action: `route residuals back to implementation lane for another customer-only editorial/watchlist pass before re-running acceptance`
 
 ---
 
@@ -99,6 +99,7 @@
 | POST-P2-EDITORIAL-001 | none | Premium Editorial Finish and Advisory Language Upgrade | post-P2 | P2 | pushed | Lane A | `agent:developer:subagent:cbcaa338-ac20-4869-b865-78cc60657550` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/chart_pack.py`; `docs/POST_P2_EDITORIAL_001_PREMIUM_EDITORIAL_FINISH_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/chart_pack.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_editorial_001 --report-run-id-prefix post-p2-editorial-main-early`; leakage recheck on fresh customer HTML | `f8eb951` | customer-only editorial finish upgraded without disturbing internal/review surfaces; residual gap remains in upstream producer wording (`high+reference`, `same-day stable/final`) |
 | POST-P2-CUSTOMER-SANITIZE-001 | none | Customer-facing upstream phrase sanitization | post-P2 | P2 | pushed | Lane A | `agent:developer:subagent:9047a4a2-703d-4f4b-a36e-ea354827982f` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040821Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_customer_sanitize_001 --report-run-id-prefix post-p2-customer-sanitize-main-early`; leakage recheck on fresh customer HTML for `high+reference|same-day stable/final|candidate_with_open_validation|watchlist_only|close package|final market packet ready` | `3a7b938` | customer profile now sanitizes upstream/internal contract phrasing into customer-readable wording while internal/review surfaces retain raw lineage and engineering phrasing |
 | POST-P2-CHART-FOCUS-001 | none | Chart Readiness and Focus Advisory Watchlist Polish | post-P2 | P2 | pushed | Lane B | `agent:developer:subagent:8cf4eec9-852c-4e99-9e85-e1ae4860e78b` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p2_chart_focus_probe_v2 --report-run-id-prefix post-p2-chart-focus-v2` | `c67994d` | bounded chart/focus polish landed: focus_scope symbol wiring fixed, key-focus chart ready rate improved, customer watchlist tiers/degrade explanation upgraded |
+| ACCEPT-P3-001 | none | Premium Editorial and Chart/Focus Quality Acceptance | acceptance | P3 | pushed | Acceptance Lane | `agent:developer:subagent:487b3282-db6e-49d9-8e38-af9e1b06d8c7` | `docs/V2_P3_EDITORIAL_AND_CHART_FOCUS_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `git status --short`; `git log -n 8 --oneline`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py`; targeted leakage / phrase recheck across sampled customer HTML; direct sample comparison across post-P1 / post-P2 artifacts; direct chart-manifest inspection | `pending` | honest acceptance fail: chart partial/customer explanation passes and leakage recheck passes, but premium editorial + professional watchlist bar still not met |
 
 ### 4.1 Status 枚举
 
@@ -625,6 +626,51 @@
 - commit hash：`88bc887`
 - push 状态：pushed
 - 交付结论：ACCEPT-P2-001 accepted；tightened customer main report now materially approaches customer-grade iFA standard, with only non-blocking residual editorial/chart polish gaps remaining.
+
+#### Task ID: ACCEPT-P3-001
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：对 `POST-P2-EDITORIAL-001`、`POST-P2-CUSTOMER-SANITIZE-001`、`POST-P2-CHART-FOCUS-001` 之后的最新 customer main 样本做 premium editorial + chart/focus acceptance，重点复核 premium advisory-note 质感、顶层判断去模板化、事实去噪、风险/下一步 briefing 化、chart partial/customer explanation、focus/watchlist 专业度，以及 customer leakage；并产出可附带的 acceptance markdown。
+- 改了哪些文件：
+  - `docs/V2_P3_EDITORIAL_AND_CHART_FOCUS_ACCEPTANCE_2026-04-25.md`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `git status --short`
+  - `git log -n 8 --oneline`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py`
+  - targeted leakage / phrase `rg` across sampled customer HTML
+  - direct sample comparison across:
+    - `artifacts/post_p1_customer_report_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T034424Z.html`
+    - `artifacts/post_p2_editorial_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040057Z.html`
+    - `artifacts/post_p2_chart_focus_probe_v2/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040459Z.html`
+    - `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040821Z.html`
+  - direct chart-manifest inspection across:
+    - `artifacts/post_p1_customer_report_001/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+    - `artifacts/post_p2_chart_focus_probe_v2/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+    - `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+- 结果摘要：
+  - top judgment, risk/next-step framing, and chart/customer explanation all improved materially versus the earlier P2 milestone;
+  - chart readiness improved from `1/3` to `2/3`, and the remaining missing chart now has acceptable customer-facing explanation;
+  - explicit customer leakage recheck passed, including no `FCJ` leakage and no reappearance of the targeted sanitized upstream phrases;
+  - however, current customer HTML still carries too much raw/noisy factual content (`0`-count telemetry, `validation=unknown`, `emotion=unknown`, raw text-fragment carry-through) for honest premium editorial acceptance;
+  - focus/watchlist presentation is improved by tiering but still not yet professional enough for premium advisory closeout because it remains dominated by bare tickers and an empty Tier 2 watchlist;
+  - final verdict = honest FAIL for premium editorial + chart/focus acceptance, with chart partial/customer explanation and leakage recheck both passing.
+- 证据路径：
+  - `docs/V2_P3_EDITORIAL_AND_CHART_FOCUS_ACCEPTANCE_2026-04-25.md`
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/POST_P2_EDITORIAL_001_PREMIUM_EDITORIAL_FINISH_2026-04-25.md`
+  - `artifacts/post_p1_customer_report_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T034424Z.html`
+  - `artifacts/post_p2_editorial_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040057Z.html`
+  - `artifacts/post_p2_chart_focus_probe_v2/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040459Z.html`
+  - `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T040821Z.html`
+  - `artifacts/post_p1_customer_report_001/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+  - `artifacts/post_p2_chart_focus_probe_v2/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+  - `artifacts/post_p2_customer_sanitize_001/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+- commit hash：`pending`
+- push 状态：pending
+- 交付结论：ACCEPT-P3-001 not accepted yet；residuals are now precise and implementation-ready rather than vague.
 
 ## 7. Blockers
 
