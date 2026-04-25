@@ -55,7 +55,7 @@
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
 | Lane A | `agent:developer:subagent:020b5824-8f39-4576-b7c7-30be841e762f` | POST-P0-CHART-001 | Chart Package 最小闭环 | in_progress | 2026-04-24 20:08 PDT | 2026-04-24 20:08 PDT | none | complete minimal chart package closure and report back |
-| Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | POST-P0-FOCUS-001 | Focus / Key-Focus 产品化 | in_progress | 2026-04-24 20:08 PDT | 2026-04-24 20:08 PDT | none | complete focus/key-focus productization and report back |
+| Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | POST-P0-FOCUS-001 | Focus / Key-Focus 产品化 | completed | 2026-04-24 20:08 PDT | 2026-04-24 20:24 PDT | none | promoted focus/key-focus into formal report modules and linked adjacent chart/judgment seams |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -91,7 +91,7 @@
 | POST-P0-JM-001 | none | judgment review / mapping / explainability foundation | post-P0 | P1 | pushed | Lane A | `agent:developer:subagent:0792aff5-7409-4d75-b884-2ec2ec82688f` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/store.py`; `scripts/fsj_main_report_publish.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_report_publish_script.py`; `docs/POST_P0_JM_001_JUDGMENT_REVIEW_MAPPING_FOUNDATION_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py` | `1bc194a` / `17fafa3` | minimal package-native judgment review/mapping foundation landed |
 | POST-P0-RM-001 | none | report registry / output / manifest engineering closure | post-P0 | P1 | pushed | Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/store.py`; `scripts/fsj_artifact_lineage.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_store_json_serialization.py`; `tests/unit/test_fsj_artifact_lineage_script.py`; `tests/unit/test_fsj_report_cli_registry.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/store.py scripts/fsj_artifact_lineage.py scripts/fsj_report_cli.py tests/unit/test_fsj_report_cli_registry.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_store_json_serialization.py tests/unit/test_fsj_artifact_lineage_script.py tests/unit/test_fsj_report_cli_registry.py` | `ced7863e650b1c1d258d8e0dced9b0b7a382562d` / `6466a3904274df4c6b1a118af533ed8e7d3dfd60` | formal output + registry retrieval + manifest tightening landed |
 | POST-P0-CHART-001 | none | Chart Package 最小闭环 | post-P0 | P1 | in_progress | Lane A | `agent:developer:subagent:020b5824-8f39-4576-b7c7-30be841e762f` | - | pending | - | active work: key-focus / index / 2-3 chart classes / degradation / HTML chart asset references |
-| POST-P0-FOCUS-001 | none | Focus / Key-Focus 产品化 | post-P0 | P1 | in_progress | Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | - | pending | - | active work: focus/key-focus promoted to formal report modules and linked to charts/judgment |
+| POST-P0-FOCUS-001 | none | Focus / Key-Focus 产品化 | post-P0 | P1 | committed | Lane B | `agent:developer:subagent:3a7db374-38e3-48e0-8955-2da5a488d475` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 -m py_compile src/ifa_data_platform/fsj/early_main_producer.py src/ifa_data_platform/fsj/report_rendering.py tests/unit/test_fsj_report_rendering.py` | pending | minimal focus/key-focus productization closure landed; push pending |
 
 ### 4.1 Status 枚举
 
@@ -423,6 +423,41 @@
 - commit hash：`ced7863e650b1c1d258d8e0dced9b0b7a382562d`
 - push 状态：pushed
 - 交付结论：POST-P0-RM-001 foundation acceptance met；formal output / registry / manifest tightening 的最小安全闭环已落地，残余缺口主要在 operator receipt dashboard 与更强的 registry audit/reporting 展开层。
+
+#### Task ID: POST-P0-FOCUS-001
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：在不改 collector/data path、不引入 FCJ/客户画像/组合管理、不破坏现有 FSJ report chain 的前提下，把 focus / key-focus 从采样/seed 控制面提升为正式 report module：early producer payload 现在显式携带 `focus_scope`；main renderer 在 internal/review/customer 三条输出面都生成 Key Focus / Focus 区块，并解释 why included；delivery manifest / package index / browse readme 挂入 focus module 摘要；judgment review surface 与 mapping ledger 同步增加 focus 对齐引用与 chart adjacency（`key_focus_window` / `key_focus_return_bar`）。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/early_main_producer.py`
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 当前 focus/key-focus surface audit：
+  - business/control-plane 已有 `focus_lists` / `focus_list_items` / `focus_list_rules` 作为 source-of-truth；
+  - early main producer 已消费 focus rows，但此前只把它们当作 reference/fact seed，未以正式 report module 出现在 main report；
+  - chart package 已存在 `key_focus_window` / `key_focus_return_bar` 图类，但主报告与 delivery package 对其缺少显式 focus-level wiring；
+  - judgment review / mapping foundation 已存在，但此前没有把 focus scope 作为显式 review/mapping 邻接对象。
+- 最小实现路径：
+  - 不新增 DB schema，不改 business-layer contract；
+  - 仅在已有 producer payload 内补 `focus_scope` 元数据；
+  - 在 renderer 侧构建统一 `focus_module`，投影到 customer/review/default HTML、delivery manifest/package index、judgment review/mapping；
+  - 用固定 chart refs 建立与 chart package 的最小相邻连接，避免本 task 跨到复杂 chart orchestration。
+- 关键验证：
+  - `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`
+  - `python3 -m py_compile src/ifa_data_platform/fsj/early_main_producer.py src/ifa_data_platform/fsj/report_rendering.py tests/unit/test_fsj_report_rendering.py`
+- 证据路径：
+  - `src/ifa_data_platform/fsj/early_main_producer.py`
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- commit hash：pending
+- push 状态：pending
+- 残余缺口：
+  - 当前 `key_focus_symbols` 仍是基于已有 focus scope 的最小切片/前置代表，不含复杂 persona/portfolio-ranked selection；
+  - late/mid producer 还未普遍补齐更丰富的 focus_scope provenance，但 renderer 已能消费已有/未来同构 payload；
+  - chart package 目前是 adjacency-level 引用，尚未做更重的 chart selection/runtime bind。
+- 交付结论：POST-P0-FOCUS-001 bounded acceptance met；已完成最小安全 closure，focus/key-focus 现已成为正式 report module，并在 default/review/customer + delivery/judgment seam 可见。
 
 ## 7. Blockers
 

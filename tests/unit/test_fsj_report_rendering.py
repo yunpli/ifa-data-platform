@@ -57,7 +57,7 @@ def _assembled_sections() -> dict:
                 "summary": "机器人链条是今日盘前首要验证主线。",
                 "judgments": [
                     {
-                        "object_key": "judgment:early:main",
+                        "object_key": "judgment:early:mainline_plan",
                         "statement": "若竞价延续强化，则优先观察机器人主线确认。",
                         "judgment_action": "validate",
                         "confidence": "medium",
@@ -134,7 +134,7 @@ def _assembled_sections() -> dict:
                     },
                 ],
                 "lineage": {
-                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
+                    "bundle": {"bundle_id": "bundle-early", "payload_json": {"focus_scope": {"focus_symbols": ["300024.SZ", "002031.SZ", "601138.SH"], "focus_list_types": ["key_focus", "focus"], "why_included": "当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。"}, "degrade": {"degrade_reason": "missing_preopen_high_layer", "contract_mode": "candidate_only", "completeness_label": "sparse"}}},
                     "objects": [],
                     "edges": [],
                     "evidence_links": [
@@ -230,6 +230,8 @@ def test_main_report_html_renderer_emits_sendable_html_with_lineage_hooks() -> N
     assert "support-ai-early.html" in rendered["content"]
     assert rendered["metadata"]["source_artifact_type"] == "fsj_main_report_sections"
     assert rendered["metadata"]["renderer_version"] == "v3"
+    assert rendered["metadata"]["focus_module"]["focus_symbol_count"] == 3
+    assert rendered["metadata"]["focus_module"]["chart_refs"][0]["chart_key"] == "key_focus_window"
     assert rendered["metadata"]["support_summary_domains"] == ["ai_tech", "macro"]
     assert rendered["metadata"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
     assert rendered["metadata"]["existing_report_links"][0]["artifact_uri"] == "file:///tmp/earlier-early.md"
@@ -281,6 +283,7 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     )
 
     assert rendered["title"] == "A股市场简报｜2099-04-22"
+    assert "今日 Key Focus / Focus" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
     assert "盘中观察" not in rendered["content"]  # assembled fixture only has early/late sections
     assert "收盘复盘" in rendered["content"]
@@ -293,6 +296,7 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert rendered["metadata"]["presentation_schema_version"] == "v1"
     customer_presentation = rendered["metadata"]["customer_presentation"]
     assert customer_presentation["schema_type"] == "fsj_customer_main_presentation"
+    assert customer_presentation["focus_module"]["focus_symbol_count"] == 3
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"
 
@@ -309,6 +313,7 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert rendered["title"] == "A股主报告审阅包｜2099-04-22"
     assert rendered["metadata"]["output_profile"] == "review"
     assert rendered["metadata"]["presentation_schema_version"] is None
+    assert "Key Focus / Focus 模块" in rendered["content"]
     assert "bundle-early" in rendered["content"]
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
@@ -496,6 +501,8 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
     assert delivery_manifest["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
     assert delivery_manifest["support_summary_aggregate"]["bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert delivery_manifest["focus_module"]["focus_symbol_count"] == 3
+    assert delivery_manifest["focus_module"]["chart_refs"][0]["chart_key"] == "key_focus_window"
     assert delivery_manifest["judgment_review_surface"]["judgment_item_count"] == 1
     assert delivery_manifest["judgment_mapping_ledger"]["mapping_count"] == 1
     assert delivery_manifest["judgment_mapping_ledger"]["retrospective_link_count"] == 1
@@ -510,14 +517,18 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert Path(published["package_browse_readme_path"]).exists()
     judgment_review_surface = json.loads((package_dir / "judgment_review_surface.json").read_text(encoding="utf-8"))
     assert judgment_review_surface["review_status"] == "pending_operator_item_review"
-    assert judgment_review_surface["items"][0]["judgment_key"] == "judgment:early:main"
+    assert judgment_review_surface["items"][0]["judgment_key"] == "judgment:early:mainline_plan"
+    assert "focus_scope_alignment" in judgment_review_surface["items"][0]["review"]["review_focus"]
+    assert judgment_review_surface["items"][0]["focus_module_refs"]["focus_symbol_count"] == 3
     assert judgment_review_surface["items"][0]["review"]["allowed_actions"] == ["approve", "needs_edit", "reject", "monitor"]
     judgment_mapping_ledger = json.loads((package_dir / "judgment_mapping_ledger.json").read_text(encoding="utf-8"))
     assert judgment_mapping_ledger["mappings"][0]["support_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert judgment_mapping_ledger["mappings"][0]["focus_symbols"] == ["300024.SZ", "002031.SZ", "601138.SH"]
     assert judgment_mapping_ledger["mappings"][0]["customer_wording"] == "若竞价延续强化，则优先观察机器人主线确认。"
-    assert judgment_mapping_ledger["retrospective_links"][0]["linked_prior_judgment_key"] == "judgment:early:main"
+    assert judgment_mapping_ledger["retrospective_links"][0]["linked_prior_judgment_key"] == "judgment:early:mainline_plan"
     package_index = json.loads(Path(published["package_index_path"]).read_text(encoding="utf-8"))
     assert package_index["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
+    assert package_index["focus_module"]["focus_symbol_count"] == 3
     assert delivery_manifest["quality_gate"]["source_health"]["degraded_slot_count"] == 1
     assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])
     assert any(item["role"] == "judgment_review_surface" and item["exists"] is True for item in package_index["files"])

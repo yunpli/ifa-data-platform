@@ -11,6 +11,7 @@ import json
 import re
 import shutil
 
+from .chart_pack import FSJChartPackBuilder
 from .report_assembly import MainReportAssemblyService, SupportReportAssemblyService
 from .report_dispatch import MainReportDeliveryDispatchHelper
 from .report_evaluation import MainReportEvaluationHarness
@@ -72,6 +73,7 @@ class MainReportHTMLRenderer:
         artifact_uri: str | None = None,
         generated_at: datetime | None = None,
         output_profile: str = "internal",
+        chart_manifest: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
         profile = self._normalize_output_profile(output_profile)
@@ -83,12 +85,14 @@ class MainReportHTMLRenderer:
             sections=sections,
             generated_at=generated_at,
             output_profile=profile,
+            chart_manifest=chart_manifest,
         )
         report_links = self._build_report_links(
             sections,
             report_run_id=report_run_id,
             artifact_uri=artifact_uri,
         )
+        focus_module = self._build_focus_module(assembled=assembled, sections=sections)
         metadata = {
             "market": assembled.get("market"),
             "business_date": assembled.get("business_date"),
@@ -106,6 +110,8 @@ class MainReportHTMLRenderer:
             "artifact_uri": artifact_uri,
             "support_summary_domains": list(assembled.get("support_summary_domains") or []),
             "support_summary_bundle_ids": [item.get("bundle_id") for section in sections for item in (section.get("support_summaries") or []) if item.get("bundle_id")],
+            "focus_module": focus_module,
+            "chart_pack": chart_manifest,
             "existing_report_links": [
                 link
                 for section in sections
@@ -118,7 +124,7 @@ class MainReportHTMLRenderer:
             ],
         }
         if profile == "customer":
-            metadata["customer_presentation"] = self._build_customer_presentation(assembled=assembled, sections=sections)
+            metadata["customer_presentation"] = self._build_customer_presentation(assembled=assembled, sections=sections, focus_module=focus_module, chart_manifest=chart_manifest)
         return RenderedFSJArtifact(
             artifact_type="fsj_main_report_html",
             artifact_version="v2",
@@ -138,11 +144,15 @@ class MainReportHTMLRenderer:
         sections: Sequence[dict[str, Any]],
         generated_at: datetime,
         output_profile: str,
+        chart_manifest: dict[str, Any] | None,
     ) -> str:
         if output_profile == "customer":
-            return self._render_customer_html(title=title, assembled=assembled, sections=sections, generated_at=generated_at)
+            return self._render_customer_html(title=title, assembled=assembled, sections=sections, generated_at=generated_at, chart_manifest=chart_manifest)
         executive = self._build_executive_summary(sections)
         institutional_panel = self._build_institutional_panel(assembled, sections)
+        focus_module = self._build_focus_module(assembled=assembled, sections=sections)
+        focus_html = self._render_focus_module_html(focus_module)
+        chart_html = self._render_chart_pack_html(chart_manifest)
         section_html = "\n".join(self._render_section(section) for section in sections)
         return f"""<!DOCTYPE html>
 <html lang=\"zh-CN\">
@@ -207,6 +217,11 @@ class MainReportHTMLRenderer:
     </section>
 
     <section class=\"card\">
+      <h2>Key Focus / Focus 模块</h2>
+      {focus_html}
+    </section>
+
+    <section class=\"card\">
       <h2>主体内容</h2>
       {section_html}
     </section>
@@ -229,7 +244,7 @@ class MainReportHTMLRenderer:
             return f"A股主报告审阅包｜{business_date}"
         return f"A股主报告｜{business_date}"
 
-    def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]], focus_module: dict[str, Any] | None = None) -> dict[str, Any]:
         customer_sections: list[dict[str, Any]] = []
         for section in sections:
             slot = str(section.get("slot") or "")
@@ -259,6 +274,7 @@ class MainReportHTMLRenderer:
             "schema_version": CUSTOMER_PRESENTATION_SCHEMA_VERSION,
             "business_date": assembled.get("business_date"),
             "market": assembled.get("market") or "a_share",
+            "focus_module": focus_module or self._build_focus_module(assembled=assembled, sections=sections),
             "summary_cards": [
                 {
                     "slot": item["slot"],
@@ -270,6 +286,78 @@ class MainReportHTMLRenderer:
             ],
             "sections": customer_sections,
         }
+
+    def _build_focus_module(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> dict[str, Any]:
+        focus_symbols: list[str] = []
+        focus_list_types: list[str] = []
+        reasons: list[str] = []
+        source_sections: list[str] = []
+        judgment_refs: list[str] = []
+        seen_focus: set[str] = set()
+        seen_list_types: set[str] = set()
+        seen_reasons: set[str] = set()
+        for section in sections:
+            slot = str(section.get("slot") or "")
+            if slot:
+                source_sections.append(slot)
+            lineage = dict(section.get("lineage") or {})
+            payload = dict((lineage.get("bundle") or {}).get("payload_json") or {})
+            scope = dict(payload.get("focus_scope") or {})
+            for symbol in scope.get("focus_symbols") or []:
+                symbol = str(symbol or "").strip()
+                if symbol and symbol not in seen_focus:
+                    seen_focus.add(symbol)
+                    focus_symbols.append(symbol)
+            for list_type in scope.get("focus_list_types") or []:
+                list_type = str(list_type or "").strip()
+                if list_type and list_type not in seen_list_types:
+                    seen_list_types.add(list_type)
+                    focus_list_types.append(list_type)
+            for candidate in (
+                scope.get("why_included"),
+                next((fact.get("statement") for fact in (section.get("facts") or []) if "focus" in str(fact.get("statement") or "").lower()), None),
+            ):
+                reason = str(candidate or "").strip()
+                if reason and reason not in seen_reasons:
+                    seen_reasons.add(reason)
+                    reasons.append(reason)
+            for judgment in (section.get("judgments") or []):
+                judgment_key = str(judgment.get("object_key") or "").strip()
+                if judgment_key:
+                    judgment_refs.append(judgment_key)
+        key_focus_symbols = focus_symbols[: min(5, len(focus_symbols))]
+        return {
+            "module_type": "fsj_focus_module",
+            "business_date": assembled.get("business_date"),
+            "list_types": focus_list_types,
+            "focus_symbols": focus_symbols[:12],
+            "focus_symbol_count": len(focus_symbols),
+            "key_focus_symbols": key_focus_symbols,
+            "key_focus_symbol_count": len(key_focus_symbols),
+            "why_included": reasons[0] if reasons else "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
+            "reasons": reasons[:3],
+            "source_sections": source_sections,
+            "chart_refs": [
+                {"chart_key": "key_focus_window", "title": "Key Focus 窗口图"},
+                {"chart_key": "key_focus_return_bar", "title": "Key Focus 日度涨跌幅"},
+            ],
+            "judgment_refs": judgment_refs[:8],
+            "review_ready": bool(focus_symbols or focus_list_types),
+        }
+
+    def _render_focus_module_html(self, focus_module: dict[str, Any]) -> str:
+        list_types = [str(item).replace("_", " ") for item in (focus_module.get("list_types") or [])]
+        reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
+        key_focus = [str(item) for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
+        focus_symbols = [str(item) for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
+        charts = focus_module.get("chart_refs") or []
+        chart_text = "；".join(f"{item.get('title')}（{item.get('chart_key')}）" for item in charts if item.get("chart_key")) or "暂无图表关联"
+        return (
+            f'<div class="bucket"><h3>Why included</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in (reasons or [str(focus_module.get("why_included") or "暂无说明")]))}</ul></div>'
+            f'<div class="bucket"><h3>Key Focus</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in key_focus) or "<li>暂无 Key Focus</li>"}</ul></div>'
+            f'<div class="bucket"><h3>Focus</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in focus_symbols) or "<li>暂无 Focus</li>"}</ul></div>'
+            f'<div class="bucket"><h3>Module wiring</h3><ul><li>list_types：{escape(", ".join(list_types) or "-")}</li><li>chart_refs：{escape(chart_text)}</li><li>judgment_refs：{escape(", ".join(focus_module.get("judgment_refs") or []) or "-")}</li></ul></div>'
+        )
 
     def _customer_section_title(self, slot: str, fallback: str) -> str:
         mapping = {
@@ -293,6 +381,7 @@ class MainReportHTMLRenderer:
     ) -> str:
         presentation = self._build_customer_presentation(assembled=assembled, sections=sections)
         summary_cards = "".join(self._render_customer_summary_card(card) for card in presentation["summary_cards"])
+        focus_module_html = self._render_customer_focus_module(presentation.get("focus_module") or {})
         section_html = "".join(self._render_customer_section(section) for section in presentation["sections"])
         return f"""<!DOCTYPE html>
 <html lang=\"zh-CN\">
@@ -336,6 +425,10 @@ class MainReportHTMLRenderer:
       <div class=\"footnote\">生成时间：{escape(generated_at.isoformat())} · 展示层 schema：{escape(CUSTOMER_PRESENTATION_SCHEMA_VERSION)}</div>
     </section>
     <section class=\"card\">
+      <h2>今日 Key Focus / Focus</h2>
+      {focus_module_html}
+    </section>
+    <section class=\"card\">
       <h2>分时段解读</h2>
       {section_html}
     </section>
@@ -350,6 +443,20 @@ class MainReportHTMLRenderer:
             support_text = " · ".join(f"{item['domain']}：{item['summary']}" for item in card.get("support_themes") or [])
             support_line = f"<div class=\"support-line\"><strong>补充视角：</strong>{escape(support_text)}</div>"
         return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div>{support_line}</div>"
+
+    def _render_customer_focus_module(self, focus_module: dict[str, Any]) -> str:
+        reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
+        if not reasons:
+            reasons = [str(focus_module.get("why_included") or "将今日重点观察池直接前置展示，帮助理解为什么这些对象值得跟踪。")]
+        key_focus = [str(item) for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
+        focus_symbols = [str(item) for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
+        chart_refs = [str(item.get("title") or item.get("chart_key") or "") for item in (focus_module.get("chart_refs") or []) if str(item.get("title") or item.get("chart_key") or "").strip()]
+        return (
+            self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
+            + self._render_customer_bucket("Key Focus", key_focus, fallback="暂无 Key Focus")
+            + self._render_customer_bucket("Focus", focus_symbols, fallback="暂无 Focus")
+            + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
+        )
 
     def _render_customer_section(self, section: dict[str, Any]) -> str:
         support_items = section.get("support_themes") or []
@@ -786,6 +893,7 @@ class MainReportArtifactPublishingService:
             evaluation=evaluation,
             report_eval=report_eval,
         )
+        focus_module = dict((rendered.get("metadata") or {}).get("focus_module") or MainReportHTMLRenderer()._build_focus_module(assembled=assembled, sections=list(assembled.get("sections") or [])))
         judgment_review_surface = self._build_judgment_review_surface(assembled=assembled)
         judgment_mapping_ledger = self._build_judgment_mapping_ledger(
             assembled=assembled,
@@ -863,6 +971,13 @@ class MainReportArtifactPublishingService:
                 "slot_score_span": (report_eval.get("summary") or {}).get("slot_score_span"),
             },
             "support_summary_aggregate": support_summary_aggregate,
+            "focus_module": {
+                "why_included": focus_module.get("why_included"),
+                "focus_symbol_count": focus_module.get("focus_symbol_count"),
+                "key_focus_symbol_count": focus_module.get("key_focus_symbol_count"),
+                "list_types": list(focus_module.get("list_types") or []),
+                "chart_refs": list(focus_module.get("chart_refs") or []),
+            },
             "judgment_review_surface": {
                 "path": str(judgment_review_surface_path.resolve()),
                 "judgment_item_count": judgment_review_surface.get("judgment_item_count"),
@@ -960,6 +1075,7 @@ class MainReportArtifactPublishingService:
                         "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
                         "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
                         "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+                        "focus_module": dict(delivery_manifest.get("focus_module") or {}),
                         "judgment_review_surface": dict(delivery_manifest.get("judgment_review_surface") or {}),
                         "judgment_mapping_ledger": dict(delivery_manifest.get("judgment_mapping_ledger") or {}),
                         "dispatch_advice": dict(delivery_manifest.get("dispatch_advice") or {}),
@@ -1077,6 +1193,7 @@ class MainReportArtifactPublishingService:
                             }
                             for link in evidence_links
                         ],
+                        "focus_module_refs": MainReportHTMLRenderer()._build_focus_module(assembled=assembled, sections=[section]),
                         "review": {
                             "status": "pending",
                             "allowed_actions": ["approve", "needs_edit", "reject", "monitor"],
@@ -1085,6 +1202,7 @@ class MainReportArtifactPublishingService:
                                 "evidence_chain_complete",
                                 "slot_wording_within_boundary",
                                 "support_merge_is_truthful",
+                                "focus_scope_alignment",
                             ],
                         },
                     }
@@ -1142,6 +1260,7 @@ class MainReportArtifactPublishingService:
                 signal_statements = [str(item.get("statement") or "") for item in (section.get("signals") or []) if item.get("statement")][:3]
                 fact_statements = [str(item.get("statement") or "") for item in (section.get("facts") or []) if item.get("statement")][:3]
                 customer_wording = highlights[0] if highlights else str(customer.get("summary") or judgment.get("statement") or section.get("summary") or "")
+                section_focus = MainReportHTMLRenderer()._build_focus_module(assembled=assembled, sections=[section])
                 row = {
                     "judgment_key": judgment_key,
                     "slot": slot,
@@ -1152,6 +1271,9 @@ class MainReportArtifactPublishingService:
                     "support_statements": support_statements,
                     "signal_statements": signal_statements,
                     "fact_statements": fact_statements,
+                    "focus_symbols": list(section_focus.get("focus_symbols") or []),
+                    "focus_why_included": section_focus.get("why_included"),
+                    "chart_refs": list(section_focus.get("chart_refs") or []),
                     "customer_wording": customer_wording,
                     "customer_slot_title": customer.get("title"),
                     "review_surface_ref": review_items.get(judgment_key, {}).get("judgment_key"),
@@ -1235,6 +1357,7 @@ class MainReportArtifactPublishingService:
             "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
             "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
             "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+            "focus_module": dict(delivery_manifest.get("focus_module") or {}),
             "judgment_review_surface": dict(delivery_manifest.get("judgment_review_surface") or {}),
             "judgment_mapping_ledger": dict(delivery_manifest.get("judgment_mapping_ledger") or {}),
             "browse_priority": ["html", "telegram_caption", "delivery_manifest", "judgment_review_surface", "judgment_mapping_ledger", "evaluation", "qa", "manifest"],
@@ -1253,6 +1376,7 @@ class MainReportArtifactPublishingService:
             f"- strongest_slot: `{(package_index.get('slot_evaluation') or {}).get('strongest_slot') or '-'}`",
             f"- support_domains: `{', '.join(support_summary.get('domains') or []) or '-'}`",
             f"- support_bundle_count: `{len(support_summary.get('bundle_ids') or [])}`",
+            f"- focus_symbol_count: `{(package_index.get('focus_module') or {}).get('focus_symbol_count')}`",
             f"- judgment_item_count: `{(package_index.get('judgment_review_surface') or {}).get('judgment_item_count')}`",
             f"- judgment_mapping_count: `{(package_index.get('judgment_mapping_ledger') or {}).get('mapping_count')}`",
             "",

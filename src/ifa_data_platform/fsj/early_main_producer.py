@@ -663,6 +663,13 @@ class EarlyMainFSJAssembler:
         return {
             "schema_version": EARLY_MAIN_PRODUCER_VERSION,
             "contract_source": "A_SHARE_EARLY_MID_LATE_DATA_CONSUMPTION_CONTRACT_V1",
+            "focus_scope": {
+                "focus_symbols": data.focus_symbols[:20],
+                "focus_symbol_count": len(data.focus_symbols),
+                "focus_list_types": data.focus_list_types,
+                "source": "ifa2.focus_lists+ifa2.focus_list_items",
+                "why_included": self._reference_fact_statement(data),
+            },
             "implemented_scope": {
                 "slot": "early",
                 "agent_domain": "main",
