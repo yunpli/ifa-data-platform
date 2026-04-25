@@ -865,8 +865,8 @@
 - 证据路径：
   - `docs/POST_V2_FSJ_REPORT_ARCH_001_FSJ_TO_REPORT_CONSUMPTION_AUDIT_2026-04-25.md`
   - `artifacts/post_v2_db_content_early_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T125500Z.html`
-- commit hash：pending
-- push 状态：pending
+- commit hash：`a1b0aa3`
+- push 状态：pushed to `origin/a-lane-p4-3-llm-field-lineage` (remote already up to date after commit)
 - 交付结论：POST-V2-FSJ-REPORT-ARCH-001 closed as audit-first. Recommended next step is not HTML polish; it is a formal FSJ→market-briefing section compiler plus structured support merge policy.
 ## 7. Blockers
 
