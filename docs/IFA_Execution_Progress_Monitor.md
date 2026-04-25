@@ -21,8 +21,8 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成并切出 `POST-P5-SECTION-PROSE-001`；Lane B 当前 idle / released（本轮不再并行扩展任务）
-- **Acceptance Lane 状态**：`ACCEPT-P6-001` 已完成并 passed；`ACCEPT-P5-001` 识别出的最后一个 premium editorial residual blocker 已关闭
+- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P6-SLOT-SPECIFIC-CUSTOMER-002` 并恢复 idle；Lane B 已切换到 `POST-P6-DB-BACKED-WATCHLIST-002`
+- **Acceptance Lane 状态**：当前 idle；待 Lane B 完成后启动 `ACCEPT-P7-001`
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`a9f0876`
 
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `Developer (direct exec)` | POST-P5-SECTION-PROSE-001 | Final Section-Level Customer Prose Polish | completed | 2026-04-24 23:44 PDT | 2026-04-25 06:49 PDT | none | bounded customer-only section/body prose cleanup landed; fresh sample + focused validation complete |
-| Lane B | `none` | none | idle | idle | - | 2026-04-25 06:49 PDT | none | held idle by design per single-task closeout instruction |
+| Lane A | `agent:developer:subagent:20a0db53-4d12-47a2-8b76-baa5ab6a1e66` | POST-P6-SLOT-SPECIFIC-CUSTOMER-002 | Enforce Customer Slot-Specific Report Pages | pushed | 2026-04-25 01:08 PDT | 2026-04-25 01:20 PDT | none | lane complete; wait for Lane B, then launch ACCEPT-P7-001 |
+| Lane B | `agent:developer:subagent:97b3919f-8ed9-4f30-8513-37e8a527f443` | POST-P6-DB-TRUTH-001 | DB Table Truth and Report Data Contract Audit | pushed | 2026-04-25 01:15 PDT | 2026-04-25 01:44 PDT | none | lane complete; audit doc committed+pushed; findings available for next implementation task |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -64,15 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `Developer (direct exec)`
-- Current Acceptance Task: `ACCEPT-P6-001`
-- Status: `completed`
-- Started At: `2026-04-24 23:49 PDT`
-- Last Update: `2026-04-25 06:50 PDT`
-- Findings: `ACCEPT-P6-001 passed: section/body customer prose now clears the final editorial bar, and prior accepted surfaces (watchlist naming, leakage cleanliness, chart degrade explanation, iFA brand/disclaimer/risk/next-step) remain intact`
-- Findings: `POST-P6-SLOT-SPECIFIC-CUSTOMER-001 pushed: customer renderer now distinguishes early/mid/late decision posture more explicitly at hero + risk/next-step level; focused tests are green; fresh mid sample is available; early/late generation surfaced pre-existing repo/runtime blockers outside renderer scope`
-- Blocker: `none`
-- Next Action: `close bounded P5/P6 editorial finish loop; no further active blocker under current scope`
+- Current Sub-Agent: `none`
+- Current Acceptance Task: `none`
+- Status: `idle`
+- Started At: `-`
+- Last Update: `2026-04-25 01:20 PDT`
+- Findings: `P6 acceptance follow-up now has one remaining blocker: Lane A closed slot-specific customer page leakage by enforcing requested-slot rendering (early-only / mid-only / late-only) while preserving internal/review aggregate surfaces; DB-backed watchlist naming/rationale remains incomplete on Lane B`
+- Blocker: `waiting for POST-P6-DB-BACKED-WATCHLIST-002`
+- Next Action: `launch ACCEPT-P7-001 after Lane B completes`
 
 ---
 
@@ -112,6 +111,7 @@
 | ACCEPT-P6-001 | none | Final Section-Level Editorial Acceptance | acceptance | P6 | pushed | Acceptance Lane | `Developer (direct exec)` | `docs/V2_P6_FINAL_SECTION_LEVEL_EDITORIAL_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p5_section_prose_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T064752Z.html`; `artifacts/post_p5_section_prose_001/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p5_section_prose_001 --report-run-id-prefix post-p5-section-prose-main-early`; targeted section/body phrase recheck; targeted watchlist/leakage/chart/iFA-surface regression check on fresh HTML | `a9f0876` | PASS: final section/body editorial blocker cleared and prior accepted customer-facing surfaces remain intact |
 | POST-P6-SLOT-SPECIFIC-CUSTOMER-001 | none | Slot-Specific Customer Surface Quality for Early / Mid / Late | post-P6 | P1 | pushed | Lane A | `agent:developer:subagent:e3374d21-c253-47a1-8d36-cf2cc012751e` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p6_slot_probe/main_mid_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T074939Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; serial customer sample generation attempts on `scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot {mid,late,early} --mode dry-run --output-profile customer ...` | `branch head (see git log)` | renderer seam tightened for stronger slot differentiation in top judgment / risk / next-step blocks; fresh mid customer sample generated; early sample attempt exposed pre-existing focus-list SQL issue and parallel mid/late probe exposed artifact registration deadlock, both left as residual infra blockers outside this bounded renderer task |
 | POST-P6-DB-BACKED-FOCUS-001 | none | DB-backed focus / key-focus correctness and wiring closure | post-P6 | P1 | completed | Lane B | `agent:developer:subagent:14992d03-9937-4cca-8afc-e976057c0726` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/chart_pack.py`; `tests/unit/test_fsj_main_early_producer.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_early_llm_assist.py`; `tests/integration/fsj_main_slot_golden_cases.py`; `tests/integration/test_fsj_main_early_producer_integration.py`; `scripts/eval_fsj_early_llm_slice.py`; `scripts/prove_fsj_early_llm_fallback.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p6_db_backed_focus_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T075756Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_main_early_producer.py tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_early_llm_assist.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p6_db_backed_focus_001 --report-run-id-prefix post-p6-db-backed-focus-main-early` | `branch head (see git log)` | focus metadata now carries DB-backed per-symbol name/list-type/priority through payload; renderer classifies key-focus vs focus per symbol instead of section-wide heuristic; chart pack prioritizes key-focus symbols first; fresh early dry-run artifact succeeds after fixing the Postgres DISTINCT/ORDER BY seam |
+| POST-P6-DB-TRUTH-001 | none | DB Table Truth and Report Data Contract Audit | post-P6 | P1 | pushed | Lane B | `agent:developer:subagent:97b3919f-8ed9-4f30-8513-37e8a527f443` | `docs/POST_P6_DB_TRUTH_001_DB_TABLE_TRUTH_AND_REPORT_DATA_CONTRACT_AUDIT_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | read-only SQL via unified venv against repo `.env`; code audit over `src/ifa_data_platform/fsj/early_main_producer.py`, `src/ifa_data_platform/fsj/report_rendering.py`, `src/ifa_data_platform/fsj/chart_pack.py`, `scripts/fsj_report_cli.py` | `branch head (see git log)` | bounded DB truth audit completed: primary RCA is suffixed focus symbol vs bare `stock_basic_history.symbol` mismatch in producer fallback; rationale sameness is due to renderer fallback on thin per-symbol evidence; chart partiality is real upstream data sparsity (`equity_daily_bar_history` sparse, `ifa_archive_equity_60m` empty, intraday price working tables mostly empty) |
 
 ### 4.1 Status 枚举
 
