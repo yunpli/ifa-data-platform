@@ -254,14 +254,21 @@ class MainReportHTMLRenderer:
             support_items = [
                 {
                     "domain": SUPPORT_DOMAIN_LABELS.get(str(item.get("agent_domain") or ""), str(item.get("agent_domain") or "support")),
-                    "summary": self._sanitize_customer_text(str(item.get("summary") or "暂无摘要")),
+                    "summary": self._refine_customer_summary(
+                        self._sanitize_customer_text(str(item.get("summary") or "暂无摘要")),
+                        slot=slot,
+                        is_support=True,
+                    ),
                 }
                 for item in (section.get("support_summaries") or [])
             ]
-            section_summary = self._sanitize_customer_text(str(section.get("summary") or "暂无摘要"))
-            highlights = self._customer_item_statements(section.get("judgments") or [], limit=3)
-            signals = self._customer_item_statements(section.get("signals") or [], limit=3)
-            facts = self._customer_item_statements(section.get("facts") or [], limit=3)
+            section_summary = self._refine_customer_summary(
+                self._sanitize_customer_text(str(section.get("summary") or "暂无摘要")),
+                slot=slot,
+            )
+            highlights = self._customer_item_statements(section.get("judgments") or [], limit=3, slot=slot)
+            signals = self._customer_item_statements(section.get("signals") or [], limit=3, slot=slot)
+            facts = self._customer_item_statements(section.get("facts") or [], limit=3, slot=slot)
             customer_sections.append(
                 {
                     "slot": slot,
@@ -376,8 +383,9 @@ class MainReportHTMLRenderer:
                 tier="key_focus",
                 display_name=focus_name_map.get(symbol),
                 primary_reason=reasons[0] if reasons else "",
+                ordinal=index,
             )
-            for symbol in key_focus_symbols[:5]
+            for index, symbol in enumerate(key_focus_symbols[:5], start=1)
         ]
         focus_watch_items = [
             self._build_focus_watch_item(
@@ -385,8 +393,9 @@ class MainReportHTMLRenderer:
                 tier="focus_watch",
                 display_name=focus_name_map.get(symbol),
                 primary_reason=reasons[0] if reasons else "",
+                ordinal=index,
             )
-            for symbol in focus_only_symbols[:7]
+            for index, symbol in enumerate(focus_only_symbols[:7], start=1)
         ]
         if not focus_watch_items:
             focus_watch_items = [self._professional_empty_focus_item()]
@@ -405,8 +414,8 @@ class MainReportHTMLRenderer:
             "key_focus_items": key_focus_items,
             "focus_watch_items": focus_watch_items,
             "watchlist_tiers": [
-                {"label": "Tier 1 / Key Focus", "description": "优先观察的核心名单，用于验证强弱、节奏与主线确认质量。", "symbols": key_focus_symbols[:5], "items": key_focus_items},
-                {"label": "Tier 2 / Focus Watchlist", "description": "补充观察池，用于确认扩散、分歧与噪音过滤。", "symbols": focus_only_symbols[:7], "items": focus_watch_items},
+                {"label": "Tier 1 / Key Focus", "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。", "symbols": key_focus_symbols[:5], "items": key_focus_items},
+                {"label": "Tier 2 / Focus Watchlist", "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。", "symbols": focus_only_symbols[:7], "items": focus_watch_items},
             ],
             "why_included": reasons[0] if reasons else "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
             "reasons": self._focus_reasons(reasons=reasons, key_focus_symbols=key_focus_symbols, focus_only_symbols=focus_only_symbols, total_focus_count=len(focus_symbols)),
@@ -439,18 +448,24 @@ class MainReportHTMLRenderer:
                 result[symbol_text] = name_text
         return result
 
-    def _build_focus_watch_item(self, *, symbol: str, tier: str, display_name: str | None, primary_reason: str) -> dict[str, str]:
+    def _build_focus_watch_item(self, *, symbol: str, tier: str, display_name: str | None, primary_reason: str, ordinal: int | None = None) -> dict[str, str]:
         clean_symbol = str(symbol or "").strip()
-        display = self._format_focus_display_name(clean_symbol, display_name)
+        display = self._format_focus_display_name(clean_symbol, display_name, tier=tier, ordinal=ordinal)
         rationale_seed = self._sanitize_customer_text(primary_reason)
         if tier == "key_focus":
-            rationale = rationale_seed or "纳入核心跟踪名单，主要用于判断主线强度是否继续得到盘中或收盘验证。"
-            validation_point = "今日重点看承接质量、强弱延续和是否获得主线确认。"
-            invalidation = "若量价跟随不足、板块扩散未形成或强势仅停留在个股层面，应降级为观察而非追认。"
+            rationale = self._polish_focus_reason(
+                rationale_seed,
+                fallback="列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳。",
+            )
+            validation_point = "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认。"
+            invalidation = "若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述。"
         else:
-            rationale = rationale_seed or "纳入补充观察池，用于辅助识别主线扩散、分歧与噪音过滤。"
-            validation_point = "今日重点看是否出现跟随扩散、回流承接或板块联动信号。"
-            invalidation = "若全天缺少联动、承接偏弱或仅有零散异动，则继续保留在观察层而不升级。"
+            rationale = self._polish_focus_reason(
+                rationale_seed,
+                fallback="列入补充观察名单，用于跟踪主线外溢、板块轮动与分歧后的回流质量。",
+            )
+            validation_point = "盘中重点看是否出现跟随扩散、回流承接，或更清晰的板块联动信号。"
+            invalidation = "若全天仍缺少联动、承接偏弱，或只有零散异动，则维持补充观察，不急于上调优先级。"
         return {
             "symbol": clean_symbol,
             "code": clean_symbol,
@@ -464,23 +479,28 @@ class MainReportHTMLRenderer:
     def _professional_empty_focus_item(self) -> dict[str, str]:
         return {
             "symbol": "",
-            "display_name": "补充观察池暂未扩展",
-            "short_label": "补充观察池暂未扩展",
-            "observation_rationale": "当前报告将研究资源优先集中在核心验证对象，未额外展开第二层观察名单。",
-            "today_validation_point": "若盘中出现新的扩散线索、联动方向或主线分歧修复，再补充进入观察池。",
-            "risk_invalidation": "若没有新增确认线索，不主动为了凑名单而扩大观察范围。",
+            "display_name": "补充观察名单暂未展开",
+            "short_label": "补充观察名单暂未展开",
+            "observation_rationale": "当前报告把研究资源优先放在核心验证对象上，暂不额外铺开第二层观察名单。",
+            "today_validation_point": "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围。",
+            "risk_invalidation": "若没有新增确认依据，不为凑名单而机械扩展观察范围。",
         }
 
-    def _format_focus_display_name(self, symbol: str, display_name: str | None) -> str:
+    def _format_focus_display_name(self, symbol: str, display_name: str | None, *, tier: str | None = None, ordinal: int | None = None) -> str:
         clean_name = str(display_name or "").strip()
         if clean_name:
             return clean_name
         clean_symbol = str(symbol or "").strip()
         if not clean_symbol:
             return "未命名观察对象"
+        ordinal_suffix = self._focus_ordinal_label(ordinal)
+        if tier == "key_focus":
+            return f"核心观察标的{ordinal_suffix}" if ordinal_suffix else "核心观察标的"
+        if tier == "focus_watch":
+            return f"补充观察标的{ordinal_suffix}" if ordinal_suffix else "补充观察标的"
         if clean_symbol.endswith((".SH", ".SZ", ".BJ")):
-            return "待补全名称标的"
-        return "待补全名称观察对象"
+            return f"观察标的{ordinal_suffix}" if ordinal_suffix else "观察标的"
+        return f"观察对象{ordinal_suffix}" if ordinal_suffix else "观察对象"
 
     def _build_focus_short_label(self, *, display_name: str, symbol: str) -> str:
         clean_display = str(display_name or "").strip()
@@ -488,6 +508,32 @@ class MainReportHTMLRenderer:
         if clean_display and clean_symbol:
             return clean_display if clean_display.endswith(clean_symbol) else f"{clean_display}（{clean_symbol}）"
         return clean_display or clean_symbol
+
+    def _focus_ordinal_label(self, ordinal: int | None) -> str:
+        mapping = {
+            1: "一",
+            2: "二",
+            3: "三",
+            4: "四",
+            5: "五",
+            6: "六",
+            7: "七",
+            8: "八",
+            9: "九",
+            10: "十",
+        }
+        if ordinal is None:
+            return ""
+        return mapping.get(int(ordinal), str(int(ordinal)))
+
+    def _polish_focus_reason(self, reason: str, *, fallback: str) -> str:
+        clean_reason = str(reason or "").strip()
+        if not clean_reason:
+            return fallback
+        lower_reason = clean_reason.lower()
+        if "focus/key-focus" in lower_reason or "观察池覆盖" in clean_reason or "噪音过滤" in clean_reason:
+            return fallback
+        return clean_reason
 
     def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
         polished = [str(item).strip() for item in reasons if str(item).strip()]
@@ -549,13 +595,13 @@ class MainReportHTMLRenderer:
         }
         return mapping.get(slot, fallback)
 
-    def _customer_item_statements(self, items: Sequence[dict[str, Any]], *, limit: int) -> list[str]:
+    def _customer_item_statements(self, items: Sequence[dict[str, Any]], *, limit: int, slot: str) -> list[str]:
         statements: list[str] = []
         for item in items:
             raw = str(item.get("statement") or "").strip()
             if not raw:
                 continue
-            sanitized = self._sanitize_customer_text(raw)
+            sanitized = self._refine_customer_summary(self._sanitize_customer_text(raw), slot=slot)
             if not sanitized or self._customer_should_drop_statement(sanitized):
                 continue
             if sanitized not in statements:
@@ -569,20 +615,20 @@ class MainReportHTMLRenderer:
         if not sanitized:
             return sanitized
         replacements = [
-            ("candidate_with_open_validation", "证据强度较高但仍需开盘验证"),
-            ("watchlist_only", "仅作为观察池处理"),
-            ("same-day stable/final", "收盘口径已确认"),
-            ("same-day final market packet ready", "收盘口径已确认"),
-            ("same-day final", "收盘口径已确认"),
+            ("candidate_with_open_validation", "证据已具雏形，但仍需开盘验证"),
+            ("watchlist_only", "暂列观察名单"),
+            ("same-day stable/final", "收盘依据已完整"),
+            ("same-day final market packet ready", "收盘依据已完整"),
+            ("same-day final", "收盘依据已完整"),
             ("same-day", "当日"),
-            ("high+reference", "盘前高频与参考信息"),
-            ("high layer", "高频结构信号"),
-            ("reference seed", "参考观察池"),
-            ("intraday retained", "盘中留存"),
-            ("retained intraday", "盘中留存"),
-            ("close package", "收盘确认依据"),
-            ("open validation", "开盘验证"),
-            ("adjust 输入", "校准输入"),
+            ("high+reference", "盘前交易与资讯线索"),
+            ("high layer", "盘中结构信号"),
+            ("reference seed", "观察名单"),
+            ("intraday retained", "盘中留存信息"),
+            ("retained intraday", "盘中留存信息"),
+            ("close package", "收盘确认材料"),
+            ("open validation", "开盘确认"),
+            ("adjust 输入", "辅助校准"),
             ("observe/track-only", "观察/跟踪"),
         ]
         for old, new in replacements:
@@ -658,13 +704,18 @@ class MainReportHTMLRenderer:
         anchor = early_section or late_section or next(iter(customer_sections), {})
         headline = str(anchor.get("summary") or "").strip()
         highlights = [str(item).strip() for item in (anchor.get("highlights") or []) if str(item).strip()]
+        late_headline = str((late_section or {}).get("summary") or "").strip()
+        if early_section and late_headline:
+            clean_headline = (headline or '盘前线索已给出方向').rstrip('，。； ')
+            clean_late = (late_headline or '收盘复核').lstrip('，。； ').rstrip('，。； ')
+            return f"今日主线判断仍以盘中与收盘确认过程为核心：{clean_headline}；而{clean_late}。"
         if headline and highlights:
-            return f"{headline} 现阶段更适合把交易与沟通重心放在“{highlights[0]}”的验证质量上，而不是过早放大为无条件确认。"
+            return f"{headline} 当前更适合把重心放在验证质量与节奏把握，而不是提前把阶段性线索解读为无条件确认。"
         if headline:
-            return f"{headline} 当前建议沿着主线确认、风险约束与后续观察三条线同步推进。"
+            return f"{headline} 当前应沿着主线确认、风险控制与后续观察三条线并行推进。"
         if highlights:
-            return f"当前优先围绕“{highlights[0]}”组织验证与节奏判断。"
-        return "当前报告以主线确认、风险约束和次日观察三条线并行展开。"
+            return f"当前更适合围绕“{highlights[0]}”安排观察顺序，并根据后续证据决定是否提高判断强度。"
+        return "当前报告以主线确认、风险控制与次日观察三条线并行展开。"
 
     def _customer_slot_advisory_note(
         self,
@@ -680,12 +731,12 @@ class MainReportHTMLRenderer:
         first_highlight = next((str(item).strip() for item in highlights if str(item).strip()), "")
         first_signal = next((str(item).strip() for item in signals if str(item).strip()), "")
         if slot == "early":
-            return f"盘前阶段更适合把{headline or '当前主线候选'}视为开盘后的优先验证方向；{first_highlight or first_signal or '如验证信号不足，应及时降回观察名单'}。"
+            return first_highlight or first_signal or "盘前更适合先确认是否出现可持续的量价与领涨共振，再决定是否提高判断强度。"
         if slot == "mid":
-            return f"盘中阶段以节奏修正为主，{headline or '当前判断'}只能作为仓位与跟踪强弱的动态参考，不宜外推为收盘定论。"
+            return first_signal or "盘中阶段以校准节奏为主，任何阶段性强化都需要继续观察扩散质量与承接稳定度。"
         if slot == "late":
-            overlay = f"，并结合{support_domains}补充交叉验证" if support_domains else ""
-            return f"收盘阶段应把{headline or '当日主线'}放回全天证据框架中复核{overlay}；若次日缺少延续证据，结论应回落为跟踪而非继续追认。"
+            overlay = f"，并结合{support_domains}的补充线索做交叉核对" if support_domains else ""
+            return f"收盘判断宜回到全天证据框架中复核{overlay}；若次日缺少延续性，结论应及时回落为跟踪而非追认。"
         return headline or first_highlight or "当前判断应继续结合新增证据滚动更新。"
 
     def _customer_risk_block(self, customer_sections: Sequence[dict[str, Any]]) -> list[str]:
@@ -696,18 +747,18 @@ class MainReportHTMLRenderer:
             section_facts = [str(item).strip() for item in (section.get("facts") or []) if str(item).strip()]
             if slot == "early":
                 if section_signals:
-                    risks.append(f"盘前风险：{section_signals[0]} 若未兑现，早段主线判断应维持候选而非转为追价依据。")
+                    risks.append("盘前最大的风险不在于线索不足，而在于开盘后承接与扩散不能接住预期；一旦验证落空，应把判断及时降回观察层。")
                 elif section_facts:
-                    risks.append(f"盘前风险：{section_facts[0]} 仍需等待开盘后价格与承接确认。")
+                    risks.append("盘前线索仍需等待开盘后的价格、量能与领涨反馈共同确认，单一消息面不足以支持追认。")
             elif slot == "late":
                 if section_signals:
-                    risks.append(f"收盘风险：{section_signals[0]} 仅说明当日收盘包可读，不代表次日延续性已经自动成立。")
+                    risks.append("收盘结论只能说明当日证据框架已经闭合，不代表次日延续性已经自动成立；隔夜若缺少增量催化，强度判断需要重新评估。")
                 elif section_facts:
-                    risks.append(f"收盘风险：{section_facts[0]} 仍需与次日资金与扩散强度交叉验证。")
+                    risks.append("收盘复盘仍需与次日资金回流、板块扩散和核心标的承接情况交叉验证，避免把单日结果外推过度。")
             for support in section.get("support_themes") or []:
                 summary = str(support.get("summary") or "").strip()
                 if summary:
-                    risks.append(f"辅助视角风险：{summary} 只能作为修正与校准输入，不应替代主报告的核心结论。")
+                    risks.append(f"补充视角更适合用来修正主判断的边界，不能单独替代主线结论；当前尤其要防止把“{summary}”直接上升为核心交易依据。")
             if len(risks) >= 4:
                 break
         deduped: list[str] = []
@@ -723,19 +774,15 @@ class MainReportHTMLRenderer:
         early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
         late_section = next((section for section in customer_sections if section.get("slot") == "late"), None)
         if early_section:
-            section_signals = [str(item).strip() for item in (early_section.get("signals") or []) if str(item).strip()]
-            if section_signals:
-                next_steps.append(f"开盘后第一观察位：围绕“{section_signals[0]}”确认主线是否具备继续强化的交易条件。")
+            next_steps.append("开盘后先看核心主线是否出现量价共振、板块扩散与领涨锚点同步改善，再决定是否提升当天判断强度。")
         if late_section:
-            section_signals = [str(item).strip() for item in (late_section.get("signals") or []) if str(item).strip()]
-            if section_signals:
-                next_steps.append(f"收盘后复核位：以“{section_signals[0]}”核对当日结论能否顺延到次日跟踪框架。")
+            next_steps.append("收盘后重点复核当日强势是否具备次日延续条件，尤其关注资金回流、板块承接与核心标的分化是否仍然健康。")
         key_focus_items = [item for item in (focus_module.get("key_focus_items") or []) if isinstance(item, dict)]
         if key_focus_items:
             labels = [self._customer_focus_label(item) for item in key_focus_items[:3]]
             labels = [item for item in labels if item]
             if labels:
-                next_steps.append(f"重点跟踪名单：继续观察 {'、'.join(labels)} 的强弱分化、承接质量与是否得到主线验证。")
+                next_steps.append(f"重点跟踪名单建议继续围绕 {'、'.join(labels)} 展开，优先比较强弱排序、承接质量与是否继续得到主线验证。")
         if not next_steps:
             next_steps.append("明日观察：继续围绕主线确认、风险约束与重点标的强弱分化来更新判断。")
         return next_steps[:3]
@@ -844,7 +891,7 @@ class MainReportHTMLRenderer:
             return label
         if label.endswith(code):
             return label
-        if label in {"待补全名称标的", "待补全名称观察对象"}:
+        if label in {"核心观察标的", "补充观察标的", "观察标的", "观察对象"}:
             return f"{label}（{code}）"
         return label
 
@@ -875,11 +922,11 @@ class MainReportHTMLRenderer:
                 continue
             detail_parts = []
             if rationale:
-                detail_parts.append(f"观察逻辑：{rationale}")
+                detail_parts.append(f"纳入原因：{rationale}")
             if validation:
-                detail_parts.append(f"今日验证点：{validation}")
+                detail_parts.append(f"盘中观察要点：{validation}")
             if risk:
-                detail_parts.append(f"风险/失效条件：{risk}")
+                detail_parts.append(f"需要下调关注的情形：{risk}")
             rows.append(f"<li><strong>{escape(label)}</strong><br/>{'<br/>'.join(escape(part) for part in detail_parts) if detail_parts else escape(fallback)}</li>")
         if not rows:
             rows = [f"<li>{escape(fallback)}</li>"]
@@ -898,6 +945,42 @@ class MainReportHTMLRenderer:
                 f"<li>{escape(str(asset.get('title') or '-'))} · 状态={escape(str(asset.get('status') or '-'))} · 窗口={escape(str(source_window.get('lookback_bars') or '-'))} {escape(str(source_window.get('frequency') or '-'))} bars{note_html} · 资源={escape(str(asset.get('relative_path') or '-'))}</li>"
             )
         return f"<section class=\"card\"><h2>关键图表</h2><div class=\"footnote\">chart_degrade_status={escape(str(chart_pack.get('degrade_status') or '-'))} · ready_chart_count={escape(str(chart_pack.get('ready_chart_count') or '-'))}/{escape(str(chart_pack.get('chart_count') or '-'))}</div><ul>{''.join(items)}</ul></section>"
+
+    def _refine_customer_summary(self, text: str, *, slot: str, is_support: bool = False) -> str:
+        summary = str(text or "").strip(" ，；。")
+        if not summary:
+            return summary
+        summary = re.sub(r"^A股", "", summary)
+        summary = re.sub(r"\s+", " ", summary).strip()
+        if is_support:
+            support_rewrites = [
+                (r"^盘前 AI-tech 有新催化/板块强弱变化，应作为主判断的 辅助校准$", "AI / 科技线索有增量变化，可作为盘前主判断的辅助校准。"),
+                (r"^盘前商品链有新变化，应作为主判断的 辅助校准$", "商品方向出现新变化，可作为盘前主判断的辅助校准。"),
+                (r"^盘前宏观背景有新变化，应先作为主判断的 辅助校准，而不是直接当作已验证主线$", "宏观背景出现新变化，更适合用于校准主判断边界，而不是直接上升为已验证主线。"),
+                (r"^晚报 AI-tech 催化存在但板块承接偏弱，更适合作为次日降权/防伪强信号$", "AI / 科技方向有催化，但板块承接仍偏弱，更适合作为次日强弱甄别的辅助线索。"),
+                (r"^晚报商品链形成可追溯变化，应沉淀为次日优先验证链条$", "商品方向已出现可跟踪变化，值得列入次日优先验证名单。"),
+                (r"^晚报宏观更像放大器/修正项，应沉淀为次日优先监控变量$", "宏观因素更像放大器与修正项，适合列入次日重点监控变量。"),
+            ]
+            for pattern, replacement in support_rewrites:
+                if re.match(pattern, summary):
+                    return replacement
+            return summary
+        rewrites = {
+            "early": [
+                (r"^盘前主线预案：已基于盘前 盘前交易与资讯线索 形成待开盘验证的主线候选$", "盘前线索已初步指向主线方向，但是否值得提高仓位或预期，仍要等开盘后的量价与承接确认。"),
+            ],
+            "mid": [
+                (r"^盘中主线更新：盘中 盘中结构信号 证据不足或不够新鲜，仅保留跟踪/观察级更新$", "盘中证据仍偏谨慎，当前更适合把市场理解为跟踪与校准阶段，而不是提前下收盘定论。"),
+                (r"^盘中主线更新：盘中结构信号 证据不足或不够新鲜，仅保留跟踪/观察级更新$", "盘中证据仍偏谨慎，当前更适合把市场理解为跟踪与校准阶段，而不是提前下收盘定论。"),
+            ],
+            "late": [
+                (r"^收盘主线复盘：已基于 收盘依据已完整 市场表与 当日 文本事实形成收盘结论$", "收盘复盘显示，当日主线已经具备较完整的确认基础，但是否能自然延续到下一交易日，仍需观察后续承接。"),
+            ],
+        }
+        for pattern, replacement in rewrites.get(slot, []):
+            if re.match(pattern, summary):
+                return replacement
+        return summary
 
     def _render_customer_section(self, section: dict[str, Any]) -> str:
         support_items = section.get("support_themes") or []

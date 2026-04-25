@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:PENDING_POST_P4_EDITORIAL_PHRASING_001` | POST-P4-EDITORIAL-PHRASING-001 | Final Premium Editorial Phrasing Pass | in_progress | 2026-04-24 23:22 PDT | 2026-04-24 23:22 PDT | none | final customer-only premium phrasing pass without touching chart/focus/internal/review |
-| Lane B | `agent:developer:subagent:PENDING_POST_P4_WATCHLIST_NAMING_001` | POST-P4-WATCHLIST-NAMING-001 | Final Premium Watchlist Naming and Rationale Pass | in_progress | 2026-04-24 23:22 PDT | 2026-04-24 23:22 PDT | none | final customer-facing watchlist naming/rationale polish without schema/platform expansion |
+| Lane A | `agent:developer:subagent:13d399e9-ca04-4169-9896-675660fc850a` | POST-P4-EDITORIAL-PHRASING-001 | Final Premium Editorial Phrasing Pass | completed | 2026-04-24 23:22 PDT | 2026-04-25 06:31 UTC | none | customer-only editorial phrasing pass landed; await commit/push receipt and final acceptance follow-through |
+| Lane B | `agent:developer:subagent:411dcc3a-0ca6-4e87-a952-beca2b3e7b8f` | POST-P4-WATCHLIST-NAMING-001 | Final Premium Watchlist Naming and Rationale Pass | testing | 2026-04-24 23:22 PDT | 2026-04-25 06:30 PDT | none | finalize task record, commit, and push bounded renderer-only watchlist naming/rationale polish |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -104,8 +104,8 @@
 | POST-P3-WATCHLIST-QUALITY-002 | none | Watchlist Metadata Quality and Golden Sample Readiness | post-P3 | P1 | completed | Lane B | `agent:developer:subagent:c3671f1b-cc3f-48ef-94e1-a69f15666a34` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p3_watchlist_quality_002/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T045318Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p3_watchlist_quality_002 --report-run-id-prefix post-p3-watchlist-quality-main-early`; fresh leakage/manual spot check on generated HTML for `Tier 2 / Focus Watchlist`, `待补全名称标的（000001.SZ）`, and absence of `A股标的 000001.SZ（000001.SZ）` | `f330af3` | bounded watchlist quality pass landed: Tier 2 naming is now consistent across metadata and customer HTML, missing-name rows keep professional readable labels with explicit code instead of duplicated raw ticker dump, code field is preserved for downstream mapping, empty-list fallback remains professional, and fresh customer sample remains chart/judgment aligned without customer leakage |
 | ACCEPT-P3-001 | none | Premium Editorial and Chart/Focus Quality Acceptance | acceptance | P3 | pushed | Acceptance Lane | `agent:developer:subagent:487b3282-db6e-49d9-8e38-af9e1b06d8c7` | `docs/V2_P3_EDITORIAL_AND_CHART_FOCUS_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `git status --short`; `git log -n 8 --oneline`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py`; targeted leakage / phrase recheck across sampled customer HTML; direct sample comparison across post-P1 / post-P2 artifacts; direct chart-manifest inspection | `d963907` | honest acceptance fail: chart partial/customer explanation passes and leakage recheck passes, but premium editorial + professional watchlist bar still not met |
 | ACCEPT-P4-001 | none | Premium Customer Editorial and Watchlist Acceptance | acceptance | P4 | pushed | Acceptance Lane | `agent:developer:subagent:41d69c06-f3be-4c04-b961-a0e69e578b1b` | `docs/V2_P4_EDITORIAL_AND_WATCHLIST_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `git status --short`; `git log -n 12 --oneline`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/accept_p4_001 --report-run-id-prefix accept-p4-main-early`; targeted `rg` recheck across `artifacts/accept_p4_001` for customer-surface leakage, telemetry suppression, and residual watchlist/editorial phrases | `edcd698` / `c1d6f88` | honest acceptance fail narrowed further: customer raw/noisy telemetry is gone, leakage remains clean, chart degrade explanation remains acceptable, but premium editorial phrasing and premium watchlist naming still block final closeout |
-| POST-P4-EDITORIAL-PHRASING-001 | none | Final Premium Editorial Phrasing Pass | post-P4 | P1 | in_progress | Lane A | `agent:developer:subagent:PENDING_POST_P4_EDITORIAL_PHRASING_001` | - | pending | - | final customer-only premium phrasing pass: top judgment / risk-next-step / advisory tone / repetitive phrasing |
-| POST-P4-WATCHLIST-NAMING-001 | none | Final Premium Watchlist Naming and Rationale Pass | post-P4 | P1 | in_progress | Lane B | `agent:developer:subagent:PENDING_POST_P4_WATCHLIST_NAMING_001` | - | pending | - | final customer-facing watchlist naming/rationale pass: remove ticker-dominant feel and improve professional fallback naming |
+| POST-P4-EDITORIAL-PHRASING-001 | none | Final Premium Editorial Phrasing Pass | post-P4 | P1 | completed | Lane A | `agent:developer:subagent:13d399e9-ca04-4169-9896-675660fc850a` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p4_editorial_phrasing_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T063056Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p4_editorial_phrasing_001 --report-run-id-prefix post-p4-editorial-main-early` | pending | customer-only premium phrasing tightened: top judgment, summary-card advisory notes, risk/next-step, support phrasing, and summary rewrites are now less producer-shaped while internal/review surfaces remain unchanged |
+| POST-P4-WATCHLIST-NAMING-001 | none | Final Premium Watchlist Naming and Rationale Pass | post-P4 | P1 | testing | Lane B | `agent:developer:subagent:411dcc3a-0ca6-4e87-a952-beca2b3e7b8f` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p4_watchlist_naming_001_v2 --report-run-id-prefix post-p4-watchlist-main-early`; targeted `rg` recheck on generated customer HTML/manifest for `核心观察标的一|核心观察标的二|补充观察名单暂未展开|待补全名称标的|暂无 Focus Watchlist` | pending | customer watchlist naming/rationale polish landed at renderer seam; focused validation green; fresh sample shows non-ticker-primary fallback naming and professional empty-state wording |
 
 ### 4.1 Status 枚举
 
@@ -678,6 +678,31 @@
 - push 状态：pushed
 - 交付结论：ACCEPT-P3-001 not accepted yet；residuals are now precise and implementation-ready rather than vague.
 
+#### Task ID: POST-P4-EDITORIAL-PHRASING-001
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：仅在 customer presentation seam 内完成最后一轮 premium editorial phrasing pass，重点收紧顶层核心判断、summary card 顾问提示、support 摘要表达、风险提示与下一步观察，使客户面减少 producer/template 痕迹，同时保持 internal/review、chart logic、focus data structure 不变。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p4_editorial_phrasing_001 --report-run-id-prefix post-p4-editorial-main-early`
+- 结果摘要：
+  - customer top judgment 从模板化 summary 拼接改为更接近客户 briefing 的总括语气；
+  - 风险 / 下一步改成 advisor-grade wording，不再直接回显原始信号句；
+  - summary card 与 support overlay 的 customer phrasing 进一步去 producer-shaped / contract-shaped 残留；
+  - customer sample 仍保持 leakage-clean，internal/review 保持原样；
+  - focused renderer tests 全绿（34 passed）。
+- 证据路径：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `artifacts/post_p4_editorial_phrasing_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T063056Z.html`
+- commit hash：pending
+- push 状态：pending
+- 交付结论：POST-P4-EDITORIAL-PHRASING-001 acceptance met on the bounded customer-only editorial scope；后续只需补 commit/push receipt，并与并行 watchlist task 一起进入下一轮 acceptance。
+
 #### Task ID: ACCEPT-P4-001
 - Parent Task ID：none
 - 完成时间：2026-04-24
@@ -711,6 +736,31 @@
 - commit hash：`edcd698`
 - push 状态：pushed
 - 交付结论：ACCEPT-P4-001 not accepted yet；remaining blockers are now narrow and explicit: premium editorial phrasing finish + premium watchlist naming finish.
+
+#### Task ID: POST-P4-WATCHLIST-NAMING-001
+- Parent Task ID：none
+- 完成时间：2026-04-25
+- 做了什么：在不改 focus schema、不扩平台、不触碰 Lane A editorial phrasing 工作面的前提下，仅在 customer watchlist renderer seam 做最终命名与理由口径收束：将缺失名称时的占位命名从“待补全名称标的”升级为更像投顾 watchlist 的序号化专业命名（如“核心观察标的一”）；将 watchlist 每条说明改写为“纳入原因 / 盘中观察要点 / 需要下调关注的情形”；并把空列表 fallback 统一成更专业的“补充观察名单暂未展开”口径。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p4_watchlist_naming_001_v2 --report-run-id-prefix post-p4-watchlist-main-early`
+  - targeted `rg` recheck across `artifacts/post_p4_watchlist_naming_001_v2` for `核心观察标的一|核心观察标的二|补充观察名单暂未展开|待补全名称标的|暂无 Focus Watchlist`
+- 结果摘要：
+  - customer watchlist item naming is no longer dominated by raw ticker-first fallback labels;
+  - per-item rationale/validation/risk wording now reads closer to advisory watchlist guidance than checklist telemetry;
+  - empty Tier 2 fallback is more professional and no longer looks like a missing-list placeholder;
+  - focused tests pass and fresh sample remains customer-leakage clean within the touched watchlist surface.
+- 证据路径：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `artifacts/post_p4_watchlist_naming_001_v2/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T063022Z.html`
+- commit hash：pending
+- push 状态：pending
+- 交付结论：POST-P4-WATCHLIST-NAMING-001 acceptance target met at code/test/sample level; remaining mechanical closeout is commit + push.
 
 ## 7. Blockers
 

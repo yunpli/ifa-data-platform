@@ -342,12 +342,12 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert "Tier 1 / Key Focus" in rendered["content"]
     assert "Tier 2 / Focus Watchlist" in rendered["content"]
     assert "机器人龙头A（300024.SZ）" in rendered["content"]
-    assert "观察逻辑：当前业务观察池覆盖 3 个 A 股 focus/key-focus 对象" in rendered["content"]
-    assert "今日验证点：今日重点看承接质量、强弱延续和是否获得主线确认" in rendered["content"]
-    assert "风险/失效条件：若量价跟随不足、板块扩散未形成或强势仅停留在个股层面，应降级为观察而非追认" in rendered["content"]
+    assert "纳入原因：列入核心观察名单，主要用于确认主线强度、资金承接与板块带动是否能够继续站稳" in rendered["content"]
+    assert "盘中观察要点：盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认" in rendered["content"]
+    assert "需要下调关注的情形：若量价跟随转弱、扩散没有形成，或强势仅停留在单一个股，宜下调为观察而不是继续强化表述" in rendered["content"]
     assert "早报 / 中报 / 晚报分时段解读" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
-    assert "盘中观察" not in rendered["content"]  # assembled fixture only has early/late sections
+    assert "<h3>盘中观察</h3>" not in rendered["content"]  # assembled fixture only has early/late sections
     assert "收盘复盘" in rendered["content"]
     assert "bundle-early" not in rendered["content"]
     assert "phase1-main-early-v1" not in rendered["content"]
@@ -366,7 +366,7 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert customer_presentation["disclaimer"]
     assert customer_presentation["focus_module"]["focus_symbol_count"] == 3
     assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "机器人龙头A"
-    assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "补充观察池暂未扩展"
+    assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "补充观察名单暂未展开"
     assert customer_presentation["focus_module"]["watchlist_tiers"][1]["label"] == "Tier 2 / Focus Watchlist"
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"
@@ -381,9 +381,9 @@ def test_main_report_renderer_uses_professional_focus_fallback_wording_when_watc
         output_profile="customer",
     )
 
-    assert "补充观察池暂未扩展" in rendered["content"]
-    assert "当前报告将研究资源优先集中在核心验证对象" in rendered["content"]
-    assert "若盘中出现新的扩散线索、联动方向或主线分歧修复，再补充进入观察池" in rendered["content"]
+    assert "补充观察名单暂未展开" in rendered["content"]
+    assert "当前报告把研究资源优先放在核心验证对象上" in rendered["content"]
+    assert "若盘中出现更明确的扩散线索、联动方向或分歧修复信号，再补充进入观察范围" in rendered["content"]
     assert "暂无 Focus Watchlist" not in rendered["content"]
 
 
@@ -405,11 +405,11 @@ def test_main_report_renderer_keeps_missing_name_watchlist_rows_readable_without
     )
     customer_presentation = rendered["metadata"]["customer_presentation"]
 
-    assert "待补全名称标的（000001.SZ）" in rendered["content"]
+    assert "核心观察标的一（000001.SZ）" in rendered["content"]
     assert "A股标的 000001.SZ（000001.SZ）" not in rendered["content"]
     assert customer_presentation["focus_module"]["key_focus_items"][0]["code"] == "000001.SZ"
-    assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "待补全名称标的"
-    assert customer_presentation["focus_module"]["key_focus_items"][0]["short_label"] == "待补全名称标的（000001.SZ）"
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "核心观察标的一"
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["short_label"] == "核心观察标的一（000001.SZ）"
 
 
 def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible() -> None:
@@ -426,7 +426,7 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert rendered["metadata"]["presentation_schema_version"] is None
     assert "Key Focus / Focus 模块" in rendered["content"]
     assert "机器人龙头A（300024.SZ）" in rendered["content"]
-    assert "今日重点看承接质量、强弱延续和是否获得主线确认" in rendered["content"]
+    assert "盘中重点看承接是否稳定、强势是否延续，以及是否继续获得主线级别的共振确认" in rendered["content"]
     assert "bundle-early" in rendered["content"]
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
@@ -459,11 +459,11 @@ def test_customer_profile_sanitizes_upstream_contract_phrasing_but_review_keeps_
     assert "watchlist_only" not in customer["content"]
     assert "same-day stable/final" not in customer["content"]
     assert "close package" not in customer["content"]
-    assert "证据强度较高但仍需开盘验证" in customer["content"]
-    assert "盘前高频与参考信息" in customer["content"]
-    assert "仅作为观察池处理" in customer["content"]
-    assert "收盘口径已确认" in customer["content"]
-    assert "收盘确认依据" in customer["content"]
+    assert "证据已具雏形，但仍需开盘验证" in customer["content"]
+    assert "盘前交易与资讯线索" in customer["content"]
+    assert "暂列观察名单" in customer["content"]
+    assert "收盘依据已完整" in customer["content"]
+    assert "收盘确认材料" in customer["content"]
 
     assert "candidate_with_open_validation" in review["content"]
     assert "high+reference" in review["content"]
