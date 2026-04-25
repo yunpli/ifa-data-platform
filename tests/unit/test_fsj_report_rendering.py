@@ -241,6 +241,53 @@ def test_main_report_html_renderer_emits_sendable_html_with_lineage_hooks() -> N
     assert rendered["report_links"][0]["section_render_key"] == "main.pre_open"
 
 
+def _chart_manifest() -> dict:
+    return {
+        "artifact_type": "fsj_main_chart_pack",
+        "artifact_version": "v1",
+        "business_date": "2099-04-22",
+        "chart_count": 3,
+        "ready_chart_count": 2,
+        "degrade_status": "partial",
+        "degrade_reason": ["key_focus_return_bar:focus/equity daily bars missing for requested window"],
+        "chart_classes": ["key_focus_bar", "key_focus_line", "market_index_line"],
+        "assets": [
+            {
+                "chart_key": "market_index_window",
+                "chart_class": "market_index_line",
+                "title": "市场/指数窗口图",
+                "relative_path": "charts/market_index_window.svg",
+                "source_window": {"source_table": "ifa2.index_daily_bar_history", "frequency": "daily", "lookback_bars": 20, "end_business_date": "2099-04-22"},
+                "status": "ready",
+                "note": None,
+            },
+            {
+                "chart_key": "key_focus_window",
+                "chart_class": "key_focus_line",
+                "title": "Key Focus 窗口图",
+                "relative_path": "charts/key_focus_window.svg",
+                "source_window": {"source_table": "ifa2.equity_daily_bar_history", "frequency": "daily", "lookback_bars": 20, "end_business_date": "2099-04-22"},
+                "status": "ready",
+                "note": None,
+            },
+            {
+                "chart_key": "key_focus_return_bar",
+                "chart_class": "key_focus_bar",
+                "title": "Key Focus 日度涨跌幅",
+                "relative_path": "charts/key_focus_return_bar.svg",
+                "source_window": {"source_table": "ifa2.equity_daily_bar_history", "frequency": "daily", "lookback_bars": 2, "end_business_date": "2099-04-22"},
+                "status": "missing",
+                "note": "focus/equity daily bars missing for requested window",
+            },
+        ],
+        "html_embed_blocks": [
+            {"chart_key": "market_index_window", "title": "市场/指数窗口图", "status": "ready", "relative_path": "charts/market_index_window.svg", "source_window": {"source_table": "ifa2.index_daily_bar_history", "frequency": "daily", "lookback_bars": 20, "end_business_date": "2099-04-22"}, "caption": "window=20 daily bars"},
+            {"chart_key": "key_focus_window", "title": "Key Focus 窗口图", "status": "ready", "relative_path": "charts/key_focus_window.svg", "source_window": {"source_table": "ifa2.equity_daily_bar_history", "frequency": "daily", "lookback_bars": 20, "end_business_date": "2099-04-22"}, "caption": "window=20 daily bars"},
+            {"chart_key": "key_focus_return_bar", "title": "Key Focus 日度涨跌幅", "status": "missing", "relative_path": "charts/key_focus_return_bar.svg", "source_window": {"source_table": "ifa2.equity_daily_bar_history", "frequency": "daily", "lookback_bars": 2, "end_business_date": "2099-04-22"}, "caption": "focus/equity daily bars missing for requested window"},
+        ],
+    }
+
+
 class _StubAssemblyService:
     def __init__(self, artifact: dict):
         self.artifact = artifact
@@ -317,6 +364,26 @@ def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible
     assert "bundle-early" in rendered["content"]
     assert "phase1-main-early-v1" in rendered["content"]
     assert "source:early:robotics" in rendered["content"]
+
+
+def test_main_report_renderer_renders_chart_pack_with_explicit_windows_and_missing_degrade() -> None:
+    rendered = MainReportHTMLRenderer().render(
+        _assembled_sections(),
+        report_run_id="report-run-chart-pack-1",
+        artifact_uri="file:///tmp/chart-pack.html",
+        generated_at=datetime(2099, 4, 22, 8, 5, tzinfo=timezone.utc),
+        chart_manifest=_chart_manifest(),
+    )
+
+    assert "关键图表包" in rendered["content"]
+    assert "市场/指数窗口图" in rendered["content"]
+    assert "Key Focus 窗口图" in rendered["content"]
+    assert "Key Focus 日度涨跌幅" in rendered["content"]
+    assert "charts/market_index_window.svg" in rendered["content"]
+    assert "charts/key_focus_return_bar.svg" in rendered["content"]
+    assert "chart_degrade_status=partial" in rendered["content"]
+    assert rendered["metadata"]["chart_pack"]["ready_chart_count"] == 2
+    assert rendered["metadata"]["chart_pack"]["assets"][2]["status"] == "missing"
 
 
 def test_main_report_renderer_keeps_support_content_at_concise_summary_boundary() -> None:
@@ -419,6 +486,23 @@ def test_main_report_qa_evaluator_blocks_when_late_source_health_is_missing_requ
     assert any(issue["code"] == "source_health_blocked" and issue.get("slot") == "late" for issue in evaluation["issues"])
 
 
+def test_main_report_renderer_customer_profile_surfaces_chart_assets_without_internal_ids() -> None:
+    rendered = MainReportHTMLRenderer().render(
+        _assembled_sections(),
+        report_run_id="report-run-customer-chart-1",
+        artifact_uri="file:///tmp/customer-chart.html",
+        generated_at=datetime(2099, 4, 22, 8, 6, tzinfo=timezone.utc),
+        output_profile="customer",
+        chart_manifest=_chart_manifest(),
+    )
+
+    assert "关键图表" in rendered["content"]
+    assert "charts/market_index_window.svg" in rendered["content"]
+    assert "chart_degrade_status=partial" in rendered["content"]
+    assert "bundle-early" not in rendered["content"]
+    assert rendered["metadata"]["customer_presentation"]["chart_pack"]["chart_count"] == 3
+
+
 def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_wiring(tmp_path: Path) -> None:
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
@@ -447,6 +531,8 @@ def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_
     assert store.registered[0]["metadata_json"]["artifact_file_path"] == str(html_path)
     assert store.registered[0]["metadata_json"]["quality_gate"]["ready_for_delivery"] is True
     assert store.registered[0]["metadata_json"]["support_summary_bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert store.registered[0]["metadata_json"]["chart_pack"]["chart_count"] == 3
+    assert Path(tmp_path / "charts" / "chart_manifest.json").exists()
     qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
     assert qa_payload["ready_for_delivery"] is True
     assert qa_payload["summary"]["late_contract_mode"] == "full_close_package"
@@ -501,12 +587,16 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert delivery_manifest["slot_evaluation"]["strongest_slot"] in {"early", "late"}
     assert delivery_manifest["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
     assert delivery_manifest["support_summary_aggregate"]["bundle_ids"] == ["bundle-support-ai-early", "bundle-support-macro-early"]
+    assert delivery_manifest["chart_pack"]["chart_count"] == 3
+    assert delivery_manifest["chart_pack"]["ready_chart_count"] >= 0
     assert delivery_manifest["focus_module"]["focus_symbol_count"] == 3
     assert delivery_manifest["focus_module"]["chart_refs"][0]["chart_key"] == "key_focus_window"
     assert delivery_manifest["judgment_review_surface"]["judgment_item_count"] == 1
     assert delivery_manifest["judgment_mapping_ledger"]["mapping_count"] == 1
     assert delivery_manifest["judgment_mapping_ledger"]["retrospective_link_count"] == 1
     assert delivery_manifest["artifacts"]["evaluation"].endswith(".eval.json")
+    assert delivery_manifest["artifacts"]["charts_dir"] == "charts"
+    assert delivery_manifest["artifacts"]["chart_manifest"] == "charts/chart_manifest.json"
     assert delivery_manifest["artifacts"]["package_index"] == "package_index.json"
     assert delivery_manifest["artifacts"]["browse_readme"] == "BROWSE_PACKAGE.md"
     assert delivery_manifest["artifacts"]["judgment_review_surface"] == "judgment_review_surface.json"
@@ -528,9 +618,11 @@ def test_main_report_artifact_publisher_builds_delivery_package_with_chat_ready_
     assert judgment_mapping_ledger["retrospective_links"][0]["linked_prior_judgment_key"] == "judgment:early:mainline_plan"
     package_index = json.loads(Path(published["package_index_path"]).read_text(encoding="utf-8"))
     assert package_index["support_summary_aggregate"]["domains"] == ["ai_tech", "macro"]
+    assert package_index["chart_pack"]["chart_count"] == 3
     assert package_index["focus_module"]["focus_symbol_count"] == 3
     assert delivery_manifest["quality_gate"]["source_health"]["degraded_slot_count"] == 1
     assert any(item["role"] == "delivery_manifest" and item["exists"] is True for item in package_index["files"])
+    assert any(item["role"] == "charts_dir" and item["exists"] is True for item in package_index["files"])
     assert any(item["role"] == "judgment_review_surface" and item["exists"] is True for item in package_index["files"])
     assert any(item["role"] == "judgment_mapping_ledger" and item["exists"] is True for item in package_index["files"])
     browse_readme = Path(published["package_browse_readme_path"]).read_text(encoding="utf-8")

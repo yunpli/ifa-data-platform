@@ -221,6 +221,8 @@ class MainReportHTMLRenderer:
       {focus_html}
     </section>
 
+    {chart_html}
+
     <section class=\"card\">
       <h2>主体内容</h2>
       {section_html}
@@ -244,7 +246,7 @@ class MainReportHTMLRenderer:
             return f"A股主报告审阅包｜{business_date}"
         return f"A股主报告｜{business_date}"
 
-    def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]], focus_module: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]], focus_module: dict[str, Any] | None = None, chart_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
         customer_sections: list[dict[str, Any]] = []
         for section in sections:
             slot = str(section.get("slot") or "")
@@ -275,6 +277,7 @@ class MainReportHTMLRenderer:
             "business_date": assembled.get("business_date"),
             "market": assembled.get("market") or "a_share",
             "focus_module": focus_module or self._build_focus_module(assembled=assembled, sections=sections),
+            "chart_pack": chart_manifest,
             "summary_cards": [
                 {
                     "slot": item["slot"],
@@ -378,10 +381,12 @@ class MainReportHTMLRenderer:
         assembled: dict[str, Any],
         sections: Sequence[dict[str, Any]],
         generated_at: datetime,
+        chart_manifest: dict[str, Any] | None,
     ) -> str:
-        presentation = self._build_customer_presentation(assembled=assembled, sections=sections)
+        presentation = self._build_customer_presentation(assembled=assembled, sections=sections, chart_manifest=chart_manifest)
         summary_cards = "".join(self._render_customer_summary_card(card) for card in presentation["summary_cards"])
         focus_module_html = self._render_customer_focus_module(presentation.get("focus_module") or {})
+        chart_pack_html = self._render_customer_chart_pack(presentation.get("chart_pack") or {})
         section_html = "".join(self._render_customer_section(section) for section in presentation["sections"])
         return f"""<!DOCTYPE html>
 <html lang=\"zh-CN\">
@@ -428,6 +433,7 @@ class MainReportHTMLRenderer:
       <h2>今日 Key Focus / Focus</h2>
       {focus_module_html}
     </section>
+    {chart_pack_html}
     <section class=\"card\">
       <h2>分时段解读</h2>
       {section_html}
@@ -458,6 +464,18 @@ class MainReportHTMLRenderer:
             + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
         )
 
+    def _render_customer_chart_pack(self, chart_pack: dict[str, Any]) -> str:
+        assets = list(chart_pack.get("assets") or [])
+        if not assets:
+            return ""
+        items = []
+        for asset in assets:
+            source_window = dict(asset.get("source_window") or {})
+            items.append(
+                f"<li>{escape(str(asset.get('title') or '-'))} · 状态={escape(str(asset.get('status') or '-'))} · 窗口={escape(str(source_window.get('lookback_bars') or '-'))} {escape(str(source_window.get('frequency') or '-'))} bars · 资源={escape(str(asset.get('relative_path') or '-'))}</li>"
+            )
+        return f"<section class=\"card\"><h2>关键图表</h2><div class=\"footnote\">chart_degrade_status={escape(str(chart_pack.get('degrade_status') or '-'))} · ready_chart_count={escape(str(chart_pack.get('ready_chart_count') or '-'))}/{escape(str(chart_pack.get('chart_count') or '-'))}</div><ul>{''.join(items)}</ul></section>"
+
     def _render_customer_section(self, section: dict[str, Any]) -> str:
         support_items = section.get("support_themes") or []
         support_html = ""
@@ -483,6 +501,19 @@ class MainReportHTMLRenderer:
         if not values:
             values = [fallback]
         return f"<div class=\"bucket\"><div class=\"bucket-title\">{escape(title)}</div><ul>{''.join(f'<li>{escape(item)}</li>' for item in values)}</ul></div>"
+
+    def _render_chart_pack_html(self, chart_manifest: dict[str, Any] | None) -> str:
+        manifest = dict(chart_manifest or {})
+        assets = list(manifest.get("assets") or [])
+        if not assets:
+            return ""
+        cards = []
+        for asset in assets:
+            source_window = dict(asset.get("source_window") or {})
+            cards.append(
+                f"<div class=\"section\"><h3>{escape(str(asset.get('title') or '-'))}</h3><div class=\"section-meta\"><span class=\"{'pill' if asset.get('status') == 'ready' else 'pill missing'}\">{escape(str(asset.get('status') or '-'))}</span>chart_class={escape(str(asset.get('chart_class') or '-'))} · source_window={escape(str(source_window.get('lookback_bars') or '-'))} {escape(str(source_window.get('frequency') or '-'))} bars · asset={escape(str(asset.get('relative_path') or '-'))}</div><img src=\"{escape(str(asset.get('relative_path') or ''))}\" alt=\"{escape(str(asset.get('title') or 'chart'))}\" style=\"width:100%;border:1px solid #dbe3f1;border-radius:16px;background:#fff;margin-top:12px;\" /><div class=\"footnote\">{escape(str(asset.get('note') or ''))}</div></div>"
+            )
+        return f"<section class=\"card\"><h2>关键图表包</h2><div class=\"footnote\">chart_degrade_status={escape(str(manifest.get('degrade_status') or '-'))} · ready_chart_count={escape(str(manifest.get('ready_chart_count') or '-'))}/{escape(str(manifest.get('chart_count') or '-'))}</div>{''.join(cards)}</section>"
 
     def _build_executive_summary(self, sections: Sequence[dict[str, Any]]) -> str:
         boxes: list[str] = []
@@ -714,12 +745,14 @@ class MainReportArtifactPublishingService:
         qa_evaluator: MainReportQAEvaluator | None = None,
         evaluation_harness: MainReportEvaluationHarness | None = None,
         artifact_root: str | Path | None = None,
+        chart_pack_builder: FSJChartPackBuilder | None = None,
     ) -> None:
         self.rendering_service = rendering_service
         self.store = store
         self.qa_evaluator = qa_evaluator or MainReportQAEvaluator()
         self.evaluation_harness = evaluation_harness or MainReportEvaluationHarness()
         self.dispatch_helper = MainReportDeliveryDispatchHelper()
+        self.chart_pack_builder = chart_pack_builder or FSJChartPackBuilder()
         self.artifact_root = require_explicit_non_live_artifact_root(
             flow_name=f"{self.__class__.__name__}.__init__",
             artifact_root=artifact_root,
@@ -748,19 +781,23 @@ class MainReportArtifactPublishingService:
         artifact_uri = html_path.resolve().as_uri()
         effective_report_run_id = report_run_id or artifact_id
 
-        rendered = self.rendering_service.render_main_report_html(
-            business_date=business_date,
-            include_empty=include_empty,
-            report_run_id=effective_report_run_id,
-            artifact_uri=artifact_uri,
-            output_profile=output_profile,
-        )
-        html_path.write_text(rendered["content"], encoding="utf-8")
-
         assembled = self.rendering_service.assembly_service.assemble_main_sections(
             business_date=business_date,
             include_empty=include_empty,
         )
+        chart_manifest = self.chart_pack_builder.build_main_chart_pack(
+            business_date=business_date,
+            assembled=assembled,
+            package_dir=output_path,
+        )
+        rendered = self.rendering_service.renderer.render(
+            assembled,
+            report_run_id=effective_report_run_id,
+            artifact_uri=artifact_uri,
+            output_profile=output_profile,
+            chart_manifest=chart_manifest,
+        )
+        html_path.write_text(rendered["content"], encoding="utf-8")
         evaluation = self.qa_evaluator.evaluate(assembled, rendered)
         report_eval = self.evaluation_harness.evaluate(assembled, rendered, evaluation)
 
@@ -795,6 +832,7 @@ class MainReportArtifactPublishingService:
                         "slot_scores": report_eval["summary"].get("slot_scores"),
                         "progression": report_eval["summary"].get("progression"),
                     },
+                    "chart_pack": chart_manifest,
                 },
             }
         )
@@ -844,6 +882,7 @@ class MainReportArtifactPublishingService:
             "evaluation": report_eval,
             "report_links": rendered["report_links"],
             "persisted_report_links": persisted_links,
+            "chart_pack": chart_manifest,
         }
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
@@ -858,6 +897,7 @@ class MainReportArtifactPublishingService:
             "evaluation": evaluation,
             "report_evaluation": report_eval,
             "persisted_report_links": persisted_links,
+            "chart_pack": chart_manifest,
         }
 
     def publish_delivery_package(
@@ -918,10 +958,15 @@ class MainReportArtifactPublishingService:
         package_qa_path = package_dir / qa_path.name
         package_eval_path = package_dir / eval_path.name
         package_manifest_path = package_dir / manifest_path.name
+        chart_pack = dict(published.get("chart_pack") or {})
+        chart_source_dir = html_path.parent / "charts"
+        package_chart_dir = package_dir / "charts"
         shutil.copy2(html_path, package_html_path)
         shutil.copy2(qa_path, package_qa_path)
         shutil.copy2(eval_path, package_eval_path)
         shutil.copy2(manifest_path, package_manifest_path)
+        if chart_source_dir.exists():
+            shutil.copytree(chart_source_dir, package_chart_dir, dirs_exist_ok=True)
 
         caption_text = self._build_delivery_caption(
             business_date=business_date,
@@ -971,6 +1016,17 @@ class MainReportArtifactPublishingService:
                 "slot_score_span": (report_eval.get("summary") or {}).get("slot_score_span"),
             },
             "support_summary_aggregate": support_summary_aggregate,
+            "chart_pack": {
+                "manifest_path": str((package_chart_dir / "chart_manifest.json").resolve()) if (package_chart_dir / "chart_manifest.json").exists() else chart_pack.get("manifest_path"),
+                "relative_manifest_path": "charts/chart_manifest.json" if (package_chart_dir / "chart_manifest.json").exists() else chart_pack.get("relative_manifest_path"),
+                "chart_count": chart_pack.get("chart_count"),
+                "ready_chart_count": chart_pack.get("ready_chart_count"),
+                "degrade_status": chart_pack.get("degrade_status"),
+                "degrade_reason": chart_pack.get("degrade_reason"),
+                "chart_classes": chart_pack.get("chart_classes"),
+                "assets": chart_pack.get("assets"),
+                "html_embed_blocks": chart_pack.get("html_embed_blocks"),
+            },
             "focus_module": {
                 "why_included": focus_module.get("why_included"),
                 "focus_symbol_count": focus_module.get("focus_symbol_count"),
@@ -996,6 +1052,8 @@ class MainReportArtifactPublishingService:
                 "evaluation": package_eval_path.name,
                 "manifest": package_manifest_path.name,
                 "telegram_caption": caption_path.name,
+                "charts_dir": "charts" if package_chart_dir.exists() else None,
+                "chart_manifest": "charts/chart_manifest.json" if (package_chart_dir / "chart_manifest.json").exists() else None,
                 "judgment_review_surface": judgment_review_surface_path.name,
                 "judgment_mapping_ledger": judgment_mapping_ledger_path.name,
             },
@@ -1008,6 +1066,7 @@ class MainReportArtifactPublishingService:
             "delivery_zip_path": str((root_output_dir / f"{package_slug}.zip").resolve()),
             "delivery_manifest": delivery_manifest,
             "delivery_eval_path": str(package_eval_path.resolve()),
+            "chart_pack_dir": str(package_chart_dir.resolve()) if package_chart_dir.exists() else None,
         }
         delivery_manifest["dispatch_advice"] = self.dispatch_helper.summarize_candidate(preview_payload)
         delivery_manifest_path = package_dir / "delivery_manifest.json"
@@ -1023,6 +1082,7 @@ class MainReportArtifactPublishingService:
                 "evaluation": package_eval_path,
                 "manifest": package_manifest_path,
                 "telegram_caption": caption_path,
+                "charts_dir": package_chart_dir,
                 "judgment_review_surface": judgment_review_surface_path,
                 "judgment_mapping_ledger": judgment_mapping_ledger_path,
                 "delivery_manifest": delivery_manifest_path,
@@ -1075,6 +1135,7 @@ class MainReportArtifactPublishingService:
                         "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
                         "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
                         "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+                        "chart_pack": dict(delivery_manifest.get("chart_pack") or {}),
                         "focus_module": dict(delivery_manifest.get("focus_module") or {}),
                         "judgment_review_surface": dict(delivery_manifest.get("judgment_review_surface") or {}),
                         "judgment_mapping_ledger": dict(delivery_manifest.get("judgment_mapping_ledger") or {}),
@@ -1357,10 +1418,11 @@ class MainReportArtifactPublishingService:
             "quality_gate": dict(delivery_manifest.get("quality_gate") or {}),
             "slot_evaluation": dict(delivery_manifest.get("slot_evaluation") or {}),
             "support_summary_aggregate": dict(delivery_manifest.get("support_summary_aggregate") or {}),
+            "chart_pack": dict(delivery_manifest.get("chart_pack") or {}),
             "focus_module": dict(delivery_manifest.get("focus_module") or {}),
             "judgment_review_surface": dict(delivery_manifest.get("judgment_review_surface") or {}),
             "judgment_mapping_ledger": dict(delivery_manifest.get("judgment_mapping_ledger") or {}),
-            "browse_priority": ["html", "telegram_caption", "delivery_manifest", "judgment_review_surface", "judgment_mapping_ledger", "evaluation", "qa", "manifest"],
+            "browse_priority": ["html", "telegram_caption", "charts_dir", "delivery_manifest", "judgment_review_surface", "judgment_mapping_ledger", "evaluation", "qa", "manifest"],
             "files": file_index,
         }
 
