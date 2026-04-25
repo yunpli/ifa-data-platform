@@ -74,6 +74,8 @@ def main() -> None:
         "delivery_manifest_path": published["delivery_manifest_path"],
         "telegram_caption_path": published["telegram_caption_path"],
         "delivery_zip_path": published["delivery_zip_path"],
+        "judgment_review_surface_path": dict(published.get("delivery_manifest") or {}).get("judgment_review_surface", {}).get("path"),
+        "judgment_mapping_ledger_path": dict(published.get("delivery_manifest") or {}).get("judgment_mapping_ledger", {}).get("path"),
         "delivery_manifest": published["delivery_manifest"],
         "output_profile": args.output_profile,
     }

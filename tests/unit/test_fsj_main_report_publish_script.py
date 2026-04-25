@@ -105,6 +105,8 @@ def test_main_report_publish_script_uses_canonical_main_delivery_factory(
     assert payload["artifact"]["artifact_id"] == "artifact-main"
     assert payload["output_profile"] == "customer"
     assert payload["delivery_manifest"]["business_date"] == "2026-04-23"
+    assert payload["judgment_review_surface_path"] is None
+    assert payload["judgment_mapping_ledger_path"] is None
     assert payload["workflow_handoff"]["artifact"]["artifact_id"] == "artifact-db"
     assert payload["operator_review_surface"]["llm_role_policy"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
     assert payload["operator_summary_path"] == "/tmp/db/pkg/OPERATOR_REVIEW.md"
