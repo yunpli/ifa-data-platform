@@ -250,4 +250,15 @@ Acceptance condition met:
 - minimal implementation path executed in same task
 - progress monitor updated
 - validations executed
-- ready for commit/push
+- commit recorded: `1fc24b83fd87820f7599ffbb678ac24501483015`
+- push status: already pushed to `origin/a-lane-p4-3-llm-field-lineage`
+
+## 9. Validation rerun evidence (replacement verification run)
+
+Executed on replacement run:
+- `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py`
+  - result: `28 passed in 0.33s`
+- `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_orchestration.py tests/unit/test_fsj_report_evaluation.py`
+  - result: `7 passed in 0.28s`
+- `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py scripts/fsj_main_report_publish.py scripts/fsj_support_report_publish.py scripts/fsj_report_cli.py`
+  - result: success
