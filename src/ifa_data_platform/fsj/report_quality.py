@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Sequence
 
 
@@ -24,6 +25,18 @@ SUPPORT_SOURCE_HEALTH_WARNING_REASONS: set[str] = {
     "missing_macro_snapshot",
     "missing_ai_tech_snapshot",
 }
+CUSTOMER_LEAK_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("customer_internal_field_leak", r"bundle-[a-z0-9_-]+"),
+    ("customer_internal_field_leak", r"slot-run-[a-z0-9_-]+"),
+    ("customer_internal_field_leak", r"replay-[a-z0-9_-]+"),
+    ("customer_internal_field_leak", r"phase\d-[a-z0-9-]+-v\d+"),
+    ("customer_internal_field_leak", r"file:///"),
+    ("customer_internal_field_leak", r"report_links="),
+    ("customer_internal_field_leak", r"renderer(?:_version)?="),
+    ("customer_internal_field_leak", r"action="),
+    ("customer_internal_field_leak", r"confidence="),
+    ("customer_internal_field_leak", r"evidence="),
+)
 
 
 @dataclass(frozen=True)
@@ -92,6 +105,13 @@ class MainReportQAEvaluator:
         )
         score = max(0, 100 - blockers * 25 - warnings * 8)
         qa_axes = self._build_qa_axes(issues)
+        customer_report_readiness = self._build_customer_report_readiness(
+            rendered=rendered,
+            ready_for_delivery=ready_for_delivery,
+            source_health=source_health,
+            qa_axes=qa_axes,
+            issues=issues,
+        )
 
         return {
             "artifact_type": "fsj_main_report_qa",
@@ -115,6 +135,8 @@ class MainReportQAEvaluator:
                 "blocker_count": blockers,
                 "warning_count": warnings,
                 "qa_axes": qa_axes,
+                "customer_report_readiness": customer_report_readiness,
+                "golden_sample_regression_hooks": self._golden_sample_regression_hooks(subject="main"),
             },
             "issues": [issue.as_dict() for issue in issues],
         }
@@ -148,6 +170,30 @@ class MainReportQAEvaluator:
                 "source_health_blocked",
                 "source_health_degraded",
             },
+            "editorial": {
+                "html_too_small",
+                "summary_missing",
+                "section_empty_body",
+                "support_summary_missing",
+            },
+            "leakage": {
+                "html_placeholder_leak",
+                "customer_internal_field_leak",
+            },
+            "time_window": {
+                "late_not_ready",
+                "late_close_signal_missing",
+                "late_contract_mode_invalid",
+                "late_provisional_close",
+                "late_historical_only",
+                "source_health_blocked",
+            },
+            "customer_readiness": {
+                "late_not_ready",
+                "late_historical_only",
+                "source_health_blocked",
+                "customer_internal_field_leak",
+            },
         }
         axes: dict[str, Any] = {}
         for axis, codes in axis_codes.items():
@@ -179,6 +225,11 @@ class MainReportQAEvaluator:
             issues.append(QualityIssue("warning", "html_too_small", "HTML 体积过小，可能不是完整送达版报告"))
         if any(token in html for token in (">None<", " undefined", "null</", "[object Object]")):
             issues.append(QualityIssue("error", "html_placeholder_leak", "HTML 中出现 None/undefined/null 等占位泄漏"))
+        if str((rendered.get("metadata") or {}).get("output_profile") or "") == "customer":
+            for code, pattern in CUSTOMER_LEAK_PATTERNS:
+                if re.search(pattern, html, re.IGNORECASE):
+                    issues.append(QualityIssue("error", code, f"customer HTML 出现内部字段泄漏: {pattern}"))
+                    break
 
     def _check_section_coverage(self, sections: Sequence[dict[str, Any]], issues: list[QualityIssue]) -> None:
         seen_slots = {str(section.get("slot") or "") for section in sections}
@@ -258,6 +309,53 @@ class MainReportQAEvaluator:
             ready = False
         return ready, blockers, warnings
 
+    def _build_customer_report_readiness(
+        self,
+        *,
+        rendered: dict[str, Any],
+        ready_for_delivery: bool,
+        source_health: dict[str, Any],
+        qa_axes: dict[str, Any],
+        issues: Sequence[QualityIssue],
+    ) -> dict[str, Any]:
+        output_profile = str((rendered.get("metadata") or {}).get("output_profile") or "internal")
+        readiness_reasons: list[str] = []
+        if not ready_for_delivery:
+            readiness_reasons.append("delivery_gate_not_ready")
+        if source_health.get("overall_status") == "blocked":
+            readiness_reasons.append("source_health_blocked")
+        for code in ("customer_internal_field_leak", "html_placeholder_leak", "late_historical_only"):
+            if any(issue.code == code for issue in issues):
+                readiness_reasons.append(code)
+        leakage_axis = dict(qa_axes.get("leakage") or {})
+        customer_axis = dict(qa_axes.get("customer_readiness") or {})
+        return {
+            "output_profile": output_profile,
+            "customer_safe": output_profile != "customer" or not readiness_reasons,
+            "ready": ready_for_delivery and not readiness_reasons,
+            "blocking_reasons": readiness_reasons,
+            "leakage_blocker_count": int(leakage_axis.get("blocker_count") or 0),
+            "customer_readiness_axis_ready": customer_axis.get("ready"),
+        }
+
+    def _golden_sample_regression_hooks(self, *, subject: str) -> dict[str, Any]:
+        tests = {
+            "main": [
+                "tests/integration/test_fsj_main_slot_golden_cases.py",
+                "tests/integration/test_fsj_main_early_golden_case_family.py",
+                "tests/integration/test_fsj_main_mid_golden_case_family.py",
+                "tests/integration/test_fsj_main_late_golden_case_family.py",
+                "tests/integration/test_fsj_main_llm_resilience_golden_case_family.py",
+                "tests/integration/test_fsj_main_degraded_data_golden_case_family.py",
+            ],
+            "support": ["tests/unit/test_fsj_report_rendering.py"],
+        }
+        return {
+            "subject": subject,
+            "hook_family": "fsj_golden_regression",
+            "recommended_tests": tests.get(subject, []),
+        }
+
     def _source_health_summary(self, sections: Sequence[dict[str, Any]], issues: list[QualityIssue]) -> dict[str, Any]:
         slot_items: list[dict[str, Any]] = []
         blocked_slots = 0
@@ -328,6 +426,13 @@ class SupportReportQAEvaluator:
         ready_for_delivery = blockers == 0 and str(assembled.get("status") or "") == "ready"
         score = max(0, 100 - blockers * 25 - warnings * 8)
         qa_axes = self._build_qa_axes(issues)
+        customer_report_readiness = self._build_customer_report_readiness(
+            rendered=rendered,
+            ready_for_delivery=ready_for_delivery,
+            source_health=source_health,
+            qa_axes=qa_axes,
+            issues=issues,
+        )
 
         return {
             "artifact_type": "fsj_support_report_qa",
@@ -350,6 +455,8 @@ class SupportReportQAEvaluator:
                 "blocker_count": blockers,
                 "warning_count": warnings,
                 "qa_axes": qa_axes,
+                "customer_report_readiness": customer_report_readiness,
+                "golden_sample_regression_hooks": self._golden_sample_regression_hooks(subject="support"),
             },
             "issues": [issue.as_dict() for issue in issues],
         }
@@ -373,6 +480,10 @@ class SupportReportQAEvaluator:
             },
             "lineage": {"lineage_ids_missing"},
             "policy": {"support_source_health_degraded"},
+            "editorial": {"html_too_small", "summary_missing", "section_empty_body"},
+            "leakage": {"html_placeholder_leak", "customer_internal_field_leak"},
+            "time_window": {"support_slot_invalid"},
+            "customer_readiness": {"support_section_not_ready", "customer_internal_field_leak"},
         }
         axes: dict[str, Any] = {}
         for axis, codes in axis_codes.items():
@@ -408,6 +519,11 @@ class SupportReportQAEvaluator:
             issues.append(QualityIssue("warning", "html_too_small", "HTML 体积过小，可能不是完整 support 报告", slot=slot or None))
         if any(token in html for token in (">None<", " undefined", "null</", "[object Object]")):
             issues.append(QualityIssue("error", "html_placeholder_leak", "HTML 中出现 None/undefined/null 等占位泄漏", slot=slot or None))
+        if str((rendered.get("metadata") or {}).get("output_profile") or "") == "customer":
+            for code, pattern in CUSTOMER_LEAK_PATTERNS:
+                if re.search(pattern, html, re.IGNORECASE):
+                    issues.append(QualityIssue("error", code, f"customer HTML 出现内部字段泄漏: {pattern}", slot=slot or None))
+                    break
 
     def _check_section(self, assembled: dict[str, Any], report_links: Sequence[dict[str, Any]], issues: list[QualityIssue]) -> None:
         slot = str(assembled.get("slot") or "")
@@ -428,6 +544,42 @@ class SupportReportQAEvaluator:
             issues.append(QualityIssue("warning", "section_empty_body", "ready support section 没有 judgments/signals/facts，业务含量偏弱", slot=slot or None, section_render_key=section_render_key or None))
         if bundle_id and not any(str(link.get("bundle_id") or "") == bundle_id for link in report_links):
             issues.append(QualityIssue("error", "report_link_missing", "ready support section 未生成 report_link", slot=slot or None, section_render_key=section_render_key or None))
+
+    def _build_customer_report_readiness(
+        self,
+        *,
+        rendered: dict[str, Any],
+        ready_for_delivery: bool,
+        source_health: dict[str, Any],
+        qa_axes: dict[str, Any],
+        issues: Sequence[QualityIssue],
+    ) -> dict[str, Any]:
+        output_profile = str((rendered.get("metadata") or {}).get("output_profile") or "internal")
+        readiness_reasons: list[str] = []
+        if not ready_for_delivery:
+            readiness_reasons.append("delivery_gate_not_ready")
+        if source_health.get("overall_status") == "blocked":
+            readiness_reasons.append("source_health_blocked")
+        for code in ("customer_internal_field_leak", "html_placeholder_leak"):
+            if any(issue.code == code for issue in issues):
+                readiness_reasons.append(code)
+        leakage_axis = dict(qa_axes.get("leakage") or {})
+        customer_axis = dict(qa_axes.get("customer_readiness") or {})
+        return {
+            "output_profile": output_profile,
+            "customer_safe": output_profile != "customer" or not readiness_reasons,
+            "ready": ready_for_delivery and not readiness_reasons,
+            "blocking_reasons": readiness_reasons,
+            "leakage_blocker_count": int(leakage_axis.get("blocker_count") or 0),
+            "customer_readiness_axis_ready": customer_axis.get("ready"),
+        }
+
+    def _golden_sample_regression_hooks(self, *, subject: str) -> dict[str, Any]:
+        return {
+            "subject": subject,
+            "hook_family": "fsj_golden_regression",
+            "recommended_tests": ["tests/unit/test_fsj_report_rendering.py"],
+        }
 
     def _source_health_summary(self, assembled: dict[str, Any], issues: list[QualityIssue]) -> dict[str, Any]:
         lineage = dict(assembled.get("lineage") or {})

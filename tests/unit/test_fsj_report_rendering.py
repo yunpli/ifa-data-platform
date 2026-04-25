@@ -503,6 +503,45 @@ def test_main_report_renderer_customer_profile_surfaces_chart_assets_without_int
     assert rendered["metadata"]["customer_presentation"]["chart_pack"]["chart_count"] == 3
 
 
+def test_main_report_qa_evaluator_exposes_extended_qa_axes_and_customer_readiness() -> None:
+    assembled = _assembled_sections()
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-qa-axes-1",
+        artifact_uri="file:///tmp/final-qa-axes.html",
+        generated_at=datetime(2099, 4, 22, 8, 7, tzinfo=timezone.utc),
+    )
+
+    evaluation = MainReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert evaluation["summary"]["qa_axes"]["editorial"]["ready"] is True
+    assert evaluation["summary"]["qa_axes"]["leakage"]["ready"] is True
+    assert evaluation["summary"]["qa_axes"]["time_window"]["ready"] is True
+    assert evaluation["summary"]["qa_axes"]["customer_readiness"]["ready"] is True
+    assert evaluation["summary"]["customer_report_readiness"]["ready"] is True
+    assert evaluation["summary"]["golden_sample_regression_hooks"]["recommended_tests"]
+
+
+def test_main_report_qa_evaluator_blocks_customer_html_when_internal_tokens_leak() -> None:
+    assembled = _assembled_sections()
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-leak-1",
+        artifact_uri="file:///tmp/customer-leak.html",
+        generated_at=datetime(2099, 4, 22, 8, 8, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    rendered["content"] = rendered["content"].replace("</body>", "<div>bundle-early</div></body>")
+
+    evaluation = MainReportQAEvaluator().evaluate(assembled, rendered)
+
+    assert evaluation["ready_for_delivery"] is False
+    assert evaluation["summary"]["qa_axes"]["leakage"]["ready"] is False
+    assert evaluation["summary"]["qa_axes"]["customer_readiness"]["ready"] is False
+    assert evaluation["summary"]["customer_report_readiness"]["customer_safe"] is False
+    assert "customer_internal_field_leak" in [issue["code"] for issue in evaluation["issues"]]
+
+
 def test_main_report_artifact_publisher_writes_html_manifest_and_qa_with_report_wiring(tmp_path: Path) -> None:
     stub = _StubAssemblyService(_assembled_sections())
     rendering_service = MainReportRenderingService(assembly_service=stub)
@@ -771,6 +810,9 @@ def test_support_report_qa_evaluator_surfaces_degraded_source_health_without_blo
     assert qa["ready_for_delivery"] is True
     assert qa["summary"]["source_health"]["overall_status"] == "degraded"
     assert qa["summary"]["source_health"]["degrade_reason"] == "missing_background_support"
+    assert qa["summary"]["qa_axes"]["editorial"]["ready"] is True
+    assert qa["summary"]["qa_axes"]["leakage"]["ready"] is True
+    assert qa["summary"]["customer_report_readiness"]["ready"] is True
     assert any(issue["code"] == "support_source_health_degraded" for issue in qa["issues"])
 
 
