@@ -21,7 +21,7 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已切换到 `POST-P3-EDITORIAL-COMPRESSION-001`；Lane B 已切换到 `POST-P3-WATCHLIST-QUALITY-002`
+- **当前 Lane A / Lane B 状态**：Lane A / Lane B 当前最近一轮任务均已完成并恢复 idle；当前不派发新开发任务，先保持状态一致
 - **Acceptance Lane 状态**：`ACCEPT-P4-001` 已完成并 closed；结论为 honest fail（raw/noisy telemetry 已从客户面去除、chart/customer explanation 与 leakage recheck 通过，但 premium editorial phrasing 与 premium watchlist naming bar 仍未通过）
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:75791119-f19b-43af-9cf6-eb563819f62a` | POST-P3-EDITORIAL-COMPRESSION-001 | Customer-only Editorial Compression and Raw Fact Suppression | completed | 2026-04-24 21:37 PDT | 2026-04-25 04:42 UTC | none | customer projection now rewrites/suppresses zero-count telemetry and raw text fragments; ready for commit/push receipt |
-| Lane B | `agent:developer:subagent:c3671f1b-cc3f-48ef-94e1-a69f15666a34` | POST-P3-WATCHLIST-QUALITY-002 | Watchlist Metadata Quality and Golden Sample Readiness | completed | 2026-04-24 21:47 PDT | 2026-04-25 04:54 UTC | none | watchlist metadata labels/code fields normalized, missing-name fallback no longer regresses into duplicated raw ticker dump, empty Tier 2 remains professional, and fresh customer sample stays chart/judgment aligned; ready for commit/push receipt |
+| Lane A | `none` | none | idle | idle | - | 2026-04-24 22:03 PDT | none | state calibrated; last completed task = `POST-P3-EDITORIAL-COMPRESSION-001` |
+| Lane B | `none` | none | idle | idle | - | 2026-04-24 22:03 PDT | none | state calibrated; last completed task = `POST-P3-WATCHLIST-QUALITY-002` |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -64,14 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `agent:developer:subagent:41d69c06-f3be-4c04-b961-a0e69e578b1b`
-- Current Acceptance Task: `ACCEPT-P4-001`
-- Status: `completed`
-- Started At: `2026-04-24 21:55 PDT`
-- Last Update: `2026-04-25 05:05 UTC`
+- Current Sub-Agent: `none`
+- Current Acceptance Task: `none`
+- Status: `idle`
+- Started At: `-`
+- Last Update: `2026-04-24 22:03 PDT`
 - Findings: `ACCEPT-P4-001 closed as honest fail; raw/noisy telemetry is gone from customer HTML, leakage remains clean, chart degrade explanation remains acceptable, but premium editorial phrasing and premium watchlist naming still fail closeout`
 - Blocker: `none`
-- Next Action: `route residuals back to implementation only if Yunpeng wants final premium editorial/watchlist closure; current acceptance narrowed blockers precisely`
+- Next Action: `hold idle until Yunpeng decides whether to run another implementation pass or stop for the night`
 
 ---
 
