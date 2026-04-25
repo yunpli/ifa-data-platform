@@ -51,7 +51,7 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:97b77753-6380-4296-bac6-cd51972669ad` | V2-R0-003 | Unified report generation CLI 审计与收口 | in_progress | 2026-04-24 18:10 PDT | 2026-04-24 18:10 PDT | none | complete CLI audit/consolidation decision and report back |
+| Lane A | `agent:developer:subagent:97b77753-6380-4296-bac6-cd51972669ad` | V2-R0-003 | Unified report generation CLI 审计与收口 | completed | 2026-04-24 18:10 PDT | 2026-04-24 18:24 PDT | none | task complete; commit/push recorded, Lane A ready for next dispatch |
 | Lane B | `agent:developer:subagent:6988b07c-d530-4600-b9c0-574074fb52fd` | V2-R0-004 | Customer-facing presentation layer 建立 | in_progress | 2026-04-24 18:10 PDT | 2026-04-24 18:10 PDT | none | complete presentation-layer audit/min-schema path and report back |
 
 说明：
@@ -69,7 +69,7 @@
 | BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | pushed | Lane A | `agent:developer:subagent:5119c733-65a7-46c5-8325-c763a88182e7` | `docs/V2_R0_001_WEEKEND_RUNTIME_FREEZE_PLAN_2026-04-24.md`; `artifacts/runtime_freeze/runtime_process_snapshot_20260424_1758_PDT.txt`; `artifacts/runtime_freeze/unified_daemon_status_pre_freeze_20260424_1758_PDT.json`; `artifacts/runtime_freeze/runtime_preflight_pre_freeze_20260424_1758_PDT.json`; `docs/IFA_Execution_Progress_Monitor.md` | `zsh scripts/unified_daemon_service.sh status`; `zsh scripts/unified_daemon_service.sh preflight`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m ifa_data_platform.runtime.unified_daemon --status`; `pgrep -fl 'ifa_data_platform\\.runtime\\.unified_daemon|ifa_data_platform\\.(lowfreq|midfreq|highfreq)\\.daemon|archive\\.daemon|archive_daemon|unified_daemon_service|unified_daemon_launchd'` | `3c07c8e` | 原 Lane A `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` 启动确认后长时间无实质进展，已判定 stalled/replaced；replacement session 完成 V2-R0-001 |
 | V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | pushed | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | `scripts/db_reality_probe_v2.py`; `artifacts/db_reality_snapshot_v2_20260424.json`; `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`; `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py`; JSON/Markdown evidence review | `684c1553dd9b4a6abec58c6fb653b0f45be7bce0` / `e411d5a03f5d6d2aa8f57fcc681557a4f30d908c` | completed + committed + pushed；Lane B 已恢复 idle 后自动派发到 V2-R0-004 |
-| V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | in_progress | Lane A | `agent:developer:subagent:97b77753-6380-4296-bac6-cd51972669ad` | - | pending | - | 依赖 V2-R0-001 已满足，已自动派发 |
+| V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | completed | Lane A | `agent:developer:subagent:97b77753-6380-4296-bac6-cd51972669ad` | `scripts/fsj_report_cli.py`; `docs/V2_R0_003_UNIFIED_REPORT_CLI_AUDIT_AND_CLOSURE_2026-04-24.md`; `artifacts/v2_r0_003_validation/command_outputs/fsj_report_cli_help.txt`; `artifacts/v2_r0_003_validation/command_outputs/main_generate.json`; `artifacts/v2_r0_003_validation/command_outputs/support_generate.json`; `artifacts/v2_r0_003_validation/command_outputs/status_main.json`; `artifacts/v2_r0_003_validation/command_outputs/status_support_macro.json`; `artifacts/v2_r0_003_validation/command_outputs/status_board_latest.json`; `docs/IFA_Execution_Progress_Monitor.md` | `python -m py_compile scripts/fsj_report_cli.py`; `python scripts/fsj_report_cli.py --help`; `python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-main`; `python scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-support`; `python scripts/fsj_report_cli.py status --subject main --business-date 2026-04-23 --format json`; `python scripts/fsj_report_cli.py status --subject support --agent-domain macro --business-date 2026-04-23 --format json`; `python scripts/fsj_report_cli.py status --subject board --latest --format json` | pending | 完成 CLI audit + gap list + minimal canonical entry；未重写 producer/assembly/render/orchestration 主链 |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | in_progress | Lane B | `agent:developer:subagent:6988b07c-d530-4600-b9c0-574074fb52fd` | - | pending | - | 依赖 V2-R0-002 已满足，已自动派发 |
 | V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-006 | none | LLM prompt 与模型策略升级 | 6 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
@@ -157,6 +157,44 @@
 - progress monitor update commit：`e411d5a03f5d6d2aa8f57fcc681557a4f30d908c`
 - push 状态：pushed
 - 后续建议：下游若假设 archive_v2 equity daily finalized 表存在，必须先核对真实表名/契约，再继续报告层依赖。
+
+#### Task ID: V2-R0-003
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：审计现有 main/support publish、morning-delivery、status/operator CLI 面，形成 coverage matrix 与 gap list，并新增最小 canonical wrapper `scripts/fsj_report_cli.py` 统一 main/support generation 与 main/support/board status 入口；底层继续复用现有 publish/orchestration/status scripts，不改 producer/assembly/render/orchestration 主链。
+- 改了哪些文件：
+  - `scripts/fsj_report_cli.py`
+  - `docs/V2_R0_003_UNIFIED_REPORT_CLI_AUDIT_AND_CLOSURE_2026-04-24.md`
+  - `artifacts/v2_r0_003_validation/command_outputs/fsj_report_cli_help.txt`
+  - `artifacts/v2_r0_003_validation/command_outputs/main_generate.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/support_generate.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/status_main.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/status_support_macro.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/status_board_latest.json`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键结论：
+  - 现有脚本可覆盖 main early/mid/late publish、support early/late batch publish、main morning-delivery、以及 main/support/board status surfaces；
+  - 缺口不在“主链不存在”，而在“没有一个统一 operator 入口”；
+  - 因此本轮选择 **add minimal canonical entry**，而不是只写文档或重写主链；
+  - `customer` output profile 与真正 `replay/backfill-test/dry-run` native 行为仍是后续 gap，本任务仅在 CLI 面显式暴露/约束，不做链路重写。
+- 测试结果：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile scripts/fsj_report_cli.py` 通过
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py --help` 通过
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-main` 通过
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-support` 通过
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py status --subject main --business-date 2026-04-23 --format json` 通过
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py status --subject support --agent-domain macro --business-date 2026-04-23 --format json` 通过
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py status --subject board --latest --format json` 通过
+- 证据路径：
+  - `docs/V2_R0_003_UNIFIED_REPORT_CLI_AUDIT_AND_CLOSURE_2026-04-24.md`
+  - `artifacts/v2_r0_003_validation/command_outputs/main_generate.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/support_generate.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/status_main.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/status_support_macro.json`
+  - `artifacts/v2_r0_003_validation/command_outputs/status_board_latest.json`
+- commit hash：pending
+- push 状态：pending
+- 交付结论：V2-R0-003 acceptance met；minimal canonical entry 已实现，但 customer profile/native replay semantics 仍保留为后续任务。
 
 #### Task ID: BOOT-001
 - Parent Task ID：none

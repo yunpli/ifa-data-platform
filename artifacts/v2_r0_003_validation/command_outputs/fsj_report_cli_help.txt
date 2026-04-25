@@ -1,0 +1,14 @@
+usage: fsj_report_cli.py [-h] {generate,status} ...
+
+Minimal canonical FSJ report control CLI wrapping existing
+publish/delivery/status entrypoints without rewriting the main chain.
+
+positional arguments:
+  {generate,status}
+    generate         Generate/publish main or support report artifacts through
+                     one canonical wrapper
+    status           Read delivery/operator status through one canonical
+                     wrapper
+
+options:
+  -h, --help         show this help message and exit
