@@ -4,6 +4,8 @@ from ifa_data_platform.fsj.early_main_producer import EarlyMainFSJAssembler, Ear
 import subprocess
 
 from ifa_data_platform.fsj.llm_assist import (
+    FSJ_ASSIST_POLICY_VERSION,
+    FSJ_ASSIST_STRATEGY_NAME,
     FSJEarlyLLMAssistant,
     FSJEarlyLLMRequest,
     FSJEarlyLLMResult,
@@ -234,6 +236,8 @@ def test_early_assistant_tags_timeout_deterministic_degrade() -> None:
     assert audit["failure_classification"] == "timeout"
     assert audit["policy"]["operator_tag"] == "llm_timeout"
     assert audit["policy"]["outcome"] == "deterministic_degrade"
+    assert audit["policy"]["policy_version"] == FSJ_ASSIST_POLICY_VERSION
+    assert audit["policy"]["strategy_name"] == FSJ_ASSIST_STRATEGY_NAME
     assert audit["adopted_output_fields"] == []
     assert audit["discarded_output_field_count"] == 5
     assert audit["discard_reason"] == "timeout"
@@ -253,6 +257,15 @@ def test_early_assistant_surfaces_boundary_violation_classification() -> None:
     )
     assert audit["failure_classification"] == "boundary_violation"
     assert audit["policy"]["operator_tag"] == "llm_boundary_violation"
+
+
+def test_role_policy_exposes_time_window_schema_and_evidence_guards() -> None:
+    assembler = EarlyMainFSJAssembler(llm_assistant=FSJEarlyLLMAssistant(FakeEarlyLLMClient()))
+    payload = assembler.build_bundle_graph(_sample_input())
+    role_policy = payload["bundle"]["payload_json"]["llm_role_policy"]
+    assert role_policy["time_window_guard"] == "candidate_only"
+    assert role_policy["schema_enforcement"] == "slot_specific_required_json_schema_plus_parser_validation"
+    assert role_policy["evidence_binding"] == "input_digest_and_evidence_packet_only"
 
 
 def test_llm_failure_classifier_covers_timeout_and_malformed() -> None:

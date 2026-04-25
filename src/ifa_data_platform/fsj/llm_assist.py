@@ -16,8 +16,10 @@ BUSINESS_REPO_CLI = BUSINESS_REPO_ROOT / "scripts/ifa_llm_cli.py"
 FSJ_LATE_PROMPT_VERSION = "fsj_late_main_v1"
 FSJ_EARLY_PROMPT_VERSION = "fsj_early_main_v1"
 FSJ_MID_PROMPT_VERSION = "fsj_mid_main_v1"
-FSJ_MODEL_ALIAS = "grok41_thinking"
-FSJ_FALLBACK_MODEL_ALIAS = "gemini31_pro_jmr"
+DEFAULT_FSJ_PRIMARY_MODEL_ALIAS = "grok41_expert"
+DEFAULT_FSJ_FALLBACK_MODEL_ALIASES = ("grok41_thinking", "gemini31_pro_jmr")
+FSJ_MODEL_ALIAS = DEFAULT_FSJ_PRIMARY_MODEL_ALIAS
+FSJ_FALLBACK_MODEL_ALIAS = DEFAULT_FSJ_FALLBACK_MODEL_ALIASES[-1]
 BUSINESS_REPO_MODELS_CONFIG = BUSINESS_REPO_ROOT / "config" / "llm" / "models.yaml"
 
 
@@ -93,10 +95,16 @@ def build_fsj_role_policy(*, slot: str, contract_mode: str, completeness_label: 
     policy.update(
         {
             "policy_version": "fsj_llm_role_policy_v1",
+            "schema_policy_version": "fsj_slot_json_contract_v1",
+            "evidence_policy_version": "fsj_evidence_packet_contract_v1",
+            "evidence_owner": "deterministic_data_platform_inputs",
             "slot": slot,
             "contract_mode": contract_mode,
             "completeness_label": completeness_label,
             "degrade_reason": degrade_reason,
+            "time_window_guard": policy.get("boundary_mode"),
+            "schema_enforcement": "slot_specific_required_json_schema_plus_parser_validation",
+            "evidence_binding": "input_digest_and_evidence_packet_only",
             "deterministic_owner_fields": [
                 "implemented_scope",
                 "degrade.contract_mode",
@@ -410,12 +418,39 @@ def _load_configured_model_aliases(config_path: Path = BUSINESS_REPO_MODELS_CONF
     return {str(key) for key in models.keys()}
 
 
+def _load_fsj_assist_policy(config_path: Path = BUSINESS_REPO_MODELS_CONFIG) -> dict[str, Any]:
+    try:
+        payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    policy = payload.get("fsj_assist_policy")
+    return dict(policy) if isinstance(policy, dict) else {}
+
+
 CONFIGURED_MODEL_ALIASES = _load_configured_model_aliases()
-FSJ_ASSIST_MODEL_CHAIN = tuple(
-    alias
-    for alias in (FSJ_MODEL_ALIAS, FSJ_FALLBACK_MODEL_ALIAS)
-    if alias in CONFIGURED_MODEL_ALIASES or alias == FSJ_MODEL_ALIAS
-)
+CONFIGURED_FSJ_ASSIST_POLICY = _load_fsj_assist_policy()
+
+
+def _resolve_fsj_assist_model_chain() -> tuple[str, ...]:
+    preferred_primary = str(CONFIGURED_FSJ_ASSIST_POLICY.get("primary_model_alias") or DEFAULT_FSJ_PRIMARY_MODEL_ALIAS)
+    configured_fallbacks = CONFIGURED_FSJ_ASSIST_POLICY.get("fallback_model_aliases") or list(DEFAULT_FSJ_FALLBACK_MODEL_ALIASES)
+    ordered = [preferred_primary, *[str(item) for item in configured_fallbacks if str(item).strip()]]
+    out: list[str] = []
+    for alias in ordered:
+        if alias in out:
+            continue
+        if alias in CONFIGURED_MODEL_ALIASES or alias == preferred_primary:
+            out.append(alias)
+    if not out:
+        out.append(DEFAULT_FSJ_PRIMARY_MODEL_ALIAS)
+    return tuple(out)
+
+
+FSJ_ASSIST_MODEL_CHAIN = _resolve_fsj_assist_model_chain()
+FSJ_MODEL_ALIAS = FSJ_ASSIST_MODEL_CHAIN[0]
+FSJ_FALLBACK_MODEL_ALIAS = FSJ_ASSIST_MODEL_CHAIN[1] if len(FSJ_ASSIST_MODEL_CHAIN) > 1 else FSJ_MODEL_ALIAS
+FSJ_ASSIST_POLICY_VERSION = str(CONFIGURED_FSJ_ASSIST_POLICY.get("policy_version") or "fsj_assist_model_policy_v1")
+FSJ_ASSIST_STRATEGY_NAME = str(CONFIGURED_FSJ_ASSIST_POLICY.get("strategy_name") or "fsj_main_strict_gateway")
 
 
 def _classify_llm_exception(exc: Exception) -> str:
@@ -568,10 +603,13 @@ class FSJLateLLMAssistant:
             result = self.client.synthesize(request)
             audit = result.audit_payload(input_digest=input_digest)
             audit["policy"] = {
+                "policy_version": FSJ_ASSIST_POLICY_VERSION,
+                "strategy_name": FSJ_ASSIST_STRATEGY_NAME,
                 "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
                 "fallback_model_aliases": list(getattr(self.client, "fallback_model_aliases", [])),
                 "attempted_model_chain": (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("attempted_model_chain", [result.model_alias]),
                 "outcome": "fallback_applied" if result.model_alias != getattr(self.client, "primary_model_alias", result.model_alias) else "primary_applied",
+                "gateway_path": "ifa-business-layer/scripts/ifa_llm_cli.py",
             }
             failures = (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("failures", [])
             if failures:
@@ -598,11 +636,14 @@ class FSJLateLLMAssistant:
                 "error": error_detail,
                 "failure_classification": classification,
                 "policy": {
+                    "policy_version": FSJ_ASSIST_POLICY_VERSION,
+                    "strategy_name": FSJ_ASSIST_STRATEGY_NAME,
                     "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
                     "fallback_model_aliases": fallback_model_aliases,
                     "attempted_model_chain": attempted_model_chain,
                     "outcome": "deterministic_degrade",
                     "operator_tag": f"llm_{classification}",
+                    "gateway_path": "ifa-business-layer/scripts/ifa_llm_cli.py",
                 },
                 **_audit_field_lineage(slot="late", applied=False, reason=classification),
                 **({"attempt_failures": prior_failures} if prior_failures else {}),
@@ -621,10 +662,13 @@ class FSJEarlyLLMAssistant:
             result = self.client.synthesize(request)
             audit = result.audit_payload(input_digest=input_digest)
             audit["policy"] = {
+                "policy_version": FSJ_ASSIST_POLICY_VERSION,
+                "strategy_name": FSJ_ASSIST_STRATEGY_NAME,
                 "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
                 "fallback_model_aliases": list(getattr(self.client, "fallback_model_aliases", [])),
                 "attempted_model_chain": (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("attempted_model_chain", [result.model_alias]),
                 "outcome": "fallback_applied" if result.model_alias != getattr(self.client, "primary_model_alias", result.model_alias) else "primary_applied",
+                "gateway_path": "ifa-business-layer/scripts/ifa_llm_cli.py",
             }
             failures = (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("failures", [])
             if failures:
@@ -651,11 +695,14 @@ class FSJEarlyLLMAssistant:
                 "error": error_detail,
                 "failure_classification": classification,
                 "policy": {
+                    "policy_version": FSJ_ASSIST_POLICY_VERSION,
+                    "strategy_name": FSJ_ASSIST_STRATEGY_NAME,
                     "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
                     "fallback_model_aliases": fallback_model_aliases,
                     "attempted_model_chain": attempted_model_chain,
                     "outcome": "deterministic_degrade",
                     "operator_tag": f"llm_{classification}",
+                    "gateway_path": "ifa-business-layer/scripts/ifa_llm_cli.py",
                 },
                 **_audit_field_lineage(slot="early", applied=False, reason=classification),
                 **({"attempt_failures": prior_failures} if prior_failures else {}),
@@ -674,10 +721,13 @@ class FSJMidLLMAssistant:
             result = self.client.synthesize(request)
             audit = result.audit_payload(input_digest=input_digest)
             audit["policy"] = {
+                "policy_version": FSJ_ASSIST_POLICY_VERSION,
+                "strategy_name": FSJ_ASSIST_STRATEGY_NAME,
                 "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
                 "fallback_model_aliases": list(getattr(self.client, "fallback_model_aliases", [])),
                 "attempted_model_chain": (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("attempted_model_chain", [result.model_alias]),
                 "outcome": "fallback_applied" if result.model_alias != getattr(self.client, "primary_model_alias", result.model_alias) else "primary_applied",
+                "gateway_path": "ifa-business-layer/scripts/ifa_llm_cli.py",
             }
             failures = (getattr(result, "raw_response", {}) or {}).get("_fsj_resilience", {}).get("failures", [])
             if failures:
@@ -704,11 +754,14 @@ class FSJMidLLMAssistant:
                 "error": error_detail,
                 "failure_classification": classification,
                 "policy": {
+                    "policy_version": FSJ_ASSIST_POLICY_VERSION,
+                    "strategy_name": FSJ_ASSIST_STRATEGY_NAME,
                     "primary_model_alias": getattr(self.client, "primary_model_alias", getattr(self.client, "model_alias", FSJ_MODEL_ALIAS)),
                     "fallback_model_aliases": fallback_model_aliases,
                     "attempted_model_chain": attempted_model_chain,
                     "outcome": "deterministic_degrade",
                     "operator_tag": f"llm_{classification}",
+                    "gateway_path": "ifa-business-layer/scripts/ifa_llm_cli.py",
                 },
                 **_audit_field_lineage(slot="mid", applied=False, reason=classification),
                 **({"attempt_failures": prior_failures} if prior_failures else {}),
