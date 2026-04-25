@@ -824,8 +824,8 @@
 - 证据路径：
   - `docs/V2_P7_FINAL_EARLY_CUSTOMER_CLOSEOUT_ACCEPTANCE_2026-04-25.md`
   - `artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T112055Z.html`
-- commit hash：`bd07742`
-- push 状态：pending
+- commit hash：`2c381b0`
+- push 状态：pushed to `origin/a-lane-p4-3-llm-field-lineage`
 - 交付结论：POST-P7-FINAL-EARLY-CUSTOMER-001 completed as a bounded closeout pass.
 
 ## 7. Blockers
