@@ -54,7 +54,7 @@
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
 | Lane A | `none` | POST-P0-JM-001 | judgment review / mapping / explainability foundation | pushed | 2026-04-24 19:12 PDT | 2026-04-24 19:34 PDT | none | wait for next post-P0 assignment |
-| Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | POST-P0-RM-001 | report registry / output / manifest engineering closure | in_progress | 2026-04-24 19:12 PDT | 2026-04-24 19:12 PDT | none | complete registry/manifest foundation and report back |
+| Lane B | `none` | POST-P0-RM-001 | report registry / output / manifest engineering closure | pushed | 2026-04-24 19:12 PDT | 2026-04-24 19:27 PDT | none | wait for next post-P0 assignment |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -88,7 +88,7 @@
 | V2-R0-006 | none | LLM prompt 与模型策略升级 | 6 | P0 | pushed | Lane B | `agent:developer:subagent:c50385d9-455e-4963-841d-85540c96df07` | `src/ifa_data_platform/fsj/llm_assist.py`; `tests/unit/test_fsj_early_llm_assist.py`; `docs/V2_R0_006_LLM_PROMPT_AND_MODEL_POLICY_UPGRADE_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md`; `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/macro.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/commodities.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/ai_tech.py` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_early_llm_assist.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/llm_assist.py`; `python3 -m pytest -q tests/unit/test_macro_support_producer.py tests/unit/test_commodities_support_producer.py tests/unit/test_ai_tech_support_producer.py` | DP `f68b381` / `e9f118f`; BL `f7511bb` | config-driven FSJ model chain + explicit policy audit + support default expert strategy landed; validated and pushed |
 | ACCEPT-P0-001 | none | V2 P0 Acceptance Summary and Golden Sample Validation | acceptance | P0 | pushed | Acceptance Lane | `agent:developer:subagent:7eaa38cf-3a44-4cfb-9f0f-9312e15582f5` | `docs/V2_P0_ACCEPTANCE_SUMMARY_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/accept_p0_001/*` | `python3 scripts/fsj_report_cli.py --help`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-main-early`; `python3 scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile customer --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-support-late`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-main-late-review`; `python3 scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/accept_p0_001 --report-run-id-prefix accept-p0-support-early-review`; `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py tests/unit/test_fsj_early_llm_assist.py`; `python3 -m pytest -q tests/unit/test_macro_support_producer.py tests/unit/test_commodities_support_producer.py tests/unit/test_ai_tech_support_producer.py`; `python3 -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/llm_assist.py scripts/fsj_report_cli.py scripts/fsj_main_report_publish.py scripts/fsj_support_report_publish.py`; `rg -n "FCJ" . -S` | `0f9fe4d` | acceptance lane closed: verdict = P0 accepted with residual gaps; follow-up gaps explicitly tracked in post-P0 active work |
 | POST-P0-JM-001 | none | judgment review / mapping / explainability foundation | post-P0 | P1 | pushed | Lane A | `agent:developer:subagent:0792aff5-7409-4d75-b884-2ec2ec82688f` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/store.py`; `scripts/fsj_main_report_publish.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_report_publish_script.py`; `docs/POST_P0_JM_001_JUDGMENT_REVIEW_MAPPING_FOUNDATION_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py` | pending | minimal package-native judgment review/mapping foundation landed |
-| POST-P0-RM-001 | none | report registry / output / manifest engineering closure | post-P0 | P1 | in_progress | Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | - | pending | - | post-P0 active work; do not idle while Acceptance Lane runs |
+| POST-P0-RM-001 | none | report registry / output / manifest engineering closure | post-P0 | P1 | pushed | Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/store.py`; `scripts/fsj_artifact_lineage.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_store_json_serialization.py`; `tests/unit/test_fsj_artifact_lineage_script.py`; `tests/unit/test_fsj_report_cli_registry.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/store.py scripts/fsj_artifact_lineage.py scripts/fsj_report_cli.py tests/unit/test_fsj_report_cli_registry.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_store_json_serialization.py tests/unit/test_fsj_artifact_lineage_script.py tests/unit/test_fsj_report_cli_registry.py` | `ced7863e650b1c1d258d8e0dced9b0b7a382562d` | formal output + registry retrieval + manifest tightening landed |
 
 ### 4.1 Status 枚举
 
@@ -385,6 +385,41 @@
 - commit hash：pending
 - push 状态：pending
 - 交付结论：POST-P0-JM-001 foundation acceptance met；已完成最小安全 closure，后续可在此基础上再做 item-level DB workflow / operator board / retrospective scoring。
+
+#### Task ID: POST-P0-RM-001
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：在不重写 FSJ publish/render/store 主链、不改 collector/data path 的前提下，为 report registry / output / manifest 做最小安全闭环：给 main/support delivery manifest 与 persisted delivery-package metadata 增加显式 `report_scope` / `output_profile` / `formal_output`；把 formal output 路径投影进 store package/artifact-lineage retrieval surface；给 canonical lineage 文本视图补充 formal output 可见性；并在 `scripts/fsj_report_cli.py` 新增 `registry` 子命令，统一 main/support registry retrieval。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `src/ifa_data_platform/fsj/store.py`
+  - `scripts/fsj_artifact_lineage.py`
+  - `scripts/fsj_report_cli.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `tests/unit/test_fsj_store_json_serialization.py`
+  - `tests/unit/test_fsj_artifact_lineage_script.py`
+  - `tests/unit/test_fsj_report_cli_registry.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/store.py scripts/fsj_artifact_lineage.py scripts/fsj_report_cli.py tests/unit/test_fsj_report_cli_registry.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_store_json_serialization.py tests/unit/test_fsj_artifact_lineage_script.py tests/unit/test_fsj_report_cli_registry.py`
+- 结果摘要：
+  - delivery manifest 现在显式声明 formal report output contract，而不是仅靠隐式 package paths；
+  - store package / artifact lineage surface 现在可标准读取 main/support + customer/internal/review 所属 output profile 与 formal output 路径；
+  - canonical CLI 现在可通过 `fsj_report_cli.py registry ...` 统一读取 registry / lineage，而不是分散依赖 status + 独立脚本；
+  - receipt/review visibility 沿用现有 governance/dispatch surface，仅补齐与 formal output 相邻的 retrieval foundation。
+- 证据路径：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `src/ifa_data_platform/fsj/store.py`
+  - `scripts/fsj_artifact_lineage.py`
+  - `scripts/fsj_report_cli.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `tests/unit/test_fsj_store_json_serialization.py`
+  - `tests/unit/test_fsj_artifact_lineage_script.py`
+  - `tests/unit/test_fsj_report_cli_registry.py`
+- commit hash：`ced7863e650b1c1d258d8e0dced9b0b7a382562d`
+- push 状态：pushed
+- 交付结论：POST-P0-RM-001 foundation acceptance met；formal output / registry / manifest tightening 的最小安全闭环已落地，残余缺口主要在 operator receipt dashboard 与更强的 registry audit/reporting 展开层。
 
 ## 7. Blockers
 
