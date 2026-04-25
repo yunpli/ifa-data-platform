@@ -17,6 +17,22 @@ VALID_MODES = ("realtime", "replay", "backfill-test", "dry-run")
 VALID_OUTPUT_PROFILES = ("internal", "review", "customer")
 
 
+def _mode_contract(*, mode: str) -> dict[str, Any]:
+    if mode == "realtime":
+        return {
+            "requested_mode": mode,
+            "effective_mode": "realtime",
+            "native_mode_switch_applied": True,
+            "formal_semantics": "existing_publish_chain",
+        }
+    return {
+        "requested_mode": mode,
+        "effective_mode": "isolated_wrapper_intent",
+        "native_mode_switch_applied": False,
+        "formal_semantics": "existing_publish_chain_plus_isolated_output_root_only",
+    }
+
+
 def _parse_generated_at(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -56,12 +72,14 @@ def _mode_output_root(output_root: str, *, business_date: str, slot: str, subjec
     return root / f"{subject}_{slot}_{business_date}_{safe_mode}"
 
 
-def _validate_mode_and_profile(*, mode: str, output_profile: str) -> list[str]:
+def _validate_mode_and_profile(*, mode: str, output_profile: str, main_flow: str | None = None) -> list[str]:
     notes: list[str] = []
     if mode != "realtime":
         notes.append(
             "current_chain_has_no_native_mode_switch; canonical CLI treats mode as operator intent + isolated output-root routing only"
         )
+        if main_flow == "morning-delivery":
+            raise SystemExit("--main-flow morning-delivery is realtime-only; use publish flow for replay/backfill-test/dry-run")
     if output_profile == "review":
         notes.append(
             "review profile currently resolves to existing package/operator-review surfaces; no dedicated alternate renderer is introduced here"
@@ -74,7 +92,8 @@ def _validate_mode_and_profile(*, mode: str, output_profile: str) -> list[str]:
 
 
 def cmd_generate(args: argparse.Namespace) -> None:
-    notes = _validate_mode_and_profile(mode=args.mode, output_profile=args.output_profile)
+    notes = _validate_mode_and_profile(mode=args.mode, output_profile=args.output_profile, main_flow=args.main_flow if args.subject == "main" else None)
+    mode_contract = _mode_contract(mode=args.mode)
     generated_at = _parse_generated_at(args.generated_at) or datetime.now(timezone.utc)
     effective_output_root = _mode_output_root(
         args.output_root,
@@ -156,6 +175,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
         "business_date": args.business_date,
         "slot": args.slot,
         "mode": args.mode,
+        "mode_contract": mode_contract,
         "output_profile": args.output_profile,
         "main_flow": args.main_flow if args.subject == "main" else None,
         "agent_domains": args.agent_domain if args.subject == "support" else None,
@@ -165,6 +185,10 @@ def cmd_generate(args: argparse.Namespace) -> None:
         "wrapped_result": result,
         "status": "ready" if result["exit_code"] == 0 else "blocked",
     }
+    (effective_output_root / "fsj_report_cli_intent.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
     print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
     if result["exit_code"] != 0:
         raise SystemExit(result["exit_code"])
