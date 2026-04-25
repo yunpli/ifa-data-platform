@@ -21,7 +21,7 @@
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
 - **当前 Lane A / Lane B 状态**：均为空闲
-- **本监控文件当前版本 commit**：见最近一次 `git log -n 1 --oneline`（避免自引用 hash 漂移）
+- **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
 ### 1.1 当前 baseline probe 摘要
 
@@ -65,8 +65,8 @@
 
 | Task ID | Parent Task ID | Task Name | Phase | Priority | Status | Lane | Owner/Sub-Agent | Files Changed | Tests | Commit | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BOOT-001 | none | 建立执行上下文与行为规范文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Context_and_Behavior.md` | doc review | see latest git log | 建档任务 |
-| BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | see latest git log | 建档任务 |
+| BOOT-001 | none | 建立执行上下文与行为规范文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Context_and_Behavior.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
+| BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
