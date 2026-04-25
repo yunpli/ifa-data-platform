@@ -33,6 +33,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
             output_dir=str(tmp_path),
             report_run_id="fsj-support:2026-04-23:early:macro",
             generated_at="2026-04-23T11:50:24+00:00",
+            output_profile="customer",
             html_only=False,
             require_ready=False,
         ),
@@ -123,6 +124,7 @@ def test_support_publish_prefers_canonical_db_delivery_surface_for_operator_payl
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["artifact"]["artifact_id"] == "artifact-raw"
+    assert payload["output_profile"] == "customer"
     assert payload["workflow_handoff"]["artifact"]["artifact_id"] == "artifact-db"
     assert payload["package_surface"]["package_paths"]["delivery_package_dir"] == "/tmp/db/pkg"
     assert payload["workflow_handoff"]["state"]["dispatch_recommended_action"] == "send"
@@ -153,6 +155,7 @@ def test_support_publish_require_ready_blocks_without_publish(
             output_dir=str(tmp_path),
             report_run_id=None,
             generated_at=None,
+            output_profile="internal",
             html_only=False,
             require_ready=True,
         ),
@@ -200,6 +203,7 @@ def test_support_publish_blocks_pytest_flow_on_canonical_live_roots(
             output_dir=str(live_artifacts_root),
             report_run_id=None,
             generated_at=None,
+            output_profile="internal",
             html_only=False,
             require_ready=False,
         ),

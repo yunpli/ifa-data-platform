@@ -62,13 +62,13 @@ def _validate_mode_and_profile(*, mode: str, output_profile: str) -> list[str]:
         notes.append(
             "current_chain_has_no_native_mode_switch; canonical CLI treats mode as operator intent + isolated output-root routing only"
         )
-    if output_profile == "customer":
-        raise SystemExit(
-            "--output-profile customer is not implemented in the current FSJ publish/render chain; use internal/review for now"
-        )
     if output_profile == "review":
         notes.append(
             "review profile currently resolves to existing package/operator-review surfaces; no dedicated alternate renderer is introduced here"
+        )
+    if output_profile == "customer":
+        notes.append(
+            "customer profile now uses a presentation-layer projection that strips engineering-visible fields from rendered HTML while preserving the underlying assembly/orchestration chain"
         )
     return notes
 

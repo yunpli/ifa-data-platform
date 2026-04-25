@@ -53,6 +53,7 @@ def test_main_report_publish_script_uses_canonical_main_delivery_factory(
             report_run_id="fsj-main:2026-04-23",
             generated_at="2026-04-23T11:50:24+00:00",
             include_empty=False,
+            output_profile="customer",
             package_only=False,
         ),
     )
@@ -100,7 +101,9 @@ def test_main_report_publish_script_uses_canonical_main_delivery_factory(
     assert captured_factory_kwargs["assembly_service"] == {"assembly_store": captured_factory_kwargs["assembly_service"]["assembly_store"]}
     assert dummy_publisher.calls[0]["business_date"] == "2026-04-23"
     assert dummy_publisher.calls[0]["output_dir"] == tmp_path
+    assert dummy_publisher.calls[0]["output_profile"] == "customer"
     assert payload["artifact"]["artifact_id"] == "artifact-main"
+    assert payload["output_profile"] == "customer"
     assert payload["delivery_manifest"]["business_date"] == "2026-04-23"
     assert payload["workflow_handoff"]["artifact"]["artifact_id"] == "artifact-db"
     assert payload["operator_review_surface"]["llm_role_policy"]["policy_versions"] == ["fsj_llm_role_policy_v1"]
@@ -123,6 +126,7 @@ def test_main_report_publish_script_blocks_pytest_flow_on_canonical_live_roots(
             report_run_id=None,
             generated_at=None,
             include_empty=False,
+            output_profile="internal",
             package_only=False,
         ),
     )

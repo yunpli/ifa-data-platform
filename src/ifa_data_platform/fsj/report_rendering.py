@@ -20,6 +20,8 @@ from .test_live_isolation import enforce_artifact_publish_root_contract, require
 
 RENDERER_NAME = "ifa_data_platform.fsj.report_rendering.MainReportHTMLRenderer"
 RENDERER_VERSION = "v3"
+VALID_OUTPUT_PROFILES = {"internal", "review", "customer"}
+CUSTOMER_PRESENTATION_SCHEMA_VERSION = "v1"
 
 SLOT_LABELS: dict[str, str] = {
     "early": "早报 / 盘前",
@@ -69,11 +71,19 @@ class MainReportHTMLRenderer:
         report_run_id: str | None = None,
         artifact_uri: str | None = None,
         generated_at: datetime | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
-        title = f"A股主报告｜{assembled.get('business_date') or '-'}"
+        profile = self._normalize_output_profile(output_profile)
+        title = self._title_for_profile(assembled, output_profile=profile)
         sections = list(assembled.get("sections") or [])
-        html = self._render_html(title=title, assembled=assembled, sections=sections, generated_at=generated_at)
+        html = self._render_html(
+            title=title,
+            assembled=assembled,
+            sections=sections,
+            generated_at=generated_at,
+            output_profile=profile,
+        )
         report_links = self._build_report_links(
             sections,
             report_run_id=report_run_id,
@@ -88,6 +98,8 @@ class MainReportHTMLRenderer:
             "renderer": RENDERER_NAME,
             "renderer_version": RENDERER_VERSION,
             "generated_at": generated_at.isoformat(),
+            "output_profile": profile,
+            "presentation_schema_version": CUSTOMER_PRESENTATION_SCHEMA_VERSION if profile == "customer" else None,
             "section_count": len(sections),
             "bundle_ids": [section.get("bundle", {}).get("bundle_id") for section in sections if section.get("bundle")],
             "producer_versions": [section.get("bundle", {}).get("producer_version") for section in sections if section.get("bundle")],
@@ -105,6 +117,8 @@ class MainReportHTMLRenderer:
                 for link in (((item.get("lineage") or {}).get("report_links") or []))
             ],
         }
+        if profile == "customer":
+            metadata["customer_presentation"] = self._build_customer_presentation(assembled=assembled, sections=sections)
         return RenderedFSJArtifact(
             artifact_type="fsj_main_report_html",
             artifact_version="v2",
@@ -123,7 +137,10 @@ class MainReportHTMLRenderer:
         assembled: dict[str, Any],
         sections: Sequence[dict[str, Any]],
         generated_at: datetime,
+        output_profile: str,
     ) -> str:
+        if output_profile == "customer":
+            return self._render_customer_html(title=title, assembled=assembled, sections=sections, generated_at=generated_at)
         executive = self._build_executive_summary(sections)
         institutional_panel = self._build_institutional_panel(assembled, sections)
         section_html = "\n".join(self._render_section(section) for section in sections)
@@ -197,6 +214,166 @@ class MainReportHTMLRenderer:
 </body>
 </html>
 """
+
+    def _normalize_output_profile(self, output_profile: str) -> str:
+        profile = str(output_profile or "internal").strip().lower()
+        if profile not in VALID_OUTPUT_PROFILES:
+            raise ValueError(f"unsupported output_profile={output_profile}")
+        return profile
+
+    def _title_for_profile(self, assembled: dict[str, Any], *, output_profile: str) -> str:
+        business_date = assembled.get("business_date") or "-"
+        if output_profile == "customer":
+            return f"A股市场简报｜{business_date}"
+        return f"A股主报告｜{business_date}"
+
+    def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> dict[str, Any]:
+        customer_sections: list[dict[str, Any]] = []
+        for section in sections:
+            slot = str(section.get("slot") or "")
+            slot_label = SLOT_LABELS.get(slot, slot or "未命名时段")
+            support_items = [
+                {
+                    "domain": SUPPORT_DOMAIN_LABELS.get(str(item.get("agent_domain") or ""), str(item.get("agent_domain") or "support")),
+                    "summary": str(item.get("summary") or "暂无摘要"),
+                }
+                for item in (section.get("support_summaries") or [])
+            ]
+            customer_sections.append(
+                {
+                    "slot": slot,
+                    "slot_label": slot_label,
+                    "title": self._customer_section_title(slot, str(section.get("title") or slot_label)),
+                    "summary": str(section.get("summary") or "暂无摘要"),
+                    "status": str(section.get("status") or "unknown"),
+                    "highlights": self._customer_item_statements(section.get("judgments") or [], limit=3),
+                    "signals": self._customer_item_statements(section.get("signals") or [], limit=3),
+                    "facts": self._customer_item_statements(section.get("facts") or [], limit=3),
+                    "support_themes": support_items,
+                }
+            )
+        return {
+            "schema_type": "fsj_customer_main_presentation",
+            "schema_version": CUSTOMER_PRESENTATION_SCHEMA_VERSION,
+            "business_date": assembled.get("business_date"),
+            "market": assembled.get("market") or "a_share",
+            "summary_cards": [
+                {
+                    "slot": item["slot"],
+                    "slot_label": item["slot_label"],
+                    "headline": item["summary"],
+                    "support_themes": item["support_themes"],
+                }
+                for item in customer_sections
+            ],
+            "sections": customer_sections,
+        }
+
+    def _customer_section_title(self, slot: str, fallback: str) -> str:
+        mapping = {
+            "early": "开盘前关注",
+            "mid": "盘中观察",
+            "late": "收盘复盘",
+        }
+        return mapping.get(slot, fallback)
+
+    def _customer_item_statements(self, items: Sequence[dict[str, Any]], *, limit: int) -> list[str]:
+        statements = [str(item.get("statement") or "").strip() for item in items if str(item.get("statement") or "").strip()]
+        return statements[:limit]
+
+    def _render_customer_html(
+        self,
+        *,
+        title: str,
+        assembled: dict[str, Any],
+        sections: Sequence[dict[str, Any]],
+        generated_at: datetime,
+    ) -> str:
+        presentation = self._build_customer_presentation(assembled=assembled, sections=sections)
+        summary_cards = "".join(self._render_customer_summary_card(card) for card in presentation["summary_cards"])
+        section_html = "".join(self._render_customer_section(section) for section in presentation["sections"])
+        return f"""<!DOCTYPE html>
+<html lang=\"zh-CN\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>{escape(title)}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #f7f8fc; color: #0f172a; }}
+    .page {{ max-width: 960px; margin: 0 auto; padding: 28px 20px 44px; }}
+    .hero {{ background: linear-gradient(135deg, #1d4ed8, #4338ca); color: #fff; border-radius: 20px; padding: 28px 28px 24px; }}
+    .hero h1 {{ margin: 0 0 10px; font-size: 32px; }}
+    .hero .meta {{ font-size: 14px; line-height: 1.6; opacity: 0.92; }}
+    .card {{ background: #fff; border-radius: 18px; padding: 22px 22px; margin-top: 18px; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07); }}
+    .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }}
+    .summary-box {{ border: 1px solid #dbe3f1; border-radius: 14px; padding: 14px 16px; background: #f8fbff; }}
+    .summary-slot {{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }}
+    .summary-headline {{ margin-top: 8px; font-size: 15px; line-height: 1.6; font-weight: 600; }}
+    .support-line {{ margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.6; }}
+    .section {{ border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 18px; }}
+    .section:first-child {{ border-top: none; padding-top: 0; margin-top: 0; }}
+    h2 {{ margin: 0 0 14px; font-size: 22px; }}
+    h3 {{ margin: 0 0 10px; font-size: 19px; }}
+    .section-summary {{ font-size: 15px; line-height: 1.65; color: #1e293b; }}
+    .bucket {{ margin-top: 14px; }}
+    .bucket-title {{ font-size: 13px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.04em; }}
+    ul {{ margin: 8px 0 0 18px; padding: 0; }}
+    li {{ margin: 6px 0; line-height: 1.6; }}
+    .footnote {{ margin-top: 16px; font-size: 12px; color: #64748b; line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <div class=\"page\">
+    <section class=\"hero\">
+      <h1>{escape(title)}</h1>
+      <div class=\"meta\">业务日期：{escape(str(assembled.get('business_date') or '-'))} · 市场：A股<br/>这是面向客户的简版展示层，仅展示结论、跟踪重点与补充视角，不展示内部运行对象。</div>
+    </section>
+    <section class=\"card\">
+      <h2>今日节奏</h2>
+      <div class=\"summary-grid\">{summary_cards}</div>
+      <div class=\"footnote\">生成时间：{escape(generated_at.isoformat())} · 展示层 schema：{escape(CUSTOMER_PRESENTATION_SCHEMA_VERSION)}</div>
+    </section>
+    <section class=\"card\">
+      <h2>分时段解读</h2>
+      {section_html}
+    </section>
+  </div>
+</body>
+</html>
+"""
+
+    def _render_customer_summary_card(self, card: dict[str, Any]) -> str:
+        support_line = ""
+        if card.get("support_themes"):
+            support_text = " · ".join(f"{item['domain']}：{item['summary']}" for item in card.get("support_themes") or [])
+            support_line = f"<div class=\"support-line\"><strong>补充视角：</strong>{escape(support_text)}</div>"
+        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div>{support_line}</div>"
+
+    def _render_customer_section(self, section: dict[str, Any]) -> str:
+        support_items = section.get("support_themes") or []
+        support_html = ""
+        if support_items:
+            support_html = self._render_customer_bucket(
+                "补充视角",
+                [f"{item.get('domain')}：{item.get('summary')}" for item in support_items if item.get('summary')],
+                fallback="暂无补充视角",
+            )
+        return f"""
+        <div class=\"section\">
+          <h3>{escape(str(section.get('title') or '-'))}</h3>
+          <div class=\"section-summary\">{escape(str(section.get('summary') or '暂无摘要'))}</div>
+          {self._render_customer_bucket('重点结论', section.get('highlights') or [], fallback='暂无重点结论')}
+          {self._render_customer_bucket('跟踪信号', section.get('signals') or [], fallback='暂无跟踪信号')}
+          {self._render_customer_bucket('已知事实', section.get('facts') or [], fallback='暂无已知事实')}
+          {support_html}
+        </div>
+        """
+
+    def _render_customer_bucket(self, title: str, items: Sequence[str], *, fallback: str) -> str:
+        values = [str(item).strip() for item in items if str(item).strip()]
+        if not values:
+            values = [fallback]
+        return f"<div class=\"bucket\"><div class=\"bucket-title\">{escape(title)}</div><ul>{''.join(f'<li>{escape(item)}</li>' for item in values)}</ul></div>"
 
     def _build_executive_summary(self, sections: Sequence[dict[str, Any]]) -> str:
         boxes: list[str] = []
@@ -403,6 +580,7 @@ class MainReportRenderingService:
         include_empty: bool = False,
         report_run_id: str | None = None,
         artifact_uri: str | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         assembled = self.assembly_service.assemble_main_sections(
             business_date=business_date,
@@ -412,6 +590,7 @@ class MainReportRenderingService:
             assembled,
             report_run_id=report_run_id,
             artifact_uri=artifact_uri,
+            output_profile=output_profile,
         )
 
 
@@ -445,6 +624,7 @@ class MainReportArtifactPublishingService:
         include_empty: bool = False,
         report_run_id: str | None = None,
         generated_at: datetime | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
         output_path = enforce_artifact_publish_root_contract(
@@ -464,6 +644,7 @@ class MainReportArtifactPublishingService:
             include_empty=include_empty,
             report_run_id=effective_report_run_id,
             artifact_uri=artifact_uri,
+            output_profile=output_profile,
         )
         html_path.write_text(rendered["content"], encoding="utf-8")
 
@@ -576,6 +757,7 @@ class MainReportArtifactPublishingService:
         include_empty: bool = False,
         report_run_id: str | None = None,
         generated_at: datetime | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         published = self.publish_main_report_html(
             business_date=business_date,
@@ -583,6 +765,7 @@ class MainReportArtifactPublishingService:
             include_empty=include_empty,
             report_run_id=report_run_id,
             generated_at=generated_at,
+            output_profile=output_profile,
         )
         generated_at = generated_at or datetime.now(timezone.utc)
         html_path = Path(published["html_path"])
@@ -889,12 +1072,20 @@ class SupportReportHTMLRenderer:
         report_run_id: str | None = None,
         artifact_uri: str | None = None,
         generated_at: datetime | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
+        profile = str(output_profile or "internal").strip().lower()
+        if profile not in VALID_OUTPUT_PROFILES:
+            raise ValueError(f"unsupported output_profile={output_profile}")
         domain = str(assembled.get("agent_domain") or "support")
         slot = str(assembled.get("slot") or "")
-        title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)} support 报告｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
-        html = self._render_html(title=title, assembled=assembled, generated_at=generated_at)
+        if profile == "customer":
+            title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)}简报｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
+            html = self._render_customer_html(title=title, assembled=assembled, generated_at=generated_at)
+        else:
+            title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)} support 报告｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
+            html = self._render_html(title=title, assembled=assembled, generated_at=generated_at)
         bundle = dict(assembled.get("bundle") or {})
         report_links = []
         if bundle.get("bundle_id"):
@@ -920,6 +1111,8 @@ class SupportReportHTMLRenderer:
             "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
             "renderer_version": "v1",
             "generated_at": generated_at.isoformat(),
+            "output_profile": profile,
+            "presentation_schema_version": CUSTOMER_PRESENTATION_SCHEMA_VERSION if profile == "customer" else None,
             "bundle_id": bundle.get("bundle_id"),
             "producer_version": bundle.get("producer_version"),
             "artifact_uri": artifact_uri,
@@ -990,6 +1183,41 @@ class SupportReportHTMLRenderer:
 </html>
 """
 
+    def _render_customer_html(self, *, title: str, assembled: dict[str, Any], generated_at: datetime) -> str:
+        domain = SUPPORT_DOMAIN_LABELS.get(str(assembled.get("agent_domain") or ""), str(assembled.get("agent_domain") or "-"))
+        slot = SUPPORT_SLOT_LABELS.get(str(assembled.get("slot") or ""), str(assembled.get("slot") or "-"))
+        highlights = [str(item.get("statement") or "").strip() for item in (assembled.get("judgments") or []) if str(item.get("statement") or "").strip()][:3]
+        signals = [str(item.get("statement") or "").strip() for item in (assembled.get("signals") or []) if str(item.get("statement") or "").strip()][:3]
+        facts = [str(item.get("statement") or "").strip() for item in (assembled.get("facts") or []) if str(item.get("statement") or "").strip()][:3]
+        return f"""<!DOCTYPE html>
+<html lang=\"zh-CN\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>{escape(title)}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #f7f8fc; color: #0f172a; }}
+    .page {{ max-width: 900px; margin: 0 auto; padding: 28px 20px 44px; }}
+    .hero {{ background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; border-radius: 20px; padding: 26px 28px; }}
+    .card {{ background: #fff; border-radius: 18px; padding: 22px; margin-top: 18px; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07); }}
+    h1, h2 {{ margin-top: 0; }}
+    ul {{ margin: 8px 0 0 18px; padding: 0; }}
+    li {{ margin: 6px 0; line-height: 1.6; }}
+    .meta, .footnote {{ font-size: 13px; line-height: 1.6; color: #475569; }}
+  </style>
+</head>
+<body>
+  <div class=\"page\">
+    <section class=\"hero\"><h1>{escape(title)}</h1><div class=\"meta\">业务日期：{escape(str(assembled.get('business_date') or '-'))} · 领域：{escape(domain)} · 时段：{escape(slot)}<br/>客户展示层仅保留摘要、关键信号与已知事实。</div></section>
+    <section class=\"card\"><h2>一句话摘要</h2><div>{escape(str(assembled.get('summary') or '暂无摘要'))}</div><div class=\"footnote\">生成时间：{escape(generated_at.isoformat())} · schema：{escape(CUSTOMER_PRESENTATION_SCHEMA_VERSION)}</div></section>
+    <section class=\"card\"><h2>重点结论</h2><ul>{''.join(f'<li>{escape(item)}</li>' for item in (highlights or ['暂无重点结论']))}</ul></section>
+    <section class=\"card\"><h2>跟踪信号</h2><ul>{''.join(f'<li>{escape(item)}</li>' for item in (signals or ['暂无跟踪信号']))}</ul></section>
+    <section class=\"card\"><h2>已知事实</h2><ul>{''.join(f'<li>{escape(item)}</li>' for item in (facts or ['暂无已知事实']))}</ul></section>
+  </div>
+</body>
+</html>
+"""
+
     def _render_items(self, items: Sequence[dict[str, Any]], *, fallback: str) -> str:
         if not items:
             return f"<ul><li>{escape(fallback)}</li></ul>"
@@ -1027,6 +1255,7 @@ class SupportReportRenderingService:
         slot: str,
         report_run_id: str | None = None,
         artifact_uri: str | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         assembled = self.assembly_service.assemble_support_section(
             business_date=business_date,
@@ -1037,6 +1266,7 @@ class SupportReportRenderingService:
             assembled,
             report_run_id=report_run_id,
             artifact_uri=artifact_uri,
+            output_profile=output_profile,
         )
 
 
@@ -1068,6 +1298,7 @@ class SupportReportArtifactPublishingService:
         output_dir: str | Path,
         report_run_id: str | None = None,
         generated_at: datetime | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         generated_at = generated_at or datetime.now(timezone.utc)
         output_path = enforce_artifact_publish_root_contract(
@@ -1088,6 +1319,7 @@ class SupportReportArtifactPublishingService:
             slot=slot,
             report_run_id=effective_report_run_id,
             artifact_uri=artifact_uri,
+            output_profile=output_profile,
         )
         html_path.write_text(rendered["content"], encoding="utf-8")
 
@@ -1175,6 +1407,7 @@ class SupportReportArtifactPublishingService:
         output_dir: str | Path,
         report_run_id: str | None = None,
         generated_at: datetime | None = None,
+        output_profile: str = "internal",
     ) -> dict[str, Any]:
         published = self.publish_support_report_html(
             business_date=business_date,
@@ -1183,6 +1416,7 @@ class SupportReportArtifactPublishingService:
             output_dir=output_dir,
             report_run_id=report_run_id,
             generated_at=generated_at,
+            output_profile=output_profile,
         )
         generated_at = generated_at or datetime.now(timezone.utc)
         html_path = Path(published["html_path"])

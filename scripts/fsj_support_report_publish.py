@@ -52,6 +52,7 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--report-run-id")
     parser.add_argument("--generated-at", help="ISO8601 timestamp; defaults to current UTC time")
+    parser.add_argument("--output-profile", choices=["internal", "review", "customer"], default="internal")
     parser.add_argument("--html-only", action="store_true", help="Only publish standalone HTML + manifest; skip QA/package surfaces")
     parser.add_argument("--require-ready", action="store_true", help="Fail fast when the persisted support bundle is missing/non-ready instead of publishing a blocked placeholder package")
     args = parser.parse_args()
@@ -90,11 +91,13 @@ def main() -> None:
             output_dir=Path(args.output_dir),
             report_run_id=args.report_run_id,
             generated_at=_parse_generated_at(args.generated_at),
+            output_profile=args.output_profile,
         )
         payload = {
             "artifact": published["artifact"],
             "html_path": published["html_path"],
             "manifest_path": published["manifest_path"],
+            "output_profile": args.output_profile,
         }
     else:
         published = publisher.publish_delivery_package(
@@ -104,6 +107,7 @@ def main() -> None:
             output_dir=Path(args.output_dir),
             report_run_id=args.report_run_id,
             generated_at=_parse_generated_at(args.generated_at),
+            output_profile=args.output_profile,
         )
         payload = {
             "artifact": published["artifact"],
@@ -116,6 +120,7 @@ def main() -> None:
             "operator_summary_path": published["operator_summary_path"],
             "package_index_path": published["package_index_path"],
             "delivery_manifest": published["delivery_manifest"],
+            "output_profile": args.output_profile,
         }
         canonical_surface = _resolve_canonical_publish_surface(
             business_date=args.business_date,

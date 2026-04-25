@@ -44,6 +44,7 @@ def main() -> None:
     parser.add_argument("--report-run-id")
     parser.add_argument("--generated-at", help="ISO8601 timestamp; defaults to current UTC time")
     parser.add_argument("--include-empty", action="store_true")
+    parser.add_argument("--output-profile", choices=["internal", "review", "customer"], default="internal")
     parser.add_argument("--package-only", action="store_true", help="Alias for delivery packaging; output remains package-first JSON")
     args = parser.parse_args()
 
@@ -62,6 +63,7 @@ def main() -> None:
         include_empty=args.include_empty,
         report_run_id=args.report_run_id,
         generated_at=_parse_generated_at(args.generated_at),
+        output_profile=args.output_profile,
     )
     payload = {
         "artifact": published["artifact"],
@@ -73,6 +75,7 @@ def main() -> None:
         "telegram_caption_path": published["telegram_caption_path"],
         "delivery_zip_path": published["delivery_zip_path"],
         "delivery_manifest": published["delivery_manifest"],
+        "output_profile": args.output_profile,
     }
     canonical_surface = _resolve_canonical_publish_surface(business_date=args.business_date, store=store)
     if canonical_surface:

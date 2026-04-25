@@ -271,6 +271,32 @@ def test_main_report_qa_evaluator_emits_delivery_ready_verdict_for_contract_comp
     assert any(issue["code"] == "slot_missing" and issue.get("slot") == "mid" for issue in evaluation["issues"])
 
 
+def test_main_report_renderer_emits_customer_profile_without_engineering_metadata_in_html() -> None:
+    rendered = MainReportHTMLRenderer().render(
+        _assembled_sections(),
+        report_run_id="report-run-customer-1",
+        artifact_uri="file:///tmp/customer.html",
+        generated_at=datetime(2099, 4, 22, 8, 3, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert rendered["title"] == "A股市场简报｜2099-04-22"
+    assert "开盘前关注" in rendered["content"]
+    assert "盘中观察" not in rendered["content"]  # assembled fixture only has early/late sections
+    assert "收盘复盘" in rendered["content"]
+    assert "bundle-early" not in rendered["content"]
+    assert "phase1-main-early-v1" not in rendered["content"]
+    assert "slot-run-early" not in rendered["content"]
+    assert "replay-early" not in rendered["content"]
+    assert "source:early:robotics" not in rendered["content"]
+    assert rendered["metadata"]["output_profile"] == "customer"
+    assert rendered["metadata"]["presentation_schema_version"] == "v1"
+    customer_presentation = rendered["metadata"]["customer_presentation"]
+    assert customer_presentation["schema_type"] == "fsj_customer_main_presentation"
+    assert customer_presentation["sections"][0]["title"] == "开盘前关注"
+    assert customer_presentation["sections"][1]["title"] == "收盘复盘"
+
+
 def test_main_report_renderer_keeps_support_content_at_concise_summary_boundary() -> None:
     assembled = _assembled_sections()
     assembled["sections"][0]["support_summaries"][0]["full_report_body"] = "AI 支持报告全文：绝不应直接进入 MAIN HTML。"
@@ -540,6 +566,25 @@ class _StubSupportAssemblyService:
     def assemble_support_section(self, *, business_date: str, agent_domain: str, slot: str) -> dict:
         self.calls.append((business_date, agent_domain, slot))
         return self.artifact
+
+
+def test_support_report_html_renderer_emits_customer_profile_without_engineering_metadata_in_html() -> None:
+    rendered = SupportReportHTMLRenderer().render(
+        _assembled_support_section(),
+        report_run_id="support-report-run-customer-1",
+        artifact_uri="file:///tmp/support-macro-customer.html",
+        generated_at=datetime(2099, 4, 22, 8, 0, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "A股宏观简报｜盘前｜2099-04-22" in rendered["title"]
+    assert "客户展示层仅保留摘要、关键信号与已知事实" in rendered["content"]
+    assert "bundle-support-macro-early" not in rendered["content"]
+    assert "phase1-macro-early-v1" not in rendered["content"]
+    assert "slot-run-support-macro-early" not in rendered["content"]
+    assert "source:early:macro" not in rendered["content"]
+    assert rendered["metadata"]["output_profile"] == "customer"
+    assert rendered["metadata"]["presentation_schema_version"] == "v1"
 
 
 def test_support_report_html_renderer_emits_standalone_support_html() -> None:
