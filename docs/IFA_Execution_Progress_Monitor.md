@@ -117,8 +117,8 @@
 - 改了哪些文件：
   - `docs/IFA_Execution_Context_and_Behavior.md`
 - 测试结果：文档审阅通过（无代码测试）
-- commit hash：见最近一次 `git log -n 1 --oneline`
-- push 状态：pending
+- commit hash：`487df77f749ffbe013bcaa4cd139244020904f8e`
+- push 状态：pushed
 - 后续建议：所有后续 task 开始前，先读取本文件与本 monitor
 
 #### Task ID: BOOT-002
@@ -128,8 +128,8 @@
 - 改了哪些文件：
   - `docs/IFA_Execution_Progress_Monitor.md`
 - 测试结果：文档审阅通过（无代码测试）
-- commit hash：见最近一次 `git log -n 1 --oneline`
-- push 状态：pending
+- commit hash：`487df77f749ffbe013bcaa4cd139244020904f8e`
+- push 状态：pushed
 - 后续建议：每完成一个 task 必须更新此文件
 
 ---
