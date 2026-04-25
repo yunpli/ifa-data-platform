@@ -906,8 +906,21 @@ class MainReportHTMLRenderer:
         return mapping.get(slot, fallback)
 
     def _customer_item_statements(self, items: Sequence[dict[str, Any]], *, limit: int, slot: str) -> list[str]:
+        ordered_items = list(items)
+        if slot == "early":
+            priority = {
+                "fact:early:daily_market_backdrop": 0,
+                "fact:early:text_backdrop": 1,
+                "fact:early:reference_scope": 2,
+                "fact:early:text_catalysts": 3,
+                "fact:early:market_inputs": 4,
+            }
+            ordered_items = sorted(
+                ordered_items,
+                key=lambda item: (priority.get(str(item.get("object_key") or ""), 50),),
+            )
         statements: list[str] = []
-        for item in items:
+        for item in ordered_items:
             raw = str(item.get("statement") or "").strip()
             if not raw:
                 continue

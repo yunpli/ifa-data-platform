@@ -582,6 +582,28 @@ def test_customer_profile_sanitizes_upstream_contract_phrasing_but_review_keeps_
     assert "same-day stable/final" in review["content"]
 
 
+def test_customer_profile_surfaces_db_backed_early_market_facts_in_customer_view() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["facts"] = [
+        {"statement": "盘前可回溯的日级市场背景仍可提供参考：指数样本 3 条，北向资金最近一日净额 38.50，最近一日涨停 56 家、跌停 3 家，最近一日龙虎榜 61 条；板块表现最新可见领涨方向为 机器人（4.80%）。"},
+        {"statement": "隔夜/近期文本库可回溯规模：新闻 2564 条、公告 1935 条、研报 655 条、投资者问答 2017 条，可用于开盘前做背景筛选与重点核对。"},
+    ]
+
+    customer = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-db-facts-1",
+        artifact_uri="file:///tmp/customer-db-facts.html",
+        generated_at=datetime(2099, 4, 22, 8, 6, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+
+    assert "北向资金最近一日净额 38.50" in customer["content"]
+    early_section = customer["metadata"]["customer_presentation"]["sections"][0]
+    assert any("机器人" in item and "4.80" in item for item in early_section["facts"])
+    assert "隔夜/近期文本库可回溯规模：新闻 2564 条、公告 1935 条、研报 655 条、投资者问答 2017 条" in customer["content"]
+    assert "盘前线索已给出方向" not in customer["content"]
+
+
 def test_customer_profile_polishes_section_level_contract_shaped_prose() -> None:
     assembled = _assembled_sections()
     assembled["sections"][0]["facts"][0]["statement"] = "盘前 盘中结构信号 与 观察名单 已足以形成待开盘验证的主线候选，但仍不应视为已确认"

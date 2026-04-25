@@ -67,6 +67,28 @@ def _sample_input(*, has_high: bool = True, has_low: bool = True) -> EarlyMainPr
         text_catalyst_count=3 if has_low else 0,
         text_catalyst_titles=["机器人政策催化", "AI 应用发布", "龙头预告更新"] if has_low else [],
         previous_archive_summary="昨日机器人主线维持高位扩散" if has_low else None,
+        index_daily_count=3,
+        index_latest_trade_date="2099-04-21",
+        index_sample_symbols=["000001.SH", "399001.SZ"],
+        northbound_flow_count=1,
+        northbound_latest_trade_date="2099-04-21",
+        northbound_net_amount=38.5,
+        sector_performance_count=42,
+        sector_performance_latest_trade_date="2099-04-21",
+        sector_performance_top_sector="机器人",
+        sector_performance_top_pct_chg=4.8,
+        sector_performance_top_sectors=[{"sector_name": "机器人", "pct_chg": 4.8}, {"sector_name": "算力", "pct_chg": 3.2}],
+        limit_up_down_status_count=1,
+        limit_up_down_latest_trade_date="2099-04-21",
+        limit_up_count=56,
+        limit_down_count=3,
+        dragon_tiger_count=12,
+        dragon_tiger_latest_trade_date="2099-04-21",
+        dragon_tiger_sample_symbols=["300024.SZ", "002031.SZ"],
+        announcement_count=15,
+        research_report_count=8,
+        investor_qa_total_count=6,
+        news_total_count=25,
         replay_id="replay-early-2099-04-22",
         slot_run_id="slot-run-early-2099-04-22",
         report_run_id=None,
@@ -88,7 +110,7 @@ def test_assembler_builds_early_main_candidate_graph_with_high_evidence() -> Non
     signals = [obj for obj in objects if obj["fsj_kind"] == "signal"]
     judgments = [obj for obj in objects if obj["fsj_kind"] == "judgment"]
 
-    assert len(facts) >= 3
+    assert len(facts) >= 5
     assert len(signals) == 1
     assert len(judgments) == 1
     assert judgments[0]["object_type"] == "thesis"
@@ -106,6 +128,10 @@ def test_assembler_builds_early_main_candidate_graph_with_high_evidence() -> Non
     observed_records = payload["observed_records"]
     assert any(record["source_layer"] == "highfreq" for record in observed_records)
     assert any(record["source_layer"] == "business_seed" for record in observed_records)
+    assert any(record["source_family"] == "northbound_flow" for record in observed_records)
+    assert any(record["source_family"] == "latest_text_counts" for record in observed_records)
+    assert any("北向资金最近一日净额" in obj["statement"] for obj in facts)
+    assert any("隔夜/近期文本库可回溯规模" in obj["statement"] for obj in facts)
 
 
 def test_assembler_degrades_to_watch_item_when_high_layer_missing() -> None:
@@ -201,6 +227,20 @@ class _FakeConnection:
             return _FakeMappingsResult(rows=[])
         if "from ifa2.ifa_fsj_bundles" in sql:
             return _FakeMappingsResult(first=None)
+        if "from ifa2.index_daily_bar_history" in sql:
+            return _FakeMappingsResult(one={"cnt": 3, "latest_trade_date": "2026-04-22", "sample_symbols": ["000001.SH", "399001.SZ"]})
+        if "from ifa2.northbound_flow_history" in sql:
+            return _FakeMappingsResult(one={"cnt": 1, "latest_trade_date": "2026-04-22", "north_money": 38.5})
+        if "from ifa2.sector_performance_history" in sql and "select sector_name, pct_chg" in sql:
+            return _FakeMappingsResult(rows=[{"sector_name": "机器人", "pct_chg": 4.8}, {"sector_name": "算力", "pct_chg": 3.2}])
+        if "from ifa2.sector_performance_history" in sql:
+            return _FakeMappingsResult(one={"cnt": 42, "latest_trade_date": "2026-04-22", "top_sector": "机器人", "top_pct_chg": 4.8})
+        if "from ifa2.limit_up_down_status_history" in sql:
+            return _FakeMappingsResult(one={"cnt": 1, "latest_trade_date": "2026-04-22", "limit_up_count": 56, "limit_down_count": 3})
+        if "from ifa2.dragon_tiger_list_history" in sql:
+            return _FakeMappingsResult(one={"cnt": 12, "latest_trade_date": "2026-04-22", "sample_symbols": ["000001.SZ", "000002.SZ"]})
+        if "announcement_count" in sql and "news_count" in sql:
+            return _FakeMappingsResult(one={"announcement_count": 15, "research_count": 8, "investor_qa_count": 6, "news_count": 25})
         raise AssertionError(f"unexpected SQL: {sql}")
 
 

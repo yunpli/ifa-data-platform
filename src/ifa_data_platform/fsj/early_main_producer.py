@@ -1192,6 +1192,11 @@ class EarlyMainFSJAssembler:
                     "highfreq_leader_candidate_working",
                     "highfreq_intraday_signal_state_working",
                     "recent lowfreq text catalysts",
+                    "index_daily_bar_history",
+                    "northbound_flow_history",
+                    "sector_performance_history",
+                    "limit_up_down_status_history",
+                    "dragon_tiger_list_history",
                     "optional T-1 FSJ background",
                 ],
                 "deferred_inputs": [
@@ -1240,6 +1245,30 @@ class EarlyMainFSJAssembler:
     def _text_fact_statement(self, data: EarlyMainProducerInput) -> str:
         preview = "；".join(data.text_catalyst_titles[:3])
         return f"隔夜/近期文本催化共 {data.text_catalyst_count} 条，最新线索包括：{preview or '暂无标题样本'}。"
+
+    def _daily_market_backdrop_statement(self, data: EarlyMainProducerInput) -> str:
+        top_sector = ""
+        if data.sector_performance_top_sector:
+            pct = f"（{data.sector_performance_top_pct_chg:.2f}%）" if data.sector_performance_top_pct_chg is not None else ""
+            top_sector = f"；板块表现最新可见领涨方向为 {data.sector_performance_top_sector}{pct}"
+        northbound = "北向资金样本暂缺"
+        if data.northbound_flow_count > 0 and data.northbound_net_amount is not None:
+            northbound = f"北向资金最近一日净额 {data.northbound_net_amount:.2f}"
+        sentiment = "涨跌停情绪样本暂缺"
+        if data.limit_up_down_status_count > 0:
+            up = "-" if data.limit_up_count is None else str(data.limit_up_count)
+            down = "-" if data.limit_down_count is None else str(data.limit_down_count)
+            sentiment = f"最近一日涨停 {up} 家、跌停 {down} 家"
+        dragon = "龙虎榜样本暂缺"
+        if data.dragon_tiger_count > 0:
+            dragon = f"最近一日龙虎榜 {data.dragon_tiger_count} 条"
+        return f"盘前可回溯的日级市场背景仍可提供参考：指数样本 {data.index_daily_count} 条，{northbound}，{sentiment}，{dragon}{top_sector}。"
+
+    def _text_backdrop_statement(self, data: EarlyMainProducerInput) -> str:
+        return (
+            f"隔夜/近期文本库可回溯规模：新闻 {data.news_total_count} 条、公告 {data.announcement_count} 条、"
+            f"研报 {data.research_report_count} 条、投资者问答 {data.investor_qa_total_count} 条，可用于开盘前做背景筛选与重点核对。"
+        )
 
     def _signal_statement(self, data: EarlyMainProducerInput) -> str:
         if data.has_high_evidence:
