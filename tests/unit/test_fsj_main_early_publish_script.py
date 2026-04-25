@@ -54,6 +54,7 @@ def test_main_persists_then_publishes_and_writes_summary(
             generated_at="2026-04-23T08:20:43+00:00",
             report_run_id_prefix="fsj-main-early",
             include_empty=False,
+            output_profile="review",
         ),
     )
     monkeypatch.setattr(module, "EarlyMainFSJProducer", lambda: _StubProducer())
@@ -103,6 +104,7 @@ def test_main_persists_then_publishes_and_writes_summary(
             "--output-dir", str(tmp_path / "publish"),
             "--generated-at", "2026-04-23T08:20:43+00:00",
             "--report-run-id", "fsj-main-early:2026-04-23:early:20260423T082043Z",
+            "--output-profile", "review",
         ]
         return module.subprocess.CompletedProcess(
             cmd,
@@ -121,6 +123,7 @@ def test_main_persists_then_publishes_and_writes_summary(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "ready"
+    assert payload["output_profile"] == "review"
     assert payload["persist"]["bundle_id"] == "bundle-early-1"
     assert payload["publish"]["status"] == "ready"
     assert len(calls) == 1
@@ -158,6 +161,7 @@ def test_main_exits_nonzero_and_skips_publish_when_persist_fails(
             generated_at="2026-04-23T08:20:43+00:00",
             report_run_id_prefix="fsj-main-early",
             include_empty=False,
+            output_profile="internal",
         ),
     )
     monkeypatch.setattr(module, "EarlyMainFSJProducer", lambda: _StubProducer(error=RuntimeError("db unavailable")))
@@ -191,6 +195,7 @@ def test_main_blocks_pytest_flow_on_canonical_live_roots(
             generated_at="2026-04-23T08:20:43+00:00",
             report_run_id_prefix="fsj-main-early",
             include_empty=False,
+            output_profile="internal",
         ),
     )
 

@@ -123,6 +123,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
                 cmd.extend(["--report-run-id-prefix", args.report_run_id_prefix])
             if args.include_empty:
                 cmd.append("--include-empty")
+            cmd.extend(["--output-profile", args.output_profile])
             result = _run_json(cmd)
     else:
         if args.slot not in VALID_SUPPORT_SLOTS:
@@ -137,6 +138,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
         ]
         if args.report_run_id_prefix:
             cmd.extend(["--report-run-id-prefix", args.report_run_id_prefix])
+        cmd.extend(["--output-profile", args.output_profile])
         domains = args.agent_domain or list(VALID_SUPPORT_DOMAINS)
         for domain in domains:
             cmd.extend(["--agent-domain", domain])

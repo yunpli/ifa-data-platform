@@ -120,6 +120,7 @@ def run_main_publish_flow(
     generated_at: datetime,
     report_run_id_prefix: str,
     include_empty: bool,
+    output_profile: str = "internal",
     producer_factory: Callable[[], Any],
     resolve_canonical_surface: Callable[..., dict[str, Any] | None] = resolve_canonical_publish_surface,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
@@ -155,6 +156,7 @@ def run_main_publish_flow(
         ]
         if include_empty:
             cmd.append("--include-empty")
+        cmd.extend(["--output-profile", output_profile])
         completed = subprocess_run(cmd, capture_output=True, text=True)
         stdout = completed.stdout.strip()
         parsed = json.loads(stdout) if stdout else {}
@@ -179,6 +181,7 @@ def run_main_publish_flow(
         "generated_at_utc": generated_at.isoformat(),
         "persist": persist,
         "publish": publish,
+        "output_profile": output_profile,
         "status": "blocked" if blocked else "ready",
     }
     summary_path = root / config.summary_name

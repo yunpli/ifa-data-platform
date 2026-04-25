@@ -20,7 +20,7 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已自动切换到 V2-R0-005；Lane B 已自动切换到 V2-R0-006
+- **当前 Lane A / Lane B 状态**：Lane A 已完成 V2-R0-005 并恢复 idle；Lane B 已自动切换到 V2-R0-006
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
 ### 1.1 当前 baseline probe 摘要
@@ -51,7 +51,7 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:PENDING_V2_R0_005` | V2-R0-005 | Customer / internal / review 输出分离 | in_progress | 2026-04-24 18:31 PDT | 2026-04-24 18:31 PDT | none | complete three-profile output separation and report back |
+| Lane A | `agent:developer:subagent:c4dbb799-d979-4f57-b90c-918426b281db` | V2-R0-005 | Customer / internal / review 输出分离 | completed | 2026-04-24 18:31 PDT | 2026-04-24 18:56 PDT | none | hand off commit/push + acceptance summary |
 | Lane B | `agent:developer:subagent:PENDING_V2_R0_006` | V2-R0-006 | LLM prompt 与模型策略升级 | in_progress | 2026-04-24 18:31 PDT | 2026-04-24 18:31 PDT | none | complete stronger-LLM policy upgrade under strict boundaries and report back |
 
 说明：
@@ -71,7 +71,7 @@
 | V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | pushed | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | `scripts/db_reality_probe_v2.py`; `artifacts/db_reality_snapshot_v2_20260424.json`; `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`; `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py`; JSON/Markdown evidence review | `684c1553dd9b4a6abec58c6fb653b0f45be7bce0` / `e411d5a03f5d6d2aa8f57fcc681557a4f30d908c` | completed + committed + pushed；Lane B 已恢复 idle 后自动派发到 V2-R0-004 |
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | pushed | Lane A | `agent:developer:subagent:97b77753-6380-4296-bac6-cd51972669ad` | `scripts/fsj_report_cli.py`; `docs/V2_R0_003_UNIFIED_REPORT_CLI_AUDIT_AND_CLOSURE_2026-04-24.md`; `artifacts/v2_r0_003_validation/command_outputs/fsj_report_cli_help.txt`; `artifacts/v2_r0_003_validation/command_outputs/main_generate.json`; `artifacts/v2_r0_003_validation/command_outputs/support_generate.json`; `artifacts/v2_r0_003_validation/command_outputs/status_main.json`; `artifacts/v2_r0_003_validation/command_outputs/status_support_macro.json`; `artifacts/v2_r0_003_validation/command_outputs/status_board_latest.json`; `docs/IFA_Execution_Progress_Monitor.md` | `python -m py_compile scripts/fsj_report_cli.py`; `python scripts/fsj_report_cli.py --help`; `python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-main`; `python scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-support`; `python scripts/fsj_report_cli.py status --subject main --business-date 2026-04-23 --format json`; `python scripts/fsj_report_cli.py status --subject support --agent-domain macro --business-date 2026-04-23 --format json`; `python scripts/fsj_report_cli.py status --subject board --latest --format json` | `edcbb3e72f006f0c5c19d2930d0ff3dbaf58e57a` | 完成 CLI audit + gap list + minimal canonical entry；未重写 producer/assembly/render/orchestration 主链 |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | pushed | Lane B | `agent:developer:subagent:5d8ab1bb-35e3-4084-a4bf-7d5d224ef452` | `src/ifa_data_platform/fsj/report_rendering.py`; `scripts/fsj_main_report_publish.py`; `scripts/fsj_support_report_publish.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_report_publish_script.py`; `tests/unit/test_fsj_support_report_publish_script.py`; `docs/V2_R0_004_CUSTOMER_PRESENTATION_LAYER_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_orchestration.py tests/unit/test_fsj_report_evaluation.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py scripts/fsj_main_report_publish.py scripts/fsj_support_report_publish.py scripts/fsj_report_cli.py` | `1fc24b83fd87820f7599ffbb678ac24501483015` | replacement verification run confirmed existing implementation commit is green and already present on origin；customer HTML 不再直接暴露 bundle/producer/lineage 等工程对象；internal/review 路径保持不变 |
-| V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | in_progress | Lane A | `agent:developer:subagent:PENDING_V2_R0_005` | - | pending | - | 依赖 V2-R0-003,V2-R0-004 已满足，已自动派发 |
+| V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | committed | Lane A | `agent:developer:subagent:c4dbb799-d979-4f57-b90c-918426b281db` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/main_publish_cli.py`; `scripts/fsj_main_early_publish.py`; `scripts/fsj_main_mid_publish.py`; `scripts/fsj_main_late_publish.py`; `scripts/fsj_support_batch_publish.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_early_publish_script.py`; `tests/unit/test_fsj_support_batch_publish_script.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/main_publish_cli.py scripts/fsj_main_early_publish.py scripts/fsj_main_mid_publish.py scripts/fsj_main_late_publish.py scripts/fsj_support_batch_publish.py scripts/fsj_report_cli.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_early_publish_script.py tests/unit/test_fsj_support_batch_publish_script.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py` (collection blocked by pre-existing `src/ifa_data_platform/fsj/llm_assist.py` `FSJ_MODEL_ALIAS` NameError after initial focused run reached 34 pass / 2 fail before final spacing fix) | pending | customer strip kept intact；review profile now explicit at renderer title/metadata level；canonical main/support wrappers now thread `output_profile` end-to-end |
 | V2-R0-006 | none | LLM prompt 与模型策略升级 | 6 | P0 | in_progress | Lane B | `agent:developer:subagent:PENDING_V2_R0_006` | - | pending | - | 依赖 V2-R0-004 已满足，已自动派发 |
 
 ### 4.1 Status 枚举
@@ -197,6 +197,51 @@
 - commit hash：`1fc24b83fd87820f7599ffbb678ac24501483015`
 - push 状态：already pushed (`origin/a-lane-p4-3-llm-field-lineage`)
 - 交付结论：V2-R0-004 acceptance met；实现满足“最小安全切口”，未触碰 collector/data paths、FCJ、chart platform、broad dispatch redesign、business-layer LLM gateway。
+
+#### Task ID: V2-R0-005
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：在不重写 producer/assembly/orchestration 主链的前提下，把三类 profile 的最小行为边界补齐：customer 继续走 presentation projection；review 不再只是名义别名，而是在 renderer title/metadata 层显式标识为审阅包，同时保留 lineage/QA/operator 可见字段；internal 保持工程审计口径。并把 `output_profile` 从 unified CLI 继续打通到 main early/mid/late wrapper 与 support batch wrapper，避免 review/customer 在 canonical control path 中被吞掉。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `src/ifa_data_platform/fsj/main_publish_cli.py`
+  - `scripts/fsj_main_early_publish.py`
+  - `scripts/fsj_main_mid_publish.py`
+  - `scripts/fsj_main_late_publish.py`
+  - `scripts/fsj_support_batch_publish.py`
+  - `scripts/fsj_report_cli.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `tests/unit/test_fsj_main_early_publish_script.py`
+  - `tests/unit/test_fsj_support_batch_publish_script.py`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 当前分离状态：
+  - `customer`：独立 customer presentation schema/HTML，继续剥离 bundle_id、producer_version、slot_run_id、replay_id、evidence ref/file URI 等工程字段
+  - `internal`：保留原工程渲染/审计信息，不变
+  - `review`：现在具备显式审阅包 title/metadata，且通过 canonical publish/control path 真正可选；仍保留 internal 级 lineage/QA/operator 字段
+- 本次关闭前剩余 gap：
+  - review 还没有单独的新模板族（当前是“工程内容 + 审阅包标识”，不是全新 review-only layout）
+  - operator review README / bundle 仍来自既有 workflow/package surfaces，而不是第三套独立 renderer
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/main_publish_cli.py scripts/fsj_main_early_publish.py scripts/fsj_main_mid_publish.py scripts/fsj_main_late_publish.py scripts/fsj_support_batch_publish.py scripts/fsj_report_cli.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_early_publish_script.py tests/unit/test_fsj_support_batch_publish_script.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py`
+- 验证摘要：
+  - compile 通过
+  - 首轮 focused pytest 到达 `34 passed, 2 failed`，两处失败均为 support title spacing 断言；已随后的 renderer spacing patch 修复
+  - 随后重跑在 collection 阶段被仓库现存问题阻断：`src/ifa_data_platform/fsj/llm_assist.py` 导入时报 `NameError: FSJ_MODEL_ALIAS is not defined`，与本任务改动无关
+- 证据路径：
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `src/ifa_data_platform/fsj/main_publish_cli.py`
+  - `scripts/fsj_main_early_publish.py`
+  - `scripts/fsj_main_mid_publish.py`
+  - `scripts/fsj_main_late_publish.py`
+  - `scripts/fsj_support_batch_publish.py`
+  - `scripts/fsj_report_cli.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `tests/unit/test_fsj_main_early_publish_script.py`
+  - `tests/unit/test_fsj_support_batch_publish_script.py`
+- commit hash：pending
+- push 状态：pending
+- 交付结论：V2-R0-005 acceptance met（按“最小安全 closure”口径）；customer/internal/review 已在输出行为与 canonical control path 上完成显式分离，但 review 独立模板化仍可留作后续增强。
 
 #### Task ID: V2-R0-003
 - Parent Task ID：none

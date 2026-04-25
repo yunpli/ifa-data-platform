@@ -40,6 +40,7 @@ def main() -> None:
     parser.add_argument("--generated-at", help="ISO8601 timestamp; defaults to current UTC time")
     parser.add_argument("--report-run-id-prefix", default=_FLOW.report_run_id_prefix_default)
     parser.add_argument("--include-empty", action="store_true")
+    parser.add_argument("--output-profile", choices=["internal", "review", "customer"], default="internal")
     args = parser.parse_args()
 
     generated_at = _parse_generated_at(args.generated_at) or datetime.now(timezone.utc)
@@ -51,6 +52,7 @@ def main() -> None:
         generated_at=generated_at,
         report_run_id_prefix=args.report_run_id_prefix,
         include_empty=args.include_empty,
+        output_profile=getattr(args, "output_profile", "internal"),
         producer_factory=LateMainFSJProducer,
         resolve_canonical_surface=_resolve_canonical_publish_surface,
         subprocess_run=subprocess.run,

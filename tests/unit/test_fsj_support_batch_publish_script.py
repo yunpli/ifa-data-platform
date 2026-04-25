@@ -33,6 +33,7 @@ def test_main_persists_before_publish_and_writes_batch_summary(
             agent_domains=["macro", "ai_tech"],
             generated_at="2026-04-23T11:50:24+00:00",
             report_run_id_prefix="fsj-support-batch",
+            output_profile="review",
             require_ready=True,
         ),
     )
@@ -67,6 +68,7 @@ def test_main_persists_before_publish_and_writes_batch_summary(
                 stderr="",
             )
         assert cmd[1].endswith("fsj_support_report_publish.py")
+        assert cmd[cmd.index("--output-profile") + 1] == "review"
         domain = cmd[cmd.index("--agent-domain") + 1]
         return module.subprocess.CompletedProcess(
             cmd,
@@ -132,6 +134,7 @@ def test_main_persists_before_publish_and_writes_batch_summary(
         "fsj_support_report_publish.py",
     ]
     assert payload["persist"]["persisted_count"] == 2
+    assert payload["output_profile"] == "review"
     assert payload["persist"]["exit_code"] == 0
     assert payload["ready_count"] == 2
     summary = json.loads((tmp_path / "batch_summary.json").read_text(encoding="utf-8"))
@@ -172,6 +175,7 @@ def test_main_keeps_publish_results_and_surfaces_persist_failure(
             agent_domains=["macro"],
             generated_at="2026-04-23T11:46:03+00:00",
             report_run_id_prefix="fsj-support-batch",
+            output_profile="internal",
             require_ready=True,
         ),
     )
@@ -230,6 +234,7 @@ def test_main_blocks_pytest_flow_on_canonical_live_roots(
             agent_domains=["macro"],
             generated_at="2026-04-23T11:46:03+00:00",
             report_run_id_prefix="fsj-support-batch",
+            output_profile="internal",
             require_ready=True,
         ),
     )

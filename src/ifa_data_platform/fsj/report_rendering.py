@@ -225,6 +225,8 @@ class MainReportHTMLRenderer:
         business_date = assembled.get("business_date") or "-"
         if output_profile == "customer":
             return f"A股市场简报｜{business_date}"
+        if output_profile == "review":
+            return f"A股主报告审阅包｜{business_date}"
         return f"A股主报告｜{business_date}"
 
     def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -1084,7 +1086,9 @@ class SupportReportHTMLRenderer:
             title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)}简报｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
             html = self._render_customer_html(title=title, assembled=assembled, generated_at=generated_at)
         else:
-            title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)} support 报告｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
+            profile_label = "审阅包" if profile == "review" else "support 报告"
+            spacer = "" if profile == "review" else " "
+            title = f"A股{SUPPORT_DOMAIN_LABELS.get(domain, domain)}{spacer}{profile_label}｜{SUPPORT_SLOT_LABELS.get(slot, slot)}｜{assembled.get('business_date') or '-'}"
             html = self._render_html(title=title, assembled=assembled, generated_at=generated_at)
         bundle = dict(assembled.get("bundle") or {})
         report_links = []

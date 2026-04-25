@@ -99,6 +99,7 @@ def main() -> None:
     parser.add_argument("--agent-domain", action="append", dest="agent_domains", choices=VALID_DOMAINS, help="Repeat to limit domains; defaults to all three support domains")
     parser.add_argument("--generated-at", help="ISO8601 timestamp; defaults to current UTC time")
     parser.add_argument("--report-run-id-prefix", default="fsj-support-batch")
+    parser.add_argument("--output-profile", choices=["internal", "review", "customer"], default="internal")
     parser.add_argument("--require-ready", action="store_true", help="Treat missing/non-ready persisted bundle as blocking")
     args = parser.parse_args()
 
@@ -139,6 +140,7 @@ def main() -> None:
             "--output-dir", str(domain_dir),
             "--generated-at", generated_at.isoformat(),
             "--report-run-id", f"{args.report_run_id_prefix}:{args.business_date}:{args.slot}:{domain}:{stamp}",
+            "--output-profile", getattr(args, "output_profile", "internal"),
         ]
         if args.require_ready:
             cmd.append("--require-ready")
@@ -183,6 +185,7 @@ def main() -> None:
         "generated_at_utc": generated_at.isoformat(),
         "domains": domains,
         "require_ready": bool(args.require_ready),
+        "output_profile": getattr(args, "output_profile", "internal"),
         "persist": {
             **persist_summary,
             "exit_code": persist_completed.returncode,
