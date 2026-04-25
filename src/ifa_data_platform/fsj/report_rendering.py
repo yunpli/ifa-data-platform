@@ -374,6 +374,7 @@ class MainReportHTMLRenderer:
         source_sections: list[str] = []
         judgment_refs: list[str] = []
         symbol_context_map: dict[str, dict[str, Any]] = {}
+        contract: dict[str, Any] = {}
         seen_focus: set[str] = set()
         seen_key_focus: set[str] = set()
         seen_focus_only: set[str] = set()
@@ -387,6 +388,8 @@ class MainReportHTMLRenderer:
             lineage = dict(section.get("lineage") or {})
             payload = dict((lineage.get("bundle") or {}).get("payload_json") or {})
             scope = dict(payload.get("focus_scope") or {})
+            if not contract:
+                contract = dict(scope.get("contract") or {})
             focus_name_map.update(self._extract_focus_name_map(scope))
             item_type_map = self._extract_focus_item_type_map(scope)
             for symbol, list_types in item_type_map.items():
@@ -492,6 +495,18 @@ class MainReportHTMLRenderer:
         if not focus_watch_items:
             focus_watch_items = [self._professional_empty_focus_item()]
         display_focus_symbols = [item["symbol"] for item in (key_focus_items + focus_watch_items) if item.get("symbol")][: key_focus_limit + focus_limit]
+        honesty_mode = str(contract.get("display_honesty_mode") or "").strip()
+        default_seed_customer_sample = honesty_mode == "default_observation_pool_sample" or not bool(contract.get("formal_customer_focus_truth", True))
+        base_why_included = reasons[0] if reasons else "核心关注 / 关注 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。"
+        if default_seed_customer_sample:
+            base_why_included = str(contract.get("display_honesty_note") or "当前“核心关注 / 关注”展示来自默认观察池样本，用于说明内部观察范围，并不等同于正式客户关注池。")
+        focus_reasons = self._focus_reasons(
+            reasons=reasons,
+            key_focus_symbols=key_focus_symbols,
+            focus_only_symbols=focus_only_symbols,
+            total_focus_count=len(focus_symbols),
+            contract=contract,
+        )
         return {
             "module_type": "fsj_focus_module",
             "business_date": assembled.get("business_date"),
@@ -509,8 +524,9 @@ class MainReportHTMLRenderer:
                 {"label": f"{KEY_FOCUS_MODULE_LABEL} / {KEY_FOCUS_TIER_LABEL}", "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。", "symbols": key_focus_symbols[:key_focus_limit], "items": key_focus_items},
                 {"label": f"{FOCUS_MODULE_LABEL} / {FOCUS_TIER_LABEL}", "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。", "symbols": focus_only_symbols[:focus_limit], "items": focus_watch_items},
             ],
-            "why_included": reasons[0] if reasons else "核心关注 / 关注 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
-            "reasons": self._focus_reasons(reasons=reasons, key_focus_symbols=key_focus_symbols, focus_only_symbols=focus_only_symbols, total_focus_count=len(focus_symbols)),
+            "why_included": base_why_included,
+            "reasons": focus_reasons,
+            "contract": contract,
             "source_sections": source_sections,
             "chart_refs": [
                 {"chart_key": "key_focus_window", "title": "核心关注 窗口图"},
@@ -826,8 +842,11 @@ class MainReportHTMLRenderer:
             return "若初步异动没有演化为更稳定的联动结构，则维持补充观察，不急于上调优先级。"
         return "若全天没有新增确认依据，则维持补充观察，不为凑名单而机械强化表述。"
 
-    def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
+    def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int, contract: dict[str, Any] | None = None) -> list[str]:
         polished = [str(item).strip() for item in reasons if str(item).strip()]
+        contract = dict(contract or {})
+        if (str(contract.get("display_honesty_mode") or "").strip() == "default_observation_pool_sample" or not bool(contract.get("formal_customer_focus_truth", True))):
+            polished.insert(0, str(contract.get("display_honesty_note") or "当前“核心关注 / 关注”展示来自默认观察池样本，用于说明内部观察范围，并不等同于正式客户关注池。"))
         if key_focus_symbols:
             polished.append(f"核心关注 共 {len(key_focus_symbols)} 个，优先用于验证强度、节奏与是否具备继续跟踪价值。")
         if focus_only_symbols:

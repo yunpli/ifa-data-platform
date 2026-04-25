@@ -21,8 +21,8 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P6-DB-NAMING-001` 并进入 pushed；Lane B 已完成 `POST-P6-SYMBOL-EVIDENCE-001` 并进入 pushed
-- **Acceptance Lane 状态**：当前 idle；可启动 `ACCEPT-P7-001`
+- **当前 Lane A / Lane B 状态**：Lane A 已切换到 `POST-V2-FOCUS-CONTRACT-REAL-001`；Lane B 已切换到 `POST-V2-DB-CONTENT-EARLY-001`
+- **Acceptance Lane 状态**：当前 idle；待 Lane A / Lane B 完成后启动 `ACCEPT-V2-REALITY-001`
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`a9f0876`
 
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:e110b6e9-9f28-4cd2-96a2-64f88befddb2` | POST-P6-DB-NAMING-001 | Fix DB-backed Symbol Name Join Contract | pushed | 2026-04-25 01:29 PDT | 2026-04-25 01:38 PDT | none | lane complete; ts_code-first + bare-code fallback shipped, validated names now surface in fresh customer sample |
-| Lane B | `agent:developer:subagent:b555ee62-b933-43ca-9716-70f10fefde6b` | POST-P6-SYMBOL-EVIDENCE-001 | Minimal Per-Symbol Evidence Aggregation for Watchlist Rationale | pushed | 2026-04-25 01:29 PDT | 2026-04-25 02:02 PDT | none | bounded per-symbol evidence depth shipped through producer→renderer seam; fresh 2026-04-23 customer sample now shows non-identical rationale across key/focus items with honest market/text/focus-list-only differences |
+| Lane A | `agent:developer:subagent:6d1b2a43-3628-4982-8b14-5fb9675c8586` | POST-V2-FOCUS-CONTRACT-REAL-001 | Separate Default Seed / Collection Scope / Customer-Facing Focus Contract | pushed | 2026-04-25 05:37 PDT | 2026-04-25 05:42 PDT | none | closed with explicit producer/renderer contract seam: default seed stays usable as internal/product observation scope, but customer surface now discloses default-observation-pool sample semantics instead of implying formal client focus truth |
+| Lane B | `pending dispatch` | POST-V2-DB-CONTENT-EARLY-001 | Minimal DB-Backed Early Report Content Integration | assigned | 2026-04-25 05:37 PDT | 2026-04-25 05:37 PDT | none | minimally connect already-available DB-backed market/sector/sentiment/fundflow/text/support data into the early report without adding collectors or rebuilding archive/runtime |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -68,10 +68,10 @@
 - Current Acceptance Task: `none`
 - Status: `idle`
 - Started At: `-`
-- Last Update: `2026-04-25 02:02 PDT`
-- Findings: `Lane A closed the DB naming contract gap; Lane B added bounded per-symbol evidence aggregation (market/text/focus-list-only/data-thin) so watchlist rationale no longer collapses into identical canned copy. Fresh 2026-04-23 customer sample now shows differentiated rationale across 平安银行 / 万科Ａ / *ST国华 / 深振业Ａ / 全新好 and related focus items without inventing stock-specific conviction.`
-- Blocker: `none`
-- Next Action: `launch ACCEPT-P7-001 to validate end-to-end post-P6 customer sample quality`
+- Last Update: `2026-04-25 05:37 PDT`
+- Findings: `V2 Feature Completion Audit locked stage judgment to B: presentation/operator shell is mostly complete, but real data usage, real report completeness, and customer-facing focus contract are still incomplete. Next active work must therefore shift from polish to functional closure.`
+- Blocker: `waiting for POST-V2-FOCUS-CONTRACT-REAL-001 + POST-V2-DB-CONTENT-EARLY-001`
+- Next Action: `launch ACCEPT-V2-REALITY-001 after both functionality tasks complete`
 
 ---
 
@@ -115,6 +115,7 @@
 | POST-P6-DB-TRUTH-001 | none | DB Table Truth and Report Data Contract Audit | post-P6 | P1 | pushed | Lane B | `agent:developer:subagent:97b3919f-8ed9-4f30-8513-37e8a527f443` | `docs/POST_P6_DB_TRUTH_001_DB_TABLE_TRUTH_AND_REPORT_DATA_CONTRACT_AUDIT_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | read-only SQL via unified venv against repo `.env`; code audit over `src/ifa_data_platform/fsj/early_main_producer.py`, `src/ifa_data_platform/fsj/report_rendering.py`, `src/ifa_data_platform/fsj/chart_pack.py`, `scripts/fsj_report_cli.py` | `branch head (see git log)` | bounded DB truth audit completed: primary RCA is suffixed focus symbol vs bare `stock_basic_history.symbol` mismatch in producer fallback; rationale sameness is due to renderer fallback on thin per-symbol evidence; chart partiality is real upstream data sparsity (`equity_daily_bar_history` sparse, `ifa_archive_equity_60m` empty, intraday price working tables mostly empty) |
 | POST-P6-SYMBOL-EVIDENCE-001 | none | Minimal Per-Symbol Evidence Aggregation for Watchlist Rationale | post-P6 | P1 | pushed | Lane B | `agent:developer:subagent:b555ee62-b933-43ca-9716-70f10fefde6b` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_main_early_producer.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p6_symbol_evidence_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T084056Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_main_early_producer.py tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p6_symbol_evidence_001 --report-run-id-prefix post-p6-symbol-evidence-main-early` | `ca8bf7b` | producer now carries bounded per-symbol evidence already available locally (name/list_type/priority/key_focus + daily-bar/return/volume/amount presence + text/event counts + sector/theme when locally available); renderer classifies `market_and_text` / `market_only` / `text_only` / `focus_list_only` / `data_thin` and emits differentiated, non-fabricated watchlist rationale |
 | V2-AUDIT-20260425-001 | none | V2 Feature Completion Audit + Data Truth Audit | audit | P0 | pushed | Lane Audit | `agent:developer:subagent:6ede8fc3-81a6-4b58-96b0-b7f90be38c37` | `docs/V2_FEATURE_COMPLETION_AUDIT_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | read-only repo audit; read-only SQL against `ifa2`; code-contract inspection over `src/ifa_data_platform/fsj/early_main_producer.py`, `src/ifa_data_platform/fsj/chart_pack.py`, `src/ifa_data_platform/fsj/report_rendering.py`, `src/ifa_data_platform/fsj/macro_support_producer.py`, `src/ifa_data_platform/fsj/commodities_support_producer.py`, `src/ifa_data_platform/fsj/ai_tech_support_producer.py`, `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/defaults.py`, `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml` | `see audit commit` | audit conclusion: stage judgment = B; presentation/operator shell is mostly closed, but focus/customer contract and DB-backed content completeness remain materially incomplete |
+| POST-V2-FOCUS-CONTRACT-REAL-001 | none | Separate Default Seed / Collection Scope / Customer-Facing Focus Contract | post-V2 | P0 | pushed | Lane A | `agent:developer:subagent:6d1b2a43-3628-4982-8b14-5fb9675c8586` | `src/ifa_data_platform/fsj/early_main_producer.py`; `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_main_early_producer.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/POST_V2_FOCUS_CONTRACT_REAL_001_DEFAULT_SEED_AND_CUSTOMER_DISPLAY_CONTRACT_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_v2_focus_contract_real_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T124218Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_main_early_producer.py tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_v2_focus_contract_real_001 --report-run-id-prefix post-v2-focus-contract-real-001` | pending | producer now emits explicit contract metadata for `default/default`, `system/default`, `archive_targets`, `focus`, `key_focus`, product/customer display scope, and the `000001.SZ` onward seed; customer renderer keeps `核心关注` / `关注` labels but discloses default-observation-pool sample semantics instead of implying formal client focus truth |
 
 ### 4.1 Status 枚举
 

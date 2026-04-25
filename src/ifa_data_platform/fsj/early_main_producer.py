@@ -59,6 +59,28 @@ class EarlyMainProducerInput:
     text_catalyst_count: int
     text_catalyst_titles: list[str]
     previous_archive_summary: str | None
+    index_daily_count: int = 0
+    index_latest_trade_date: str | None = None
+    index_sample_symbols: list[str] | None = None
+    northbound_flow_count: int = 0
+    northbound_latest_trade_date: str | None = None
+    northbound_net_amount: float | None = None
+    sector_performance_count: int = 0
+    sector_performance_latest_trade_date: str | None = None
+    sector_performance_top_sector: str | None = None
+    sector_performance_top_pct_chg: float | None = None
+    sector_performance_top_sectors: list[dict[str, Any]] | None = None
+    limit_up_down_status_count: int = 0
+    limit_up_down_latest_trade_date: str | None = None
+    limit_up_count: int | None = None
+    limit_down_count: int | None = None
+    dragon_tiger_count: int = 0
+    dragon_tiger_latest_trade_date: str | None = None
+    dragon_tiger_sample_symbols: list[str] | None = None
+    announcement_count: int = 0
+    research_report_count: int = 0
+    investor_qa_total_count: int = 0
+    news_total_count: int = 0
     replay_id: str | None = None
     slot_run_id: str | None = None
     report_run_id: str | None = None
@@ -402,6 +424,121 @@ class SqlEarlyMainInputReader:
                 {"business_date": business_date},
             ).mappings().first()
 
+            index_row = conn.execute(
+                text(
+                    """
+                    with ranked as (
+                        select ts_code, trade_date,
+                               row_number() over (order by trade_date desc, ts_code) as rn
+                        from ifa2.index_daily_bar_history
+                        where trade_date <= cast(:business_date as date)
+                    )
+                    select
+                      (select count(*) from ifa2.index_daily_bar_history where trade_date <= cast(:business_date as date)) as cnt,
+                      max(trade_date)::text as latest_trade_date,
+                      array_remove(array_agg(case when rn <= 5 then ts_code end), null) as sample_symbols
+                    from ranked
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().one()
+
+            northbound_row = conn.execute(
+                text(
+                    """
+                    select count(*) as cnt,
+                           max(trade_date)::text as latest_trade_date,
+                           max(north_money) as north_money
+                    from ifa2.northbound_flow_history
+                    where trade_date <= cast(:business_date as date)
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().one()
+
+            sector_row = conn.execute(
+                text(
+                    """
+                    with ranked as (
+                        select trade_date, sector_name, pct_chg,
+                               row_number() over (order by trade_date desc, pct_chg desc nulls last, sector_name) as rn
+                        from ifa2.sector_performance_history
+                        where trade_date <= cast(:business_date as date)
+                    )
+                    select
+                      (select count(*) from ifa2.sector_performance_history where trade_date <= cast(:business_date as date)) as cnt,
+                      max(trade_date)::text as latest_trade_date,
+                      max(case when rn = 1 then sector_name end) as top_sector,
+                      max(case when rn = 1 then pct_chg end) as top_pct_chg
+                    from ranked
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().one()
+
+            sector_top_rows = conn.execute(
+                text(
+                    """
+                    select sector_name, pct_chg
+                    from ifa2.sector_performance_history
+                    where trade_date = (
+                        select max(trade_date)
+                        from ifa2.sector_performance_history
+                        where trade_date <= cast(:business_date as date)
+                    )
+                    order by pct_chg desc nulls last, sector_name
+                    limit 3
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().all()
+
+            limit_status_row = conn.execute(
+                text(
+                    """
+                    select count(*) as cnt,
+                           max(trade_date)::text as latest_trade_date,
+                           max(limit_up_count) as limit_up_count,
+                           max(limit_down_count) as limit_down_count
+                    from ifa2.limit_up_down_status_history
+                    where trade_date <= cast(:business_date as date)
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().one()
+
+            dragon_row = conn.execute(
+                text(
+                    """
+                    with ranked as (
+                        select ts_code, trade_date,
+                               row_number() over (order by trade_date desc, net_amount desc nulls last, ts_code) as rn
+                        from ifa2.dragon_tiger_list_history
+                        where trade_date <= cast(:business_date as date)
+                    )
+                    select
+                      (select count(*) from ifa2.dragon_tiger_list_history where trade_date <= cast(:business_date as date)) as cnt,
+                      max(trade_date)::text as latest_trade_date,
+                      array_remove(array_agg(case when rn <= 5 then ts_code end), null) as sample_symbols
+                    from ranked
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().one()
+
+            text_count_row = conn.execute(
+                text(
+                    """
+                    select
+                      (select count(*) from ifa2.announcements_history where ann_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')) as announcement_count,
+                      (select count(*) from ifa2.research_reports_history where trade_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')) as research_count,
+                      (select count(*) from ifa2.investor_qa_history where trade_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')) as investor_qa_count,
+                      (select count(*) from ifa2.news_history where datetime::date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')) as news_count
+                    """
+                ),
+                {"business_date": business_date},
+            ).mappings().one()
+
         selected_focus_symbols = focus_symbols[:30]
         selected_focus_symbol_set = set(selected_focus_symbols)
         selected_focus_items = [item for item in focus_items if str(item.get("symbol") or "") in selected_focus_symbol_set]
@@ -437,6 +574,35 @@ class SqlEarlyMainInputReader:
             text_catalyst_count=len(text_rows),
             text_catalyst_titles=[row["title"] for row in text_rows if row.get("title")],
             previous_archive_summary=archive_row["summary"] if archive_row else None,
+            index_daily_count=int(index_row["cnt"] or 0),
+            index_latest_trade_date=index_row.get("latest_trade_date"),
+            index_sample_symbols=list(index_row["sample_symbols"] or []),
+            northbound_flow_count=int(northbound_row["cnt"] or 0),
+            northbound_latest_trade_date=northbound_row.get("latest_trade_date"),
+            northbound_net_amount=float(northbound_row["north_money"]) if northbound_row.get("north_money") is not None else None,
+            sector_performance_count=int(sector_row["cnt"] or 0),
+            sector_performance_latest_trade_date=sector_row.get("latest_trade_date"),
+            sector_performance_top_sector=sector_row.get("top_sector"),
+            sector_performance_top_pct_chg=float(sector_row["top_pct_chg"]) if sector_row.get("top_pct_chg") is not None else None,
+            sector_performance_top_sectors=[
+                {
+                    "sector_name": str(row.get("sector_name") or "").strip(),
+                    "pct_chg": float(row["pct_chg"]) if row.get("pct_chg") is not None else None,
+                }
+                for row in sector_top_rows
+                if str(row.get("sector_name") or "").strip()
+            ],
+            limit_up_down_status_count=int(limit_status_row["cnt"] or 0),
+            limit_up_down_latest_trade_date=limit_status_row.get("latest_trade_date"),
+            limit_up_count=int(limit_status_row["limit_up_count"]) if limit_status_row.get("limit_up_count") is not None else None,
+            limit_down_count=int(limit_status_row["limit_down_count"]) if limit_status_row.get("limit_down_count") is not None else None,
+            dragon_tiger_count=int(dragon_row["cnt"] or 0),
+            dragon_tiger_latest_trade_date=dragon_row.get("latest_trade_date"),
+            dragon_tiger_sample_symbols=list(dragon_row["sample_symbols"] or []),
+            announcement_count=int(text_count_row["announcement_count"] or 0),
+            research_report_count=int(text_count_row["research_count"] or 0),
+            investor_qa_total_count=int(text_count_row["investor_qa_count"] or 0),
+            news_total_count=int(text_count_row["news_count"] or 0),
             slot_run_id=None,
             replay_id=None,
             report_run_id=None,
@@ -622,6 +788,138 @@ class EarlyMainFSJAssembler:
                     fact_catalyst,
                     [
                         ("source_observed", "lowfreq", "latest_text", "ifa2.news_history", f"{data.business_date}:text_catalysts", {"count": data.text_catalyst_count}),
+                    ],
+                )
+            )
+
+        if any(
+            [
+                data.index_daily_count,
+                data.northbound_flow_count,
+                data.sector_performance_count,
+                data.limit_up_down_status_count,
+                data.dragon_tiger_count,
+            ]
+        ):
+            fact_market_backdrop = self._append_fact(
+                object_records,
+                data=data,
+                object_key="fact:early:daily_market_backdrop",
+                statement=self._daily_market_backdrop_statement(data),
+                object_type="market",
+                confidence="medium",
+                evidence_level="E2",
+                entity_refs=((data.index_sample_symbols or [])[:3] + (data.dragon_tiger_sample_symbols or [])[:3])[:6],
+                metric_refs=["index_daily_count", "northbound_flow_count", "sector_performance_count", "limit_up_down_status_count", "dragon_tiger_count"],
+                attributes_json={
+                    "freshness_label": "t_minus_1_or_latest_daily",
+                    "completeness_label": "partial",
+                    "is_finalized_equivalent": True,
+                },
+            )
+            extra_fact_keys.append(fact_market_backdrop["object_key"])
+            observed_records.extend(
+                self._build_observed_records(
+                    fact_market_backdrop,
+                    [
+                        EarlyEvidenceRecord(
+                            source_layer="midfreq",
+                            source_family="index_daily",
+                            source_table="ifa2.index_daily_bar_history",
+                            source_record_key=f"{data.index_latest_trade_date or data.business_date}:index_daily",
+                            observed_label="日级指数背景",
+                            observed_payload={"count": data.index_daily_count, "trade_date": data.index_latest_trade_date, "sample_symbols": (data.index_sample_symbols or [])[:5]},
+                        ),
+                        EarlyEvidenceRecord(
+                            source_layer="midfreq",
+                            source_family="northbound_flow",
+                            source_table="ifa2.northbound_flow_history",
+                            source_record_key=f"{data.northbound_latest_trade_date or data.business_date}:northbound_flow",
+                            observed_label="北向资金背景",
+                            observed_payload={"count": data.northbound_flow_count, "trade_date": data.northbound_latest_trade_date, "net_amount": data.northbound_net_amount},
+                        ),
+                        EarlyEvidenceRecord(
+                            source_layer="midfreq",
+                            source_family="sector_performance",
+                            source_table="ifa2.sector_performance_history",
+                            source_record_key=f"{data.sector_performance_latest_trade_date or data.business_date}:sector_performance",
+                            observed_label="板块表现背景",
+                            observed_payload={"count": data.sector_performance_count, "trade_date": data.sector_performance_latest_trade_date, "top_sector": data.sector_performance_top_sector, "top_pct_chg": data.sector_performance_top_pct_chg, "top_sectors": (data.sector_performance_top_sectors or [])[:3]},
+                        ),
+                        EarlyEvidenceRecord(
+                            source_layer="midfreq",
+                            source_family="limit_up_down_status",
+                            source_table="ifa2.limit_up_down_status_history",
+                            source_record_key=f"{data.limit_up_down_latest_trade_date or data.business_date}:limit_up_down_status",
+                            observed_label="涨跌停情绪背景",
+                            observed_payload={"count": data.limit_up_down_status_count, "trade_date": data.limit_up_down_latest_trade_date, "limit_up_count": data.limit_up_count, "limit_down_count": data.limit_down_count},
+                        ),
+                        EarlyEvidenceRecord(
+                            source_layer="midfreq",
+                            source_family="dragon_tiger_list",
+                            source_table="ifa2.dragon_tiger_list_history",
+                            source_record_key=f"{data.dragon_tiger_latest_trade_date or data.business_date}:dragon_tiger_list",
+                            observed_label="龙虎榜背景",
+                            observed_payload={"count": data.dragon_tiger_count, "trade_date": data.dragon_tiger_latest_trade_date, "sample_symbols": (data.dragon_tiger_sample_symbols or [])[:5]},
+                        ),
+                    ],
+                )
+            )
+            evidence_links.extend(
+                self._build_evidence_links(
+                    fact_market_backdrop,
+                    [
+                        ("source_observed", "midfreq", "index_daily", "ifa2.index_daily_bar_history", f"{data.index_latest_trade_date or data.business_date}:index_daily", {"trade_date": data.index_latest_trade_date}),
+                        ("source_observed", "midfreq", "northbound_flow", "ifa2.northbound_flow_history", f"{data.northbound_latest_trade_date or data.business_date}:northbound_flow", {"trade_date": data.northbound_latest_trade_date}),
+                        ("source_observed", "midfreq", "sector_performance", "ifa2.sector_performance_history", f"{data.sector_performance_latest_trade_date or data.business_date}:sector_performance", {"trade_date": data.sector_performance_latest_trade_date}),
+                        ("source_observed", "midfreq", "limit_up_down_status", "ifa2.limit_up_down_status_history", f"{data.limit_up_down_latest_trade_date or data.business_date}:limit_up_down_status", {"trade_date": data.limit_up_down_latest_trade_date}),
+                        ("source_observed", "midfreq", "dragon_tiger_list", "ifa2.dragon_tiger_list_history", f"{data.dragon_tiger_latest_trade_date or data.business_date}:dragon_tiger_list", {"trade_date": data.dragon_tiger_latest_trade_date}),
+                    ],
+                )
+            )
+
+        if any([data.news_total_count, data.announcement_count, data.research_report_count, data.investor_qa_total_count]):
+            fact_text_backdrop = self._append_fact(
+                object_records,
+                data=data,
+                object_key="fact:early:text_backdrop",
+                statement=self._text_backdrop_statement(data),
+                object_type="news",
+                confidence="medium",
+                evidence_level="E2",
+                metric_refs=["news_total_count", "announcement_count", "research_report_count", "investor_qa_total_count"],
+                attributes_json={
+                    "freshness_label": "t_minus_1_or_latest_text",
+                    "completeness_label": "partial",
+                    "is_finalized_equivalent": False,
+                },
+            )
+            extra_fact_keys.append(fact_text_backdrop["object_key"])
+            observed_records.extend(
+                self._build_observed_records(
+                    fact_text_backdrop,
+                    [
+                        EarlyEvidenceRecord(
+                            source_layer="lowfreq",
+                            source_family="latest_text_counts",
+                            source_table="ifa2.news_history+ifa2.announcements_history+ifa2.research_reports_history+ifa2.investor_qa_history",
+                            source_record_key=f"{data.business_date}:latest_text_counts",
+                            observed_label="隔夜/近期文本覆盖规模",
+                            observed_payload={
+                                "news_count": data.news_total_count,
+                                "announcement_count": data.announcement_count,
+                                "research_count": data.research_report_count,
+                                "investor_qa_count": data.investor_qa_total_count,
+                            },
+                        )
+                    ],
+                )
+            )
+            evidence_links.extend(
+                self._build_evidence_links(
+                    fact_text_backdrop,
+                    [
+                        ("source_observed", "lowfreq", "latest_text_counts", "ifa2.news_history", f"{data.business_date}:latest_text_counts", {"news_count": data.news_total_count, "announcement_count": data.announcement_count}),
                     ],
                 )
             )
@@ -861,6 +1159,26 @@ class EarlyMainFSJAssembler:
                 "name_map": {item["symbol"]: item["name"] for item in data.focus_items if item.get("symbol") and item.get("name")},
                 "source": "ifa2.focus_lists+ifa2.focus_list_items",
                 "why_included": self._reference_fact_statement(data),
+                "contract": {
+                    "owner_type": "default",
+                    "owner_id": "default",
+                    "default_scope": "default/default",
+                    "system_scope": "system/default",
+                    "archive_target_scope": "archive_targets",
+                    "product_focus_scope": ["focus", "key_focus"],
+                    "customer_display_scope": "default_observation_pool_sample",
+                    "collection_scope_class": "business_layer_canonical_default_seed",
+                    "formal_customer_list_present": False,
+                    "formal_customer_focus_truth": False,
+                    "display_honesty_mode": "default_observation_pool_sample",
+                    "display_honesty_note": "当前展示来自 business-layer canonical default seed（默认观察池/默认覆盖样本），用于内部观察与产品演示，不等同于正式客户关注池。",
+                    "000001_sequence_interpretation": {
+                        "is_default_seed": True,
+                        "is_development_test_seed": False,
+                        "is_collection_scope": True,
+                        "is_formal_customer_list": False,
+                    },
+                },
             },
             "implemented_scope": {
                 "slot": "early",

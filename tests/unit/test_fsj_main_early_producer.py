@@ -137,6 +137,12 @@ def test_assembler_threads_db_backed_focus_item_metadata_into_payload_scope() ->
     assert focus_scope["items"][0]["text_event_evidence"]["event_count"] == 2
     assert focus_scope["items"][0]["sector_or_theme"] == "机器人"
     assert any(item["symbol"] == "002031.SZ" and item["list_types"] == ["focus"] for item in focus_scope["items"])
+    assert focus_scope["contract"]["default_scope"] == "default/default"
+    assert focus_scope["contract"]["system_scope"] == "system/default"
+    assert focus_scope["contract"]["customer_display_scope"] == "default_observation_pool_sample"
+    assert focus_scope["contract"]["formal_customer_focus_truth"] is False
+    assert focus_scope["contract"]["000001_sequence_interpretation"]["is_default_seed"] is True
+    assert focus_scope["contract"]["000001_sequence_interpretation"]["is_formal_customer_list"] is False
 
 
 def test_assembler_backfills_runtime_lineage_ids_when_reader_inputs_are_missing() -> None:
