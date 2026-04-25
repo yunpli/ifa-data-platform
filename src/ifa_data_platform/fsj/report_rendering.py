@@ -258,6 +258,9 @@ class MainReportHTMLRenderer:
                 }
                 for item in (section.get("support_summaries") or [])
             ]
+            highlights = self._customer_item_statements(section.get("judgments") or [], limit=3)
+            signals = self._customer_item_statements(section.get("signals") or [], limit=3)
+            facts = self._customer_item_statements(section.get("facts") or [], limit=3)
             customer_sections.append(
                 {
                     "slot": slot,
@@ -265,10 +268,17 @@ class MainReportHTMLRenderer:
                     "title": self._customer_section_title(slot, str(section.get("title") or slot_label)),
                     "summary": str(section.get("summary") or "暂无摘要"),
                     "status": str(section.get("status") or "unknown"),
-                    "highlights": self._customer_item_statements(section.get("judgments") or [], limit=3),
-                    "signals": self._customer_item_statements(section.get("signals") or [], limit=3),
-                    "facts": self._customer_item_statements(section.get("facts") or [], limit=3),
+                    "highlights": highlights,
+                    "signals": signals,
+                    "facts": facts,
                     "support_themes": support_items,
+                    "advisory_note": self._customer_slot_advisory_note(
+                        slot=slot,
+                        summary=str(section.get("summary") or "暂无摘要"),
+                        highlights=highlights,
+                        signals=signals,
+                        support_items=support_items,
+                    ),
                 }
             )
         focus_payload = focus_module or self._build_focus_module(assembled=assembled, sections=sections)
@@ -299,6 +309,7 @@ class MainReportHTMLRenderer:
                     "slot_label": item["slot_label"],
                     "headline": item["summary"],
                     "support_themes": item["support_themes"],
+                    "advisory_note": item["advisory_note"],
                 }
                 for item in customer_sections
             ],
@@ -390,40 +401,86 @@ class MainReportHTMLRenderer:
         return statements[:limit]
 
     def _customer_top_judgment(self, customer_sections: Sequence[dict[str, Any]]) -> str:
-        first_section = next(iter(customer_sections), {})
-        headline = str(first_section.get("summary") or "").strip()
-        highlights = [str(item).strip() for item in (first_section.get("highlights") or []) if str(item).strip()]
+        early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
+        late_section = next((section for section in customer_sections if section.get("slot") == "late"), None)
+        anchor = early_section or late_section or next(iter(customer_sections), {})
+        headline = str(anchor.get("summary") or "").strip()
+        highlights = [str(item).strip() for item in (anchor.get("highlights") or []) if str(item).strip()]
         if headline and highlights:
-            return f"{headline} 当前优先按“{highlights[0]}”来验证主线强度与执行节奏。"
+            return f"{headline} 现阶段更适合把交易与沟通重心放在“{highlights[0]}”的验证质量上，而不是过早放大为无条件确认。"
         if headline:
-            return headline
+            return f"{headline} 当前建议沿着主线确认、风险约束与后续观察三条线同步推进。"
         if highlights:
-            return highlights[0]
+            return f"当前优先围绕“{highlights[0]}”组织验证与节奏判断。"
         return "当前报告以主线确认、风险约束和次日观察三条线并行展开。"
+
+    def _customer_slot_advisory_note(
+        self,
+        *,
+        slot: str,
+        summary: str,
+        highlights: Sequence[str],
+        signals: Sequence[str],
+        support_items: Sequence[dict[str, Any]],
+    ) -> str:
+        support_domains = "、".join(str(item.get("domain") or "补充视角") for item in support_items[:2])
+        headline = summary.strip()
+        first_highlight = next((str(item).strip() for item in highlights if str(item).strip()), "")
+        first_signal = next((str(item).strip() for item in signals if str(item).strip()), "")
+        if slot == "early":
+            return f"盘前阶段更适合把{headline or '当前主线候选'}视为开盘后的优先验证方向；{first_highlight or first_signal or '如验证信号不足，应及时降回观察名单'}。"
+        if slot == "mid":
+            return f"盘中阶段以节奏修正为主，{headline or '当前判断'}只能作为仓位与跟踪强弱的动态参考，不宜外推为收盘定论。"
+        if slot == "late":
+            overlay = f"，并结合{support_domains}补充交叉验证" if support_domains else ""
+            return f"收盘阶段应把{headline or '当日主线'}放回全天证据框架中复核{overlay}；若次日缺少延续证据，结论应回落为跟踪而非继续追认。"
+        return headline or first_highlight or "当前判断应继续结合新增证据滚动更新。"
 
     def _customer_risk_block(self, customer_sections: Sequence[dict[str, Any]]) -> list[str]:
         risks: list[str] = []
         for section in customer_sections:
-            for item in list(section.get("signals") or []) + list(section.get("facts") or []):
-                text = str(item).strip()
-                if text and text not in risks:
-                    risks.append(text)
-                if len(risks) >= 3:
-                    return risks
-        if not risks:
-            risks.append("若量价确认、板块扩散或风险偏好数据未跟上，主线判断需要快速降级为观察而非追价。")
-        return risks[:3]
+            slot = str(section.get("slot") or "")
+            section_signals = [str(item).strip() for item in (section.get("signals") or []) if str(item).strip()]
+            section_facts = [str(item).strip() for item in (section.get("facts") or []) if str(item).strip()]
+            if slot == "early":
+                if section_signals:
+                    risks.append(f"盘前风险：{section_signals[0]} 若未兑现，早段主线判断应维持候选而非转为追价依据。")
+                elif section_facts:
+                    risks.append(f"盘前风险：{section_facts[0]} 仍需等待开盘后价格与承接确认。")
+            elif slot == "late":
+                if section_signals:
+                    risks.append(f"收盘风险：{section_signals[0]} 仅说明当日收盘包可读，不代表次日延续性已经自动成立。")
+                elif section_facts:
+                    risks.append(f"收盘风险：{section_facts[0]} 仍需与次日资金与扩散强度交叉验证。")
+            for support in section.get("support_themes") or []:
+                summary = str(support.get("summary") or "").strip()
+                if summary:
+                    risks.append(f"辅助视角风险：{summary} 只能作为修正与校准输入，不应替代主报告的核心结论。")
+            if len(risks) >= 4:
+                break
+        deduped: list[str] = []
+        for item in risks:
+            if item and item not in deduped:
+                deduped.append(item)
+        if not deduped:
+            deduped.append("若量价确认、板块扩散或风险偏好数据未跟上，主线判断需要快速降级为观察而非追价。")
+        return deduped[:3]
 
     def _customer_next_steps(self, customer_sections: Sequence[dict[str, Any]], focus_module: dict[str, Any]) -> list[str]:
         next_steps: list[str] = []
-        for section in customer_sections:
-            slot_label = str(section.get("slot_label") or section.get("slot") or "后续")
-            section_signals = [str(item).strip() for item in (section.get("signals") or []) if str(item).strip()]
+        early_section = next((section for section in customer_sections if section.get("slot") == "early"), None)
+        late_section = next((section for section in customer_sections if section.get("slot") == "late"), None)
+        if early_section:
+            section_signals = [str(item).strip() for item in (early_section.get("signals") or []) if str(item).strip()]
             if section_signals:
-                next_steps.append(f"{slot_label}：重点跟踪 {section_signals[0]}")
+                next_steps.append(f"开盘后第一观察位：围绕“{section_signals[0]}”确认主线是否具备继续强化的交易条件。")
+        if late_section:
+            section_signals = [str(item).strip() for item in (late_section.get("signals") or []) if str(item).strip()]
+            if section_signals:
+                next_steps.append(f"收盘后复核位：以“{section_signals[0]}”核对当日结论能否顺延到次日跟踪框架。")
         key_focus = [str(item).strip() for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
         if key_focus:
-            next_steps.append(f"明日观察：继续跟踪 Key Focus 标的 {', '.join(key_focus[:3])} 的强弱分化与验证节奏。")
+            next_steps.append(f"重点跟踪名单：继续观察 {', '.join(key_focus[:3])} 的强弱分化、承接质量与是否得到主线验证。")
         if not next_steps:
             next_steps.append("明日观察：继续围绕主线确认、风险约束与重点标的强弱分化来更新判断。")
         return next_steps[:3]
@@ -521,14 +578,16 @@ class MainReportHTMLRenderer:
         if card.get("support_themes"):
             support_text = " · ".join(f"{item['domain']}：{item['summary']}" for item in card.get("support_themes") or [])
             support_line = f"<div class=\"support-line\"><strong>补充视角：</strong>{escape(support_text)}</div>"
-        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div><div class=\"support-line\"><strong>产品定位：</strong>{escape(str(card.get('slot_label') or '-'))}客户主报告摘要</div>{support_line}</div>"
+        advisory_note = str(card.get("advisory_note") or "").strip()
+        advisory_html = f"<div class=\"support-line\"><strong>顾问提示：</strong>{escape(advisory_note)}</div>" if advisory_note else ""
+        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div><div class=\"support-line\"><strong>产品定位：</strong>{escape(str(card.get('slot_label') or '-'))}客户主报告摘要</div>{advisory_html}{support_line}</div>"
 
     def _render_customer_focus_module(self, focus_module: dict[str, Any]) -> str:
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
         if not reasons:
             reasons = [str(focus_module.get("why_included") or "将今日重点观察池直接前置展示，帮助理解为什么这些对象值得跟踪。")]
-        key_focus = [str(item) for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
-        focus_symbols = [str(item) for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
+        key_focus = [f"重点跟踪对象：{str(item)}" for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
+        focus_symbols = [f"观察对象：{str(item)}" for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
         chart_refs = [str(item.get("title") or item.get("chart_key") or "") for item in (focus_module.get("chart_refs") or []) if str(item.get("title") or item.get("chart_key") or "").strip()]
         return (
             self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
@@ -564,10 +623,16 @@ class MainReportHTMLRenderer:
             "late": "次日跟踪点",
         }.get(str(section.get("slot") or ""), "后续观察点")
         next_step_items = (section.get('signals') or [])[:2] or (section.get('highlights') or [])[:2]
+        advisory_note_html = self._render_customer_bucket(
+            '顾问提示',
+            [str(section.get('advisory_note') or '').strip()],
+            fallback='暂无顾问提示',
+        )
         return f"""
         <div class=\"section\">
           <h3>{escape(str(section.get('title') or '-'))}</h3>
           <div class=\"section-summary\">{escape(str(section.get('summary') or '暂无摘要'))}</div>
+          {advisory_note_html}
           {self._render_customer_bucket('重点结论', section.get('highlights') or [], fallback='暂无重点结论')}
           {self._render_customer_bucket('跟踪信号', section.get('signals') or [], fallback='暂无跟踪信号')}
           {self._render_customer_bucket('已知事实', section.get('facts') or [], fallback='暂无已知事实')}

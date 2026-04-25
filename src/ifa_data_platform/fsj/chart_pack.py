@@ -123,13 +123,15 @@ class FSJChartPackBuilder:
                     seen.add(ref)
                     symbols.append(ref)
             payload = dict(((section.get("lineage") or {}).get("bundle") or {}).get("payload_json") or {})
+            scope = dict(payload.get("focus_scope") or {})
             degrade = dict(payload.get("degrade") or {})
-            for key in ("focus_symbols", "symbols"):
-                for symbol in payload.get(key) or degrade.get(key) or []:
-                    symbol = str(symbol or "").strip()
-                    if self._looks_like_symbol(symbol) and symbol not in seen:
-                        seen.add(symbol)
-                        symbols.append(symbol)
+            for container in (scope, payload, degrade):
+                for key in ("focus_symbols", "symbols"):
+                    for symbol in container.get(key) or []:
+                        symbol = str(symbol or "").strip()
+                        if self._looks_like_symbol(symbol) and symbol not in seen:
+                            seen.add(symbol)
+                            symbols.append(symbol)
         if len(symbols) >= limit:
             return symbols[:limit]
         query = text(
@@ -368,8 +370,24 @@ class FSJChartPackBuilder:
             "status": asset.status,
             "relative_path": asset.relative_path,
             "source_window": asset.source_window,
-            "caption": asset.note or f"window={asset.source_window.get('lookback_bars')} {asset.source_window.get('frequency')} bars",
+            "caption": self._humanize_asset_caption(asset),
         }
+
+    def _humanize_asset_caption(self, asset: ChartAsset) -> str:
+        if asset.note:
+            return self._humanize_missing_note(asset.note, source_window=asset.source_window)
+        return f"window={asset.source_window.get('lookback_bars')} {asset.source_window.get('frequency')} bars"
+
+    def _humanize_missing_note(self, note: str, *, source_window: dict[str, Any]) -> str:
+        lookback = source_window.get("lookback_bars")
+        frequency = source_window.get("frequency") or "bars"
+        if note == "focus/equity daily bars missing for requested window":
+            return f"观察池标的在所需的 {lookback} 个{frequency}窗口内缺少可用行情，当前以观察池清单替代价格曲线。"
+        if note == "insufficient focus bars to calculate day-over-day return":
+            return "观察池标的缺少足够的连续行情，暂时无法计算日度涨跌幅，保留清单与纳入理由供跟踪。"
+        if note == "index_daily_bar_history missing for requested window":
+            return f"指数在所需的 {lookback} 个{frequency}窗口内缺少可用行情。"
+        return note
 
     @staticmethod
     def _looks_like_symbol(value: str) -> bool:
