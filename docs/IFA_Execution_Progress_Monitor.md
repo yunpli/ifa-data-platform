@@ -52,7 +52,7 @@
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
 | Lane A | `agent:developer:subagent:c4dbb799-d979-4f57-b90c-918426b281db` | V2-R0-005 | Customer / internal / review 输出分离 | completed | 2026-04-24 18:31 PDT | 2026-04-24 18:56 PDT | none | hand off commit/push + acceptance summary |
-| Lane B | `agent:developer:subagent:c50385d9-455e-4963-841d-85540c96df07` | V2-R0-006 | LLM prompt 与模型策略升级 | testing | 2026-04-24 18:31 PDT | 2026-04-24 18:45 PDT | none | run targeted validations, commit, push, and finalize evidence |
+| Lane B | `agent:developer:subagent:c50385d9-455e-4963-841d-85540c96df07` | V2-R0-006 | LLM prompt 与模型策略升级 | pushed | 2026-04-24 18:31 PDT | 2026-04-24 18:52 PDT | none | restore Lane B to idle / await next dispatch |
 
 说明：
 - 后续只默认维护 Lane A / Lane B；
@@ -72,7 +72,7 @@
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | pushed | Lane A | `agent:developer:subagent:97b77753-6380-4296-bac6-cd51972669ad` | `scripts/fsj_report_cli.py`; `docs/V2_R0_003_UNIFIED_REPORT_CLI_AUDIT_AND_CLOSURE_2026-04-24.md`; `artifacts/v2_r0_003_validation/command_outputs/fsj_report_cli_help.txt`; `artifacts/v2_r0_003_validation/command_outputs/main_generate.json`; `artifacts/v2_r0_003_validation/command_outputs/support_generate.json`; `artifacts/v2_r0_003_validation/command_outputs/status_main.json`; `artifacts/v2_r0_003_validation/command_outputs/status_support_macro.json`; `artifacts/v2_r0_003_validation/command_outputs/status_board_latest.json`; `docs/IFA_Execution_Progress_Monitor.md` | `python -m py_compile scripts/fsj_report_cli.py`; `python scripts/fsj_report_cli.py --help`; `python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-main`; `python scripts/fsj_report_cli.py generate --subject support --business-date 2026-04-23 --slot late --mode dry-run --output-profile review --output-root artifacts/v2_r0_003_validation --report-run-id-prefix v2-r0-003-support`; `python scripts/fsj_report_cli.py status --subject main --business-date 2026-04-23 --format json`; `python scripts/fsj_report_cli.py status --subject support --agent-domain macro --business-date 2026-04-23 --format json`; `python scripts/fsj_report_cli.py status --subject board --latest --format json` | `edcbb3e72f006f0c5c19d2930d0ff3dbaf58e57a` | 完成 CLI audit + gap list + minimal canonical entry；未重写 producer/assembly/render/orchestration 主链 |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | pushed | Lane B | `agent:developer:subagent:5d8ab1bb-35e3-4084-a4bf-7d5d224ef452` | `src/ifa_data_platform/fsj/report_rendering.py`; `scripts/fsj_main_report_publish.py`; `scripts/fsj_support_report_publish.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_report_publish_script.py`; `tests/unit/test_fsj_support_report_publish_script.py`; `docs/V2_R0_004_CUSTOMER_PRESENTATION_LAYER_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_orchestration.py tests/unit/test_fsj_report_evaluation.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py scripts/fsj_main_report_publish.py scripts/fsj_support_report_publish.py scripts/fsj_report_cli.py` | `1fc24b83fd87820f7599ffbb678ac24501483015` | replacement verification run confirmed existing implementation commit is green and already present on origin；customer HTML 不再直接暴露 bundle/producer/lineage 等工程对象；internal/review 路径保持不变 |
 | V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | pushed | Lane A | `agent:developer:subagent:c4dbb799-d979-4f57-b90c-918426b281db` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/main_publish_cli.py`; `scripts/fsj_main_early_publish.py`; `scripts/fsj_main_mid_publish.py`; `scripts/fsj_main_late_publish.py`; `scripts/fsj_support_batch_publish.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_early_publish_script.py`; `tests/unit/test_fsj_support_batch_publish_script.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/main_publish_cli.py scripts/fsj_main_early_publish.py scripts/fsj_main_mid_publish.py scripts/fsj_main_late_publish.py scripts/fsj_support_batch_publish.py scripts/fsj_report_cli.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_early_publish_script.py tests/unit/test_fsj_support_batch_publish_script.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py` (collection blocked by pre-existing `src/ifa_data_platform/fsj/llm_assist.py` `FSJ_MODEL_ALIAS` NameError after initial focused run reached 34 pass / 2 fail before final spacing fix) | `fb789d3` | customer strip kept intact；review profile now explicit at renderer title/metadata level；canonical main/support wrappers now thread `output_profile` end-to-end |
-| V2-R0-006 | none | LLM prompt 与模型策略升级 | 6 | P0 | testing | Lane B | `agent:developer:subagent:c50385d9-455e-4963-841d-85540c96df07` | `src/ifa_data_platform/fsj/llm_assist.py`; `tests/unit/test_fsj_early_llm_assist.py`; `docs/V2_R0_006_LLM_PROMPT_AND_MODEL_POLICY_UPGRADE_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md`; `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/macro.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/commodities.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/ai_tech.py` | pending | - | config-driven FSJ model chain + explicit policy audit + support default expert strategy landed; awaiting final validation/commit/push |
+| V2-R0-006 | none | LLM prompt 与模型策略升级 | 6 | P0 | pushed | Lane B | `agent:developer:subagent:c50385d9-455e-4963-841d-85540c96df07` | `src/ifa_data_platform/fsj/llm_assist.py`; `tests/unit/test_fsj_early_llm_assist.py`; `docs/V2_R0_006_LLM_PROMPT_AND_MODEL_POLICY_UPGRADE_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md`; `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/macro.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/commodities.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/ai_tech.py` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_early_llm_assist.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/llm_assist.py`; `python3 -m pytest -q tests/unit/test_macro_support_producer.py tests/unit/test_commodities_support_producer.py tests/unit/test_ai_tech_support_producer.py` | `f68b381` + BL `f7511bb` | config-driven FSJ model chain + explicit policy audit + support default expert strategy landed; validated and pushed |
 
 ### 4.1 Status 枚举
 
@@ -242,6 +242,40 @@
 - commit hash：`fb789d3`
 - push 状态：pushed to `origin/a-lane-p4-3-llm-field-lineage`
 - 交付结论：V2-R0-005 acceptance met（按“最小安全 closure”口径）；customer/internal/review 已在输出行为与 canonical control path 上完成显式分离，但 review 独立模板化仍可留作后续增强。
+
+#### Task ID: V2-R0-006
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：将 FSJ main LLM 模型链改成由 business-layer `config/llm/models.yaml` 驱动的显式策略，默认主模型提升为 `grok41_expert`，fallback 固化为 `grok41_thinking -> gemini31_pro_jmr`；同时在 `llm_assist` 审计面补齐 `policy_version / strategy_name / gateway_path / attempted_model_chain`，并把 evidence/time-window/schema guard 明确暴露到 role policy；support producer 默认模型策略同步抬到 `grok41_expert`，仍保留 business-layer service/gateway 作为唯一正式业务入口。
+- 改了哪些文件：
+  - `src/ifa_data_platform/fsj/llm_assist.py`
+  - `tests/unit/test_fsj_early_llm_assist.py`
+  - `docs/V2_R0_006_LLM_PROMPT_AND_MODEL_POLICY_UPGRADE_2026-04-24.md`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+  - `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml`
+  - `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/macro.py`
+  - `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/commodities.py`
+  - `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/ai_tech.py`
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_early_llm_assist.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/llm_assist.py`
+  - `python3 -m pytest -q tests/unit/test_macro_support_producer.py tests/unit/test_commodities_support_producer.py tests/unit/test_ai_tech_support_producer.py`
+- 结果摘要：
+  - FSJ main 正式调用路径仍是 `ifa-data-platform -> llm_assist.py -> ifa-business-layer/scripts/ifa_llm_cli.py -> LLMService`
+  - support 正式调用路径仍在 business-layer producer/service 栈内，没有把自由式模型调用扩散回 data-platform
+  - 模型策略、fallback 链、失败降级标签、gateway 路径现在都可以在 audit/doc 中追溯
+  - evidence/time-window/schema guard 未削弱，且新增为显式审计字段
+- 证据路径：
+  - `docs/V2_R0_006_LLM_PROMPT_AND_MODEL_POLICY_UPGRADE_2026-04-24.md`
+  - `src/ifa_data_platform/fsj/llm_assist.py`
+  - `tests/unit/test_fsj_early_llm_assist.py`
+  - `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml`
+  - `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/macro.py`
+  - `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/commodities.py`
+  - `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/ai_tech.py`
+- commit hash：data-platform `f68b381`；business-layer `f7511bb`
+- push 状态：pushed
+- 交付结论：V2-R0-006 acceptance met；未绕开 business-layer gateway，未引入 data-platform 自由式模型扩散，未削弱 deterministic boundary。
 
 #### Task ID: V2-R0-003
 - Parent Task ID：none
