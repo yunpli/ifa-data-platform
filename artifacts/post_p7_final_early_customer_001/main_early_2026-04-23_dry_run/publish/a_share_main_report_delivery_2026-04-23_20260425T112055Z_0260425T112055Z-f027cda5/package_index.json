@@ -1,0 +1,387 @@
+{
+  "artifact_type": "fsj_main_report_delivery_package_index",
+  "artifact_version": "v1",
+  "artifact_id": "fsj-main-report:2026-04-23:20260425T112055Z:f027cda5",
+  "business_date": "2026-04-23",
+  "report_run_id": "post-p7-final-early-customer:2026-04-23:early:20260425T112055Z",
+  "delivery_package_dir": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5",
+  "package_state": "ready",
+  "ready_for_delivery": true,
+  "quality_gate": {
+    "score": 92,
+    "blocker_count": 0,
+    "warning_count": 1,
+    "qa_axes": {
+      "structural": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "lineage": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "policy": {
+        "ready": true,
+        "score": 92,
+        "blocker_count": 0,
+        "warning_count": 1,
+        "issue_codes": [
+          "source_health_degraded"
+        ]
+      },
+      "editorial": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "leakage": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "time_window": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "customer_readiness": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      }
+    },
+    "late_contract_mode": "full_close_package",
+    "source_health": {
+      "overall_status": "degraded",
+      "blocking_slot_count": 0,
+      "degraded_slot_count": 1,
+      "slots": [
+        {
+          "slot": "early",
+          "status": "healthy",
+          "degrade_reason": null,
+          "contract_mode": "candidate_with_open_validation",
+          "completeness_label": "complete"
+        },
+        {
+          "slot": "mid",
+          "status": "degraded",
+          "degrade_reason": "insufficient_intraday_structure",
+          "contract_mode": "monitoring_only",
+          "completeness_label": null
+        },
+        {
+          "slot": "late",
+          "status": "healthy",
+          "degrade_reason": null,
+          "contract_mode": "full_close_package",
+          "completeness_label": "complete"
+        }
+      ]
+    }
+  },
+  "slot_evaluation": {
+    "strongest_slot": "late",
+    "weakest_slot": "early",
+    "slot_scores": {
+      "early": 100,
+      "mid": 100,
+      "late": 100
+    },
+    "progression": {
+      "state": "complete",
+      "observed_slots": [
+        "early",
+        "mid",
+        "late"
+      ],
+      "missing_slots": [],
+      "duplicate_summary_count": 0,
+      "duplicate_summaries": [],
+      "late_contract_mode": "full_close_package"
+    },
+    "average_slot_score": 100.0,
+    "slot_score_span": 0
+  },
+  "support_summary_aggregate": {
+    "support_summary_count": 6,
+    "bundle_ids": [
+      "a_share:2026-04-23:early:ai_tech:support_ai_tech:8b9512842822",
+      "a_share:2026-04-23:early:commodities:support_commodities:0cfeb8bec554",
+      "a_share:2026-04-23:early:macro:support_macro:143a4e15bdd3",
+      "a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47",
+      "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "a_share:2026-04-23:late:macro:support_macro:7846ec308c0c"
+    ],
+    "domains": [
+      "ai_tech",
+      "commodities",
+      "macro"
+    ],
+    "slots": [],
+    "report_link_count": 44,
+    "section_count": 3,
+    "ready_section_count": 3,
+    "strongest_slot": "late"
+  },
+  "chart_pack": {
+    "manifest_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/charts/chart_manifest.json",
+    "relative_manifest_path": "charts/chart_manifest.json",
+    "chart_count": 3,
+    "ready_chart_count": 2,
+    "degrade_status": "partial",
+    "degrade_reason": [
+      "key_focus_return_bar:insufficient focus bars to calculate day-over-day return"
+    ],
+    "chart_classes": [
+      "key_focus_line",
+      "key_focus_return_bar",
+      "market_index_line"
+    ],
+    "assets": [
+      {
+        "chart_key": "market_index_window",
+        "chart_class": "market_index_line",
+        "title": "市场/指数窗口图",
+        "filename": "market_index_window.svg",
+        "relative_path": "charts/market_index_window.svg",
+        "source_window": {
+          "source_table": "ifa2.index_daily_bar_history",
+          "frequency": "daily",
+          "lookback_bars": 20,
+          "end_business_date": "2026-04-23",
+          "symbols": [
+            "000001.SH",
+            "399001.SZ",
+            "399006.SZ"
+          ]
+        },
+        "status": "ready",
+        "note": null,
+        "series_count": 3,
+        "symbol_count": 3
+      },
+      {
+        "chart_key": "key_focus_window",
+        "chart_class": "key_focus_line",
+        "title": "Key Focus 窗口图",
+        "filename": "key_focus_window.svg",
+        "relative_path": "charts/key_focus_window.svg",
+        "source_window": {
+          "source_table": "ifa2.equity_daily_bar_history",
+          "frequency": "daily",
+          "lookback_bars": 20,
+          "end_business_date": "2026-04-23",
+          "symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000004.SZ"
+          ]
+        },
+        "status": "ready",
+        "note": null,
+        "series_count": 2,
+        "symbol_count": 2
+      },
+      {
+        "chart_key": "key_focus_return_bar",
+        "chart_class": "key_focus_return_bar",
+        "title": "Key Focus 日度涨跌幅",
+        "filename": "key_focus_return_bar.svg",
+        "relative_path": "charts/key_focus_return_bar.svg",
+        "source_window": {
+          "source_table": "ifa2.equity_daily_bar_history",
+          "frequency": "daily",
+          "lookback_bars": 2,
+          "end_business_date": "2026-04-23",
+          "symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000004.SZ"
+          ]
+        },
+        "status": "missing",
+        "note": "insufficient focus bars to calculate day-over-day return",
+        "series_count": 0,
+        "symbol_count": 0
+      }
+    ],
+    "html_embed_blocks": [
+      {
+        "chart_key": "market_index_window",
+        "title": "市场/指数窗口图",
+        "status": "ready",
+        "relative_path": "charts/market_index_window.svg",
+        "source_window": {
+          "source_table": "ifa2.index_daily_bar_history",
+          "frequency": "daily",
+          "lookback_bars": 20,
+          "end_business_date": "2026-04-23",
+          "symbols": [
+            "000001.SH",
+            "399001.SZ",
+            "399006.SZ"
+          ]
+        },
+        "caption": "window=20 daily bars"
+      },
+      {
+        "chart_key": "key_focus_window",
+        "title": "Key Focus 窗口图",
+        "status": "ready",
+        "relative_path": "charts/key_focus_window.svg",
+        "source_window": {
+          "source_table": "ifa2.equity_daily_bar_history",
+          "frequency": "daily",
+          "lookback_bars": 20,
+          "end_business_date": "2026-04-23",
+          "symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000004.SZ"
+          ]
+        },
+        "caption": "window=20 daily bars"
+      },
+      {
+        "chart_key": "key_focus_return_bar",
+        "title": "Key Focus 日度涨跌幅",
+        "status": "missing",
+        "relative_path": "charts/key_focus_return_bar.svg",
+        "source_window": {
+          "source_table": "ifa2.equity_daily_bar_history",
+          "frequency": "daily",
+          "lookback_bars": 2,
+          "end_business_date": "2026-04-23",
+          "symbols": [
+            "000001.SZ",
+            "000002.SZ",
+            "000004.SZ"
+          ]
+        },
+        "caption": "观察池标的缺少足够的连续行情，暂时无法计算日度涨跌幅，保留清单与纳入理由供跟踪。"
+      }
+    ]
+  },
+  "focus_module": {
+    "why_included": "当前业务观察池覆盖 30 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+    "focus_symbol_count": 30,
+    "key_focus_symbol_count": 1,
+    "list_types": [
+      "focus",
+      "key_focus"
+    ],
+    "chart_refs": [
+      {
+        "chart_key": "key_focus_window",
+        "title": "Key Focus 窗口图"
+      },
+      {
+        "chart_key": "key_focus_return_bar",
+        "title": "Key Focus 日度涨跌幅"
+      }
+    ]
+  },
+  "judgment_review_surface": {
+    "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/judgment_review_surface.json",
+    "judgment_item_count": 3,
+    "review_slot_count": 3,
+    "review_status": "pending_operator_item_review"
+  },
+  "judgment_mapping_ledger": {
+    "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/judgment_mapping_ledger.json",
+    "mapping_count": 3,
+    "retrospective_link_count": 2,
+    "learning_asset_candidate_count": 3
+  },
+  "browse_priority": [
+    "html",
+    "telegram_caption",
+    "charts_dir",
+    "delivery_manifest",
+    "judgment_review_surface",
+    "judgment_mapping_ledger",
+    "evaluation",
+    "qa",
+    "manifest"
+  ],
+  "files": [
+    {
+      "role": "html",
+      "filename": "a_share_main_report_2026-04-23_20260425T112055Z.html",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/a_share_main_report_2026-04-23_20260425T112055Z.html",
+      "exists": true,
+      "size_bytes": 13446
+    },
+    {
+      "role": "qa",
+      "filename": "a_share_main_report_2026-04-23_20260425T112055Z.qa.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/a_share_main_report_2026-04-23_20260425T112055Z.qa.json",
+      "exists": true,
+      "size_bytes": 3705
+    },
+    {
+      "role": "evaluation",
+      "filename": "a_share_main_report_2026-04-23_20260425T112055Z.eval.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/a_share_main_report_2026-04-23_20260425T112055Z.eval.json",
+      "exists": true,
+      "size_bytes": 2094
+    },
+    {
+      "role": "manifest",
+      "filename": "a_share_main_report_2026-04-23_20260425T112055Z.manifest.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/a_share_main_report_2026-04-23_20260425T112055Z.manifest.json",
+      "exists": true,
+      "size_bytes": 1224279
+    },
+    {
+      "role": "telegram_caption",
+      "filename": "telegram_caption.txt",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/telegram_caption.txt",
+      "exists": true,
+      "size_bytes": 400
+    },
+    {
+      "role": "charts_dir",
+      "filename": "charts",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/charts",
+      "exists": true,
+      "size_bytes": 192
+    },
+    {
+      "role": "judgment_review_surface",
+      "filename": "judgment_review_surface.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/judgment_review_surface.json",
+      "exists": true,
+      "size_bytes": 31057
+    },
+    {
+      "role": "judgment_mapping_ledger",
+      "filename": "judgment_mapping_ledger.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/judgment_mapping_ledger.json",
+      "exists": true,
+      "size_bytes": 11132
+    },
+    {
+      "role": "delivery_manifest",
+      "filename": "delivery_manifest.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/delivery_manifest.json",
+      "exists": true,
+      "size_bytes": 14079
+    }
+  ]
+}

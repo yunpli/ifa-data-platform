@@ -799,6 +799,35 @@
 - push 状态：pushed
 - 交付结论：ACCEPT-P5-001 is an honest narrow fail; premium watchlist naming is accepted, but premium editorial phrasing remains the sole blocking residual.
 
+#### Task ID: POST-P7-FINAL-EARLY-CUSTOMER-001
+- Parent Task ID：none
+- 完成时间：2026-04-25
+- 做了什么：完成 EARLY customer report bounded closeout loop，只处理 4 个收口点：① early-only slot labeling；② core judgment 更具体且更诚实；③ watchlist rationale 最小差异化；④ customer chart wording 去内部 telemetry；随后生成新的 early customer sample、执行 focused tests、做 customer leakage grep、产出 acceptance markdown。
+- 改了哪些文件：
+  - `scripts/fsj_main_report_publish.py`
+  - `src/ifa_data_platform/fsj/main_publish_cli.py`
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `docs/V2_P7_FINAL_EARLY_CUSTOMER_CLOSEOUT_ACCEPTANCE_2026-04-25.md`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py -k 'slot_requests or focus_evidence or customer_profile_surfaces_chart_assets_without_internal_ids or polishes_section_level_contract_shaped_prose or emits_customer_profile_without_engineering_metadata_in_html'`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p7_final_early_customer_001 --report-run-id-prefix post-p7-final-early-customer`
+  - `rg -n "bundle_id|producer_version|slot_run_id|replay_id|report_links|file:///|artifact_id|renderer version|action=|confidence=|evidence=|chart_degrade_status=|ready_chart_count=|insufficient focus bars" artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/*.html -S`
+- 结果摘要：
+  - early customer HTML now shows slot-clean early-specific labels (`iFA A股盘前策略简报`, `版本定位：早报 / 盘前客户主报告`, `盘前重点解读`, `开盘前关注`)；
+  - early top judgment now avoids vague `主线方向` packaging and explicitly states when a single strong mainline has not yet formed；
+  - watchlist rationales are no longer mostly identical across地产 / ST / 区域地产 / 高铁 / 宝安等对象，thin-evidence names fall back to 基础观察 / 待验证 wording instead of fake stock theses；
+  - customer chart block now uses natural language and no longer exposes raw degrade telemetry strings；
+  - fresh early customer leakage check remains clean。
+- 证据路径：
+  - `docs/V2_P7_FINAL_EARLY_CUSTOMER_CLOSEOUT_ACCEPTANCE_2026-04-25.md`
+  - `artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T112055Z.html`
+- commit hash：`bd07742`
+- push 状态：pending
+- 交付结论：POST-P7-FINAL-EARLY-CUSTOMER-001 completed as a bounded closeout pass.
+
 ## 7. Blockers
 
 | Blocker ID | Found At | Task ID | Parent Task ID | Description | Impact | Suggested Resolution | Current Owner | Status |

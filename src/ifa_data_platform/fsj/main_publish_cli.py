@@ -157,6 +157,8 @@ def run_main_publish_flow(
         if include_empty:
             cmd.append("--include-empty")
         cmd.extend(["--output-profile", output_profile])
+        if output_profile == "customer":
+            cmd.extend(["--requested-customer-slot", config.slot])
         completed = subprocess_run(cmd, capture_output=True, text=True)
         stdout = completed.stdout.strip()
         parsed = json.loads(stdout) if stdout else {}

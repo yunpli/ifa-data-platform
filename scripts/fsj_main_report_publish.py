@@ -45,6 +45,7 @@ def main() -> None:
     parser.add_argument("--generated-at", help="ISO8601 timestamp; defaults to current UTC time")
     parser.add_argument("--include-empty", action="store_true")
     parser.add_argument("--output-profile", choices=["internal", "review", "customer"], default="internal")
+    parser.add_argument("--requested-customer-slot", choices=["early", "mid", "late"], help="Restrict customer-facing main HTML to the requested slot while preserving aggregate internal/review surfaces.")
     parser.add_argument("--package-only", action="store_true", help="Alias for delivery packaging; output remains package-first JSON")
     args = parser.parse_args()
 
@@ -64,6 +65,7 @@ def main() -> None:
         report_run_id=args.report_run_id,
         generated_at=_parse_generated_at(args.generated_at),
         output_profile=args.output_profile,
+        requested_customer_slot=getattr(args, "requested_customer_slot", None),
     )
     payload = {
         "artifact": published["artifact"],

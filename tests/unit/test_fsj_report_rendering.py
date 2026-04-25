@@ -345,7 +345,7 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert "纳入原因：列入核心观察名单，当前已具备本地市场侧样本与文本/事件侧线索，机器人龙头A更适合继续核验强度、承接与主线带动性，而不是直接上升为确定性判断" in rendered["content"]
     assert "盘中观察要点：盘中重点看已有线索能否继续扩展为更明确的量价配合、资金承接与板块共振确认" in rendered["content"]
     assert "需要下调关注的情形：若后续跟踪中量价配合转弱、承接不足或板块共振没有延续，应及时降回观察级别" in rendered["content"]
-    assert "早报 / 中报 / 晚报分时段解读" in rendered["content"]
+    assert "分时段重点解读" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
     assert "<h3>盘中观察</h3>" not in rendered["content"]  # assembled fixture only has early/late sections
     assert "收盘复盘" in rendered["content"]
@@ -605,7 +605,7 @@ def test_customer_profile_polishes_section_level_contract_shaped_prose() -> None
     assert "收盘阶段的核心市场与文本证据已经基本到齐" in customer["content"]
     assert "盘中过程信息可用于解释日内演化" in customer["content"]
     assert "收盘后的核心市场数据覆盖已经相对完整" in customer["content"]
-    assert "今日主线判断应按“盘前预案—盘中修正—收盘复核”的顺序理解" in customer["content"]
+    assert "今日判断更适合按“盘前预案—盘中修正—收盘复核”的顺序理解" in customer["content"]
     assert "盘中最容易出现的问题，是把阶段性修复或局部异动误读为全天定论" in customer["content"]
     assert "午后优先核对盘中修复能否扩展到板块层与核心标的层" in customer["content"]
 
@@ -1014,8 +1014,10 @@ def test_main_report_renderer_customer_profile_surfaces_chart_assets_without_int
     )
 
     assert "关键图表" in rendered["content"]
-    assert "charts/market_index_window.svg" in rendered["content"]
-    assert "chart_degrade_status=partial" in rendered["content"]
+    assert "charts/market_index_window.svg" not in rendered["content"]
+    assert "部分图表因连续行情样本不足暂不展示涨跌幅对比，本期保留指数与 Key Focus 窗口图作为主要参考。" in rendered["content"]
+    assert "chart_degrade_status=partial" not in rendered["content"]
+    assert "ready_chart_count=2/3" not in rendered["content"]
     assert "bundle-early" not in rendered["content"]
     assert rendered["metadata"]["customer_presentation"]["chart_pack"]["chart_count"] == 3
 

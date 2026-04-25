@@ -246,9 +246,36 @@ class MainReportHTMLRenderer:
             return f"A股主报告审阅包｜{business_date}"
         return f"A股主报告｜{business_date}"
 
+    def _resolve_customer_slot_views(
+        self,
+        *,
+        assembled: dict[str, Any],
+        sections: Sequence[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+        requested_slot = str(assembled.get("requested_customer_slot") or "").strip().lower() or None
+        if requested_slot not in {"early", "mid", "late"}:
+            return list(sections), list(sections), None
+
+        section_by_slot = {str(section.get("slot") or "").strip().lower(): section for section in sections}
+        context_order = {
+            "early": ["early"],
+            "mid": ["early", "mid"],
+            "late": ["early", "mid", "late"],
+        }
+        full_order = {
+            "early": ["early"],
+            "mid": ["mid"],
+            "late": ["late"],
+        }
+        context_sections = [section_by_slot[slot] for slot in context_order[requested_slot] if slot in section_by_slot]
+        full_sections = [section_by_slot[slot] for slot in full_order[requested_slot] if slot in section_by_slot]
+        return context_sections or list(sections), full_sections or list(sections), requested_slot
+
     def _build_customer_presentation(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]], focus_module: dict[str, Any] | None = None, chart_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
+        context_sections, full_sections, requested_slot = self._resolve_customer_slot_views(assembled=assembled, sections=sections)
         customer_sections: list[dict[str, Any]] = []
-        for section in sections:
+        full_section_slots = {str(section.get("slot") or "") for section in full_sections}
+        for section in context_sections:
             slot = str(section.get("slot") or "")
             slot_label = SLOT_LABELS.get(slot, slot or "未命名时段")
             support_items = [
@@ -289,7 +316,8 @@ class MainReportHTMLRenderer:
                     ),
                 }
             )
-        focus_payload = focus_module or self._build_focus_module(assembled=assembled, sections=sections)
+        display_sections = [section for section in customer_sections if str(section.get("slot") or "") in full_section_slots]
+        focus_payload = focus_module or self._build_focus_module(assembled=assembled, sections=context_sections)
         top_judgment = self._customer_top_judgment(customer_sections)
         risk_block = self._customer_risk_block(customer_sections)
         next_steps = self._customer_next_steps(customer_sections, focus_payload)
@@ -302,6 +330,7 @@ class MainReportHTMLRenderer:
             "schema_version": CUSTOMER_PRESENTATION_SCHEMA_VERSION,
             "brand": "iFA",
             "report_title": "iFA A股市场日报",
+            "requested_slot": requested_slot,
             "created_by": "Created by Lindenwood Management LLC",
             "business_date": assembled.get("business_date"),
             "market": assembled.get("market") or "a_share",
@@ -321,7 +350,7 @@ class MainReportHTMLRenderer:
                 }
                 for item in customer_sections
             ],
-            "sections": customer_sections,
+            "sections": display_sections,
         }
 
     def _build_focus_module(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -997,19 +1026,39 @@ class MainReportHTMLRenderer:
         mid_headline = str((mid_section or {}).get("summary") or "").strip()
         late_headline = str((late_section or {}).get("summary") or "").strip()
 
+        if early_section and not mid_section and not late_section:
+            early_focuses = [
+                str(item).strip("，。； ")
+                for item in [early_headline, *highlights[:3]]
+                if str(item).strip()
+            ]
+            deduped_focuses: list[str] = []
+            for item in early_focuses:
+                if item and item not in deduped_focuses:
+                    deduped_focuses.append(item)
+            if len(deduped_focuses) >= 2:
+                return (
+                    "当前尚未形成单一强主线，盘前更适合围绕"
+                    + " / ".join(deduped_focuses[:3])
+                    + "三类线索做开盘验证，再决定是否提升判断强度。"
+                )
+            if deduped_focuses:
+                return f"盘前阶段更适合把“{deduped_focuses[0]}”视为优先验证方向，而不是直接下单一主线结论。"
+            return "当前尚未形成单一强主线，盘前应先观察量价承接、领涨锚点与板块扩散是否同步出现。"
+
         if early_section and mid_section and late_section:
             clean_early = (early_headline or "盘前线索已给出方向").rstrip("，。； ")
             clean_mid = (mid_headline or "盘中仍在校准").rstrip("，。； ")
             clean_late = (late_headline or "收盘复核").rstrip("，。； ")
             return (
-                f"今日主线判断应按“盘前预案—盘中修正—收盘复核”的顺序理解：{clean_early}；"
+                f"今日判断更适合按“盘前预案—盘中修正—收盘复核”的顺序理解：盘前先围绕{clean_early}建立验证框架；"
                 f"盘中阶段以确认节奏与强弱变化为主，{clean_mid}；"
                 f"而晚报部分则用于回答当日结论是否真正站稳，{clean_late}。"
             )
         if early_section and late_section:
             clean_early = (early_headline or "盘前线索已给出方向").rstrip("，。； ")
             clean_late = (late_headline or "收盘复核").rstrip("，。； ")
-            return f"今日主线判断仍以盘中与收盘确认过程为核心：{clean_early}；而{clean_late}。"
+            return f"当前更适合把盘前预案与收盘复核分开理解：盘前先围绕{clean_early}做验证，而收盘再用{clean_late}决定结论是否成立。"
         if mid_section and late_section:
             clean_mid = (mid_headline or "盘中仍在校准").rstrip("，。； ")
             clean_late = (late_headline or "收盘复核").rstrip("，。； ")
@@ -1017,7 +1066,7 @@ class MainReportHTMLRenderer:
         if early_section and mid_section:
             clean_early = (early_headline or "盘前线索已给出方向").rstrip("，。； ")
             clean_mid = (mid_headline or "盘中仍在校准").rstrip("，。； ")
-            return f"当前判断仍处于日内验证链条中：{clean_early}；进入盘中后，重点要回答的是{clean_mid}。"
+            return f"当前判断仍处于日内验证链条中：盘前先围绕{clean_early}建立预案；进入盘中后，重点要回答的是{clean_mid}。"
         if late_section:
             clean_late = (late_headline or headline or "收盘复核").rstrip("，。； ")
             return f"晚报阶段更强调复盘而非追认：{clean_late} 当前宜把重心放在次日延续性与风险收益比，而不是把单日结果直接外推。"
@@ -1163,8 +1212,8 @@ class MainReportHTMLRenderer:
   <div class=\"page\">
     <section class=\"hero\">
       <div class=\"eyebrow\">{escape(str(presentation.get('brand') or 'iFA'))}</div>
-      <h1>{escape(str(presentation.get('report_title') or title))}｜{escape(str(assembled.get('business_date') or '-'))}</h1>
-      <div class=\"meta\">{escape(str(presentation.get('created_by') or ''))}<br/>业务日期：{escape(str(assembled.get('business_date') or '-'))} · 市场：A股 · 版本定位：早报 / 中报 / 晚报客户主报告<br/>这是面向客户的简版展示层，仅展示结论、跟踪重点与补充视角，不展示内部运行对象。</div>
+      <h1>{escape(self._customer_report_title(str(presentation.get('requested_slot') or '')))}｜{escape(str(assembled.get('business_date') or '-'))}</h1>
+      <div class=\"meta\">{escape(str(presentation.get('created_by') or ''))}<br/>业务日期：{escape(str(assembled.get('business_date') or '-'))} · 市场：A股 · 版本定位：{escape(self._customer_version_position(str(presentation.get('requested_slot') or '')))}<br/>这是面向客户的简版展示层，仅展示结论、跟踪重点与补充视角，不展示内部运行对象。</div>
       <div class=\"judgment\"><strong>核心判断：</strong>{escape(str(presentation.get('top_judgment') or '暂无核心判断'))}</div>
     </section>
     <section class=\"card\">
@@ -1185,7 +1234,7 @@ class MainReportHTMLRenderer:
     </section>
     {chart_pack_html}
     <section class=\"card\">
-      <h2>早报 / 中报 / 晚报分时段解读</h2>
+      <h2>{escape(self._customer_section_group_title(str(presentation.get('requested_slot') or '')))}</h2>
       {section_html}
     </section>
     <section class=\"card\">
@@ -1204,7 +1253,34 @@ class MainReportHTMLRenderer:
             support_line = f"<div class=\"support-line\"><strong>补充视角：</strong>{escape(support_text)}</div>"
         advisory_note = str(card.get("advisory_note") or "").strip()
         advisory_html = f"<div class=\"support-line\"><strong>顾问提示：</strong>{escape(advisory_note)}</div>" if advisory_note else ""
-        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div><div class=\"support-line\"><strong>产品定位：</strong>{escape(str(card.get('slot_label') or '-'))}客户主报告摘要</div>{advisory_html}{support_line}</div>"
+        slot = str(card.get("slot") or "").strip().lower()
+        product_position = {
+            "early": "早报 / 盘前客户主报告",
+            "mid": "中报 / 盘中客户主报告",
+            "late": "晚报 / 收盘客户主报告",
+        }.get(slot, f"{str(card.get('slot_label') or '-')}客户主报告摘要")
+        return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div><div class=\"support-line\"><strong>产品定位：</strong>{escape(product_position)}</div>{advisory_html}{support_line}</div>"
+
+    def _customer_report_title(self, requested_slot: str) -> str:
+        return {
+            "early": "iFA A股盘前策略简报",
+            "mid": "iFA A股盘中策略简报",
+            "late": "iFA A股收盘策略简报",
+        }.get(requested_slot, "iFA A股市场日报")
+
+    def _customer_version_position(self, requested_slot: str) -> str:
+        return {
+            "early": "早报 / 盘前客户主报告",
+            "mid": "中报 / 盘中客户主报告",
+            "late": "晚报 / 收盘客户主报告",
+        }.get(requested_slot, "客户主报告")
+
+    def _customer_section_group_title(self, requested_slot: str) -> str:
+        return {
+            "early": "盘前重点解读",
+            "mid": "盘中重点解读",
+            "late": "收盘重点解读",
+        }.get(requested_slot, "分时段重点解读")
 
     def _customer_focus_label(self, item: dict[str, Any]) -> str:
         label = str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip()
@@ -1227,7 +1303,7 @@ class MainReportHTMLRenderer:
         return (
             self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
             + self._render_customer_watchlist_bucket("Tier 1 / Key Focus", key_focus_items, fallback="核心验证名单暂未生成")
-            + self._render_customer_watchlist_bucket("Tier 2 / Focus Watchlist", focus_watch_items, fallback="补充观察池暂未扩展")
+            + self._render_customer_watchlist_bucket("Tier 2 / Focus Watchlist", focus_watch_items, fallback="补充观察名单暂未展开")
             + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
         )
 
@@ -1261,12 +1337,35 @@ class MainReportHTMLRenderer:
         items = []
         for asset in assets:
             source_window = dict(asset.get("source_window") or {})
-            note = str(asset.get("note") or "").strip()
+            note = self._customer_chart_note(str(asset.get("note") or "").strip())
             note_html = f" · 说明={escape(note)}" if note else ""
             items.append(
-                f"<li>{escape(str(asset.get('title') or '-'))} · 状态={escape(str(asset.get('status') or '-'))} · 窗口={escape(str(source_window.get('lookback_bars') or '-'))} {escape(str(source_window.get('frequency') or '-'))} bars{note_html} · 资源={escape(str(asset.get('relative_path') or '-'))}</li>"
+                f"<li>{escape(str(asset.get('title') or '-'))} · 状态={escape(self._customer_chart_status(str(asset.get('status') or '-')))} · 观察窗口={escape(str(source_window.get('lookback_bars') or '-'))} 根{escape(str(source_window.get('frequency') or '-'))}样本{note_html}</li>"
             )
-        return f"<section class=\"card\"><h2>关键图表</h2><div class=\"footnote\">chart_degrade_status={escape(str(chart_pack.get('degrade_status') or '-'))} · ready_chart_count={escape(str(chart_pack.get('ready_chart_count') or '-'))}/{escape(str(chart_pack.get('chart_count') or '-'))}</div><ul>{''.join(items)}</ul></section>"
+        return f"<section class=\"card\"><h2>关键图表</h2><div class=\"footnote\">{escape(self._customer_chart_pack_summary(chart_pack))}</div><ul>{''.join(items)}</ul></section>"
+
+    def _customer_chart_status(self, status: str) -> str:
+        return {
+            "ready": "已展示",
+            "missing": "暂未展示",
+            "partial": "部分展示",
+        }.get(status, status or "-")
+
+    def _customer_chart_note(self, note: str) -> str:
+        if note == "insufficient focus bars to calculate day-over-day return":
+            return "连续行情样本不足，暂不展示对应涨跌幅对比。"
+        if note == "focus/equity daily bars missing for requested window":
+            return "连续行情样本不足，当前保留窗口图作为主要参考。"
+        return note
+
+    def _customer_chart_pack_summary(self, chart_pack: dict[str, Any]) -> str:
+        ready_count = int(chart_pack.get("ready_chart_count") or 0)
+        chart_count = int(chart_pack.get("chart_count") or 0)
+        if chart_count and ready_count < chart_count:
+            return "部分图表因连续行情样本不足暂不展示涨跌幅对比，本期保留指数与 Key Focus 窗口图作为主要参考。"
+        if chart_count:
+            return "本期关键图表样本完整，可结合指数与重点跟踪对象窗口变化一并阅读。"
+        return "本期未生成可展示图表。"
 
     def _refine_customer_summary(self, text: str, *, slot: str, is_support: bool = False) -> str:
         summary = str(text or "").strip(" ，；。")

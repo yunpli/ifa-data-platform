@@ -1,0 +1,12 @@
+FSJ MAIN early publish｜2026-04-23｜early
+generated_at_utc=2026-04-25T11:20:55.098063+00:00
+persist_status=persisted
+publish_status=ready
+
+- persist: bundle_id=fsj:a_share:2026-04-23:early:main:pre_open_main:2ae1ab6e33c3e4bb object_count=5 evidence_link_count=6
+- publish: workflow_state=- recommended_action=send dispatch_recommended_action=- selected_is_current=True package_state=ready artifact_id=fsj-main-report:2026-04-23:20260425T112055Z:f027cda5 selected_artifact_id=fsj-main-report:2026-04-23:20260425T112055Z:f027cda5 dispatch_selected_artifact_id=- output_dir=/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish
+  next_step=- selection_reason=best_ready_candidate strongest_slot=late qa_score=92
+  delivery_manifest_path=/Users/neoclaw/repos/ifa-data-platform/artifacts/post_p7_final_early_customer_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_delivery_2026-04-23_20260425T112055Z_0260425T112055Z-f027cda5/delivery_manifest.json send_manifest_path=-
+  llm_lineage_status=degraded llm_policy_versions=fsj_llm_role_policy_v1
+  llm_boundary_modes=candidate_only,intraday_working,same_day_close llm_override_precedence=deterministic_input_contract>deterministic_boundary_and_degrade_policy>validated_llm_text_fields_only>operator_review_and_send_selection
+  llm_slot_boundary_modes=early:candidate_only,late:same_day_close,mid:intraday_working llm_forbidden_decision_count=8
