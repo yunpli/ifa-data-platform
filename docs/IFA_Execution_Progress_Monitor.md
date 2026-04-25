@@ -20,7 +20,9 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A / Lane B 均已完成当前 V2 P0 队列并恢复 idle；当前无新的可自动派发 P0 task
+- **当前 Lane A / Lane B 状态**：Lane A 已切换到 judgment review / mapping / explainability foundation；Lane B 已切换到 report registry / output / manifest engineering closure
+- **Acceptance Lane 状态**：已新增并启动 `ACCEPT-P0-001`（V2 P0 Acceptance Summary and Golden Sample Validation）
+- **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
 ### 1.1 当前 baseline probe 摘要
@@ -51,13 +53,24 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | none | none | none | idle | - | 2026-04-24 18:40 PDT | none | await next non-deferred task or user instruction |
-| Lane B | none | none | none | idle | - | 2026-04-24 18:40 PDT | none | await next non-deferred task or user instruction |
+| Lane A | `agent:developer:subagent:0792aff5-7409-4d75-b884-2ec2ec82688f` | POST-P0-JM-001 | judgment review / mapping / explainability foundation | in_progress | 2026-04-24 19:12 PDT | 2026-04-24 19:12 PDT | none | complete minimal judgment/mapping foundation and report back |
+| Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | POST-P0-RM-001 | report registry / output / manifest engineering closure | in_progress | 2026-04-24 19:12 PDT | 2026-04-24 19:12 PDT | none | complete registry/manifest foundation and report back |
 
 说明：
-- 后续只默认维护 Lane A / Lane B；
-- 不默认创建第三条 Lane；
-- 每次 sub-agent 完成后必须把 Lane 恢复到 `idle` 或明确切换到下一个 task。
+- Lane A / Lane B 是开发执行 lanes；
+- Acceptance Lane 是独立质量控制 lane，不混同于开发 lanes；
+- 每次 sub-agent 完成后必须把对应 Lane 恢复到 `idle` 或明确切换到下一个 task。
+
+### 3.1 Acceptance Lane 状态
+
+- Current Sub-Agent: `agent:developer:subagent:7eaa38cf-3a44-4cfb-9f0f-9312e15582f5`
+- Current Acceptance Task: `ACCEPT-P0-001` — `V2 P0 Acceptance Summary and Golden Sample Validation`
+- Status: `in_progress`
+- Started At: `2026-04-24 19:12 PDT`
+- Last Update: `2026-04-24 19:12 PDT`
+- Findings: `pending`
+- Blocker: `none`
+- Next Action: `produce docs/V2_P0_ACCEPTANCE_SUMMARY_2026-04-25.md and acceptance evidence`
 
 ---
 
@@ -73,6 +86,9 @@
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | pushed | Lane B | `agent:developer:subagent:5d8ab1bb-35e3-4084-a4bf-7d5d224ef452` | `src/ifa_data_platform/fsj/report_rendering.py`; `scripts/fsj_main_report_publish.py`; `scripts/fsj_support_report_publish.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_report_publish_script.py`; `tests/unit/test_fsj_support_report_publish_script.py`; `docs/V2_R0_004_CUSTOMER_PRESENTATION_LAYER_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_orchestration.py tests/unit/test_fsj_report_evaluation.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py scripts/fsj_main_report_publish.py scripts/fsj_support_report_publish.py scripts/fsj_report_cli.py` | `1fc24b83fd87820f7599ffbb678ac24501483015` | replacement verification run confirmed existing implementation commit is green and already present on origin；customer HTML 不再直接暴露 bundle/producer/lineage 等工程对象；internal/review 路径保持不变 |
 | V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | pushed | Lane A | `agent:developer:subagent:c4dbb799-d979-4f57-b90c-918426b281db` | `src/ifa_data_platform/fsj/report_rendering.py`; `src/ifa_data_platform/fsj/main_publish_cli.py`; `scripts/fsj_main_early_publish.py`; `scripts/fsj_main_mid_publish.py`; `scripts/fsj_main_late_publish.py`; `scripts/fsj_support_batch_publish.py`; `scripts/fsj_report_cli.py`; `tests/unit/test_fsj_report_rendering.py`; `tests/unit/test_fsj_main_early_publish_script.py`; `tests/unit/test_fsj_support_batch_publish_script.py`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py src/ifa_data_platform/fsj/main_publish_cli.py scripts/fsj_main_early_publish.py scripts/fsj_main_mid_publish.py scripts/fsj_main_late_publish.py scripts/fsj_support_batch_publish.py scripts/fsj_report_cli.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py tests/unit/test_fsj_main_early_publish_script.py tests/unit/test_fsj_support_batch_publish_script.py tests/unit/test_fsj_main_report_publish_script.py tests/unit/test_fsj_support_report_publish_script.py` (collection blocked by pre-existing `src/ifa_data_platform/fsj/llm_assist.py` `FSJ_MODEL_ALIAS` NameError after initial focused run reached 34 pass / 2 fail before final spacing fix) | `fb789d3` / `e3d4aef` | customer strip kept intact；review profile now explicit at renderer title/metadata level；canonical main/support wrappers now thread `output_profile` end-to-end |
 | V2-R0-006 | none | LLM prompt 与模型策略升级 | 6 | P0 | pushed | Lane B | `agent:developer:subagent:c50385d9-455e-4963-841d-85540c96df07` | `src/ifa_data_platform/fsj/llm_assist.py`; `tests/unit/test_fsj_early_llm_assist.py`; `docs/V2_R0_006_LLM_PROMPT_AND_MODEL_POLICY_UPGRADE_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md`; `/Users/neoclaw/repos/ifa-business-layer/config/llm/models.yaml`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/macro.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/commodities.py`; `/Users/neoclaw/repos/ifa-business-layer/ifa_business_layer/support/ai_tech.py` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_early_llm_assist.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/llm_assist.py`; `python3 -m pytest -q tests/unit/test_macro_support_producer.py tests/unit/test_commodities_support_producer.py tests/unit/test_ai_tech_support_producer.py` | DP `f68b381` / `e9f118f`; BL `f7511bb` | config-driven FSJ model chain + explicit policy audit + support default expert strategy landed; validated and pushed |
+| ACCEPT-P0-001 | none | V2 P0 Acceptance Summary and Golden Sample Validation | acceptance | P0 | in_progress | Acceptance Lane | `agent:developer:subagent:7eaa38cf-3a44-4cfb-9f0f-9312e15582f5` | `docs/V2_P0_ACCEPTANCE_SUMMARY_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | pending | - | acceptance lane audits P0 closure, golden samples, leakage, readability, residual gaps, progress-monitor truth, and FCJ misuse |
+| POST-P0-JM-001 | none | judgment review / mapping / explainability foundation | post-P0 | P1 | in_progress | Lane A | `agent:developer:subagent:0792aff5-7409-4d75-b884-2ec2ec82688f` | - | pending | - | post-P0 active work; do not idle while Acceptance Lane runs |
+| POST-P0-RM-001 | none | report registry / output / manifest engineering closure | post-P0 | P1 | in_progress | Lane B | `agent:developer:subagent:4fc2e656-a40e-4728-9e99-eee1f3167ef6` | - | pending | - | post-P0 active work; do not idle while Acceptance Lane runs |
 
 ### 4.1 Status 枚举
 
