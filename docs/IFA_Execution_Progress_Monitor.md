@@ -16,7 +16,7 @@
 - **当前 data-platform baseline commit（建档前）**：`0ac12022cbf00b43d766f983c2e741065dbed324`
 - **当前 business-layer branch**：`main`
 - **当前 business-layer baseline commit**：`ca9a1cd4817db3b0db07b1787b315ddd2a58957f`
-- **当前 daemon 是否暂停**：否（发现 unified daemon 仍在运行）
+- **当前 daemon 是否暂停**：是（`scripts/unified_daemon_service.sh status` = `not_running`；freeze 以停止态进入）
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
@@ -51,7 +51,7 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | V2-R0-001 | 周末安全窗口与 runtime 冻结计划 | in_progress | 2026-04-24 17:48 PDT | 2026-04-24 17:49 PDT | none | complete freeze/snapshot/checklist and report back |
+| Lane A | `agent:developer:subagent:5119c733-65a7-46c5-8325-c763a88182e7` | V2-R0-001 | 周末安全窗口与 runtime 冻结计划 | pushed | 2026-04-24 17:55 PDT | 2026-04-24 18:00 PDT | none | Lane A complete; await next dispatch |
 | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | V2-R0-002 | DB reality probe 复核与快照固化 | pushed | 2026-04-24 17:49 PDT | 2026-04-24 17:58 PDT | none | Lane B 可切换至下一个依赖已满足任务 |
 
 说明：
@@ -67,7 +67,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | BOOT-001 | none | 建立执行上下文与行为规范文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Context_and_Behavior.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
-| V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | in_progress | Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | - | pending | - | 已派发；按 freeze/snapshot/checklist 边界执行 |
+| V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | pushed | Lane A | `agent:developer:subagent:5119c733-65a7-46c5-8325-c763a88182e7` | `docs/V2_R0_001_WEEKEND_RUNTIME_FREEZE_PLAN_2026-04-24.md`; `artifacts/runtime_freeze/runtime_process_snapshot_20260424_1758_PDT.txt`; `artifacts/runtime_freeze/unified_daemon_status_pre_freeze_20260424_1758_PDT.json`; `artifacts/runtime_freeze/runtime_preflight_pre_freeze_20260424_1758_PDT.json`; `docs/IFA_Execution_Progress_Monitor.md` | `zsh scripts/unified_daemon_service.sh status`; `zsh scripts/unified_daemon_service.sh preflight`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m ifa_data_platform.runtime.unified_daemon --status`; `pgrep -fl 'ifa_data_platform\\.runtime\\.unified_daemon|ifa_data_platform\\.(lowfreq|midfreq|highfreq)\\.daemon|archive\\.daemon|archive_daemon|unified_daemon_service|unified_daemon_launchd'` | `045278c` | freeze plan/documentation/evidence landed; current freeze entry state is unified service not running, preflight clean, restart must re-check lowfreq orphan/timed_out history |
 | V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | pushed | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | `scripts/db_reality_probe_v2.py`; `artifacts/db_reality_snapshot_v2_20260424.json`; `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`; `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py`; JSON/Markdown evidence review | `684c1553dd9b4a6abec58c6fb653b0f45be7bce0` | 复核确认 highfreq/midfreq/lowfreq/archive_v2/focus 均真实存在；news/announcements/research_reports/investor_qa 均非空；`ifa_archive_equity_daily_daily` 不存在 |
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
@@ -109,6 +109,27 @@
 ## 6. Completed Task Log
 
 ### 6.1 2026-04-24
+
+#### Task ID: V2-R0-001
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：确认 unified daemon 当前以停止态进入周末窗口，固化 pre-freeze runtime process/status/preflight 证据，新增周末 freeze/rollback/restart/checklist 文档，并明确 freeze 期间允许/禁止的 runtime 服务边界。
+- 改了哪些文件：
+  - `docs/V2_R0_001_WEEKEND_RUNTIME_FREEZE_PLAN_2026-04-24.md`
+  - `artifacts/runtime_freeze/runtime_process_snapshot_20260424_1758_PDT.txt`
+  - `artifacts/runtime_freeze/unified_daemon_status_pre_freeze_20260424_1758_PDT.json`
+  - `artifacts/runtime_freeze/runtime_preflight_pre_freeze_20260424_1758_PDT.json`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `zsh scripts/unified_daemon_service.sh status`
+  - `zsh scripts/unified_daemon_service.sh preflight`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m ifa_data_platform.runtime.unified_daemon --status`
+  - `pgrep -fl 'ifa_data_platform\.runtime\.unified_daemon|ifa_data_platform\.(lowfreq|midfreq|highfreq)\.daemon|archive\.daemon|archive_daemon|unified_daemon_service|unified_daemon_launchd'`
+- 结果摘要：
+  - unified service 当前 `not_running`
+  - preflight clean，无 active/orphan/checkpoint/catchup 脏状态
+  - DB recent worker state 显示 archive_v2/highfreq/midfreq 最近成功，lowfreq 有 timed_out + preflight repaired 历史，恢复时需重点复核
+- 交付结论：V2-R0-001 范围内 acceptance met；未扩展到 collector refactor 或非 runtime 架构工作。
 
 #### Task ID: V2-R0-002
 - Parent Task ID：none

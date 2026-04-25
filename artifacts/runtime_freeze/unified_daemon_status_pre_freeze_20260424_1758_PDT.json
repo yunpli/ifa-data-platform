@@ -1,0 +1,3738 @@
+{
+  "daemon_name": "unified_runtime_daemon",
+  "official_long_running_entry": "python3 -m ifa_data_platform.runtime.unified_daemon --loop",
+  "now_utc": "2026-04-25T00:56:40.668715+00:00",
+  "now_beijing": "2026-04-25T08:56:40.668715+08:00",
+  "runtime_day_type": "saturday",
+  "trading_day_status": {
+    "as_of_date": "2026-04-25",
+    "exchange": "SSE",
+    "is_trading_day": false,
+    "pretrade_date": "2026-04-24",
+    "source": "ifa2.trade_cal_current"
+  },
+  "schedules": [
+    {
+      "worker_type": "archive",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "archive:offday_archive",
+      "group_name": "archive_legacy",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "21:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 3600,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "legacy archive path retained for coexistence/manual fallback on non-trading weekdays",
+      "schedule_payload": {
+        "purpose": "legacy archive path retained for coexistence/manual fallback on non-trading weekdays",
+        "day_type": "non_trading_weekday",
+        "group_name": "archive_legacy"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive_v2",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "archive_v2:offday_skip",
+      "group_name": "archive_v2_main",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "21:40",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 5400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "Archive V2 nightly production is trading-day scoped; offday catch-up remains manual/backfill",
+      "schedule_payload": {
+        "purpose": "Archive V2 nightly production is trading-day scoped; offday catch-up remains manual/backfill",
+        "day_type": "non_trading_weekday",
+        "group_name": "archive_v2_main"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "highfreq:offday_skip",
+      "group_name": null,
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "12:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 0,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "no highfreq market session on non-trading weekday",
+      "schedule_payload": {
+        "purpose": "no highfreq market session on non-trading weekday",
+        "day_type": "non_trading_weekday",
+        "group_name": null
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "lowfreq:offday_0730",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "07:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "non-trading weekday lowfreq refresh",
+      "schedule_payload": {
+        "purpose": "non-trading weekday lowfreq refresh",
+        "day_type": "non_trading_weekday",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "lowfreq:offday_1200",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "12:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "non-trading weekday lowfreq refresh",
+      "schedule_payload": {
+        "purpose": "non-trading weekday lowfreq refresh",
+        "day_type": "non_trading_weekday",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "lowfreq:offday_2200",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "22:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "non-trading weekday lowfreq refresh",
+      "schedule_payload": {
+        "purpose": "non-trading weekday lowfreq refresh",
+        "day_type": "non_trading_weekday",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "midfreq:offday_0930",
+      "group_name": "offday_support",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "09:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "non-trading weekday midfreq support",
+      "schedule_payload": {
+        "purpose": "non-trading weekday midfreq support",
+        "day_type": "non_trading_weekday",
+        "group_name": "offday_support"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "non_trading_weekday",
+      "schedule_key": "midfreq:offday_1100",
+      "group_name": "offday_support",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "11:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "non-trading weekday midfreq support",
+      "schedule_payload": {
+        "purpose": "non-trading weekday midfreq support",
+        "day_type": "non_trading_weekday",
+        "group_name": "offday_support"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive",
+      "day_type": "saturday",
+      "schedule_key": "archive:saturday_archive",
+      "group_name": "archive_legacy",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "21:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 3600,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "legacy archive path retained for coexistence/manual fallback on Saturday",
+      "schedule_payload": {
+        "purpose": "legacy archive path retained for coexistence/manual fallback on Saturday",
+        "day_type": "saturday",
+        "group_name": "archive_legacy"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive_v2",
+      "day_type": "saturday",
+      "schedule_key": "archive_v2:saturday_catchup_window",
+      "group_name": "archive_v2_catchup",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "10:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 7200,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "Archive V2 controlled weekend catch-up window: bounded backfill + completeness catch-up + actionable repair drain",
+      "schedule_payload": {
+        "purpose": "Archive V2 controlled weekend catch-up window: bounded backfill + completeness catch-up + actionable repair drain",
+        "day_type": "saturday",
+        "group_name": "archive_v2_catchup"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "saturday",
+      "schedule_key": "highfreq:saturday_skip",
+      "group_name": null,
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "12:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 0,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "no highfreq weekend session",
+      "schedule_payload": {
+        "purpose": "no highfreq weekend session",
+        "day_type": "saturday",
+        "group_name": null
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "saturday",
+      "schedule_key": "lowfreq:saturday_1030",
+      "group_name": "weekly_deep",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "10:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 2400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "support Saturday weekly review / past-week recap",
+      "schedule_payload": {
+        "purpose": "support Saturday weekly review / past-week recap",
+        "day_type": "saturday",
+        "group_name": "weekly_deep"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "saturday",
+      "schedule_key": "lowfreq:saturday_2200",
+      "group_name": "weekly_deep",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "22:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 2400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "support Saturday weekly review / past-week recap",
+      "schedule_payload": {
+        "purpose": "support Saturday weekly review / past-week recap",
+        "day_type": "saturday",
+        "group_name": "weekly_deep"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "saturday",
+      "schedule_key": "midfreq:saturday_0900",
+      "group_name": "weekly_review",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "09:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "support weekly review dataset refresh",
+      "schedule_payload": {
+        "purpose": "support weekly review dataset refresh",
+        "day_type": "saturday",
+        "group_name": "weekly_review"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "saturday",
+      "schedule_key": "midfreq:saturday_1100",
+      "group_name": "weekly_review",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "11:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "support weekly review dataset refresh",
+      "schedule_payload": {
+        "purpose": "support weekly review dataset refresh",
+        "day_type": "saturday",
+        "group_name": "weekly_review"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive",
+      "day_type": "sunday",
+      "schedule_key": "archive:sunday_archive",
+      "group_name": "archive_legacy",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "21:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 3600,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "legacy archive path retained for coexistence/manual fallback on Sunday",
+      "schedule_payload": {
+        "purpose": "legacy archive path retained for coexistence/manual fallback on Sunday",
+        "day_type": "sunday",
+        "group_name": "archive_legacy"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive_v2",
+      "day_type": "sunday",
+      "schedule_key": "archive_v2:sunday_catchup_window",
+      "group_name": "archive_v2_catchup",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "10:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 7200,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "Archive V2 controlled weekend catch-up window: bounded backfill + completeness catch-up + actionable repair drain",
+      "schedule_payload": {
+        "purpose": "Archive V2 controlled weekend catch-up window: bounded backfill + completeness catch-up + actionable repair drain",
+        "day_type": "sunday",
+        "group_name": "archive_v2_catchup"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "sunday",
+      "schedule_key": "highfreq:sunday_skip",
+      "group_name": null,
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "12:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 0,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "no highfreq weekend session",
+      "schedule_payload": {
+        "purpose": "no highfreq weekend session",
+        "day_type": "sunday",
+        "group_name": null
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "sunday",
+      "schedule_key": "lowfreq:sunday_1030",
+      "group_name": "weekly_deep",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "10:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 2400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "support Sunday next-week preview/setup",
+      "schedule_payload": {
+        "purpose": "support Sunday next-week preview/setup",
+        "day_type": "sunday",
+        "group_name": "weekly_deep"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "sunday",
+      "schedule_key": "lowfreq:sunday_2200",
+      "group_name": "weekly_deep",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "22:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 2400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "support Sunday next-week preview/setup",
+      "schedule_payload": {
+        "purpose": "support Sunday next-week preview/setup",
+        "day_type": "sunday",
+        "group_name": "weekly_deep"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "sunday",
+      "schedule_key": "midfreq:sunday_1030",
+      "group_name": "weekly_preview",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "10:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "refresh swing/close-support data for next-week preview",
+      "schedule_payload": {
+        "purpose": "refresh swing/close-support data for next-week preview",
+        "day_type": "sunday",
+        "group_name": "weekly_preview"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "sunday",
+      "schedule_key": "midfreq:sunday_1130",
+      "group_name": "weekly_preview",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "11:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "refresh swing/close-support data for next-week preview",
+      "schedule_payload": {
+        "purpose": "refresh swing/close-support data for next-week preview",
+        "day_type": "sunday",
+        "group_name": "weekly_preview"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive",
+      "day_type": "trading_day",
+      "schedule_key": "archive:trade_day_evening_archive",
+      "group_name": "archive_legacy",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "21:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 3600,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": false,
+      "schedule_source": "policy_seeded",
+      "purpose": "legacy archive path retained for coexistence/manual fallback; no longer default nightly production path",
+      "schedule_payload": {
+        "purpose": "legacy archive path retained for coexistence/manual fallback; no longer default nightly production path",
+        "day_type": "trading_day",
+        "group_name": "archive_legacy"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "archive_v2",
+      "day_type": "trading_day",
+      "schedule_key": "archive_v2:trade_day_nightly_daily_final",
+      "group_name": "archive_v2_main",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "21:40",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 5400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "Archive V2 steady-state nightly daily/final truth production",
+      "schedule_payload": {
+        "purpose": "Archive V2 steady-state nightly daily/final truth production",
+        "day_type": "trading_day",
+        "group_name": "archive_v2_main"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_0908",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "09:08",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_0917",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "09:17",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_0927",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "09:27",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1000",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "10:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1100",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "11:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1200",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "12:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1305",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "13:05",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1405",
+      "group_name": "intraday_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "14:05",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "intraday_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1505",
+      "group_name": "close_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "15:05",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "close_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "highfreq",
+      "day_type": "trading_day",
+      "schedule_key": "highfreq:trade_day_1545",
+      "group_name": "close_core",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "15:45",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 900,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day highfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "group_name": "close_core"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_0400",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "04:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_0700",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "07:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_0850",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "08:50",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_1135",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "11:35",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_1400",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "14:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_1700",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "17:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "lowfreq",
+      "day_type": "trading_day",
+      "schedule_key": "lowfreq:trade_day_2200",
+      "group_name": "daily_light",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "22:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day lowfreq refresh window",
+      "schedule_payload": {
+        "purpose": "trading-day lowfreq refresh window",
+        "day_type": "trading_day",
+        "group_name": "daily_light"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_0600",
+      "group_name": "early_support",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "06:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "early_support"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_0830",
+      "group_name": "early_support",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "08:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "early_support"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_0905",
+      "group_name": "early_support",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "09:05",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "early_support"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_1105",
+      "group_name": "midday_final",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "11:05",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "midday_final"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_1330",
+      "group_name": "midday_final",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "13:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "midday_final"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_1430",
+      "group_name": "post_close_final",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "14:30",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 1800,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 1,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "post_close_final"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_1600",
+      "group_name": "post_close_final",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "16:00",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 2400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 2,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "post_close_final"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    },
+    {
+      "worker_type": "midfreq",
+      "day_type": "trading_day",
+      "schedule_key": "midfreq:trade_day_1715",
+      "group_name": "post_close_final",
+      "trigger_type": "daily_time",
+      "timezone": "Asia/Shanghai",
+      "beijing_time_hm": "17:15",
+      "day_of_week": null,
+      "cadence_minutes": null,
+      "runtime_budget_sec": 2400,
+      "overlap_policy": "skip",
+      "retry_policy": "degrade",
+      "max_retries": 2,
+      "enabled": true,
+      "schedule_source": "policy_seeded",
+      "purpose": "trading-day midfreq support window",
+      "schedule_payload": {
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "group_name": "post_close_final"
+      },
+      "created_at": "2026-04-24 17:56:40.647284",
+      "updated_at": "2026-04-24 17:56:40.647284"
+    }
+  ],
+  "worker_states": [
+    {
+      "worker_type": "archive",
+      "last_run_id": null,
+      "last_schedule_key": null,
+      "last_trigger_mode": null,
+      "last_started_at": null,
+      "last_completed_at": null,
+      "last_status": null,
+      "active_run_id": null,
+      "active_schedule_key": null,
+      "active_started_at": null,
+      "last_heartbeat_at": null,
+      "last_error": null,
+      "next_due_at_utc": null,
+      "updated_at": "2026-04-22 02:25:45.716655"
+    },
+    {
+      "worker_type": "archive_v2",
+      "last_run_id": "28da1762-5646-4224-bc86-ed75cd0684c9",
+      "last_schedule_key": "archive_v2:trade_day_nightly_daily_final",
+      "last_trigger_mode": "scheduled",
+      "last_started_at": "2026-04-24 06:40:57.658052",
+      "last_completed_at": "2026-04-24 06:40:57.661732",
+      "last_status": "succeeded",
+      "active_run_id": null,
+      "active_schedule_key": null,
+      "active_started_at": null,
+      "last_heartbeat_at": "2026-04-24 06:40:57.661732",
+      "last_error": null,
+      "next_due_at_utc": "2026-04-24 19:30:00",
+      "updated_at": "2026-04-24 06:40:57.661732"
+    },
+    {
+      "worker_type": "highfreq",
+      "last_run_id": "34b11843-4c9d-405a-a0bf-857d7e8b1e05",
+      "last_schedule_key": "highfreq:trade_day_1545",
+      "last_trigger_mode": "scheduled",
+      "last_started_at": "2026-04-24 00:46:14.321330",
+      "last_completed_at": "2026-04-24 00:46:14.350980",
+      "last_status": "succeeded",
+      "active_run_id": null,
+      "active_schedule_key": null,
+      "active_started_at": null,
+      "last_heartbeat_at": "2026-04-24 00:46:14.350980",
+      "last_error": null,
+      "next_due_at_utc": "2026-04-26 18:08:00",
+      "updated_at": "2026-04-24 00:46:14.350980"
+    },
+    {
+      "worker_type": "lowfreq",
+      "last_run_id": "fa2d2cd2-74b3-440a-9a90-c5c1084febf7",
+      "last_schedule_key": "lowfreq:trade_day_2200",
+      "last_trigger_mode": "scheduled",
+      "last_started_at": "2026-04-24 07:00:01.066784",
+      "last_completed_at": "2026-04-22 23:04:21.628106",
+      "last_status": "succeeded",
+      "active_run_id": null,
+      "active_schedule_key": null,
+      "active_started_at": null,
+      "last_heartbeat_at": "2026-04-24 07:00:01.066784",
+      "last_error": "cleared by runtime_preflight after abnormal termination",
+      "next_due_at_utc": "2026-04-23 02:00:00",
+      "updated_at": "2026-04-24 07:06:57.579310"
+    },
+    {
+      "worker_type": "midfreq",
+      "last_run_id": "a36a1aa9-9862-42d1-adff-479ddd33b478",
+      "last_schedule_key": "midfreq:trade_day_1715",
+      "last_trigger_mode": "scheduled",
+      "last_started_at": "2026-04-24 02:17:54.574647",
+      "last_completed_at": "2026-04-24 02:17:54.624250",
+      "last_status": "succeeded",
+      "active_run_id": null,
+      "active_schedule_key": null,
+      "active_started_at": null,
+      "last_heartbeat_at": "2026-04-24 02:17:54.624250",
+      "last_error": null,
+      "next_due_at_utc": "2026-04-24 18:00:00",
+      "updated_at": "2026-04-24 02:17:54.624250"
+    }
+  ],
+  "watchdog": [
+    {
+      "worker_type": "archive",
+      "state": "idle",
+      "budget_sec": 3600,
+      "active_run_id": null,
+      "note": "no active run"
+    },
+    {
+      "worker_type": "archive_v2",
+      "state": "stale_missed_schedule",
+      "budget_sec": 7200,
+      "active_run_id": null,
+      "note": "worker is 19600s past due and exceeded grace 7200s"
+    },
+    {
+      "worker_type": "highfreq",
+      "state": "idle_waiting_for_next_due",
+      "budget_sec": 900,
+      "active_run_id": null,
+      "note": "next due in 148279s"
+    },
+    {
+      "worker_type": "lowfreq",
+      "state": "stale_missed_schedule",
+      "budget_sec": 2400,
+      "active_run_id": null,
+      "note": "worker is 169000s past due and exceeded grace 2400s"
+    },
+    {
+      "worker_type": "midfreq",
+      "state": "stale_missed_schedule",
+      "budget_sec": 2400,
+      "active_run_id": null,
+      "note": "worker is 25000s past due and exceeded grace 2400s"
+    }
+  ],
+  "recent_runs": [
+    {
+      "id": "a5931d94-b967-4dee-8f08-399b8f0bf46d",
+      "lane": "lowfreq",
+      "worker_type": "lowfreq_pending_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": null,
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": 416402,
+      "governance_state": "timed_out",
+      "status": "timed_out",
+      "started_at": "2026-04-24 07:00:01.176327",
+      "completed_at": "2026-04-24 07:06:57.579310",
+      "records_processed": 0,
+      "error_count": 1,
+      "tables_updated": null,
+      "tasks_executed": null,
+      "summary": {
+        "runtime_preflight_reason": "orphan_active_unified_runtime_run",
+        "runtime_preflight_repaired": true,
+        "runtime_preflight_repaired_at": "2026-04-24T07:06:57.57931-07:00"
+      }
+    },
+    {
+      "id": "28da1762-5646-4224-bc86-ed75cd0684c9",
+      "lane": "archive_v2",
+      "worker_type": "archive_v2_production_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "archive_v2:trade_day_nightly_daily_final",
+      "triggered_for_beijing_time": "21:40",
+      "runtime_budget_sec": 5400,
+      "duration_ms": 18498,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-24 06:40:39.252265",
+      "completed_at": "2026-04-24 06:40:57.656090",
+      "records_processed": 0,
+      "error_count": 0,
+      "tables_updated": [
+        "ifa2.job_runs",
+        "ifa2.unified_runtime_runs"
+      ],
+      "tasks_executed": [
+        "archive_v2"
+      ],
+      "summary": {
+        "lane": "archive_v2",
+        "run_id": "28da1762-5646-4224-bc86-ed75cd0684c9",
+        "purpose": "Archive V2 steady-state nightly daily/final truth production",
+        "day_type": "trading_day",
+        "manifest_id": "86c9a27ec1a88d77",
+        "worker_type": "archive_v2",
+        "profile_name": "archive_v2_production_nightly_daily_final",
+        "profile_path": "/var/folders/3c/lp5b7xxn7mb1my5kwk6t6dvw0000gq/T/ifa_archive_v2_profiles/archive_v2_production_nightly_daily_final_2026-04-24.json",
+        "trigger_mode": "scheduled",
+        "business_date": "2026-04-24",
+        "manifest_hash": "86c9a27ec1a88d77eac8e0fdbdcb4c21b34ce03690084f3a241253d4e0cf0df0",
+        "execution_mode": "real_run",
+        "archive_v2_mode": "trading_day_nightly",
+        "automatic_entry": true,
+        "archive_v2_notes": "Archive V2 execution completed for the eligible requested scope; dates=1 executed_targets=13 skipped_targets=0 target_policy=all",
+        "archive_v2_repair": null,
+        "archive_v2_run_id": "a6006c73-0784-4ff2-afb2-14ccbe5ac1a0",
+        "archive_v2_status": "completed",
+        "nightly_family_set": [
+          "equity_daily",
+          "index_daily",
+          "etf_daily",
+          "non_equity_daily",
+          "macro_daily",
+          "announcements_daily",
+          "news_daily",
+          "research_reports_daily",
+          "investor_qa_daily",
+          "dragon_tiger_daily",
+          "limit_up_detail_daily",
+          "limit_up_down_status_daily",
+          "sector_performance_daily"
+        ],
+        "runtime_budget_sec": 5400,
+        "archive_v2_backfill": null,
+        "manifest_item_count": 13,
+        "manifest_snapshot_id": "af8894ba-05ef-4d22-b60b-d604e7efdbc9",
+        "legacy_archive_status": "legacy_manual_fallback_only",
+        "legacy_archive_superseded_for_nightly": true
+      }
+    },
+    {
+      "id": "a36a1aa9-9862-42d1-adff-479ddd33b478",
+      "lane": "midfreq",
+      "worker_type": "midfreq_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "midfreq:trade_day_1715",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-24 02:15:44.431207",
+      "completed_at": "2026-04-24 02:17:54.564414",
+      "records_processed": 381,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "midfreq",
+        "run_id": "a36a1aa9-9862-42d1-adff-479ddd33b478",
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "b7cab7882aa1cbee",
+        "worker_type": "midfreq",
+        "requirements": {
+          "lane": "midfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "b7cab7882aa1cbee99c1679dc0cd5f82161caf33f0486c24f687415591f6ffc3",
+        "execution_mode": "real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "equity_daily_bar",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "index_daily_bar",
+            "error_message": null,
+            "records_processed": 8
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "etf_daily_bar",
+            "error_message": null,
+            "records_processed": 12
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "northbound_flow",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "limit_up_down_status",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "margin_financing",
+            "error_message": null,
+            "records_processed": 300
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "southbound_flow",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "turnover_rate",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "main_force_flow",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "sector_performance",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "dragon_tiger_list",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "limit_up_detail",
+            "error_message": null,
+            "records_processed": 0
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 2400,
+        "manifest_item_count": 93,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "late",
+          "attempted": true,
+          "evidence_id": "bef4bb63-2f14-47ba-bffc-5f60716ea630",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "c2d8f702-f833-4767-997f-a070464d266a",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "executed_dataset_count": 12,
+        "manifest_preview_symbols": [
+          "Y0",
+          "C0",
+          "CF0",
+          "601318.SH",
+          "601398.SH",
+          "601668.SH",
+          "601899.SH",
+          "601888.SH",
+          "603019.SH",
+          "603259.SH"
+        ]
+      }
+    },
+    {
+      "id": "470662a9-66c4-4eb0-8cd1-efc42f837c81",
+      "lane": "lowfreq",
+      "worker_type": "lowfreq_pending_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": null,
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": 367213,
+      "governance_state": "timed_out",
+      "status": "timed_out",
+      "started_at": "2026-04-24 02:00:34.581282",
+      "completed_at": "2026-04-24 02:06:41.795045",
+      "records_processed": 0,
+      "error_count": 1,
+      "tables_updated": null,
+      "tasks_executed": null,
+      "summary": {
+        "runtime_preflight_reason": "orphan_active_unified_runtime_run",
+        "runtime_preflight_repaired": true,
+        "runtime_preflight_repaired_at": "2026-04-24T02:06:41.795045-07:00"
+      }
+    },
+    {
+      "id": "772e6c65-ad0c-42c9-849e-ae439a21127d",
+      "lane": "midfreq",
+      "worker_type": "midfreq_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "midfreq:trade_day_1600",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-24 01:00:17.027693",
+      "completed_at": "2026-04-24 01:02:24.623762",
+      "records_processed": 301,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "midfreq",
+        "run_id": "772e6c65-ad0c-42c9-849e-ae439a21127d",
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "66178aad530f9672",
+        "worker_type": "midfreq",
+        "requirements": {
+          "lane": "midfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "66178aad530f967241cae97daf61a2578575d4dc2fa860979642014e4ee9487f",
+        "execution_mode": "real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "equity_daily_bar",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "index_daily_bar",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "etf_daily_bar",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "northbound_flow",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "limit_up_down_status",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "margin_financing",
+            "error_message": null,
+            "records_processed": 300
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "southbound_flow",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "turnover_rate",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "main_force_flow",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "sector_performance",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "dragon_tiger_list",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260424",
+            "dataset_name": "limit_up_detail",
+            "error_message": null,
+            "records_processed": 0
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 2400,
+        "manifest_item_count": 93,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "late",
+          "attempted": true,
+          "evidence_id": "d8915cbf-5fe6-40c5-aad9-2f5c5112b504",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "70598fc3-ad3c-44df-8403-9c50eb9bb424",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "executed_dataset_count": 12,
+        "manifest_preview_symbols": [
+          "Y0",
+          "C0",
+          "CF0",
+          "601318.SH",
+          "601398.SH",
+          "601668.SH",
+          "601899.SH",
+          "601888.SH",
+          "603019.SH",
+          "603259.SH"
+        ]
+      }
+    },
+    {
+      "id": "34b11843-4c9d-405a-a0bf-857d7e8b1e05",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1545",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-24 00:45:39.394964",
+      "completed_at": "2026-04-24 00:46:14.316407",
+      "records_processed": 754,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "34b11843-4c9d-405a-a0bf-857d7e8b1e05",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "b3028eb38ef6dbf7",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "b3028eb38ef6dbf775152c81ceb898ddbc242145e811941eb7cf9733f60d2e50",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:45:39.397826+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:45:49.918858+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:45:49.953313+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:45:49.977210+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:45:56.254589+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:46:04.022425+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:46:14.293349+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 754
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "late",
+          "attempted": true,
+          "evidence_id": "f5549686-36f6-401b-a131-183527cc82b9",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "708798e5-8d49-4e3f-a1a2-bcfa360d2c93",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "19c2641c-ecdc-4879-8a6d-48db60dab9ba",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1505",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-24 00:05:38.066066",
+      "completed_at": "2026-04-24 00:06:32.241483",
+      "records_processed": 754,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "19c2641c-ecdc-4879-8a6d-48db60dab9ba",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "5557e6cdb4db6bac",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "5557e6cdb4db6baceef2e84f6d5e4e4f8ec5b7234878d47b950b121d899a8271",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:05:38.069040+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:06:03.331528+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:06:03.363433+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:06:03.384348+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:06:13.360008+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:06:24.728538+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T07:06:32.212398+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 754
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "late",
+          "attempted": true,
+          "evidence_id": "e6fe2d80-ca53-49bd-a1fd-763a5afc6c3a",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "8c15b4dd-a5f7-4539-af22-789bada28ab5",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "1a9aa903-deb5-4b31-9558-387fed497d25",
+      "lane": "midfreq",
+      "worker_type": "midfreq_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "midfreq:trade_day_1430",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 23:30:29.051992",
+      "completed_at": "2026-04-23 23:32:32.468828",
+      "records_processed": 987,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "midfreq",
+        "run_id": "1a9aa903-deb5-4b31-9558-387fed497d25",
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "59d8a49545a4d6b9",
+        "worker_type": "midfreq",
+        "requirements": {
+          "lane": "midfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "59d8a49545a4d6b924c119565108883c707a24514d72735492ee55181dfd0a63",
+        "execution_mode": "real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "equity_daily_bar",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "index_daily_bar",
+            "error_message": null,
+            "records_processed": 8
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "etf_daily_bar",
+            "error_message": null,
+            "records_processed": 12
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "northbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_down_status",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "margin_financing",
+            "error_message": null,
+            "records_processed": 360
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "southbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "turnover_rate",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "main_force_flow",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "sector_performance",
+            "error_message": null,
+            "records_processed": 394
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "dragon_tiger_list",
+            "error_message": null,
+            "records_processed": 65
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_detail",
+            "error_message": null,
+            "records_processed": 85
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 1800,
+        "manifest_item_count": 93,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "late",
+          "attempted": true,
+          "evidence_id": "5edd9116-d957-4b63-b867-2ef654d45422",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "f72e36b1-3f92-4e6d-87eb-7d1a0d79531e",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "executed_dataset_count": 12,
+        "manifest_preview_symbols": [
+          "Y0",
+          "C0",
+          "CF0",
+          "601318.SH",
+          "601398.SH",
+          "601668.SH",
+          "601899.SH",
+          "601888.SH",
+          "603019.SH",
+          "603259.SH"
+        ]
+      }
+    },
+    {
+      "id": "7c496d52-0785-4d32-a42d-4e995fbf61fd",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1405",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 23:05:41.476565",
+      "completed_at": "2026-04-23 23:06:24.914744",
+      "records_processed": 754,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "7c496d52-0785-4d32-a42d-4e995fbf61fd",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "b82c311b8dfed5c9",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "b82c311b8dfed5c907af31301b2b7d2bb9703efa92bcbbfe9ada6e5b8e631e5c",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:05:41.478736+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:05:49.766530+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:05:49.794040+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:05:49.814769+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:06:07.013196+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:06:15.986531+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T06:06:24.884597+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 754
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "late",
+          "attempted": true,
+          "evidence_id": "659b45c1-3231-4ed0-908c-5ebc87686226",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "6f1a4b0a-0a97-4df9-9e06-fb7dff312bbf",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "1d74cd0d-8fc2-49bb-8027-d398812dd152",
+      "lane": "lowfreq",
+      "worker_type": "lowfreq_pending_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": null,
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": 282366,
+      "governance_state": "timed_out",
+      "status": "timed_out",
+      "started_at": "2026-04-23 23:00:58.267830",
+      "completed_at": "2026-04-23 23:05:40.634069",
+      "records_processed": 0,
+      "error_count": 1,
+      "tables_updated": null,
+      "tasks_executed": null,
+      "summary": {
+        "runtime_preflight_reason": "orphan_active_unified_runtime_run",
+        "runtime_preflight_repaired": true,
+        "runtime_preflight_repaired_at": "2026-04-23T23:05:40.634069-07:00"
+      }
+    },
+    {
+      "id": "e08603b5-5f75-4c85-baf3-94e8682a2df5",
+      "lane": "midfreq",
+      "worker_type": "midfreq_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "midfreq:trade_day_1330",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 22:30:44.907147",
+      "completed_at": "2026-04-23 22:32:53.208779",
+      "records_processed": 987,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "midfreq",
+        "run_id": "e08603b5-5f75-4c85-baf3-94e8682a2df5",
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "3818c47b80173b9f",
+        "worker_type": "midfreq",
+        "requirements": {
+          "lane": "midfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "3818c47b80173b9f3801bac74b5d1b98d6729822fa6f8bcc9b3261fad83683d0",
+        "execution_mode": "real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "equity_daily_bar",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "index_daily_bar",
+            "error_message": null,
+            "records_processed": 8
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "etf_daily_bar",
+            "error_message": null,
+            "records_processed": 12
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "northbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_down_status",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "margin_financing",
+            "error_message": null,
+            "records_processed": 360
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "southbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "turnover_rate",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "main_force_flow",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "sector_performance",
+            "error_message": null,
+            "records_processed": 394
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "dragon_tiger_list",
+            "error_message": null,
+            "records_processed": 65
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_detail",
+            "error_message": null,
+            "records_processed": 85
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 1800,
+        "manifest_item_count": 93,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "mid",
+          "attempted": true,
+          "evidence_id": "4d725317-498b-4bfa-8fd4-beaf96618828",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "618a5fc4-1e2a-46f2-bf0e-5155c9780a6c",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "executed_dataset_count": 12,
+        "manifest_preview_symbols": [
+          "Y0",
+          "C0",
+          "CF0",
+          "601318.SH",
+          "601398.SH",
+          "601668.SH",
+          "601899.SH",
+          "601888.SH",
+          "603019.SH",
+          "603259.SH"
+        ]
+      }
+    },
+    {
+      "id": "5c8ee614-0d42-4663-a4fd-aff4f7b6edc1",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1305",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 22:05:21.353939",
+      "completed_at": "2026-04-23 22:05:40.053392",
+      "records_processed": 754,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "5c8ee614-0d42-4663-a4fd-aff4f7b6edc1",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "af3750a1626208e6",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "af3750a1626208e603f189c443f6148d68bbe6b766f8b88091db36d706ed05c7",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:21.357112+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:26.650450+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:26.683563+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:26.700996+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:28.874374+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:34.255962+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T05:05:40.026698+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 754
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "mid",
+          "attempted": true,
+          "evidence_id": "9baf8390-5d0b-4cb2-919b-20c6d55fc9c4",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "cd858593-05ba-4240-88bd-c4faaa72c58e",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "71a96349-b9dc-400b-8501-5bb8c74d5670",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1200",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 21:00:44.516965",
+      "completed_at": "2026-04-23 21:01:11.321368",
+      "records_processed": 750,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "71a96349-b9dc-400b-8501-5bb8c74d5670",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "32383999d7487e73",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "32383999d7487e73e5ecb25ddd2bbd2da6b074bd9230117b353541b3961d3d72",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:00:44.520867+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:00:50.300880+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:00:50.329503+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:00:50.351976+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:01:00.529917+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:01:05.087266+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T04:01:11.290211+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 750
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "mid",
+          "attempted": true,
+          "evidence_id": "3960e5ae-45b5-4cd0-a0b5-1acc8d569777",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "e5972f6a-0acb-42ec-89f6-82b5f98d8d56",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "01ea4c0c-6c6b-477c-8631-2a9267aeb6d7",
+      "lane": "lowfreq",
+      "worker_type": "lowfreq_pending_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": null,
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": 904726,
+      "governance_state": "timed_out",
+      "status": "timed_out",
+      "started_at": "2026-04-23 20:35:37.169933",
+      "completed_at": "2026-04-23 20:50:41.896030",
+      "records_processed": 0,
+      "error_count": 1,
+      "tables_updated": null,
+      "tasks_executed": null,
+      "summary": {
+        "runtime_preflight_reason": "orphan_active_unified_runtime_run",
+        "runtime_preflight_repaired": true,
+        "runtime_preflight_repaired_at": "2026-04-23T20:50:41.89603-07:00"
+      }
+    },
+    {
+      "id": "d8a7c755-eaf7-4826-a0dd-14c76b9aa899",
+      "lane": "midfreq",
+      "worker_type": "midfreq_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "midfreq:trade_day_1105",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 20:05:14.716701",
+      "completed_at": "2026-04-23 20:07:18.923776",
+      "records_processed": 987,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "midfreq",
+        "run_id": "d8a7c755-eaf7-4826-a0dd-14c76b9aa899",
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "c6f8db50747cff2c",
+        "worker_type": "midfreq",
+        "requirements": {
+          "lane": "midfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "c6f8db50747cff2caffff2eae8d58f829a080d03df1c8c5d5aec9b9c1e41e0ce",
+        "execution_mode": "real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "equity_daily_bar",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "index_daily_bar",
+            "error_message": null,
+            "records_processed": 8
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "etf_daily_bar",
+            "error_message": null,
+            "records_processed": 12
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "northbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_down_status",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "margin_financing",
+            "error_message": null,
+            "records_processed": 360
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "southbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "turnover_rate",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "main_force_flow",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "sector_performance",
+            "error_message": null,
+            "records_processed": 394
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "dragon_tiger_list",
+            "error_message": null,
+            "records_processed": 65
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_detail",
+            "error_message": null,
+            "records_processed": 85
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 1800,
+        "manifest_item_count": 93,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "mid",
+          "attempted": true,
+          "evidence_id": "8ace980e-d148-4f11-9008-0b4163a729f4",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "c4645d89-a6f8-4abf-a28b-4347c4e522ad",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "executed_dataset_count": 12,
+        "manifest_preview_symbols": [
+          "Y0",
+          "C0",
+          "CF0",
+          "601318.SH",
+          "601398.SH",
+          "601668.SH",
+          "601899.SH",
+          "601888.SH",
+          "603019.SH",
+          "603259.SH"
+        ]
+      }
+    },
+    {
+      "id": "d60c1047-6eef-4108-af2f-38ad25aa9099",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1100",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 20:00:55.505781",
+      "completed_at": "2026-04-23 20:01:13.672970",
+      "records_processed": 750,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "d60c1047-6eef-4108-af2f-38ad25aa9099",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "48a521c4eefc97b3",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "48a521c4eefc97b3e0a18c2cceb427b2fb6f067b75ccfc22ed5bc6f478309bf6",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:00:55.508423+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:01:00.982554+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:01:01.016881+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:01:01.036113+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:01:03.532609+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:01:07.897890+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T03:01:13.641633+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 750
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "mid",
+          "attempted": true,
+          "evidence_id": "4e1667f2-b57d-4f79-808a-1f300e72fbc7",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "03e645f1-455b-4a63-9852-ebcfa16cadc1",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "befea6df-4271-4d46-b688-cb1de65078af",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_1000",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 19:00:19.838366",
+      "completed_at": "2026-04-23 19:00:45.059605",
+      "records_processed": 727,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "befea6df-4271-4d46-b688-cb1de65078af",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "1c3ac157983908bd",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "1c3ac157983908bd9b068d69ef97f00464f71540ceea68bf41be0b2c1fbc1dd1",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:19.840852+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:27.281945+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:27.315653+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:27.334423+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:30.587418+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:37.321843+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T02:00:45.032064+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 727
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "mid",
+          "attempted": true,
+          "evidence_id": "bb548023-f441-4750-946b-28abfb0ce90b",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "c85499ce-7a76-4e46-abfc-5ae74b79c55e",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "f0bba0ec-2c1b-48fb-8b78-21ab42a18083",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_0927",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 18:27:58.884935",
+      "completed_at": "2026-04-23 18:28:14.371979",
+      "records_processed": 727,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "f0bba0ec-2c1b-48fb-8b78-21ab42a18083",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "efbfc61b3373559e",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "efbfc61b3373559eff3d1c0c28e1fdb2ae4aa0ff3bfe05ccc1cc0c56e8816d17",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:27:58.886259+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:28:03.643670+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:28:03.671347+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:28:03.689957+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:28:05.677906+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:28:09.578165+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:28:14.351406+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 727
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "early",
+          "attempted": true,
+          "evidence_id": "1364351d-2edc-4701-9ff4-a34a4a44c183",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "da637207-d207-445c-b8cf-863768782ceb",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "369f55c0-e4a5-448b-98c7-9af043ac80d8",
+      "lane": "highfreq",
+      "worker_type": "highfreq_partial_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "highfreq:trade_day_0917",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 18:17:26.675788",
+      "completed_at": "2026-04-23 18:17:56.856741",
+      "records_processed": 720,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "highfreq",
+        "run_id": "369f55c0-e4a5-448b-98c7-9af043ac80d8",
+        "purpose": "trading-day highfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "33c777fdca8eabff",
+        "worker_type": "highfreq",
+        "requirements": {
+          "lane": "highfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "33c777fdca8eabffa9a5c57be9444bb44c90db1cd5e1f3e279132809dfc6ba01",
+        "execution_mode": "partial_real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:26.676979+00:00",
+            "dataset_name": "stock_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:34.538316+00:00",
+            "dataset_name": "index_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:34.569898+00:00",
+            "dataset_name": "etf_sector_style_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:34.588434+00:00",
+            "dataset_name": "futures_commodity_pm_1m_ohlcv",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:42.915833+00:00",
+            "dataset_name": "open_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:49.202325+00:00",
+            "dataset_name": "close_auction_snapshot",
+            "error_message": null,
+            "records_processed": 0
+          },
+          {
+            "status": "succeeded",
+            "watermark": "2026-04-24T01:17:56.826792+00:00",
+            "dataset_name": "event_time_stream+derived_signal_state",
+            "error_message": null,
+            "records_processed": 720
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 900,
+        "manifest_item_count": 30,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "early",
+          "attempted": true,
+          "evidence_id": "b303a633-9d22-434c-97ce-9bdaec962fd4",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "7da7c617-940a-4921-bb08-26a0a17fa71e",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "stock_1m_ohlcv",
+          "index_1m_ohlcv",
+          "etf_sector_style_1m_ohlcv",
+          "futures_commodity_pm_1m_ohlcv",
+          "open_auction_snapshot",
+          "close_auction_snapshot",
+          "event_time_stream"
+        ],
+        "executed_dataset_count": 7,
+        "manifest_preview_symbols": [
+          "AU0",
+          "AG0",
+          "CU0",
+          "AL0",
+          "ZN0",
+          "RB0",
+          "HC0",
+          "I0",
+          "JM0",
+          "M0"
+        ]
+      }
+    },
+    {
+      "id": "ac77c571-d0e8-48b6-8c0b-0fb9f91402e1",
+      "lane": "midfreq",
+      "worker_type": "midfreq_real_run_worker",
+      "trigger_mode": "scheduled",
+      "schedule_key": "midfreq:trade_day_0905",
+      "triggered_for_beijing_time": null,
+      "runtime_budget_sec": null,
+      "duration_ms": null,
+      "governance_state": "ok",
+      "status": "succeeded",
+      "started_at": "2026-04-23 18:05:30.574520",
+      "completed_at": "2026-04-23 18:08:24.910875",
+      "records_processed": 987,
+      "error_count": 0,
+      "tables_updated": [],
+      "tasks_executed": [],
+      "summary": {
+        "lane": "midfreq",
+        "run_id": "ac77c571-d0e8-48b6-8c0b-0fb9f91402e1",
+        "purpose": "trading-day midfreq support window",
+        "day_type": "trading_day",
+        "manifest_id": "7e7809e33e00222e",
+        "worker_type": "midfreq",
+        "requirements": {
+          "lane": "midfreq",
+          "notes": [],
+          "tushare_token_configured": true
+        },
+        "trigger_mode": "scheduled",
+        "manifest_hash": "7e7809e33e00222ec9cef3bf7aa0ca4b9ebf3f8f159dc889f7ff955d1e21aca9",
+        "execution_mode": "real_run",
+        "automatic_entry": true,
+        "dataset_results": [
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "equity_daily_bar",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "index_daily_bar",
+            "error_message": null,
+            "records_processed": 8
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "etf_daily_bar",
+            "error_message": null,
+            "records_processed": 12
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "northbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_down_status",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "margin_financing",
+            "error_message": null,
+            "records_processed": 360
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "southbound_flow",
+            "error_message": null,
+            "records_processed": 1
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "turnover_rate",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "main_force_flow",
+            "error_message": null,
+            "records_processed": 20
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "sector_performance",
+            "error_message": null,
+            "records_processed": 394
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "dragon_tiger_list",
+            "error_message": null,
+            "records_processed": 65
+          },
+          {
+            "status": "succeeded",
+            "watermark": "20260423",
+            "dataset_name": "limit_up_detail",
+            "error_message": null,
+            "records_processed": 85
+          }
+        ],
+        "asset_categories": [
+          "agri",
+          "base_metal",
+          "black_chain",
+          "precious_metal",
+          "stock"
+        ],
+        "runtime_budget_sec": 1800,
+        "manifest_item_count": 93,
+        "slot_replay_capture": {
+          "status": "captured",
+          "slot_key": "early",
+          "attempted": true,
+          "evidence_id": "e746e355-fa51-4c2c-ac1d-bcaec373c897",
+          "perspective": "observed"
+        },
+        "trade_calendar_gate": {
+          "reason": "not_lowfreq",
+          "checked": false,
+          "performed": false
+        },
+        "manifest_snapshot_id": "b4a02a07-9a2b-4e9f-b83d-32ef26e91627",
+        "blocked_dataset_count": 0,
+        "blocked_dataset_names": [],
+        "planned_dataset_names": [
+          "equity_daily_bar",
+          "index_daily_bar",
+          "etf_daily_bar",
+          "northbound_flow",
+          "limit_up_down_status",
+          "margin_financing",
+          "southbound_flow",
+          "turnover_rate",
+          "main_force_flow",
+          "sector_performance",
+          "dragon_tiger_list",
+          "limit_up_detail"
+        ],
+        "executed_dataset_count": 12,
+        "manifest_preview_symbols": [
+          "Y0",
+          "C0",
+          "CF0",
+          "601318.SH",
+          "601398.SH",
+          "601668.SH",
+          "601899.SH",
+          "601888.SH",
+          "603019.SH",
+          "603259.SH"
+        ]
+      }
+    }
+  ]
+}
