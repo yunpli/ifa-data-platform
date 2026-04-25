@@ -1,0 +1,55 @@
+{
+  "artifact_type": "fsj_support_bundle_persist_summary",
+  "artifact_version": "v1",
+  "business_date": "2026-04-23",
+  "slot": "early",
+  "generated_at_utc": "2026-04-25T02:13:41.734244+00:00",
+  "domains": [
+    "macro",
+    "commodities",
+    "ai_tech"
+  ],
+  "persisted_count": 3,
+  "blocked_count": 0,
+  "results": [
+    {
+      "business_date": "2026-04-23",
+      "slot": "early",
+      "agent_domain": "macro",
+      "status": "persisted",
+      "bundle_id": "a_share:2026-04-23:early:macro:support_macro:143a4e15bdd3",
+      "bundle_status": "active",
+      "section_key": "support_macro",
+      "object_count": 7,
+      "edge_count": 7,
+      "evidence_link_count": 12,
+      "observed_record_count": 4
+    },
+    {
+      "business_date": "2026-04-23",
+      "slot": "early",
+      "agent_domain": "commodities",
+      "status": "persisted",
+      "bundle_id": "a_share:2026-04-23:early:commodities:support_commodities:0cfeb8bec554",
+      "bundle_status": "active",
+      "section_key": "support_commodities",
+      "object_count": 7,
+      "edge_count": 7,
+      "evidence_link_count": 10,
+      "observed_record_count": 4
+    },
+    {
+      "business_date": "2026-04-23",
+      "slot": "early",
+      "agent_domain": "ai_tech",
+      "status": "persisted",
+      "bundle_id": "a_share:2026-04-23:early:ai_tech:support_ai_tech:8b9512842822",
+      "bundle_status": "active",
+      "section_key": "support_ai_tech",
+      "object_count": 11,
+      "edge_count": 11,
+      "evidence_link_count": 15,
+      "observed_record_count": 7
+    }
+  ]
+}

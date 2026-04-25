@@ -1,0 +1,370 @@
+{
+  "artifact": {
+    "id": "6403b1c3-910d-4ffd-b017-d9b235202d35",
+    "artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T021332Z:80d01912",
+    "artifact_family": "support_domain_report",
+    "market": "a_share",
+    "business_date": "2026-04-23",
+    "agent_domain": "commodities",
+    "render_format": "html",
+    "artifact_type": "fsj_support_report_html",
+    "content_type": "text/html",
+    "title": "A股商品简报｜收盘后｜2026-04-23",
+    "report_run_id": "accept-p0-support-late:2026-04-23:late:commodities:20260425T021332Z",
+    "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+    "status": "active",
+    "supersedes_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T011015Z:b8bfdb39",
+    "metadata_json": {
+      "slot": "late",
+      "market": "a_share",
+      "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "section_key": "support_commodities",
+      "agent_domain": "commodities",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+      "generated_at": "2026-04-25T02:13:34.972634+00:00",
+      "business_date": "2026-04-23",
+      "output_profile": "customer",
+      "producer_version": "phase1-support-commodities-late-v1",
+      "renderer_version": "v1",
+      "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+      "section_render_key": "support.commodities.late",
+      "evidence_link_count": 10,
+      "source_artifact_type": "fsj_support_report_section",
+      "existing_report_links": [
+        {
+          "id": "1e709dfd-d254-4326-a75d-c7549bb31a7e",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "created_at": "2026-04-23T06:43:31.707138-07:00",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+          "artifact_type": "html",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T134329Z",
+          "section_render_key": "support.commodities.late",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T134329Z:217fb8d9"
+          }
+        },
+        {
+          "id": "569a3fd4-1814-4f34-b8d9-4c3a333def7c",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "created_at": "2026-04-23T05:20:45.208420-07:00",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+          "artifact_type": "html",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T122043Z",
+          "section_render_key": "support.commodities.late",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T122043Z:780a458e"
+          }
+        },
+        {
+          "id": "e8620785-c72b-46e5-bf6e-e677c7a6491d",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "created_at": "2026-04-23T05:13:49.561649-07:00",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+          "artifact_type": "html",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T121347Z",
+          "section_render_key": "support.commodities.late",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T121347Z:471fab36"
+          }
+        },
+        {
+          "id": "3ebc6b99-46a6-4ed5-a31d-ec93912665aa",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "created_at": "2026-04-23T05:16:37.974172-07:00",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+          "artifact_type": "html",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T121636Z",
+          "section_render_key": "support.commodities.late",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T121636Z:70987290"
+          }
+        },
+        {
+          "id": "2eabd06e-b9a5-4bae-bc13-4893d671b14c",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "created_at": "2026-04-24T18:09:59.465986-07:00",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+          "artifact_type": "html",
+          "report_run_id": "v2-r0-003-support:2026-04-23:late:commodities:20260425T010957Z",
+          "section_render_key": "support.commodities.late",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T010957Z:e22aebd3"
+          }
+        },
+        {
+          "id": "4d2f55bc-439c-47a7-abb8-62f6ad01a141",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "created_at": "2026-04-24T18:10:17.053125-07:00",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+          "artifact_type": "html",
+          "report_run_id": "v2-r0-003-support:2026-04-23:late:commodities:20260425T011015Z",
+          "section_render_key": "support.commodities.late",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T011015Z:b8bfdb39"
+          }
+        }
+      ],
+      "source_artifact_version": "v1",
+      "presentation_schema_version": "v1"
+    },
+    "created_at": "2026-04-24 19:13:34.977575-07:00",
+    "updated_at": "2026-04-24 19:13:34.977575-07:00"
+  },
+  "rendered": {
+    "artifact_type": "fsj_support_report_html",
+    "artifact_version": "v1",
+    "render_format": "html",
+    "content_type": "text/html",
+    "title": "A股商品简报｜收盘后｜2026-04-23",
+    "metadata": {
+      "market": "a_share",
+      "business_date": "2026-04-23",
+      "agent_domain": "commodities",
+      "slot": "late",
+      "section_key": "support_commodities",
+      "section_render_key": "support.commodities.late",
+      "source_artifact_type": "fsj_support_report_section",
+      "source_artifact_version": "v1",
+      "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+      "renderer_version": "v1",
+      "generated_at": "2026-04-25T02:13:34.972634+00:00",
+      "output_profile": "customer",
+      "presentation_schema_version": "v1",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "producer_version": "phase1-support-commodities-late-v1",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+      "existing_report_links": [
+        {
+          "id": "1e709dfd-d254-4326-a75d-c7549bb31a7e",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T134329Z",
+          "artifact_type": "html",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T134329Z:217fb8d9"
+          },
+          "section_render_key": "support.commodities.late",
+          "created_at": "2026-04-23 06:43:31.707138-07:00"
+        },
+        {
+          "id": "569a3fd4-1814-4f34-b8d9-4c3a333def7c",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T122043Z",
+          "artifact_type": "html",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T122043Z:780a458e"
+          },
+          "section_render_key": "support.commodities.late",
+          "created_at": "2026-04-23 05:20:45.208420-07:00"
+        },
+        {
+          "id": "e8620785-c72b-46e5-bf6e-e677c7a6491d",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T121347Z",
+          "artifact_type": "html",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T121347Z:471fab36"
+          },
+          "section_render_key": "support.commodities.late",
+          "created_at": "2026-04-23 05:13:49.561649-07:00"
+        },
+        {
+          "id": "3ebc6b99-46a6-4ed5-a31d-ec93912665aa",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T121636Z",
+          "artifact_type": "html",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T121636Z:70987290"
+          },
+          "section_render_key": "support.commodities.late",
+          "created_at": "2026-04-23 05:16:37.974172-07:00"
+        },
+        {
+          "id": "2eabd06e-b9a5-4bae-bc13-4893d671b14c",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "report_run_id": "v2-r0-003-support:2026-04-23:late:commodities:20260425T010957Z",
+          "artifact_type": "html",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T010957Z:e22aebd3"
+          },
+          "section_render_key": "support.commodities.late",
+          "created_at": "2026-04-24 18:09:59.465986-07:00"
+        },
+        {
+          "id": "4d2f55bc-439c-47a7-abb8-62f6ad01a141",
+          "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+          "report_run_id": "v2-r0-003-support:2026-04-23:late:commodities:20260425T011015Z",
+          "artifact_type": "html",
+          "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+          "artifact_locator_json": {
+            "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+            "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+            "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+            "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T011015Z:b8bfdb39"
+          },
+          "section_render_key": "support.commodities.late",
+          "created_at": "2026-04-24 18:10:17.053125-07:00"
+        }
+      ],
+      "evidence_link_count": 10
+    }
+  },
+  "report_links": [
+    {
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "accept-p0-support-late:2026-04-23:late:commodities:20260425T021332Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html"
+      },
+      "section_render_key": "support.commodities.late"
+    }
+  ],
+  "persisted_report_links": [
+    {
+      "id": "569a3fd4-1814-4f34-b8d9-4c3a333def7c",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T122043Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p1_2_late_convergence_proof_20260423_subA/support_batch/commodities/a_share_support_commodities_late_2026-04-23_20260423T122043Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T122043Z:780a458e"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-23 05:20:45.208420-07:00"
+    },
+    {
+      "id": "3ebc6b99-46a6-4ed5-a31d-ec93912665aa",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T121636Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA_rerun/commodities/a_share_support_commodities_late_2026-04-23_20260423T121636Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T121636Z:70987290"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-23 05:16:37.974172-07:00"
+    },
+    {
+      "id": "e8620785-c72b-46e5-bf6e-e677c7a6491d",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T121347Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_late_liveproof_subA/commodities/a_share_support_commodities_late_2026-04-23_20260423T121347Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T121347Z:471fab36"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-23 05:13:49.561649-07:00"
+    },
+    {
+      "id": "1e709dfd-d254-4326-a75d-c7549bb31a7e",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "fsj-support-batch:2026-04-23:late:commodities:20260423T134329Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/late_support/commodities/a_share_support_commodities_late_2026-04-23_20260423T134329Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260423T134329Z:217fb8d9"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-23 06:43:31.707138-07:00"
+    },
+    {
+      "id": "2eabd06e-b9a5-4bae-bc13-4893d671b14c",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "v2-r0-003-support:2026-04-23:late:commodities:20260425T010957Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T010957Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T010957Z:e22aebd3"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-24 18:09:59.465986-07:00"
+    },
+    {
+      "id": "4d2f55bc-439c-47a7-abb8-62f6ad01a141",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "v2-r0-003-support:2026-04-23:late:commodities:20260425T011015Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/v2_r0_003_validation/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T011015Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T011015Z:b8bfdb39"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-24 18:10:17.053125-07:00"
+    },
+    {
+      "id": "2444f37c-9a60-43ea-b7db-8644617b5582",
+      "bundle_id": "a_share:2026-04-23:late:commodities:support_commodities:352ced72b914",
+      "report_run_id": "accept-p0-support-late:2026-04-23:late:commodities:20260425T021332Z",
+      "artifact_type": "html",
+      "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+      "artifact_locator_json": {
+        "renderer": "ifa_data_platform.fsj.report_rendering.SupportReportHTMLRenderer",
+        "artifact_uri": "file:///Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+        "artifact_file_path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities/a_share_support_commodities_late_2026-04-23_20260425T021332Z.html",
+        "report_artifact_id": "fsj-support-report:commodities:late:2026-04-23:20260425T021332Z:80d01912"
+      },
+      "section_render_key": "support.commodities.late",
+      "created_at": "2026-04-24 19:13:34.991061-07:00"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "artifact_type": "fsj_support_report_delivery_package_index",
+  "artifact_version": "v1",
+  "artifact_id": "fsj-support-report:macro:early:2026-04-23:20260425T021341Z:d20212ba",
+  "business_date": "2026-04-23",
+  "agent_domain": "macro",
+  "slot": "early",
+  "report_run_id": "accept-p0-support-early-review:2026-04-23:early:macro:20260425T021341Z",
+  "delivery_package_dir": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/macro/a_share_support_report_delivery_macro_early_2026-04-23_20260425T021341Z_0260425T021341Z-d20212ba",
+  "package_state": "ready",
+  "ready_for_delivery": true,
+  "quality_gate": {
+    "score": 100,
+    "blocker_count": 0,
+    "warning_count": 0,
+    "qa_axes": {
+      "structural": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "lineage": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "policy": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      }
+    },
+    "source_health": {
+      "overall_status": "healthy",
+      "degrade_reason": null
+    }
+  },
+  "lineage": {
+    "bundle_id": "a_share:2026-04-23:early:macro:support_macro:143a4e15bdd3",
+    "producer_version": "phase1-support-macro-early-v1",
+    "section_render_key": "support.macro.early",
+    "report_link_count": 1,
+    "persisted_report_link_count": 6,
+    "evidence_link_count": 12
+  },
+  "browse_priority": [
+    "html",
+    "operator_summary",
+    "delivery_manifest",
+    "qa",
+    "manifest"
+  ],
+  "files": [
+    {
+      "role": "html",
+      "filename": "a_share_support_macro_early_2026-04-23_20260425T021341Z.html",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/macro/a_share_support_report_delivery_macro_early_2026-04-23_20260425T021341Z_0260425T021341Z-d20212ba/a_share_support_macro_early_2026-04-23_20260425T021341Z.html",
+      "exists": true,
+      "size_bytes": 4757
+    },
+    {
+      "role": "qa",
+      "filename": "a_share_support_macro_early_2026-04-23_20260425T021341Z.qa.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/macro/a_share_support_report_delivery_macro_early_2026-04-23_20260425T021341Z_0260425T021341Z-d20212ba/a_share_support_macro_early_2026-04-23_20260425T021341Z.qa.json",
+      "exists": true,
+      "size_bytes": 1125
+    },
+    {
+      "role": "manifest",
+      "filename": "a_share_support_macro_early_2026-04-23_20260425T021341Z.manifest.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/macro/a_share_support_report_delivery_macro_early_2026-04-23_20260425T021341Z_0260425T021341Z-d20212ba/a_share_support_macro_early_2026-04-23_20260425T021341Z.manifest.json",
+      "exists": true,
+      "size_bytes": 24126
+    },
+    {
+      "role": "operator_summary",
+      "filename": "operator_summary.txt",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/macro/a_share_support_report_delivery_macro_early_2026-04-23_20260425T021341Z_0260425T021341Z-d20212ba/operator_summary.txt",
+      "exists": true,
+      "size_bytes": 453
+    },
+    {
+      "role": "delivery_manifest",
+      "filename": "delivery_manifest.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/macro/a_share_support_report_delivery_macro_early_2026-04-23_20260425T021341Z_0260425T021341Z-d20212ba/delivery_manifest.json",
+      "exists": true,
+      "size_bytes": 1795
+    }
+  ]
+}

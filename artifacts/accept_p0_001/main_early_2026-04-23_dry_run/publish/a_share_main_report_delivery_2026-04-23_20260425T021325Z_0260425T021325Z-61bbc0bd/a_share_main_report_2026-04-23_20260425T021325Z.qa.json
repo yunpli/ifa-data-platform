@@ -1,0 +1,92 @@
+{
+  "artifact_type": "fsj_main_report_qa",
+  "artifact_version": "v1",
+  "ready_for_delivery": true,
+  "score": 92,
+  "summary": {
+    "business_date": "2026-04-23",
+    "market": "a_share",
+    "agent_domain": "main",
+    "section_count": 3,
+    "ready_section_count": 3,
+    "support_summary_count": 6,
+    "expected_slots": [
+      "early",
+      "mid",
+      "late"
+    ],
+    "slot_status": {
+      "early": "ready",
+      "mid": "ready",
+      "late": "ready"
+    },
+    "late_contract_mode": "full_close_package",
+    "source_health": {
+      "overall_status": "degraded",
+      "blocking_slot_count": 0,
+      "degraded_slot_count": 1,
+      "slots": [
+        {
+          "slot": "early",
+          "status": "healthy",
+          "degrade_reason": null,
+          "contract_mode": "candidate_with_open_validation",
+          "completeness_label": "complete"
+        },
+        {
+          "slot": "mid",
+          "status": "degraded",
+          "degrade_reason": "insufficient_intraday_structure",
+          "contract_mode": "monitoring_only",
+          "completeness_label": null
+        },
+        {
+          "slot": "late",
+          "status": "healthy",
+          "degrade_reason": null,
+          "contract_mode": "full_close_package",
+          "completeness_label": "complete"
+        }
+      ]
+    },
+    "report_link_count": 3,
+    "existing_report_link_count": 56,
+    "html_bytes": 9619,
+    "blocker_count": 0,
+    "warning_count": 1,
+    "qa_axes": {
+      "structural": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "lineage": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "policy": {
+        "ready": true,
+        "score": 92,
+        "blocker_count": 0,
+        "warning_count": 1,
+        "issue_codes": [
+          "source_health_degraded"
+        ]
+      }
+    }
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "source_health_degraded",
+      "message": "mid slot source health degraded: insufficient_intraday_structure",
+      "slot": "mid",
+      "section_render_key": "main.midday"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+Support delivery package｜2026-04-23｜ai_tech｜late
+ready_for_delivery=True｜score=100
+artifact_id=fsj-support-report:ai_tech:late:2026-04-23:20260425T021332Z:f3378fd6
+report_run_id=accept-p0-support-late:2026-04-23:late:ai_tech:20260425T021332Z
+bundle_id=a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47
+section_render_key=support.ai_tech.late
+producer_version=phase1-support-ai-tech-late-v1
+blockers=0｜warnings=0｜evidence_links=15

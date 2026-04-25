@@ -1,0 +1,10 @@
+A股主报告交付包｜2026-04-23
+状态：READY｜score=92
+artifact_id：fsj-main-report:2026-04-23:20260425T021325Z:61bbc0bd
+report_run_id：accept-p0-main-early:2026-04-23:early:20260425T021325Z
+late_contract_mode：full_close_package
+blockers=0｜warnings=1
+sections=3/3 ready
+support_summaries=6｜report_links=3
+support_domains=ai_tech,commodities,macro｜support_slots=-
+renderer=v3

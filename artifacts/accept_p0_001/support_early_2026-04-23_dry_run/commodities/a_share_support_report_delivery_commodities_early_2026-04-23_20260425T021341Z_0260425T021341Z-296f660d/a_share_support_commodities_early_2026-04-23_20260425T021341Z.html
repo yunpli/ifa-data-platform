@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A股商品审阅包｜盘前｜2026-04-23</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #f4f6fb; color: #111827; }
+    .page { max-width: 960px; margin: 0 auto; padding: 28px 24px 48px; }
+    .hero { background: linear-gradient(135deg, #172554, #2563eb); color: white; border-radius: 20px; padding: 28px 32px; }
+    .card { background: white; border-radius: 18px; padding: 24px 26px; margin-top: 20px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08); }
+    .meta { opacity: 0.9; font-size: 14px; line-height: 1.6; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 12px; margin-right: 8px; }
+    .bucket { margin-top: 16px; }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    li { margin: 6px 0; line-height: 1.55; }
+    .footnote { font-size: 12px; color: #64748b; margin-top: 18px; line-height: 1.6; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>A股商品审阅包｜盘前｜2026-04-23</h1>
+      <div class="meta">
+        业务日期：2026-04-23 · 域：商品 · 时段：盘前<br/>
+        bundle：<span class="mono">a_share:2026-04-23:early:commodities:support_commodities:0cfeb8bec554</span> · producer_version：<span class="mono">phase1-support-commodities-early-v1</span> · 生成时间：2026-04-25T02:13:43.567014+00:00
+      </div>
+    </section>
+
+    <section class="card">
+      <span class="pill">ready</span>
+      <strong>support 摘要：</strong>盘前商品链有新变化，应作为主判断的 adjust 输入。
+      <div class="footnote">本报告保持 support 独立成文，供审计 / 复核 / 回放使用；MAIN 仅消费 concise support summary，不内联 support 正文。</div>
+    </section>
+
+    <section class="card">
+      <h2>Support 判断</h2>
+      <ul><li>盘前将商品链作为 adjust 输入：提高黄金/有色/黑色链的监控优先级，但不把商品波动直接写成A股已验证主线。 <span class="mono">[action=adjust, confidence=medium]</span></li></ul>
+      <div class="bucket"><strong>Support 信号</strong><ul><li>商品/资源链出现新的价格或事件变化，适合修正主 Agent 对资源映射方向的排序。 <span class="mono">[strength=medium, confidence=medium]</span></li></ul></div>
+      <div class="bucket"><strong>事实锚点</strong><ul><li>期货日线背景可用，latest trade_date=2025-09-12，rows=778。 <span class="mono">[confidence=high]</span></li><li>最近商品/资源文本：受特朗普就霍尔木兹海峡发出威胁影响，布伦特原油期货价格每桶上涨逾1美元。；ANDURAND 4 月上半月净值下跌 52%，停战局势致使其原油押注遭遇重挫。；【美国股指期货略微走低 创纪录涨势稍作喘息】由于中东和平谈判仍陷于僵局，布伦特原油维持在每桶100美元上方，美国股市创纪录的涨势暂告一段落。纽约时间8:24，标...。 <span class="mono">[confidence=medium]</span></li><li>AL2506.SHF：AL2506.SHF 最新价 20710.0000 vol=275.00 oi=7155.00（freshness=stale）。 <span class="mono">[confidence=medium]</span></li><li>CU2506.SHF：CU2506.SHF 最新价 78710.0000 vol=65.00 oi=7715.00（freshness=stale）。 <span class="mono">[confidence=medium]</span></li><li>PB2506.SHF：PB2506.SHF 最新价 16930.0000 vol=35.00 oi=2550.00（freshness=stale）。 <span class="mono">[confidence=medium]</span></li></ul></div>
+      <div class="footnote">lineage：slot_run_id=<span class="mono">fsj-support-slot:2026-04-23:early:commodities</span> · replay_id=<span class="mono">fsj-support-replay:2026-04-23:early:commodities</span> · evidence=2025-09-12, text:1:【中国铝业：第一季度净利润55.27亿元，同比增长56.35%】中国铝业公告，2026年第一季度营收为584.94亿元，同比增长4.85%；净利润为55.27亿..., text:1:受特朗普就霍尔木兹海峡发出威胁影响，布伦特原油期货价格每桶上涨逾1美元。, text:2:ANDURAND 4 月上半月净值下跌 52%，停战局势致使其原油押注遭遇重挫。 · prior_report_links=file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_p0_4_acceptance_recipe_20260423_rerun_subA_20260423T134327Z/early_support/commodities/a_share_support_commodities_early_2026-04-23_20260423T134327Z.html, file:///Users/neoclaw/repos/ifa-data-platform/artifacts/fsj_support_batch_20260423_autopersist_verify/commodities/a_share_support_commodities_early_2026-04-23_20260423T120000Z.html</div>
+    </section>
+  </div>
+</body>
+</html>

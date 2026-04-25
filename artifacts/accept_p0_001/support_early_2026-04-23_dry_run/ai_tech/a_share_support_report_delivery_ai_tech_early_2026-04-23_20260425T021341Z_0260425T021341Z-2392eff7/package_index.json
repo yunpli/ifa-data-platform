@@ -1,0 +1,96 @@
+{
+  "artifact_type": "fsj_support_report_delivery_package_index",
+  "artifact_version": "v1",
+  "artifact_id": "fsj-support-report:ai_tech:early:2026-04-23:20260425T021341Z:2392eff7",
+  "business_date": "2026-04-23",
+  "agent_domain": "ai_tech",
+  "slot": "early",
+  "report_run_id": "accept-p0-support-early-review:2026-04-23:early:ai_tech:20260425T021341Z",
+  "delivery_package_dir": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/ai_tech/a_share_support_report_delivery_ai_tech_early_2026-04-23_20260425T021341Z_0260425T021341Z-2392eff7",
+  "package_state": "ready",
+  "ready_for_delivery": true,
+  "quality_gate": {
+    "score": 100,
+    "blocker_count": 0,
+    "warning_count": 0,
+    "qa_axes": {
+      "structural": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "lineage": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "policy": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      }
+    },
+    "source_health": {
+      "overall_status": "healthy",
+      "degrade_reason": null
+    }
+  },
+  "lineage": {
+    "bundle_id": "a_share:2026-04-23:early:ai_tech:support_ai_tech:8b9512842822",
+    "producer_version": "phase1-support-ai-tech-early-v1",
+    "section_render_key": "support.ai_tech.early",
+    "report_link_count": 1,
+    "persisted_report_link_count": 6,
+    "evidence_link_count": 15
+  },
+  "browse_priority": [
+    "html",
+    "operator_summary",
+    "delivery_manifest",
+    "qa",
+    "manifest"
+  ],
+  "files": [
+    {
+      "role": "html",
+      "filename": "a_share_support_ai_tech_early_2026-04-23_20260425T021341Z.html",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/ai_tech/a_share_support_report_delivery_ai_tech_early_2026-04-23_20260425T021341Z_0260425T021341Z-2392eff7/a_share_support_ai_tech_early_2026-04-23_20260425T021341Z.html",
+      "exists": true,
+      "size_bytes": 5492
+    },
+    {
+      "role": "qa",
+      "filename": "a_share_support_ai_tech_early_2026-04-23_20260425T021341Z.qa.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/ai_tech/a_share_support_report_delivery_ai_tech_early_2026-04-23_20260425T021341Z_0260425T021341Z-2392eff7/a_share_support_ai_tech_early_2026-04-23_20260425T021341Z.qa.json",
+      "exists": true,
+      "size_bytes": 1131
+    },
+    {
+      "role": "manifest",
+      "filename": "a_share_support_ai_tech_early_2026-04-23_20260425T021341Z.manifest.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/ai_tech/a_share_support_report_delivery_ai_tech_early_2026-04-23_20260425T021341Z_0260425T021341Z-2392eff7/a_share_support_ai_tech_early_2026-04-23_20260425T021341Z.manifest.json",
+      "exists": true,
+      "size_bytes": 24552
+    },
+    {
+      "role": "operator_summary",
+      "filename": "operator_summary.txt",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/ai_tech/a_share_support_report_delivery_ai_tech_early_2026-04-23_20260425T021341Z_0260425T021341Z-2392eff7/operator_summary.txt",
+      "exists": true,
+      "size_bytes": 467
+    },
+    {
+      "role": "delivery_manifest",
+      "filename": "delivery_manifest.json",
+      "path": "/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_early_2026-04-23_dry_run/ai_tech/a_share_support_report_delivery_ai_tech_early_2026-04-23_20260425T021341Z_0260425T021341Z-2392eff7/delivery_manifest.json",
+      "exists": true,
+      "size_bytes": 1815
+    }
+  ]
+}

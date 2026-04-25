@@ -1,0 +1,22 @@
+FSJ support batch publish｜2026-04-23｜late
+generated_at_utc=2026-04-25T02:13:32.609965+00:00
+ready=3｜blocked=0｜domains=3
+
+- macro: status=ready bundle_id=a_share:2026-04-23:late:macro:support_macro:7846ec308c0c package_state=ready workflow_state=- recommended_action=hold dispatch_recommended_action=- selected_is_current=True artifact_id=fsj-support-report:macro:late:2026-04-23:20260425T021332Z:39a28ec8 selected_artifact_id=fsj-support-report:macro:late:2026-04-23:20260425T021332Z:39a28ec8 dispatch_selected_artifact_id=- output_dir=/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/macro
+  next_step=- selection_reason=-
+  delivery_manifest_path=- send_manifest_path=-
+  llm_lineage_status=not_applied llm_policy_versions=-
+  llm_boundary_modes=- llm_override_precedence=-
+  llm_slot_boundary_modes=- llm_forbidden_decision_count=0
+- commodities: status=ready bundle_id=a_share:2026-04-23:late:commodities:support_commodities:352ced72b914 package_state=ready workflow_state=- recommended_action=hold dispatch_recommended_action=- selected_is_current=True artifact_id=fsj-support-report:commodities:late:2026-04-23:20260425T021332Z:80d01912 selected_artifact_id=fsj-support-report:commodities:late:2026-04-23:20260425T021332Z:80d01912 dispatch_selected_artifact_id=- output_dir=/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/commodities
+  next_step=- selection_reason=-
+  delivery_manifest_path=- send_manifest_path=-
+  llm_lineage_status=not_applied llm_policy_versions=-
+  llm_boundary_modes=- llm_override_precedence=-
+  llm_slot_boundary_modes=- llm_forbidden_decision_count=0
+- ai_tech: status=ready bundle_id=a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47 package_state=ready workflow_state=- recommended_action=hold dispatch_recommended_action=- selected_is_current=True artifact_id=fsj-support-report:ai_tech:late:2026-04-23:20260425T021332Z:f3378fd6 selected_artifact_id=fsj-support-report:ai_tech:late:2026-04-23:20260425T021332Z:f3378fd6 dispatch_selected_artifact_id=- output_dir=/Users/neoclaw/repos/ifa-data-platform/artifacts/accept_p0_001/support_late_2026-04-23_dry_run/ai_tech
+  next_step=- selection_reason=-
+  delivery_manifest_path=- send_manifest_path=-
+  llm_lineage_status=not_applied llm_policy_versions=-
+  llm_boundary_modes=- llm_override_precedence=-
+  llm_slot_boundary_modes=- llm_forbidden_decision_count=0

@@ -1,0 +1,8 @@
+Support delivery package｜2026-04-23｜macro｜late
+ready_for_delivery=True｜score=100
+artifact_id=fsj-support-report:macro:late:2026-04-23:20260425T021332Z:39a28ec8
+report_run_id=accept-p0-support-late:2026-04-23:late:macro:20260425T021332Z
+bundle_id=a_share:2026-04-23:late:macro:support_macro:7846ec308c0c
+section_render_key=support.macro.late
+producer_version=phase1-support-macro-late-v1
+blockers=0｜warnings=0｜evidence_links=12

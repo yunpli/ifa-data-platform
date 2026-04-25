@@ -1,0 +1,8 @@
+Support delivery package｜2026-04-23｜macro｜early
+ready_for_delivery=True｜score=100
+artifact_id=fsj-support-report:macro:early:2026-04-23:20260425T021341Z:d20212ba
+report_run_id=accept-p0-support-early-review:2026-04-23:early:macro:20260425T021341Z
+bundle_id=a_share:2026-04-23:early:macro:support_macro:143a4e15bdd3
+section_render_key=support.macro.early
+producer_version=phase1-support-macro-early-v1
+blockers=0｜warnings=0｜evidence_links=12

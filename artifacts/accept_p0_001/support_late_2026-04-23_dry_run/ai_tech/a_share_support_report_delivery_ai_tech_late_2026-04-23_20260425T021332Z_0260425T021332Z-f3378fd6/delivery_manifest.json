@@ -1,0 +1,62 @@
+{
+  "artifact_type": "fsj_support_report_delivery_package",
+  "artifact_version": "v1",
+  "business_date": "2026-04-23",
+  "agent_domain": "ai_tech",
+  "slot": "late",
+  "generated_at_utc": "2026-04-25T02:13:32.609965+00:00",
+  "report_run_id": "accept-p0-support-late:2026-04-23:late:ai_tech:20260425T021332Z",
+  "artifact_id": "fsj-support-report:ai_tech:late:2026-04-23:20260425T021332Z:f3378fd6",
+  "artifact_family": "support_domain_report",
+  "package_state": "ready",
+  "ready_for_delivery": true,
+  "quality_gate": {
+    "score": 100,
+    "blocker_count": 0,
+    "warning_count": 0,
+    "qa_axes": {
+      "structural": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "lineage": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      },
+      "policy": {
+        "ready": true,
+        "score": 100,
+        "blocker_count": 0,
+        "warning_count": 0,
+        "issue_codes": []
+      }
+    },
+    "source_health": {
+      "overall_status": "healthy",
+      "degrade_reason": null
+    }
+  },
+  "lineage": {
+    "bundle_id": "a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47",
+    "producer_version": "phase1-support-ai-tech-late-v1",
+    "section_render_key": "support.ai_tech.late",
+    "report_link_count": 1,
+    "persisted_report_link_count": 7,
+    "evidence_link_count": 15
+  },
+  "artifacts": {
+    "html": "a_share_support_ai_tech_late_2026-04-23_20260425T021332Z.html",
+    "qa": "a_share_support_ai_tech_late_2026-04-23_20260425T021332Z.qa.json",
+    "manifest": "a_share_support_ai_tech_late_2026-04-23_20260425T021332Z.manifest.json",
+    "operator_summary": "operator_summary.txt",
+    "delivery_manifest": "delivery_manifest.json",
+    "package_index": "package_index.json",
+    "browse_readme": "BROWSE_PACKAGE.md"
+  }
+}

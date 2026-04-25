@@ -1,0 +1,8 @@
+Support delivery package｜2026-04-23｜commodities｜early
+ready_for_delivery=True｜score=100
+artifact_id=fsj-support-report:commodities:early:2026-04-23:20260425T021341Z:296f660d
+report_run_id=accept-p0-support-early-review:2026-04-23:early:commodities:20260425T021341Z
+bundle_id=a_share:2026-04-23:early:commodities:support_commodities:0cfeb8bec554
+section_render_key=support.commodities.early
+producer_version=phase1-support-commodities-early-v1
+blockers=0｜warnings=0｜evidence_links=10

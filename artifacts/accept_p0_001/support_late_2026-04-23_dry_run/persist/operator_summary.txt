@@ -1,0 +1,7 @@
+FSJ support bundle persist｜2026-04-23｜late
+generated_at_utc=2026-04-25T02:13:33.152718+00:00
+persisted=3｜blocked=0｜domains=3
+
+- macro: status=persisted bundle_id=a_share:2026-04-23:late:macro:support_macro:7846ec308c0c object_count=7 evidence_link_count=12
+- commodities: status=persisted bundle_id=a_share:2026-04-23:late:commodities:support_commodities:352ced72b914 object_count=7 evidence_link_count=10
+- ai_tech: status=persisted bundle_id=a_share:2026-04-23:late:ai_tech:support_ai_tech:d48a4e501a47 object_count=11 evidence_link_count=15
