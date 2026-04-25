@@ -318,11 +318,15 @@ class MainReportHTMLRenderer:
 
     def _build_focus_module(self, *, assembled: dict[str, Any], sections: Sequence[dict[str, Any]]) -> dict[str, Any]:
         focus_symbols: list[str] = []
+        key_focus_symbols: list[str] = []
+        focus_only_symbols: list[str] = []
         focus_list_types: list[str] = []
         reasons: list[str] = []
         source_sections: list[str] = []
         judgment_refs: list[str] = []
         seen_focus: set[str] = set()
+        seen_key_focus: set[str] = set()
+        seen_focus_only: set[str] = set()
         seen_list_types: set[str] = set()
         seen_reasons: set[str] = set()
         for section in sections:
@@ -332,11 +336,18 @@ class MainReportHTMLRenderer:
             lineage = dict(section.get("lineage") or {})
             payload = dict((lineage.get("bundle") or {}).get("payload_json") or {})
             scope = dict(payload.get("focus_scope") or {})
+            section_list_types = {str(item or "").strip() for item in (scope.get("focus_list_types") or []) if str(item or "").strip()}
             for symbol in scope.get("focus_symbols") or []:
                 symbol = str(symbol or "").strip()
                 if symbol and symbol not in seen_focus:
                     seen_focus.add(symbol)
                     focus_symbols.append(symbol)
+                if symbol and "key_focus" in section_list_types and symbol not in seen_key_focus:
+                    seen_key_focus.add(symbol)
+                    key_focus_symbols.append(symbol)
+                elif symbol and "focus" in section_list_types and symbol not in seen_focus_only:
+                    seen_focus_only.add(symbol)
+                    focus_only_symbols.append(symbol)
             for list_type in scope.get("focus_list_types") or []:
                 list_type = str(list_type or "").strip()
                 if list_type and list_type not in seen_list_types:
@@ -354,17 +365,25 @@ class MainReportHTMLRenderer:
                 judgment_key = str(judgment.get("object_key") or "").strip()
                 if judgment_key:
                     judgment_refs.append(judgment_key)
-        key_focus_symbols = focus_symbols[: min(5, len(focus_symbols))]
+        if not key_focus_symbols:
+            key_focus_symbols = focus_symbols[: min(5, len(focus_symbols))]
+        display_focus_symbols = (key_focus_symbols + [symbol for symbol in focus_only_symbols if symbol not in set(key_focus_symbols)])[:12]
         return {
             "module_type": "fsj_focus_module",
             "business_date": assembled.get("business_date"),
             "list_types": focus_list_types,
-            "focus_symbols": focus_symbols[:12],
+            "focus_symbols": display_focus_symbols,
             "focus_symbol_count": len(focus_symbols),
-            "key_focus_symbols": key_focus_symbols,
+            "key_focus_symbols": key_focus_symbols[:5],
             "key_focus_symbol_count": len(key_focus_symbols),
+            "focus_watch_symbols": focus_only_symbols[:7],
+            "focus_watch_symbol_count": len(focus_only_symbols),
+            "watchlist_tiers": [
+                {"label": "Tier 1 / Key Focus", "description": "用于开盘或收盘阶段优先验证强弱与节奏。", "symbols": key_focus_symbols[:5]},
+                {"label": "Tier 2 / Focus Watch", "description": "作为补充观察池，用于确认扩散、分歧和噪音过滤。", "symbols": focus_only_symbols[:7]},
+            ],
             "why_included": reasons[0] if reasons else "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
-            "reasons": reasons[:3],
+            "reasons": self._focus_reasons(reasons=reasons, key_focus_symbols=key_focus_symbols, focus_only_symbols=focus_only_symbols, total_focus_count=len(focus_symbols)),
             "source_sections": source_sections,
             "chart_refs": [
                 {"chart_key": "key_focus_window", "title": "Key Focus 窗口图"},
@@ -374,17 +393,35 @@ class MainReportHTMLRenderer:
             "review_ready": bool(focus_symbols or focus_list_types),
         }
 
+    def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
+        polished = [str(item).strip() for item in reasons if str(item).strip()]
+        if key_focus_symbols:
+            polished.append(f"Tier 1 / Key Focus 共 {len(key_focus_symbols)} 个，优先用于验证强度、节奏与是否具备继续跟踪价值。")
+        if focus_only_symbols:
+            polished.append(f"Tier 2 / Focus Watch 共 {len(focus_only_symbols)} 个，作为扩散与分歧观察池，避免把临时噪音误判为主线。")
+        if not polished:
+            polished.append(f"当前观察池共覆盖 {total_focus_count} 个对象，用于界定优先跟踪范围与噪音过滤边界。")
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for item in polished:
+            if item not in seen:
+                seen.add(item)
+                deduped.append(item)
+        return deduped[:3]
+
     def _render_focus_module_html(self, focus_module: dict[str, Any]) -> str:
         list_types = [str(item).replace("_", " ") for item in (focus_module.get("list_types") or [])]
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
         key_focus = [str(item) for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
+        focus_watch = [str(item) for item in (focus_module.get("focus_watch_symbols") or []) if str(item).strip()]
         focus_symbols = [str(item) for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
         charts = focus_module.get("chart_refs") or []
         chart_text = "；".join(f"{item.get('title')}（{item.get('chart_key')}）" for item in charts if item.get("chart_key")) or "暂无图表关联"
         return (
             f'<div class="bucket"><h3>Why included</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in (reasons or [str(focus_module.get("why_included") or "暂无说明")]))}</ul></div>'
             f'<div class="bucket"><h3>Key Focus</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in key_focus) or "<li>暂无 Key Focus</li>"}</ul></div>'
-            f'<div class="bucket"><h3>Focus</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in focus_symbols) or "<li>暂无 Focus</li>"}</ul></div>'
+            f'<div class="bucket"><h3>Focus Watchlist</h3><ul>{"".join(f"<li>{escape(item)}</li>" for item in focus_watch) or "<li>暂无 Focus Watchlist</li>"}</ul></div>'
+            f'<div class="bucket"><h3>Module coverage</h3><ul><li>total_focus_symbols：{escape(str(focus_module.get("focus_symbol_count") or len(focus_symbols)))}</li><li>displayed_symbols：{escape(", ".join(focus_symbols) or "-")}</li></ul></div>'
             f'<div class="bucket"><h3>Module wiring</h3><ul><li>list_types：{escape(", ".join(list_types) or "-")}</li><li>chart_refs：{escape(chart_text)}</li><li>judgment_refs：{escape(", ".join(focus_module.get("judgment_refs") or []) or "-")}</li></ul></div>'
         )
 
@@ -587,12 +624,12 @@ class MainReportHTMLRenderer:
         if not reasons:
             reasons = [str(focus_module.get("why_included") or "将今日重点观察池直接前置展示，帮助理解为什么这些对象值得跟踪。")]
         key_focus = [f"重点跟踪对象：{str(item)}" for item in (focus_module.get("key_focus_symbols") or []) if str(item).strip()]
-        focus_symbols = [f"观察对象：{str(item)}" for item in (focus_module.get("focus_symbols") or []) if str(item).strip()]
+        focus_watch = [f"观察名单：{str(item)}" for item in (focus_module.get("focus_watch_symbols") or []) if str(item).strip()]
         chart_refs = [str(item.get("title") or item.get("chart_key") or "") for item in (focus_module.get("chart_refs") or []) if str(item.get("title") or item.get("chart_key") or "").strip()]
         return (
             self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
-            + self._render_customer_bucket("Key Focus", key_focus, fallback="暂无 Key Focus")
-            + self._render_customer_bucket("Focus", focus_symbols, fallback="暂无 Focus")
+            + self._render_customer_bucket("Tier 1 / Key Focus", key_focus, fallback="暂无 Key Focus")
+            + self._render_customer_bucket("Tier 2 / Focus Watchlist", focus_watch, fallback="暂无 Focus Watchlist")
             + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
         )
 
@@ -603,8 +640,10 @@ class MainReportHTMLRenderer:
         items = []
         for asset in assets:
             source_window = dict(asset.get("source_window") or {})
+            note = str(asset.get("note") or "").strip()
+            note_html = f" · 说明={escape(note)}" if note else ""
             items.append(
-                f"<li>{escape(str(asset.get('title') or '-'))} · 状态={escape(str(asset.get('status') or '-'))} · 窗口={escape(str(source_window.get('lookback_bars') or '-'))} {escape(str(source_window.get('frequency') or '-'))} bars · 资源={escape(str(asset.get('relative_path') or '-'))}</li>"
+                f"<li>{escape(str(asset.get('title') or '-'))} · 状态={escape(str(asset.get('status') or '-'))} · 窗口={escape(str(source_window.get('lookback_bars') or '-'))} {escape(str(source_window.get('frequency') or '-'))} bars{note_html} · 资源={escape(str(asset.get('relative_path') or '-'))}</li>"
             )
         return f"<section class=\"card\"><h2>关键图表</h2><div class=\"footnote\">chart_degrade_status={escape(str(chart_pack.get('degrade_status') or '-'))} · ready_chart_count={escape(str(chart_pack.get('ready_chart_count') or '-'))}/{escape(str(chart_pack.get('chart_count') or '-'))}</div><ul>{''.join(items)}</ul></section>"
 

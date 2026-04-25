@@ -6,6 +6,7 @@ from pathlib import Path
 import json
 import pytest
 
+from ifa_data_platform.fsj.chart_pack import FSJChartPackBuilder
 from ifa_data_platform.fsj.report_dispatch import MainReportDeliveryDispatchHelper
 from ifa_data_platform.fsj.report_quality import MainReportQAEvaluator, SupportReportQAEvaluator
 from ifa_data_platform.fsj.report_rendering import (
@@ -338,6 +339,8 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert "明日观察 / 下一步" in rendered["content"]
     assert "免责声明" in rendered["content"]
     assert "今日 Key Focus / Focus" in rendered["content"]
+    assert "Tier 1 / Key Focus" in rendered["content"]
+    assert "Tier 2 / Focus Watchlist" in rendered["content"]
     assert "早报 / 中报 / 晚报分时段解读" in rendered["content"]
     assert "开盘前关注" in rendered["content"]
     assert "盘中观察" not in rendered["content"]  # assembled fixture only has early/late sections
@@ -396,8 +399,25 @@ def test_main_report_renderer_renders_chart_pack_with_explicit_windows_and_missi
     assert "charts/market_index_window.svg" in rendered["content"]
     assert "charts/key_focus_return_bar.svg" in rendered["content"]
     assert "chart_degrade_status=partial" in rendered["content"]
+    assert "focus/equity daily bars missing for requested window" in rendered["content"]
     assert rendered["metadata"]["chart_pack"]["ready_chart_count"] == 2
     assert rendered["metadata"]["chart_pack"]["assets"][2]["status"] == "missing"
+
+
+def test_chart_pack_builder_uses_focus_scope_symbols_for_key_focus_assets(tmp_path: Path) -> None:
+    builder = FSJChartPackBuilder()
+    assembled = _assembled_sections()
+
+    manifest = builder.build_main_chart_pack(
+        business_date="2099-04-22",
+        assembled=assembled,
+        package_dir=tmp_path,
+    )
+
+    focus_assets = {asset["chart_key"]: asset for asset in manifest["assets"] if asset["chart_key"].startswith("key_focus")}
+    assert focus_assets["key_focus_window"]["source_window"]["symbols"] == ["300024.SZ", "002031.SZ", "601138.SH"]
+    assert focus_assets["key_focus_return_bar"]["source_window"]["symbols"] == ["300024.SZ", "002031.SZ", "601138.SH"]
+    assert "观察池标的" in manifest["html_embed_blocks"][1]["caption"]
 
 
 def test_main_report_renderer_keeps_support_content_at_concise_summary_boundary() -> None:
