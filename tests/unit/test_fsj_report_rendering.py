@@ -367,6 +367,7 @@ def test_main_report_renderer_emits_customer_profile_without_engineering_metadat
     assert customer_presentation["focus_module"]["focus_symbol_count"] == 3
     assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "机器人龙头A"
     assert customer_presentation["focus_module"]["focus_watch_items"][0]["display_name"] == "补充观察池暂未扩展"
+    assert customer_presentation["focus_module"]["watchlist_tiers"][1]["label"] == "Tier 2 / Focus Watchlist"
     assert customer_presentation["sections"][0]["title"] == "开盘前关注"
     assert customer_presentation["sections"][1]["title"] == "收盘复盘"
 
@@ -384,6 +385,31 @@ def test_main_report_renderer_uses_professional_focus_fallback_wording_when_watc
     assert "当前报告将研究资源优先集中在核心验证对象" in rendered["content"]
     assert "若盘中出现新的扩散线索、联动方向或主线分歧修复，再补充进入观察池" in rendered["content"]
     assert "暂无 Focus Watchlist" not in rendered["content"]
+
+
+
+def test_main_report_renderer_keeps_missing_name_watchlist_rows_readable_without_duplicate_code_dump() -> None:
+    assembled = _assembled_sections()
+    assembled["sections"][0]["lineage"]["bundle"]["payload_json"]["focus_scope"] = {
+        "focus_symbols": ["000001.SZ", "000002.SZ"],
+        "focus_list_types": ["key_focus"],
+        "why_included": "当前业务观察池覆盖 2 个 A 股 focus/key-focus 对象，可作为盘前主线验证与噪音过滤锚点。",
+    }
+
+    rendered = MainReportHTMLRenderer().render(
+        assembled,
+        report_run_id="report-run-customer-missing-focus-names-1",
+        artifact_uri="file:///tmp/customer-missing-focus-names.html",
+        generated_at=datetime(2099, 4, 22, 8, 4, tzinfo=timezone.utc),
+        output_profile="customer",
+    )
+    customer_presentation = rendered["metadata"]["customer_presentation"]
+
+    assert "待补全名称标的（000001.SZ）" in rendered["content"]
+    assert "A股标的 000001.SZ（000001.SZ）" not in rendered["content"]
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["code"] == "000001.SZ"
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["display_name"] == "待补全名称标的"
+    assert customer_presentation["focus_module"]["key_focus_items"][0]["short_label"] == "待补全名称标的（000001.SZ）"
 
 
 def test_main_report_renderer_emits_review_profile_with_internal_lineage_visible() -> None:

@@ -406,7 +406,7 @@ class MainReportHTMLRenderer:
             "focus_watch_items": focus_watch_items,
             "watchlist_tiers": [
                 {"label": "Tier 1 / Key Focus", "description": "优先观察的核心名单，用于验证强弱、节奏与主线确认质量。", "symbols": key_focus_symbols[:5], "items": key_focus_items},
-                {"label": "Tier 2 / Focus Watch", "description": "补充观察池，用于确认扩散、分歧与噪音过滤。", "symbols": focus_only_symbols[:7], "items": focus_watch_items},
+                {"label": "Tier 2 / Focus Watchlist", "description": "补充观察池，用于确认扩散、分歧与噪音过滤。", "symbols": focus_only_symbols[:7], "items": focus_watch_items},
             ],
             "why_included": reasons[0] if reasons else "focus / key-focus 作为正式观察池进入报告，用于界定优先跟踪对象与噪音过滤边界。",
             "reasons": self._focus_reasons(reasons=reasons, key_focus_symbols=key_focus_symbols, focus_only_symbols=focus_only_symbols, total_focus_count=len(focus_symbols)),
@@ -453,8 +453,9 @@ class MainReportHTMLRenderer:
             invalidation = "若全天缺少联动、承接偏弱或仅有零散异动，则继续保留在观察层而不升级。"
         return {
             "symbol": clean_symbol,
+            "code": clean_symbol,
             "display_name": display,
-            "short_label": f"{display}（{clean_symbol}）" if clean_symbol else display,
+            "short_label": self._build_focus_short_label(display_name=display, symbol=clean_symbol),
             "observation_rationale": rationale,
             "today_validation_point": validation_point,
             "risk_invalidation": invalidation,
@@ -478,15 +479,22 @@ class MainReportHTMLRenderer:
         if not clean_symbol:
             return "未命名观察对象"
         if clean_symbol.endswith((".SH", ".SZ", ".BJ")):
-            return f"A股标的 {clean_symbol}"
-        return f"观察对象 {clean_symbol}"
+            return "待补全名称标的"
+        return "待补全名称观察对象"
+
+    def _build_focus_short_label(self, *, display_name: str, symbol: str) -> str:
+        clean_display = str(display_name or "").strip()
+        clean_symbol = str(symbol or "").strip()
+        if clean_display and clean_symbol:
+            return clean_display if clean_display.endswith(clean_symbol) else f"{clean_display}（{clean_symbol}）"
+        return clean_display or clean_symbol
 
     def _focus_reasons(self, *, reasons: Sequence[str], key_focus_symbols: Sequence[str], focus_only_symbols: Sequence[str], total_focus_count: int) -> list[str]:
         polished = [str(item).strip() for item in reasons if str(item).strip()]
         if key_focus_symbols:
             polished.append(f"Tier 1 / Key Focus 共 {len(key_focus_symbols)} 个，优先用于验证强度、节奏与是否具备继续跟踪价值。")
         if focus_only_symbols:
-            polished.append(f"Tier 2 / Focus Watch 共 {len(focus_only_symbols)} 个，作为扩散与分歧观察池，避免把临时噪音误判为主线。")
+            polished.append(f"Tier 2 / Focus Watchlist 共 {len(focus_only_symbols)} 个，作为扩散与分歧观察池，避免把临时噪音误判为主线。")
         if not polished:
             polished.append(f"当前观察池共覆盖 {total_focus_count} 个对象，用于界定优先跟踪范围与噪音过滤边界。")
         deduped: list[str] = []
@@ -724,7 +732,7 @@ class MainReportHTMLRenderer:
                 next_steps.append(f"收盘后复核位：以“{section_signals[0]}”核对当日结论能否顺延到次日跟踪框架。")
         key_focus_items = [item for item in (focus_module.get("key_focus_items") or []) if isinstance(item, dict)]
         if key_focus_items:
-            labels = [str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip() for item in key_focus_items[:3]]
+            labels = [self._customer_focus_label(item) for item in key_focus_items[:3]]
             labels = [item for item in labels if item]
             if labels:
                 next_steps.append(f"重点跟踪名单：继续观察 {'、'.join(labels)} 的强弱分化、承接质量与是否得到主线验证。")
@@ -829,6 +837,17 @@ class MainReportHTMLRenderer:
         advisory_html = f"<div class=\"support-line\"><strong>顾问提示：</strong>{escape(advisory_note)}</div>" if advisory_note else ""
         return f"<div class=\"summary-box\"><div class=\"summary-slot\">{escape(str(card.get('slot_label') or '-'))}</div><div class=\"summary-headline\">{escape(str(card.get('headline') or '暂无摘要'))}</div><div class=\"support-line\"><strong>产品定位：</strong>{escape(str(card.get('slot_label') or '-'))}客户主报告摘要</div>{advisory_html}{support_line}</div>"
 
+    def _customer_focus_label(self, item: dict[str, Any]) -> str:
+        label = str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip()
+        code = str(item.get("code") or item.get("symbol") or "").strip()
+        if not code:
+            return label
+        if label.endswith(code):
+            return label
+        if label in {"待补全名称标的", "待补全名称观察对象"}:
+            return f"{label}（{code}）"
+        return label
+
     def _render_customer_focus_module(self, focus_module: dict[str, Any]) -> str:
         reasons = [str(item) for item in (focus_module.get("reasons") or []) if str(item).strip()]
         if not reasons:
@@ -848,7 +867,7 @@ class MainReportHTMLRenderer:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            label = str(item.get("short_label") or item.get("display_name") or item.get("symbol") or "").strip()
+            label = self._customer_focus_label(item)
             rationale = self._sanitize_customer_text(str(item.get("observation_rationale") or "").strip())
             validation = self._sanitize_customer_text(str(item.get("today_validation_point") or "").strip())
             risk = self._sanitize_customer_text(str(item.get("risk_invalidation") or "").strip())
