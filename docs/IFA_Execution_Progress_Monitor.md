@@ -22,7 +22,7 @@
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
 - **当前 Lane A / Lane B 状态**：Lane A 已切换到 `POST-P3-EDITORIAL-COMPRESSION-001`；Lane B 已切换到 `POST-P3-WATCHLIST-QUALITY-002`
-- **Acceptance Lane 状态**：`ACCEPT-P3-001` 已完成并 closed；结论为 honest fail（premium editorial + professional watchlist bar 尚未通过），chart partial / customer explanation 与 leakage recheck 通过
+- **Acceptance Lane 状态**：`ACCEPT-P4-001` 已完成并 closed；结论为 honest fail（raw/noisy telemetry 已从客户面去除、chart/customer explanation 与 leakage recheck 通过，但 premium editorial phrasing 与 premium watchlist naming bar 仍未通过）
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`487df77f749ffbe013bcaa4cd139244020904f8e`
 
@@ -64,14 +64,14 @@
 
 ### 3.1 Acceptance Lane 状态
 
-- Current Sub-Agent: `none`
-- Current Acceptance Task: `none`
-- Status: `idle`
-- Started At: `-`
-- Last Update: `2026-04-24 21:37 PDT`
-- Findings: `ACCEPT-P3-001 closed as honest fail / near-pass; next required work is customer-only editorial compression + professional advisory watchlist upgrade`
+- Current Sub-Agent: `agent:developer:subagent:41d69c06-f3be-4c04-b961-a0e69e578b1b`
+- Current Acceptance Task: `ACCEPT-P4-001`
+- Status: `completed`
+- Started At: `2026-04-24 21:55 PDT`
+- Last Update: `2026-04-25 05:05 UTC`
+- Findings: `ACCEPT-P4-001 closed as honest fail; raw/noisy telemetry is gone from customer HTML, leakage remains clean, chart degrade explanation remains acceptable, but premium editorial phrasing and premium watchlist naming still fail closeout`
 - Blocker: `none`
-- Next Action: `wait for POST-P3-EDITORIAL-COMPRESSION-001 and POST-P3-WATCHLIST-PRO-001 before launching ACCEPT-P4-001`
+- Next Action: `route residuals back to implementation only if Yunpeng wants final premium editorial/watchlist closure; current acceptance narrowed blockers precisely`
 
 ---
 
@@ -103,6 +103,7 @@
 | POST-P3-WATCHLIST-PRO-001 | none | Professional Advisory Watchlist and Focus Naming Upgrade | post-P3 | P1 | completed | Lane B | `agent:developer:subagent:f310c571-2cd3-480d-82de-cd8991ac7e62` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p3_watchlist_pro_001/main_early_2026-04-23_dry_run/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T044415Z.html` | `python3 -m pytest -q tests/unit/test_fsj_report_rendering.py`; `python3 scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p3_watchlist_pro_001` | pending | customer focus/watchlist now renders named advisory watchlist items with observation rationale, today validation point, and risk/invalidation wording; empty Tier 2 now uses professional fallback instead of bare “暂无 Focus Watchlist”; review/internal wiring remains intact |
 | POST-P3-WATCHLIST-QUALITY-002 | none | Watchlist Metadata Quality and Golden Sample Readiness | post-P3 | P1 | completed | Lane B | `agent:developer:subagent:c3671f1b-cc3f-48ef-94e1-a69f15666a34` | `src/ifa_data_platform/fsj/report_rendering.py`; `tests/unit/test_fsj_report_rendering.py`; `docs/IFA_Execution_Progress_Monitor.md`; `artifacts/post_p3_watchlist_quality_002/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T045318Z.html` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/post_p3_watchlist_quality_002 --report-run-id-prefix post-p3-watchlist-quality-main-early`; fresh leakage/manual spot check on generated HTML for `Tier 2 / Focus Watchlist`, `待补全名称标的（000001.SZ）`, and absence of `A股标的 000001.SZ（000001.SZ）` | `f330af3` | bounded watchlist quality pass landed: Tier 2 naming is now consistent across metadata and customer HTML, missing-name rows keep professional readable labels with explicit code instead of duplicated raw ticker dump, code field is preserved for downstream mapping, empty-list fallback remains professional, and fresh customer sample remains chart/judgment aligned without customer leakage |
 | ACCEPT-P3-001 | none | Premium Editorial and Chart/Focus Quality Acceptance | acceptance | P3 | pushed | Acceptance Lane | `agent:developer:subagent:487b3282-db6e-49d9-8e38-af9e1b06d8c7` | `docs/V2_P3_EDITORIAL_AND_CHART_FOCUS_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `git status --short`; `git log -n 8 --oneline`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m py_compile src/ifa_data_platform/fsj/report_rendering.py`; targeted leakage / phrase recheck across sampled customer HTML; direct sample comparison across post-P1 / post-P2 artifacts; direct chart-manifest inspection | `d963907` | honest acceptance fail: chart partial/customer explanation passes and leakage recheck passes, but premium editorial + professional watchlist bar still not met |
+| ACCEPT-P4-001 | none | Premium Customer Editorial and Watchlist Acceptance | acceptance | P4 | completed | Acceptance Lane | `agent:developer:subagent:41d69c06-f3be-4c04-b961-a0e69e578b1b` | `docs/V2_P4_EDITORIAL_AND_WATCHLIST_ACCEPTANCE_2026-04-25.md`; `docs/IFA_Execution_Progress_Monitor.md` | `git status --short`; `git log -n 12 --oneline`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`; `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/accept_p4_001 --report-run-id-prefix accept-p4-main-early`; targeted `rg` recheck across `artifacts/accept_p4_001` for customer-surface leakage, telemetry suppression, and residual watchlist/editorial phrases | pending | honest acceptance fail narrowed further: customer raw/noisy telemetry is gone, leakage remains clean, chart degrade explanation remains acceptable, but premium editorial phrasing and premium watchlist naming still block final closeout |
 
 ### 4.1 Status 枚举
 
@@ -674,6 +675,40 @@
 - commit hash：`d963907`
 - push 状态：pushed
 - 交付结论：ACCEPT-P3-001 not accepted yet；residuals are now precise and implementation-ready rather than vague.
+
+#### Task ID: ACCEPT-P4-001
+- Parent Task ID：none
+- 完成时间：2026-04-24
+- 做了什么：对 `POST-P3-EDITORIAL-COMPRESSION-001`、`POST-P3-WATCHLIST-PRO-001`、`POST-P3-WATCHLIST-QUALITY-002` 之后的最新 customer main 样本做 premium customer editorial + watchlist acceptance，重点复核 raw/noisy customer facts 是否被压缩、`validation=unknown` / `emotion=unknown` / `样本 0 条` telemetry 是否从客户面消失、顶层判断自然度、风险/下一步 briefing 化、focus/watchlist 专业度、chart degrade customer explanation，以及 customer leakage；并产出可附带的 acceptance markdown。
+- 改了哪些文件：
+  - `docs/V2_P4_EDITORIAL_AND_WATCHLIST_ACCEPTANCE_2026-04-25.md`
+  - `docs/IFA_Execution_Progress_Monitor.md`
+- 关键验证：
+  - `git status --short`
+  - `git log -n 12 --oneline`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python -m pytest -q tests/unit/test_fsj_report_rendering.py`
+  - `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/fsj_report_cli.py generate --subject main --business-date 2026-04-23 --slot early --mode dry-run --output-profile customer --output-root artifacts/accept_p4_001 --report-run-id-prefix accept-p4-main-early`
+  - targeted `rg` recheck across `artifacts/accept_p4_001` for customer-surface leakage, telemetry suppression, and residual watchlist/editorial phrases
+- 结果摘要：
+  - the prior P3 blocker around raw/noisy telemetry on the customer surface is fixed;
+  - `validation=unknown` / `emotion=unknown` / `样本 0 条` style strings are gone from the sampled customer HTML;
+  - customer leakage remains clean and chart degrade explanation remains acceptable (`2/3` charts ready, remaining missing chart explained in customer language);
+  - however, premium editorial closeout still fails because customer prose remains too close to upstream contract phrasing (`盘前 盘前高频与参考信息`, `收盘口径已确认 市场表`, `收盘 收盘确认依据`);
+  - premium watchlist closeout still fails because customer-visible item naming remains placeholder-grade (`待补全名称标的（000001.SZ）` etc.) despite improved structure and empty-state handling;
+  - final verdict = honest narrow FAIL with reduced residual scope.
+- 证据路径：
+  - `docs/V2_P4_EDITORIAL_AND_WATCHLIST_ACCEPTANCE_2026-04-25.md`
+  - `docs/V2_P3_EDITORIAL_AND_CHART_FOCUS_ACCEPTANCE_2026-04-25.md`
+  - `src/ifa_data_platform/fsj/report_rendering.py`
+  - `tests/unit/test_fsj_report_rendering.py`
+  - `artifacts/post_p3_editorial_compression_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T044216Z.html`
+  - `artifacts/post_p3_watchlist_pro_001/main_early_2026-04-23_dry_run/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T044415Z.html`
+  - `artifacts/post_p3_watchlist_quality_002/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T045318Z.html`
+  - `artifacts/accept_p4_001/main_early_2026-04-23_dry_run/publish/a_share_main_report_2026-04-23_20260425T045613Z.html`
+  - `artifacts/accept_p4_001/main_early_2026-04-23_dry_run/publish/charts/chart_manifest.json`
+- commit hash：`pending`
+- push 状态：pending
+- 交付结论：ACCEPT-P4-001 not accepted yet；remaining blockers are now narrow and explicit: premium editorial phrasing finish + premium watchlist naming finish.
 
 ## 7. Blockers
 
