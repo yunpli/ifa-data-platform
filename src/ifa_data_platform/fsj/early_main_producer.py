@@ -111,11 +111,124 @@ class SqlEarlyMainInputReader:
                 text(
                     """
                     select fi.symbol as symbol,
-                           coalesce(nullif(trim(fi.name), ''), fi.symbol) as name,
+                           coalesce(
+                               nullif(trim(fi.name), ''),
+                               stock_basic_current_name.name,
+                               stock_basic_history_name.name,
+                               symbol_universe_name.name,
+                               fi.symbol
+                           ) as name,
+                           coalesce(stock_basic_current_name.industry, stock_basic_history_name.industry) as sector_or_theme,
                            fl.list_type,
-                           fi.priority
+                           fi.priority,
+                           case when fl.list_type like '%key_focus' then true else false end as is_key_focus,
+                           market_evidence.has_daily_bar,
+                           market_evidence.latest_trade_date,
+                           market_evidence.recent_return_pct,
+                           market_evidence.latest_volume,
+                           market_evidence.latest_amount,
+                           text_evidence.announcement_count,
+                           text_evidence.research_count,
+                           text_evidence.investor_qa_count,
+                           text_evidence.dragon_tiger_count,
+                           text_evidence.limit_up_count,
+                           event_evidence.event_count
                     from ifa2.focus_lists fl
                     join ifa2.focus_list_items fi on fi.list_id = fl.id
+                    left join lateral (
+                        select nullif(trim(sbc.name), '') as name,
+                               nullif(trim(sbc.industry), '') as industry
+                        from ifa2.stock_basic_current sbc
+                        where sbc.ts_code = fi.symbol
+                           or sbc.symbol = split_part(fi.symbol, '.', 1)
+                        order by case when sbc.ts_code = fi.symbol then 0 else 1 end,
+                                 sbc.ts_code,
+                                 sbc.symbol
+                        limit 1
+                    ) stock_basic_current_name on true
+                    left join lateral (
+                        select nullif(trim(sbh.name), '') as name,
+                               nullif(trim(sbh.industry), '') as industry
+                        from ifa2.stock_basic_history sbh
+                        where sbh.ts_code = fi.symbol
+                           or sbh.symbol = split_part(fi.symbol, '.', 1)
+                        order by case when sbh.ts_code = fi.symbol then 0 else 1 end,
+                                 sbh.ts_code,
+                                 sbh.symbol
+                        limit 1
+                    ) stock_basic_history_name on true
+                    left join lateral (
+                        select min(nullif(trim(su.name), '')) as name
+                        from ifa2.symbol_universe su
+                        where su.symbol = fi.symbol
+                    ) symbol_universe_name on true
+                    left join lateral (
+                        select true as has_daily_bar,
+                               latest.trade_date::text as latest_trade_date,
+                               case
+                                   when prev.close is not null and prev.close <> 0
+                                   then round(((latest.close - prev.close) / prev.close) * 100.0, 2)
+                                   else null
+                               end as recent_return_pct,
+                               latest.vol as latest_volume,
+                               latest.amount as latest_amount
+                        from lateral (
+                            select edbh.trade_date, edbh.close, edbh.vol, edbh.amount
+                            from ifa2.equity_daily_bar_history edbh
+                            where edbh.ts_code = fi.symbol
+                              and edbh.trade_date <= cast(:business_date as date)
+                            order by edbh.trade_date desc
+                            limit 1
+                        ) latest
+                        left join lateral (
+                            select edbh.close
+                            from ifa2.equity_daily_bar_history edbh
+                            where edbh.ts_code = fi.symbol
+                              and edbh.trade_date < latest.trade_date
+                            order by edbh.trade_date desc
+                            limit 1
+                        ) prev on true
+                    ) market_evidence on true
+                    left join lateral (
+                        select
+                            count(*) filter (where src = 'announcement') as announcement_count,
+                            count(*) filter (where src = 'research') as research_count,
+                            count(*) filter (where src = 'investor_qa') as investor_qa_count,
+                            count(*) filter (where src = 'dragon_tiger') as dragon_tiger_count,
+                            count(*) filter (where src = 'limit_up') as limit_up_count
+                        from (
+                            select 'announcement' as src
+                            from ifa2.announcements_history ah
+                            where ah.ts_code = fi.symbol
+                              and ah.ann_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')
+                            union all
+                            select 'research' as src
+                            from ifa2.research_reports_history rrh
+                            where rrh.ts_code = fi.symbol
+                              and rrh.trade_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')
+                            union all
+                            select 'investor_qa' as src
+                            from ifa2.investor_qa_history iqh
+                            where iqh.ts_code = fi.symbol
+                              and iqh.trade_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')
+                            union all
+                            select 'dragon_tiger' as src
+                            from ifa2.dragon_tiger_list_history dtlh
+                            where dtlh.ts_code = fi.symbol
+                              and dtlh.trade_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')
+                            union all
+                            select 'limit_up' as src
+                            from ifa2.limit_up_detail_history ludh
+                            where ludh.ts_code = fi.symbol
+                              and ludh.trade_date in (cast(:business_date as date), cast(:business_date as date) - interval '1 day')
+                        ) text_union
+                    ) text_evidence on true
+                    left join lateral (
+                        select count(*) as event_count
+                        from ifa2.highfreq_event_stream_working hesw
+                        where upper(hesw.symbol) = upper(fi.symbol)
+                          and hesw.event_time::date = cast(:business_date as date)
+                    ) event_evidence on true
                     where fl.owner_type='default' and fl.owner_id='default'
                       and fl.list_type in ('key_focus','focus','tech_key_focus','tech_focus')
                       and coalesce(fi.asset_category, 'stock') = 'stock'
@@ -126,7 +239,8 @@ class SqlEarlyMainInputReader:
                              fi.priority nulls last,
                              fl.list_type
                     """
-                )
+                ),
+                {"business_date": business_date}
             ).mappings().all()
             focus_symbols = sorted({row["symbol"] for row in focus_rows})
             focus_list_types = sorted({row["list_type"] for row in focus_rows})
@@ -140,8 +254,27 @@ class SqlEarlyMainInputReader:
                     {
                         "symbol": symbol,
                         "name": str(row.get("name") or "").strip() or symbol,
+                        "company_name": str(row.get("name") or "").strip() or symbol,
                         "list_types": [],
+                        "list_type": str(row.get("list_type") or "").strip() or None,
                         "priority": row.get("priority"),
+                        "key_focus": bool(row.get("is_key_focus")),
+                        "sector_or_theme": str(row.get("sector_or_theme") or "").strip() or None,
+                        "market_evidence": {
+                            "has_daily_bar": bool(row.get("has_daily_bar")),
+                            "latest_trade_date": str(row.get("latest_trade_date") or "").strip() or None,
+                            "recent_return_pct": row.get("recent_return_pct"),
+                            "latest_volume": row.get("latest_volume"),
+                            "latest_amount": row.get("latest_amount"),
+                        },
+                        "text_event_evidence": {
+                            "announcement_count": int(row.get("announcement_count") or 0),
+                            "research_count": int(row.get("research_count") or 0),
+                            "investor_qa_count": int(row.get("investor_qa_count") or 0),
+                            "dragon_tiger_count": int(row.get("dragon_tiger_count") or 0),
+                            "limit_up_count": int(row.get("limit_up_count") or 0),
+                            "event_count": int(row.get("event_count") or 0),
+                        },
                     },
                 )
                 list_type = str(row.get("list_type") or "").strip()
@@ -149,6 +282,24 @@ class SqlEarlyMainInputReader:
                     item["list_types"].append(list_type)
                 if item.get("priority") is None and row.get("priority") is not None:
                     item["priority"] = row.get("priority")
+                if item.get("list_type") is None and list_type:
+                    item["list_type"] = list_type
+                item["key_focus"] = bool(item.get("key_focus") or row.get("is_key_focus") or ("key_focus" in list_type))
+                if not item.get("sector_or_theme") and row.get("sector_or_theme"):
+                    item["sector_or_theme"] = str(row.get("sector_or_theme") or "").strip() or None
+                market_evidence = dict(item.get("market_evidence") or {})
+                if row.get("has_daily_bar"):
+                    market_evidence["has_daily_bar"] = True
+                if not market_evidence.get("latest_trade_date") and row.get("latest_trade_date"):
+                    market_evidence["latest_trade_date"] = str(row.get("latest_trade_date") or "").strip() or None
+                for field in ("recent_return_pct", "latest_volume", "latest_amount"):
+                    if market_evidence.get(field) is None and row.get(field) is not None:
+                        market_evidence[field] = row.get(field)
+                item["market_evidence"] = market_evidence
+                text_event_evidence = dict(item.get("text_event_evidence") or {})
+                for field in ("announcement_count", "research_count", "investor_qa_count", "dragon_tiger_count", "limit_up_count", "event_count"):
+                    text_event_evidence[field] = max(int(text_event_evidence.get(field) or 0), int(row.get(field) or 0))
+                item["text_event_evidence"] = text_event_evidence
             focus_items = sorted(
                 focus_item_map.values(),
                 key=lambda item: (
@@ -251,6 +402,10 @@ class SqlEarlyMainInputReader:
                 {"business_date": business_date},
             ).mappings().first()
 
+        selected_focus_symbols = focus_symbols[:30]
+        selected_focus_symbol_set = set(selected_focus_symbols)
+        selected_focus_items = [item for item in focus_items if str(item.get("symbol") or "") in selected_focus_symbol_set]
+
         event_latest_time = event_rows[0]["event_time"].isoformat() if event_rows else None
         signal_latest_time = signal_rows[0]["trade_time"].isoformat() if signal_rows else None
         latest_signal_state = signal_rows[0]["validation_state"] if signal_rows else None
@@ -267,9 +422,9 @@ class SqlEarlyMainInputReader:
                 if trading_day_row is not None and str(trading_day_row["cal_date"]) == business_date
                 else "calendar_fallback"
             ),
-            focus_symbols=focus_symbols[:30],
+            focus_symbols=selected_focus_symbols,
             focus_list_types=focus_list_types,
-            focus_items=focus_items[:30],
+            focus_items=selected_focus_items,
             auction_count=int(auction_row["cnt"] or 0),
             auction_snapshot_time=auction_row["snapshot_time"],
             event_count=len(event_rows),
@@ -699,11 +854,11 @@ class EarlyMainFSJAssembler:
             "schema_version": EARLY_MAIN_PRODUCER_VERSION,
             "contract_source": "A_SHARE_EARLY_MID_LATE_DATA_CONSUMPTION_CONTRACT_V1",
             "focus_scope": {
-                "focus_symbols": data.focus_symbols[:20],
+                "focus_symbols": data.focus_symbols,
                 "focus_symbol_count": len(data.focus_symbols),
                 "focus_list_types": data.focus_list_types,
-                "items": data.focus_items[:20],
-                "name_map": {item["symbol"]: item["name"] for item in data.focus_items[:20] if item.get("symbol") and item.get("name")},
+                "items": data.focus_items,
+                "name_map": {item["symbol"]: item["name"] for item in data.focus_items if item.get("symbol") and item.get("name")},
                 "source": "ifa2.focus_lists+ifa2.focus_list_items",
                 "why_included": self._reference_fact_statement(data),
             },

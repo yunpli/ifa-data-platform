@@ -21,7 +21,7 @@
 - **当前数据库是否已做 baseline probe**：是
 - **当前报告生成入口是否已核查**：是
 - **当前 V2 三路 review 是否完成**：是（report/CLI、FSJ/LLM/judgment mapping、DB reality/chart/safe window）
-- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P6-SLOT-SPECIFIC-CUSTOMER-002` 并恢复 idle；Lane B 已切换到 `POST-P6-DB-BACKED-WATCHLIST-002`
+- **当前 Lane A / Lane B 状态**：Lane A 已完成 `POST-P6-DB-NAMING-001` 并进入 pushed；Lane B 已切换到 `POST-P6-SYMBOL-EVIDENCE-001`
 - **Acceptance Lane 状态**：当前 idle；待 Lane B 完成后启动 `ACCEPT-P7-001`
 - **术语校正**：FCJ 不是当前正式概念；历史文档/对话中出现的 FCJ 一律优先视为 FSJ 的口误/识别误差。除非 Yunpeng 未来重新定义，否则不得创建 FCJ pipeline、artifact family、prompt family 或第二报告家族
 - **本监控文件当前版本 commit**：`a9f0876`
@@ -54,8 +54,8 @@
 
 | Lane | Current Sub-Agent | Task ID | Task Name | Status | Started At | Last Update | Blocker | Next Action |
 |---|---|---|---|---|---|---|---|---|
-| Lane A | `agent:developer:subagent:20a0db53-4d12-47a2-8b76-baa5ab6a1e66` | POST-P6-SLOT-SPECIFIC-CUSTOMER-002 | Enforce Customer Slot-Specific Report Pages | pushed | 2026-04-25 01:08 PDT | 2026-04-25 01:20 PDT | none | lane complete; wait for Lane B, then launch ACCEPT-P7-001 |
-| Lane B | `agent:developer:subagent:97b3919f-8ed9-4f30-8513-37e8a527f443` | POST-P6-DB-TRUTH-001 | DB Table Truth and Report Data Contract Audit | pushed | 2026-04-25 01:15 PDT | 2026-04-25 01:44 PDT | none | lane complete; audit doc committed+pushed; findings available for next implementation task |
+| Lane A | `agent:developer:subagent:e110b6e9-9f28-4cd2-96a2-64f88befddb2` | POST-P6-DB-NAMING-001 | Fix DB-backed Symbol Name Join Contract | pushed | 2026-04-25 01:29 PDT | 2026-04-25 01:38 PDT | none | lane complete; ts_code-first + bare-code fallback shipped, validated names now surface in fresh customer sample |
+| Lane B | `pending dispatch` | POST-P6-SYMBOL-EVIDENCE-001 | Minimal Per-Symbol Evidence Aggregation for Watchlist Rationale | assigned | 2026-04-25 01:29 PDT | 2026-04-25 01:29 PDT | none | add bounded per-symbol evidence depth so watchlist rationale is differentiated and honest instead of identical canned copy |
 
 说明：
 - Lane A / Lane B 是开发执行 lanes；
@@ -68,9 +68,9 @@
 - Current Acceptance Task: `none`
 - Status: `idle`
 - Started At: `-`
-- Last Update: `2026-04-25 01:20 PDT`
-- Findings: `P6 acceptance follow-up now has one remaining blocker: Lane A closed slot-specific customer page leakage by enforcing requested-slot rendering (early-only / mid-only / late-only) while preserving internal/review aggregate surfaces; DB-backed watchlist naming/rationale remains incomplete on Lane B`
-- Blocker: `waiting for POST-P6-DB-BACKED-WATCHLIST-002`
+- Last Update: `2026-04-25 01:38 PDT`
+- Findings: `Lane A closed the DB naming contract gap: early_main producer now prefers stock_basic_{current,history}.ts_code = focus_symbol, falls back to normalized bare-code joins, retains focus_list_items.name precedence, and a fresh 2026-04-23 customer sample now shows 平安银行 / 万科Ａ / *ST国华 / 深振业Ａ / 全新好 instead of placeholder watchlist labels`
+- Blocker: `waiting for POST-P6-SYMBOL-EVIDENCE-001`
 - Next Action: `launch ACCEPT-P7-001 after Lane B completes`
 
 ---
