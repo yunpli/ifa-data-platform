@@ -68,7 +68,7 @@
 | BOOT-001 | none | 建立执行上下文与行为规范文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Context_and_Behavior.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | BOOT-002 | none | 建立执行进度监控文件 | bootstrap | P0 | pushed | main-developer | Developer | `docs/IFA_Execution_Progress_Monitor.md` | doc review | `487df77f749ffbe013bcaa4cd139244020904f8e` | 建档任务 |
 | V2-R0-001 | none | 周末安全窗口与 runtime 冻结计划 | 1 | P0 | in_progress | Lane A | `agent:developer:subagent:9d43b8ba-c351-4348-abab-136571ab8abe` | - | pending | - | 已派发；按 freeze/snapshot/checklist 边界执行 |
-| V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | pushed | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | `scripts/db_reality_probe_v2.py`; `artifacts/db_reality_snapshot_v2_20260424.json`; `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`; `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py`; JSON/Markdown evidence review | TO_FILL_COMMIT | 复核确认 highfreq/midfreq/lowfreq/archive_v2/focus 均真实存在；news/announcements/research_reports/investor_qa 均非空；`ifa_archive_equity_daily_daily` 不存在 |
+| V2-R0-002 | none | DB reality probe 复核与快照固化 | 2 | P0 | pushed | Lane B | `agent:developer:subagent:349db786-1040-4deb-bd42-5172c711e07b` | `scripts/db_reality_probe_v2.py`; `artifacts/db_reality_snapshot_v2_20260424.json`; `docs/DB_REALITY_SNAPSHOT_V2_2026-04-24.md`; `docs/DB_REALITY_SNAPSHOT_V2_HANDOFF_2026-04-24.md`; `docs/IFA_Execution_Progress_Monitor.md` | `/Users/neoclaw/repos/ifa-data-platform/.venv/bin/python scripts/db_reality_probe_v2.py`; JSON/Markdown evidence review | `684c1553dd9b4a6abec58c6fb653b0f45be7bce0` | 复核确认 highfreq/midfreq/lowfreq/archive_v2/focus 均真实存在；news/announcements/research_reports/investor_qa 均非空；`ifa_archive_equity_daily_daily` 不存在 |
 | V2-R0-003 | none | Unified report generation CLI 审计与收口 | 3 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-004 | none | Customer-facing presentation layer 建立 | 4 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
 | V2-R0-005 | none | Customer / internal / review 输出分离 | 5 | P0 | not_started | none | none | - | - | - | 见 V2 task list |
@@ -126,7 +126,7 @@
   - `news_history=67249`、`announcements_history=168542`、`research_reports_history=2737`、`investor_qa_history=19970`，均非空；
   - `focus=4`、`key_focus=4`；
   - `ifa_archive_equity_daily_daily` 物理表不存在，应作为 expected-vs-actual 差异保留。
-- commit hash：`TO_FILL_COMMIT`
+- commit hash：`684c1553dd9b4a6abec58c6fb653b0f45be7bce0`
 - push 状态：pushed
 - 后续建议：下游若假设 archive_v2 equity daily finalized 表存在，必须先核对真实表名/契约，再继续报告层依赖。
 
