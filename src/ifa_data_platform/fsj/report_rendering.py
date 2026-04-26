@@ -507,6 +507,7 @@ class MainReportHTMLRenderer:
             total_focus_count=len(focus_symbols),
             contract=contract,
         )
+        customer_summary_view = default_seed_customer_sample
         return {
             "module_type": "fsj_focus_module",
             "business_date": assembled.get("business_date"),
@@ -520,6 +521,7 @@ class MainReportHTMLRenderer:
             "focus_name_map": focus_name_map,
             "key_focus_items": key_focus_items,
             "focus_watch_items": focus_watch_items,
+            "customer_summary_view": customer_summary_view,
             "watchlist_tiers": [
                 {"label": f"{KEY_FOCUS_MODULE_LABEL} / {KEY_FOCUS_TIER_LABEL}", "description": "核心观察名单，用于确认主线强弱、节奏与资金承接是否继续成立。", "symbols": key_focus_symbols[:key_focus_limit], "items": key_focus_items},
                 {"label": f"{FOCUS_MODULE_LABEL} / {FOCUS_TIER_LABEL}", "description": "补充观察名单，用于跟踪扩散路径、板块分歧与主线外溢质量。", "symbols": focus_only_symbols[:focus_limit], "items": focus_watch_items},
@@ -1345,14 +1347,15 @@ class MainReportHTMLRenderer:
         key_focus_items = list(focus_module.get("key_focus_items") or [])
         focus_watch_items = list(focus_module.get("focus_watch_items") or [])
         chart_refs = [str(item.get("title") or item.get("chart_key") or "") for item in (focus_module.get("chart_refs") or []) if str(item.get("title") or item.get("chart_key") or "").strip()]
+        summary_view = bool(focus_module.get("customer_summary_view"))
         return (
             self._render_customer_bucket("为什么纳入", reasons, fallback="暂无纳入说明")
-            + self._render_customer_watchlist_bucket("核心关注", key_focus_items, fallback="核心关注列表暂未生成")
-            + self._render_customer_watchlist_bucket("关注", focus_watch_items, fallback="关注列表暂未展开")
+            + self._render_customer_watchlist_bucket("核心关注", key_focus_items, fallback="核心关注列表暂未生成", summary_view=summary_view)
+            + self._render_customer_watchlist_bucket("关注", focus_watch_items, fallback="关注列表暂未展开", summary_view=summary_view)
             + self._render_customer_bucket("关联图表", chart_refs, fallback="暂无关联图表")
         )
 
-    def _render_customer_watchlist_bucket(self, title: str, items: Sequence[dict[str, Any]], *, fallback: str) -> str:
+    def _render_customer_watchlist_bucket(self, title: str, items: Sequence[dict[str, Any]], *, fallback: str, summary_view: bool = False) -> str:
         rows: list[str] = []
         for item in items:
             if not isinstance(item, dict):
@@ -1362,6 +1365,9 @@ class MainReportHTMLRenderer:
             validation = self._sanitize_customer_text(str(item.get("today_validation_point") or "").strip())
             risk = self._sanitize_customer_text(str(item.get("risk_invalidation") or "").strip())
             if not label:
+                continue
+            if summary_view:
+                rows.append(f"<li><strong>{escape(label)}</strong></li>")
                 continue
             detail_parts = []
             if rationale:
